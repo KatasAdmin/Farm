@@ -3,6 +3,7 @@ import psycopg
 from psycopg.rows import dict_row
 from fastapi import FastAPI,HTTPException,Header
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 def db():return psycopg.connect(os.environ["DATABASE_URL"],row_factory=dict_row)
@@ -24,6 +25,7 @@ async def lifespan(app):
   c.execute("UPDATE market SET price=5 WHERE item='eggs' AND price<>5")
  yield
 app=FastAPI(lifespan=lifespan)
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 class Request(BaseModel):
  name:str=""
  item:str=""
