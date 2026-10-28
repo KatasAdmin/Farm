@@ -144,8 +144,8 @@ function shop(item,n){perform('/api/shop',{item,amount:n})}
 async function buyStarterBundle(){if(pending)return;if(!confirm('Купить 3 курицы и 30 зерна за 150 монет?'))return;
 const data=state?.me;if(!data||data.coins<150){toast('⚠️ Не хватает монет');return;}
 pending=true;
-try{await api('/api/shop',{item:'chickens',amount:3});await api('/api/shop',{item:'grain',amount:30});toast('✅ Набор куплен');await refresh();}
-catch(e){toast('⚠️ '+e.message+' · Проверь баланс и склад');await refresh();}
+try{await api('/api/bundle',{});toast('✅ Набор куплен');await refresh();}
+catch(e){toast('⚠️ '+e.message);}
 finally{pending=false}}
 
 function autoBuy(on){try{perform('/api/autobuy',{item:on?'on':'off',amount:amount('autoqty')})}catch(e){toast(e.message)}}
