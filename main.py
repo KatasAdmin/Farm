@@ -72,7 +72,8 @@ def sell(q:Request,authorization:str=Header(default="")):
   p=person(c,authorization,True)
   if p[q.item]<q.amount:raise HTTPException(400,"Недостаточно товара")
   c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s WHERE id=%s",(q.amount,p["id"]))
-  c.execute("INSERT INTO market VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],q.item,q.amount,q.price))
+  price=5 if q.item=="eggs" else q.price
+  c.execute("INSERT INTO market VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],q.item,q.amount,price))
  return {"ok":True}
 @app.post("/api/buy")
 def buy(q:Request,authorization:str=Header(default="")):
@@ -83,9 +84,18 @@ def buy(q:Request,authorization:str=Header(default="")):
   rows=c.execute("SELECT * FROM market WHERE item=%s AND seller<>%s AND quantity>0 ORDER BY price,id FOR UPDATE",(q.item,p["id"])).fetchall()
   if sum(x["quantity"] for x in rows)<q.amount:raise HTTPException(400,"Недостаточно товара на рынке")
   remaining=q.amount;chosen=[]
-  for x in rows:
-   n=min(remaining,x["quantity"])
-   if n:chosen.append((x,n));remaining-=n
+  for price in sorted(set(x["price"] for x in rows)):
+   group=[x for x in rows if x["price"]==price]
+   available=sum(x["quantity"] for x in group)
+   target=min(remaining,available)
+   weights=[(x,target*x["quantity"]//available,(target*x["quantity"])%available) for x in group]
+   extra=target-sum(z[1] for z in weights)
+   weights.sort(key=lambda z:(-z[2],z[0]["id"]))
+   for x,n,_ in weights:
+    allocated=n+(1 if extra>0 else 0)
+    if extra>0:extra-=1
+    if allocated:chosen.append((x,allocated))
+   remaining-=target
    if remaining==0:break
   cost=sum(x["price"]*n for x,n in chosen)
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
