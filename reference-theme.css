@@ -1,0 +1,54 @@
+/* FARM Reference Art Direction v2 — visual-only layer.
+   Server rules, account state and transactions remain unchanged. */
+:root{--glass:#0b2820ed;--rim:#659052;--lime:#8dec51;--amber:#ffd05a;--cream:#fff8df}
+html{background:#061511}body{color:var(--cream);background:radial-gradient(ellipse at 50% -10%,#346144 0,#112d24 36%,#061611 78%) fixed}
+.shell{max-width:460px;padding:9px 12px calc(108px + env(safe-area-inset-bottom))}
+.head{margin:0 0 7px;padding:9px 4px 11px;min-height:63px;border-bottom:1px solid #8dc57428}
+.name{font-size:15px;letter-spacing:.55px;color:#fff6db;font-weight:1000;text-shadow:0 2px 4px #000}
+.username{font-size:12px;color:#ddedca}
+.coin{padding:8px 11px;border:1px solid #f4c75c85;border-radius:13px;background:linear-gradient(130deg,#3f552e,#102c22);color:#fff8dc;box-shadow:inset 0 1px #fff5,0 3px 13px #0006}
+.farm-cover{aspect-ratio:1.22;max-height:340px;border:2px solid #718f51;border-radius:19px;background:#365834;box-shadow:0 2px 0 #ffd37534,inset 0 0 20px #0007,0 13px 33px #0009}
+.farm-cover img{object-fit:cover;object-position:center center;filter:saturate(1.28) contrast(1.08)}
+.cover-label{top:12px;left:10px;border:1px solid #f4cd5b80;background:linear-gradient(100deg,#113c2ce6,#0c251cc2);font-size:15px;padding:8px 11px;text-shadow:0 2px 4px #0009}
+.cover-label span{display:block;margin:2px 0 0;font-size:10px;color:#caff9b}
+.cover-foot{font-size:12px;border-color:#b5ce6b60;background:#062017db}
+.quicknav{gap:7px;margin-top:10px}
+.quicknav button{min-height:70px;background:linear-gradient(160deg,#345b37,#10261f);border:1px solid #7b974f;border-radius:12px;box-shadow:inset 0 2px #d0fb6133,0 4px 0 #06130c,0 8px 14px #0007;color:#f9f3e0;font-size:11px;text-shadow:0 2px 2px #0006}
+.quicknav button span{font-size:26px;filter:drop-shadow(0 3px 3px #0009)}
+.section h2{font-size:20px;color:white;text-shadow:0 2px #0008}
+.resource{background:radial-gradient(ellipse at 50% 0,#31553a,#0a261f 90%);border:1px solid #6e9855;border-radius:13px;box-shadow:inset 0 1px #faffb31f,0 3px 12px #0008}
+.resource .ico{font-size:33px}.resource strong{font-size:25px;color:white;text-shadow:0 2px 4px #000}
+.card{border-radius:14px;border:1px solid #527c57;background:linear-gradient(135deg,#173a2eeb,#0a241dec);box-shadow:inset 0 1px #ffffff20,0 5px 16px #0007;margin-top:10px}
+.cardtitle b{font-weight:900;color:#fff;font-size:16px}.cardtitle .emoji{filter:drop-shadow(0 3px 2px #0008)}
+.healthcard{border-color:#70a65d;background:linear-gradient(135deg,#214d34,#102b22)}
+.progress{height:13px;border-color:#aec76177;background:#052018}
+.fill{background:linear-gradient(#baff89,#66e840 65%,#2ca634);box-shadow:inset 0 2px #ffffff85,0 0 13px #9dff5799}
+.sat-num{color:#baff73}.smallprint,.muted{color:#bfcead}
+.btn,.switch button.active,.pills button.active{color:#143510!important;text-shadow:0 1px #ffffff70}
+.btn:not(.alt):not(.ghost):not(.blue){background:linear-gradient(#d0ffa6 0%,#9aff63 28%,#58d934 76%,#3ca922 100%);border:1px solid #aefa7f;box-shadow:inset 0 2px #ffffff75,0 3px 0 #1c701e,0 7px 12px #0007}
+.btn.alt,.btn.ghost{background:linear-gradient(#315346,#173d30);border:1px solid #698e67;color:#f0f3db!important;text-shadow:none}
+.btn.blue{color:white!important;text-shadow:none;background:linear-gradient(#5ec9ff,#086fcf);box-shadow:0 3px 0 #065399}
+.panelhead{padding:4px 0 0}.headline{color:#fff;text-shadow:0 2px 6px #000;font-weight:950}
+.coop-scene{aspect-ratio:1.26;border:2px solid #bc8a42;border-radius:17px;background:#60401d}
+.coop-scene img{object-position:center;filter:saturate(1.3) contrast(1.08)}
+.coop-house,.coop-hen,.coop-eggs{display:none}
+.flow{border-color:#426e43;background:#09251e}
+.income{border-color:#4c8353;background:#092820}
+.payback{background:linear-gradient(100deg,#8f6720,#3c2b12);border:1px solid #f7bf49;box-shadow:inset 0 1px #ffe79e60}
+.listing .itemicon{font-size:34px;filter:drop-shadow(0 4px 4px #0009)}
+.listing .detail strong{color:#fff}
+.listing{border-color:#65905b60}
+.switch{background:#061c17;border-color:#568451}
+.switch button.active,.pills button.active{background:linear-gradient(#c9ff9c,#65d745)}
+.market-info{background:linear-gradient(130deg,#4e257f,#271b59);border-color:#9d5ce0;color:#e6d9ff;box-shadow:0 4px 16px #0007}
+.bundle{border:2px solid #ffce54;background:radial-gradient(circle at 78% 55%,#ca861c,#6c4116 50%,#372b17 90%);box-shadow:inset 0 2px #fff7,0 10px 24px #0008}
+.bundle-mark{font-size:67px}.bundle-kicker{color:#ffe99f}
+.moneyhero{border:1px solid #d6b54e;background:radial-gradient(ellipse at 50% 10%,#3b6942,#0b2922 90%);box-shadow:inset 0 1px #fff5,0 8px 21px #0008}
+.moneyhero .balance{color:#ffe68c;text-shadow:0 2px 7px #000c}
+.bottom{background:linear-gradient(#103325fa,#041711ff);border-top:1px solid #679c5c;box-shadow:0 -8px 25px #000a;gap:2px}
+.bottom button{color:#d3decb;font-size:10px;min-height:53px}
+.bottom button span{font-size:23px}
+.bottom button.active{border:1px solid #76cf4e;background:linear-gradient(#3cab41,#145724);color:#fff9d8;box-shadow:inset 0 2px #c6ff6a55,0 0 15px #4fbe5050}
+.login{background:linear-gradient(140deg,#1d4935,#08241e);border-color:#8eae5c}
+@media(max-width:365px){.shell{padding-left:8px;padding-right:8px}.farm-cover{aspect-ratio:1.25}.quicknav{gap:5px}.quicknav button{font-size:9px;padding:8px 0}.card{padding:11px}.btn{padding:9px 7px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
