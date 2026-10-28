@@ -49,8 +49,9 @@ def state(authorization:str=Header(default="")):
  with db() as c:
   p=person(c,authorization)
   listings=c.execute("SELECT m.item,m.price,m.quantity,p.name AS seller FROM market m JOIN players p ON p.id=m.seller WHERE m.quantity>0 ORDER BY m.price LIMIT 40").fetchall()
+  mine=c.execute("SELECT id,item,quantity,price FROM market WHERE seller=%s AND quantity>0 ORDER BY item,price,id",(p["id"],)).fetchall()
   top=c.execute("SELECT name,coins,chickens FROM players ORDER BY coins DESC LIMIT 8").fetchall()
-  return {"me":p,"market":listings,"top":top,"now":time.time()}
+  return {"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -112,3 +113,15 @@ def buy(q:Request,authorization:str=Header(default="")):
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
  return {"ok":True,"spent":cost}
+
+@app.post("/api/cancel/{listing_id}")
+def cancel_listing(listing_id:str,authorization:str=Header(default="")):
+ if len(listing_id)!=32:raise HTTPException(400,"Неверный номер объявления")
+ with db() as c:
+  p=person(c,authorization,True)
+  entry=c.execute("SELECT * FROM market WHERE id=%s AND seller=%s FOR UPDATE",(listing_id,p["id"])).fetchone()
+  if not entry or entry["quantity"]<=0:raise HTTPException(404,"Объявление уже закрыто")
+  if entry["item"] not in ("grain","eggs"):raise HTTPException(400,"Некорректный товар")
+  c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(entry["quantity"],p["id"]))
+  c.execute("UPDATE market SET quantity=0 WHERE id=%s",(listing_id,))
+ return {"ok":True,"returned":entry["quantity"]}
