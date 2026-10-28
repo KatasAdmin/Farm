@@ -31,7 +31,7 @@ def person(c,h,lock=False):
  return p
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
-CYCLE=7200  # 2 real hours per feeding/production cycle
+CYCLE=3600  # 1 real hour per feeding/production cycle
 def advance(c,p,now=None):
  """Simulate only completed feeding cycles; persist atomically with the locked player."""
  now=time.time() if now is None else now
