@@ -16,6 +16,10 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS satiety integer NOT NULL DEFAULT 100")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_tick double precision")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS critical_cycles integer NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_enabled boolean NOT NULL DEFAULT false")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_min integer NOT NULL DEFAULT 5")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_amount integer NOT NULL DEFAULT 20")
+  c.execute("CREATE TABLE IF NOT EXISTS money_log(id text primary key,player_id text,kind text,delta int,details text,created double precision)")
   c.execute("UPDATE players SET last_tick=%s WHERE last_tick IS NULL",(time.time(),))
   c.execute("UPDATE market SET price=5 WHERE item='eggs' AND price<>5")
  yield
@@ -31,7 +35,7 @@ def person(c,h,lock=False):
  return p
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
-CYCLE=3600  # 1 real hour per feeding/production cycle
+CYCLE=86400  # 1 real day, calibrated 10-day payback at full sales
 def advance(c,p,now=None):
  """Simulate only completed feeding cycles; persist atomically with the locked player."""
  now=time.time() if now is None else now
@@ -43,6 +47,13 @@ def advance(c,p,now=None):
  # At most a century of steps, and stop after all birds have died.
  for _ in range(min(due,438000)):
   if hens<=0:break
+  if p["autobuy_enabled"] and grain<hens and p["coins"]>=2*max(1,p["autobuy_amount"]):
+   refill=p["autobuy_amount"]
+   p["coins"]-=2*refill
+   grain+=refill
+   c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(2*refill,p["id"]))
+   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(2*refill,))
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"auto_grain",-2*refill,"Зерно: "+str(refill),now))
   fed=min(grain,hens)
   grain-=fed
   eggs+=fed
@@ -75,6 +86,7 @@ def join(q:Request):
    if treasury<100:raise HTTPException(409,"Стартовый фонд исчерпан: новые регистрации временно закрыты")
    c.execute("INSERT INTO players(id,name,token,last_tick) VALUES(%s,%s,%s,%s)",(uuid.uuid4().hex,name,token,time.time()))
    c.execute("UPDATE economy SET treasury=treasury-100 WHERE id=1")
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-100,"Начальный баланс: "+name,time.time()))
  except psycopg.errors.UniqueViolation:raise HTTPException(409,"Имя уже занято")
  return {"token":token}
 @app.get("/api/state")
@@ -84,7 +96,7 @@ def state(authorization:str=Header(default="")):
   listings=c.execute("SELECT m.item,m.price,m.quantity,p.name AS seller FROM market m JOIN players p ON p.id=m.seller WHERE m.quantity>0 ORDER BY m.price LIMIT 40").fetchall()
   mine=c.execute("SELECT id,item,quantity,price FROM market WHERE seller=%s AND quantity>0 ORDER BY item,price,id",(p["id"],)).fetchall()
   top=c.execute("SELECT name,coins,chickens FROM players ORDER BY coins DESC LIMIT 8").fetchall()
-  return {"farm":{"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
+  return {"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -95,6 +107,7 @@ def shop(q:Request,authorization:str=Header(default="")):
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"shop",-cost,q.item+" x"+str(q.amount),time.time()))
  return {"ok":True}
 @app.post("/api/feed")
 def feed_disabled():
@@ -139,6 +152,8 @@ def buy(q:Request,authorization:str=Header(default="")):
   for x,n in chosen:
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,x["seller"],"market_sale",x["price"]*n,q.item+" x"+str(n),time.time()))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"market_buy",-cost,q.item+" x"+str(q.amount),time.time()))
  return {"ok":True,"spent":cost}
 
 @app.post("/api/cancel/{listing_id}")
@@ -152,3 +167,19 @@ def cancel_listing(listing_id:str,authorization:str=Header(default="")):
   c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(entry["quantity"],p["id"]))
   c.execute("UPDATE market SET quantity=0 WHERE id=%s",(listing_id,))
  return {"ok":True,"returned":entry["quantity"]}
+
+@app.get("/api/finance")
+def finance(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization)
+  logs=c.execute("SELECT kind,delta,details,created FROM money_log WHERE player_id=%s ORDER BY created DESC LIMIT 25",(p["id"],)).fetchall()
+  return {"entries":logs}
+@app.post("/api/autobuy")
+def autobuy(q:Request,authorization:str=Header(default="")):
+ if q.item not in ("on","off"):raise HTTPException(400,"Неверное действие")
+ check(q.amount)
+ if q.amount>2000:raise HTTPException(400,"Слишком большая автозакупка")
+ with db() as c:
+  p=advance(c,person(c,authorization,True))
+  c.execute("UPDATE players SET autobuy_enabled=%s,autobuy_amount=%s WHERE id=%s",(q.item=="on",q.amount,p["id"]))
+ return {"ok":True}
