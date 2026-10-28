@@ -11,6 +11,9 @@ async def lifespan(app):
  with db() as c:
   c.execute("CREATE TABLE IF NOT EXISTS players(id text primary key,name text unique,token text unique,coins int default 100,grain int default 5,chickens int default 1,eggs int default 0,last_feed float default 0)")
   c.execute("CREATE TABLE IF NOT EXISTS market(id text primary key,seller text,item text,quantity int,price int)")
+  c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
+  c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
+  c.execute("UPDATE market SET price=5 WHERE item='eggs' AND price<>5")
  yield
 app=FastAPI(lifespan=lifespan)
 class Request(BaseModel):
@@ -34,7 +37,11 @@ def join(q:Request):
  if len(name)<2:raise HTTPException(400,"Имя слишком короткое")
  token=uuid.uuid4().hex
  try:
-  with db() as c:c.execute("INSERT INTO players(id,name,token) VALUES(%s,%s,%s)",(uuid.uuid4().hex,name,token))
+  with db() as c:
+   treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
+   if treasury<100:raise HTTPException(409,"Стартовый фонд исчерпан: новые регистрации временно закрыты")
+   c.execute("INSERT INTO players(id,name,token) VALUES(%s,%s,%s)",(uuid.uuid4().hex,name,token))
+   c.execute("UPDATE economy SET treasury=treasury-100 WHERE id=1")
  except psycopg.errors.UniqueViolation:raise HTTPException(409,"Имя уже занято")
  return {"token":token}
 @app.get("/api/state")
@@ -53,6 +60,7 @@ def shop(q:Request,authorization:str=Header(default="")):
   p=person(c,authorization,True)
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
+  c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
  return {"ok":True}
 @app.post("/api/feed")
 def feed(q:Request,authorization:str=Header(default="")):
