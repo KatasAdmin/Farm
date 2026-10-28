@@ -111,6 +111,17 @@ def shop(q:Request,authorization:str=Header(default="")):
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"shop",-cost,q.item+" x"+str(q.amount),time.time()))
  return {"ok":True}
+@app.post("/api/bundle")
+def buy_bundle(authorization:str=Header(default="")):
+ cost=150
+ with db() as c:
+  p=advance(c,person(c,authorization,True))
+  if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
+  c.execute("UPDATE players SET coins=coins-%s,chickens=chickens+3,grain=grain+30 WHERE id=%s",(cost,p["id"]))
+  c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"bundle",-cost,"3 курицы + 30 зерна",time.time()))
+ return {"ok":True,"spent":cost}
+
 @app.post("/api/feed")
 def feed_disabled():
  raise HTTPException(410,"Кормление теперь автоматическое: положите зерно на склад")
