@@ -113,6 +113,7 @@ function emojiAvatar(emoji) {
   return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
 }
 function avatarSource(p) {
+  if (p.avatar === "custom" && p.avatar_photo) return p.avatar_photo;
   if (p.avatar === "chicken") return "/assets/redesign/hen.webp";
   if (p.avatar === "egg") return "/assets/redesign/egg.webp";
   if (p.avatar === "flower") return emojiAvatar("🌻");
@@ -129,12 +130,39 @@ function toggleProfileEditor() {
     el("profile-avatar").value = state.me.avatar || "default";
   }
 }
+async function photoAsJpeg(file) {
+  if (!file.type.startsWith("image/") || file.size > 8 * 1024 * 1024) throw Error("Выбери фото до 8 МБ");
+  return new Promise((resolve,reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 256;canvas.height = 256;
+        const ctx = canvas.getContext("2d");
+        const side = Math.min(img.width,img.height);
+        ctx.drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,256,256);
+        const photo = canvas.toDataURL("image/jpeg",.72);
+        URL.revokeObjectURL(url);
+        if (photo.length > 140000) return reject(Error("Файл получился слишком большим"));
+        resolve(photo);
+      } catch(e) {URL.revokeObjectURL(url);reject(e);}
+    };
+    img.onerror = () => {URL.revokeObjectURL(url);reject(Error("Не удалось прочитать изображение"));};
+    img.src = url;
+  });
+}
 async function saveProfile() {
   const ageText = el("profile-age").value.trim();
   const age = ageText === "" ? null : Number(ageText);
   if (age !== null && (!Number.isSafeInteger(age) || age < 1 || age > 120)) return toast("Укажи возраст от 1 до 120");
-  const ok = await perform("/api/profile", {gender:el("profile-gender").value,age,avatar:el("profile-avatar").value});
-  if (ok) el("profile-editor").hidden = true;
+  try {
+    const file = el("profile-image-file").files[0];
+    const avatar = file ? "custom" : el("profile-avatar").value;
+    const avatar_photo = file ? await photoAsJpeg(file) : "";
+    const ok = await perform("/api/profile",{gender:el("profile-gender").value,age,avatar,avatar_photo});
+    if (ok) {el("profile-editor").hidden = true;el("profile-image-file").value = "";}
+  } catch(error) {toast(error.message);}
 }
 async function incubatorAction() {
   if (!state || pending) return;
@@ -581,6 +609,15 @@ function render() {
 }
 function countdown() {
   if (!state) return;
+  const inc = state.incubator || {};
+  const now = Number(state.now || Date.now()/1000) + (Date.now()-refreshedAt)/1000;
+  const remaining = inc.incubation_started != null ? inc.incubation_started + 43200-now : inc.chick_ready_at != null ? inc.chick_ready_at - now : null;
+  const label = el("incubation-status");
+  if (label && remaining != null) {
+    const hours = Math.floor(Math.max(0,remaining)/3600);
+    const mins = Math.floor((Math.max(0,remaining)%3600)/60);
+    label.textContent = (inc.incubation_started != null ? "🥚 До цыплёнка: " : "🐣 До взрослой курицы: ") + hours + " ч " + mins + " мин";
+  }
   const seconds = Math.max(
     0,
     state.farm.seconds_to_next - Math.floor((Date.now() - refreshedAt) / 1000),
