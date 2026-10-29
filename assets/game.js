@@ -817,7 +817,12 @@ tab("farm");
 if (token) refresh();
 else el("login").hidden = false;
 
-document.addEventListener("DOMContentLoaded",()=>{
-  const tg=Boolean(tgInitData());
-  document.querySelectorAll(".telegram-entry").forEach(x=>x.hidden=!tg);
+document.addEventListener("DOMContentLoaded",async ()=>{
+  const init=Boolean(tgInitData());
+  let enabled=false;
+  if(init) {
+    try{const config=await api("/api/auth/config");enabled=Boolean(config.telegram_enabled);}
+    catch(e){enabled=false;}
+  }
+  document.querySelectorAll(".telegram-entry").forEach(x=>x.hidden=!(init&&enabled));
 });
