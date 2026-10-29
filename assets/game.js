@@ -94,6 +94,11 @@ async function perform(path, data) {
     busy(false);
   }
 }
+async function claimDaily(key) {
+  if (pending) return;
+  const completed = await perform("/api/claim", {item:key});
+  if (completed) toast("🎁 Награда получена! Монеты начислены.");
+}
 function showLogin() {
   token = null;
   localStorage.removeItem("farm_token");
@@ -371,17 +376,22 @@ function render() {
     }
   }
   const daily = state.daily || {};
+  const claimed = new Set(state.claimed_rewards || []);
   const dailyMissions = [
-    ["🌾 Купить 5 зерна", daily.grain_bought || 0, 5],
-    ["🥚 Получить яйцо от кур", daily.eggs_produced || 0, 1],
-    ["📦 Выставить яйцо на рынок", daily.eggs_listed || 0, 1]
+    ["grain", "🌾 Купить 5 зерна", daily.grain_bought || 0, 5],
+    ["eggs", "🥚 Получить яйцо от кур", daily.eggs_produced || 0, 1],
+    ["listing", "📦 Выставить яйцо на рынок", daily.eggs_listed || 0, 1]
   ];
   const dailyBox = el("daily-tasks");
   if (dailyBox) {
-    dailyBox.innerHTML = dailyMissions.map(([name,value,target]) => {
-      const n = Math.min(value,target);
-      return '<div class="daily-task"><div><strong>' + name + '</strong><small>' + number(n) + ' / ' + target + (n >= target ? ' · Выполнено ✓' : '') + '</small></div><div class="progress"><span style="width:' + (100*n/target) + '%"></span></div></div>';
-    }).join("");
+    const bonusDone = claimed.has("bonus");
+    dailyBox.innerHTML = '<div class="daily-task"><div><strong>🎁 Бонус за вход</strong><small>+2 монеты · раз в сутки</small></div><button class="btn small" ' + (bonusDone ? 'disabled' : '') + ' onclick="claimDaily(\'bonus\')">' + (bonusDone ? 'Получено ✓' : 'Получить +2') + '</button></div>' +
+      dailyMissions.map(([key,name,value,target]) => {
+        const n = Math.min(value,target);
+        const done = n >= target;
+        const isClaimed = claimed.has(key);
+        return '<div class="daily-task"><div><strong>' + name + '</strong><small>' + number(n) + ' / ' + target + ' · +1 монета</small></div><div class="progress"><span style="width:' + (100*n/target) + '%"></span></div><button class="btn small" ' + (!done || isClaimed ? 'disabled' : '') + ' onclick="claimDaily(\'' + key + '\')">' + (isClaimed ? 'Получено ✓' : done ? 'Забрать +1' : 'Выполни задание') + '</button></div>';
+      }).join("");
   }
   const listed = {grain:0,eggs:0};
   for (const item of state.my_listings || []) if (item.item in listed) listed[item.item] += item.quantity;
