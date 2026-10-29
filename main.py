@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from production import CYCLE, FEED_EVERY, GRAIN_PRICE, simulate, forecast
+from production_v4 import simulate as simulate_v4, forecast as forecast_v4
 def db():return psycopg.connect(os.environ["DATABASE_URL"],row_factory=dict_row)
 @asynccontextmanager
 async def lifespan(app):
@@ -20,6 +21,8 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS satiety integer NOT NULL DEFAULT 100")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_tick double precision")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS production_model integer NOT NULL DEFAULT 1")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS egg_at double precision")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS egg_progress double precision NOT NULL DEFAULT 0")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS fed_hens integer NOT NULL DEFAULT 0")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS feed_phase integer NOT NULL DEFAULT 0")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_legacy_eggs integer")
