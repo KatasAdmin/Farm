@@ -1,6 +1,7 @@
 import os,time,uuid,secrets,hashlib,hmac,json,logging
 logger=logging.getLogger("farm.security")
 from urllib.parse import parse_qsl
+from urllib.request import Request as URLRequest, urlopen
 import psycopg
 from psycopg.rows import dict_row
 from fastapi import FastAPI,HTTPException,Header
@@ -51,6 +52,8 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS recovery_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS password_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS telegram_id bigint UNIQUE")
+  c.execute("CREATE TABLE IF NOT EXISTS telegram_link_codes(code_hash text PRIMARY KEY, player_id text NOT NULL, expires double precision NOT NULL)")
+  c.execute("CREATE INDEX IF NOT EXISTS telegram_link_player ON telegram_link_codes(player_id)")
   c.execute("CREATE TABLE IF NOT EXISTS login_failures(name text PRIMARY KEY,attempts int NOT NULL DEFAULT 0,locked_until double precision NOT NULL DEFAULT 0)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS tutorial_rewarded boolean NOT NULL DEFAULT false")
   c.execute("CREATE TABLE IF NOT EXISTS incubation_jobs(id text PRIMARY KEY,player_id text NOT NULL,started double precision NOT NULL,hatch_at double precision NOT NULL,mature_at double precision NOT NULL)")
@@ -83,6 +86,17 @@ async def lifespan(app):
   c.execute("UPDATE market SET price=1 WHERE item='eggs' AND price<>1")
   # Preserve resources and balances; reset only the clock on the new production schedule.
   c.execute("UPDATE players SET production_model=3,last_tick=%s WHERE production_model<3",(time.time(),))
+ # Register this dedicated farm bot's webhook without blocking game startup on Telegram outages.
+ try:
+  token=os.environ.get("TELEGRAM_BOT_TOKEN","")
+  domain=os.environ.get("RAILWAY_PUBLIC_DOMAIN","")
+  if token and domain:
+   payload=json.dumps({"url":"https://"+domain+"/api/telegram/webhook","secret_token":telegram_webhook_secret(),"allowed_updates":["message"]}).encode()
+   req=URLRequest("https://api.telegram.org/bot"+token+"/setWebhook",data=payload,headers={"Content-Type":"application/json"})
+   with urlopen(req,timeout=6) as resp:
+    if not json.load(resp).get("ok"):logger.error("telegram_webhook_setup_rejected")
+ except Exception:
+  logger.exception("telegram_webhook_setup_failed")
  yield
 app=FastAPI(lifespan=lifespan)
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
@@ -279,6 +293,54 @@ def link_telegram(q:Request,authorization:str=Header(default="")):
   if other and other["id"]!=p["id"]:raise HTTPException(409,"Этот Telegram уже привязан к другой ферме")
   c.execute("UPDATE players SET telegram_id=%s WHERE id=%s",(uid,p["id"]))
  return {"ok":True}
+
+def telegram_webhook_secret():
+ token=os.environ.get("TELEGRAM_BOT_TOKEN","")
+ return hashlib.sha256(("farm-link-webhook:"+token).encode()).hexdigest() if token else ""
+
+@app.post("/api/telegram/link/start")
+def start_telegram_link(authorization:str=Header(default="")):
+ if not os.environ.get("TELEGRAM_BOT_TOKEN"):raise HTTPException(503,"Telegram-бот не настроен")
+ with db() as c:
+  p=person(c,authorization,True)
+  if p["telegram_id"]:return {"linked":True}
+  code=secrets.token_urlsafe(24)
+  digest=hashlib.sha256(code.encode()).hexdigest()
+  c.execute("DELETE FROM telegram_link_codes WHERE player_id=%s OR expires<%s",(p["id"],time.time()))
+  c.execute("INSERT INTO telegram_link_codes(code_hash,player_id,expires) VALUES(%s,%s,%s)",(digest,p["id"],time.time()+300))
+ return {"linked":False,"url":"https://t.me/Farmlife2026bot?start=link_"+code,"expires_seconds":300}
+
+@app.post("/api/telegram/webhook")
+def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(default="")):
+ secret=telegram_webhook_secret()
+ if not secret or not hmac.compare_digest(x_telegram_bot_api_secret_token,secret):
+  raise HTTPException(403,"Unauthorized")
+ message=payload.get("message") or {}
+ chat=message.get("chat") or {}
+ sender=message.get("from") or {}
+ command=message.get("text") or ""
+ if not (isinstance(command,str) and command.startswith("/start link_")):return {"ok":True}
+ try:
+  uid=int(sender.get("id",0))
+  chat_id=int(chat.get("id",0))
+  if uid<=0 or chat_id!=uid:return {"ok":True}
+  code=command.split(" ",1)[1].strip()[5:]
+  if len(code)>128:return {"ok":True}
+  digest=hashlib.sha256(code.encode()).hexdigest()
+  with db() as c:
+   c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
+   entry=c.execute("SELECT player_id FROM telegram_link_codes WHERE code_hash=%s AND expires>%s FOR UPDATE",(digest,time.time())).fetchone()
+   if not entry:return {"method":"sendMessage","chat_id":chat_id,"text":"Ссылка привязки истекла. Вернитесь в ферму и нажмите «Привязать Telegram» ещё раз."}
+   p=c.execute("SELECT id,telegram_id FROM players WHERE id=%s FOR UPDATE",(entry["player_id"],)).fetchone()
+   other=c.execute("SELECT id FROM players WHERE telegram_id=%s",(uid,)).fetchone()
+   if not p or (p["telegram_id"] and p["telegram_id"]!=uid) or (other and other["id"]!=p["id"]):
+    return {"method":"sendMessage","chat_id":chat_id,"text":"Этот Telegram уже привязан к другой ферме или аккаунт недоступен. Обратитесь в поддержку."}
+   c.execute("UPDATE players SET telegram_id=%s WHERE id=%s",(uid,p["id"]))
+   c.execute("DELETE FROM telegram_link_codes WHERE player_id=%s",(p["id"],))
+  return {"method":"sendMessage","chat_id":chat_id,"text":"✅ Telegram привязан к вашей ферме! Вернитесь в игру — прогресс сохранён."}
+ except Exception:
+  logger.exception("telegram_link_webhook_failed")
+  return {"ok":True}
 
 @app.post("/api/telegram/login")
 def login_telegram(q:Request):
