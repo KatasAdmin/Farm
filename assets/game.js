@@ -220,7 +220,10 @@ async function telegramLogin() {
 }
 async function linkTelegram() {
   if(pending)return;
-  if(!tgInitData())return toast("Откройте ферму через Telegram Mini App, чтобы привязать аккаунт");
+  if(!tgInitData()){
+    alert("Чтобы привязать Telegram, откройте ферму внутри её Telegram-бота, войдите в этот же аккаунт и снова нажмите «Привязать Telegram». В обычном браузере Telegram не передаёт данные для привязки.");
+    return;
+  }
   if(!confirm("Привязать этот Telegram к текущей ферме? После этого вход через Telegram будет открывать именно её."))return;
   try{busy(true);await api("/api/telegram/link",{telegram_data:tgInitData()});await refresh();toast("Telegram привязан к этой ферме!");}
   catch(e){toast(e.message);}finally{busy(false);}
@@ -646,7 +649,7 @@ function render() {
   if(el("account-password-status"))el("account-password-status").textContent=hasPassword?"Пароль установлен ✓ — можно входить по нику":"Пароль не установлен — создай его для входа через сайт";
   if(el("current-password-wrap"))el("current-password-wrap").hidden=!hasPassword;
   if(el("set-password-button"))el("set-password-button").textContent=hasPassword?"Изменить пароль":"Установить пароль";
-  if(el("link-telegram-button"))el("link-telegram-button").hidden=isLinked||!Boolean(tgInitData());
+  if(el("link-telegram-button"))el("link-telegram-button").hidden=isLinked;
   if(el("telegram-link-help"))el("telegram-link-help").hidden=isLinked;
   if(el("telegram-browser-warning"))el("telegram-browser-warning").hidden=isLinked||Boolean(tgInitData());
   if(el("nickname-settings"))el("nickname-settings").hidden=!p.name.startsWith("tg_");
