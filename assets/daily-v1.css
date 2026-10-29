@@ -98,3 +98,29 @@
 .profile-settings .economy-details button{margin:10px 0}
 .telegram-entry:not([hidden]){display:block;margin:10px auto;background:linear-gradient(180deg,#35b7ed,#1266a9)}
 .recovery-login{margin-top:12px}
+
+/* v23: simpler mobile experience for first-time farmers */
+#farm .quicknav{margin-top:5px;margin-bottom:7px}
+#farm .section-title{margin-top:9px;margin-bottom:7px}
+#farm .three{gap:7px}
+#farm .compact-herd{margin-top:10px;margin-bottom:9px;padding:11px 13px}
+#farm .compact-herd .health-line{gap:8px}
+#farm .compact-herd .health-line h2{font-size:15px}
+#farm .compact-herd #warning:empty{display:none}
+#farm .compact-harvest{padding:15px 13px;margin-top:9px}
+.compact-harvest-title{display:flex;align-items:center;gap:12px}
+.compact-harvest-title>.icon{width:52px;height:52px;object-fit:contain;flex-shrink:0}
+.compact-harvest-title h2{margin:0;font-size:18px;line-height:1.2;color:#fff}
+.compact-harvest-title .feature-note{margin:5px 0 0;padding:0;background:none;border:0;font-size:14px;color:#e0f4ff}
+.compact-harvest-feed{margin:10px 0;font-size:13px;color:#cfeaff}
+.compact-harvest-feed strong{color:#fff}
+.compact-harvest .buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.compact-harvest .buttons .btn{padding:11px 6px;font-size:14px;min-width:0}
+.farm-explainer{border-top:1px solid rgba(140,205,255,.3);padding-top:9px;margin-top:5px;color:#ceeaff}
+.farm-explainer summary{font-size:13px;cursor:pointer;color:#cde6ff}
+.farm-explainer p{font-size:13px;line-height:1.5;margin:9px 0 2px}
+#profile .compact-ranking{padding:12px 14px;margin-top:12px}
+#profile .compact-ranking summary{font-weight:750;cursor:pointer}
+#profile .compact-ranking #leaders{margin-top:12px}
+#profile .profile-settings .economy-details>p.muted{font-size:13px;line-height:1.45}
+@media(max-width:370px){.compact-harvest-title>.icon{width:43px;height:43px}.compact-harvest .buttons .btn{font-size:12px}}
