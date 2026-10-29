@@ -411,7 +411,7 @@
       </section>
       <section id="market" class="panel" aria-label="Продажа товаров">
         <div class="panelhead"><button class="back" onclick="tab('shop')" aria-label="К покупкам">‹</button><img src="/assets/redesign/egg.webp" class="icon" alt=""><div><h1>Продать товар</h1><small>ТОРГОВЛЯ · МОИ ОБЪЯВЛЕНИЯ</small></div></div>
-        <p class="muted">Выставь яйца на продажу. Монеты появятся после покупки другим игроком.</p>
+        <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button type="button" onclick="tab('shop')">Купить</button><button type="button" class="active" aria-pressed="true">Продать</button></div><p class="muted">Яйца купят другие игроки, когда найдётся покупатель.</p>
         <div id="sellPane" class="marketpanel active">
           <div class="card">
             <h2 class="cardtitle">
@@ -427,7 +427,7 @@
               <label for="sellitem"
                 >Товар<select id="sellitem" onchange="sellType()">
                   <option value="eggs">Яйца · 5 монет</option>
-                  <option value="grain">Зерно</option>
+                  <option value="grain" disabled>Зерно · позже</option>
                 </select></label
               ><label for="sellnum"
                 >Количество<input
@@ -494,7 +494,7 @@
             />
             <div>
               <h3>Зерно</h3>
-              <small>Корм для кур</small>
+              <small>Корм для кур · всегда доступно</small>
             </div>
             <strong class="price"
               >2<img
@@ -515,7 +515,7 @@
             />
             <div>
               <h3>Курица</h3>
-              <small>Производит яйца</small>
+              <small>Несушка · всегда доступно</small>
             </div>
             <strong class="price"
               >30<img
@@ -866,8 +866,8 @@
               <h3>Зерно</h3>
               <small><span data-value="grain">—</span> шт.</small>
             </div>
-            <button class="btn small" onclick="openSell('grain')">
-              Продать
+            <button class="btn small" onclick="showShop('grain')">
+              Купить
             </button>
           </div>
           <div class="product" data-storage="eggs">
