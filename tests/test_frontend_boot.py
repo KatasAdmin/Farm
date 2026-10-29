@@ -12,7 +12,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("const farmDailyStats=",fragment)
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
-  self.assertIn("/assets/game.js?v=35",html)
+  self.assertIn("/assets/game.js?v=36",html)
  def test_entrypoints_and_app_present(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   for value in ['id="app"','id="login"','id="nav"','id="farm"']:
