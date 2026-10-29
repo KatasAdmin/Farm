@@ -1,4 +1,4 @@
-import os,time,uuid
+import os,time,uuid,secrets,hashlib,hmac
 import psycopg
 from psycopg.rows import dict_row
 from fastapi import FastAPI,HTTPException,Header
@@ -36,6 +36,7 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS chick_ready_at double precision")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS incubator_level integer NOT NULL DEFAULT 1")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS tutorial_step integer NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS recovery_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS tutorial_rewarded boolean NOT NULL DEFAULT false")
   c.execute("CREATE TABLE IF NOT EXISTS incubation_jobs(id text PRIMARY KEY,player_id text NOT NULL,started double precision NOT NULL,hatch_at double precision NOT NULL,mature_at double precision NOT NULL)")
   c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) SELECT 'legacy-'||id,id,COALESCE(incubation_started,chick_ready_at-86400),COALESCE(incubation_started+43200,chick_ready_at-43200),COALESCE(chick_ready_at,incubation_started+86400) FROM players WHERE incubation_started IS NOT NULL OR chick_ready_at IS NOT NULL ON CONFLICT(id) DO NOTHING")
@@ -61,6 +62,7 @@ class Request(BaseModel):
  age:int|None=None
  avatar:str="default"
  avatar_photo:str=""
+ code:str=""
 def person(c,h,lock=False):
  p=c.execute("SELECT * FROM players WHERE token=%s"+(" FOR UPDATE" if lock else ""),(h.replace("Bearer ",""),)).fetchone()
  if not p:raise HTTPException(401,"Войдите в игру")
@@ -142,16 +144,18 @@ def join(q:Request):
  name=q.name.strip()[:22]
  if len(name)<2:raise HTTPException(400,"Имя слишком короткое")
  token=uuid.uuid4().hex
+ recovery=secrets.token_urlsafe(24)
+ hashed=hashlib.sha256(recovery.encode()).hexdigest()
  try:
   with db() as c:
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
    if treasury<100:raise HTTPException(409,"Стартовый фонд исчерпан: новые регистрации временно закрыты")
    if q.gender not in ("male","female","unspecified"):raise HTTPException(400,"Некорректный пол")
-   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender) VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender))
+   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender,recovery_hash) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,hashed))
    c.execute("UPDATE economy SET treasury=treasury-100 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-100,"Начальный баланс: "+name,time.time()))
  except psycopg.errors.UniqueViolation:raise HTTPException(409,"Имя уже занято")
- return {"token":token}
+ return {"token":token,"recovery_code":recovery}
 @app.get("/api/state")
 def state(authorization:str=Header(default="")):
  with db() as c:
@@ -410,3 +414,26 @@ def tutorial_action(q:Request,authorization:str=Header(default="")):
    c.execute("UPDATE reward_emission SET total_minted=total_minted+%s WHERE id=1",(reward,))
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"tutorial",reward,"Обучение начинающего фермера",time.time()))
  return {"ok":True,"step":new_step,"awarded":reward}
+
+@app.post("/api/recovery/create")
+def create_recovery_code(authorization:str=Header(default="")):
+ code=secrets.token_urlsafe(24)
+ hashed=hashlib.sha256(code.encode()).hexdigest()
+ with db() as c:
+  p=person(c,authorization,True)
+  c.execute("UPDATE players SET recovery_hash=%s WHERE id=%s",(hashed,p["id"]))
+ return {"recovery_code":code}
+
+@app.post("/api/recovery/login")
+def recover_login(q:Request):
+ name=q.name.strip()
+ if len(q.code)<24 or len(q.code)>100:raise HTTPException(400,"Неверный код восстановления")
+ hashed=hashlib.sha256(q.code.encode()).hexdigest()
+ with db() as c:
+  p=c.execute("SELECT id,recovery_hash FROM players WHERE name=%s FOR UPDATE",(name,)).fetchone()
+  # A uniform rejection conceals whether this player account exists.
+  actual=p["recovery_hash"] if p and p["recovery_hash"] else "0"*64
+  if not hmac.compare_digest(actual,hashed):raise HTTPException(403,"Неверное имя или код восстановления")
+  token=secrets.token_hex(24)
+  c.execute("UPDATE players SET token=%s WHERE id=%s",(token,p["id"]))
+ return {"token":token}
