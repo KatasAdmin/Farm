@@ -311,7 +311,7 @@ function marketRows(item) {
 function quote(item, n) {
   if (item === "eggs") {
     const available = Number(state?.available_eggs ?? 0);
-    return {cost:5*n,remaining:Math.max(0,n-available)};
+    return {cost:(state.shop.eggs||1)*n,remaining:Math.max(0,n-available)};
   }
   let remaining = n,
     cost = 0;
@@ -344,7 +344,7 @@ function selectBuy(item) {
   openPurchase({
     kind: "market",
     item,
-    price: item === "eggs" ? 5 : Math.min(...rows.map((x) => x.price)),
+    price: item === "eggs" ? (state.shop.eggs||1) : Math.min(...rows.map((x) => x.price)),
   });
 }
 function showShop(item) {
@@ -536,11 +536,11 @@ function render() {
   if (up){up.hidden=!inc.owned;up.disabled=pending||inc.next_upgrade_cost==null||p.coins<inc.next_upgrade_cost;up.textContent=inc.next_upgrade_cost==null?"Максимальный уровень":"Улучшить · "+number(inc.next_upgrade_cost)+" монет";}
   const button=el("incubator-action");
   if(button){const full=jobs.length>=(inc.capacity||1);
-    button.textContent=!inc.owned?"Купить · "+number(inc.incubator_price)+" монет":"Заложить 1 яйцо";
-    button.disabled=pending||(!inc.owned?p.coins<inc.incubator_price:full||p.eggs<1||p.chickens+jobs.length>=state.buildings.coop_capacity);}
+    button.textContent=!inc.owned?"Купить · "+number(inc.incubator_price)+" монет":"Заложить 12 яиц + 15 монет";
+    button.disabled=pending||(!inc.owned?p.coins<inc.incubator_price:full||p.eggs<12||p.coins<15||p.chickens+jobs.length>=state.buildings.coop_capacity);}
   const tutorial=state.tutorial||{};
   const step=Math.min(3,tutorial.step||0), card=el("tutorial-card");
-  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить в Торговле. Куры едят автоматически раз в сутки.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
+  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить в Торговле. Куры едят автоматически раз в 6 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
   const history = el("production-history");
   if (history) history.innerHTML = state.production_history?.length
     ? state.production_history.map(event => `<div class="ledger-row income">${image("redesign/egg")}<div><strong>+${number(event.amount)} яиц</strong><small>${new Date(event.created * 1000).toLocaleString("ru-RU")}</small></div></div>`).join("")
@@ -585,10 +585,10 @@ function render() {
   const total = progression.totals || {};
   const achievements = [
     ["first_egg","redesign/egg","Первое яйцо",total.eggs_produced || 0,1],
-    ["ten_eggs","redesign/egg","10 произведённых яиц",total.eggs_produced || 0,10],
+    ["ten_eggs","redesign/egg","120 произведённых яиц",total.eggs_produced || 0,120],
     ["three_hens","redesign/hen","Три несушки",p.chickens || 0,3],
     ["first_sale","redesign/shop-icon","Первая продажа яйца",total.eggs_sold || 0,1],
-    ["hundred_sales","redesign/achievement","100 проданных яиц",total.eggs_sold || 0,100]
+    ["hundred_sales","redesign/achievement","1200 проданных яиц",total.eggs_sold || 0,1200]
   ];
   const achievementList = el("achievements-list");
   if (achievementList) achievementList.innerHTML = achievements.map(([key,icon,title,current,target]) => {
@@ -599,7 +599,7 @@ function render() {
   const claimed = new Set(state.claimed_rewards || []);
   const dailyMissions = [
     ["grain", "Купить 5 зерна", daily.grain_bought || 0, 5],
-    ["eggs", "Получить яйцо от кур", daily.eggs_produced || 0, 1],
+    ["eggs", "Получить 3 яйца от кур", daily.eggs_produced || 0, 3],
     ["listing", "Выставить яйцо на продажу", daily.eggs_listed || 0, 1]
   ];
   const dailyBox = el("daily-tasks");
@@ -644,13 +644,13 @@ function render() {
   });
   const cycles = p.chickens > 0 ? Math.floor(p.grain / p.chickens) : 0;
   el("feedstock").textContent = p.chickens
-    ? `${cycles} дн. (${p.chickens} кур × 1 зерно/сутки)`
+    ? `${cycles*6} ч. корма (${p.chickens} кур × 1 зерно/6 ч)`
     : "Пока нет куриц";
   el("warning").textContent = !p.chickens
     ? "Купи несушку в магазине."
     : state.farm.expected_eggs < p.chickens
       ? "Корма на следующий сбор не хватит. Докупи зерно или проверь автозакупку."
-      : "Кормление и производство — автоматически, раз в сутки.";
+      : "Производство каждые 2 часа, кормление каждые 6 часов.";
   el("warning").dataset.alert = String(p.chickens > 0 && state.farm.expected_eggs < p.chickens);
   el("treasury").textContent = number(state.economy.treasury) + " монет";
   document.querySelectorAll(".auto-card").forEach((card) => {
