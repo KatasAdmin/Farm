@@ -8,10 +8,10 @@
     />
     <meta name="theme-color" content="#06357f" />
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
-    <link rel="stylesheet" href="/assets/game.css" />
+    <link rel="stylesheet" href="/assets/game.css?v=8" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=1" />
-    <script src="/assets/game.js?v=7" defer></script>
+    <script src="/assets/game.js?v=8" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div>
@@ -419,9 +419,10 @@
           />
           <div class="scene-caption">
             <h1>Рынок</h1>
-            <p>Общий рынок фермеров</p>
+            <p>Покупай и продавай товары другим игрокам</p>
           </div>
         </div>
+        <div class="trade-hint"><strong>🤝 Игроки ↔ игроки</strong><span>Здесь монеты переходят от покупателя к продавцу. Куры и зерно от системы — в магазине.</span><button type="button" onclick="tab('shop')">В магазин →</button></div>
         <div class="switch" role="group" aria-label="Режим рынка">
           <button
             class="active"
@@ -468,17 +469,18 @@
             </button>
           </div>
           <div class="card catalog">
-            <h2 class="cardtitle">Товары в общем пуле</h2>
+            <h2 class="cardtitle">Предложения фермеров</h2>
             <div id="pool"></div>
           </div>
-          <div class="card market-info">
-            <h2>Как работает рынок?</h2>
+          <details class="card market-info market-help">
+            <summary>Как работает общий рынок?</summary>
             <p>✓ Все предложения объединяются в общий пул.</p>
             <p>
               ✓ В одной ценовой группе выкуп распределяется пропорционально.
             </p>
             <p>✓ Комиссия: <b>0%</b>. Монеты получает продавец.</p>
-          </div>
+            <p>✓ Если предложений нет, товар у игроков купить нельзя. Зерно всегда доступно в магазине.</p>
+          </details>
           <button class="btn alt wide" onclick="refresh()">
             Обновить предложения ↻
           </button>
@@ -526,14 +528,14 @@
               ><b><span id="sellquote">—</span></b>
             </div>
             <button class="btn wide" onclick="sellNow()">
-              Продать в общий пул
+              Выставить на рынок
             </button>
             <p class="muted">
               Товар резервируется. До продажи остаток можно вернуть на склад.
             </p>
           </div>
           <div class="card">
-            <h2 class="cardtitle">Мои объявления</h2>
+            <h2 class="cardtitle">Мои товары на продаже</h2>
             <div id="mylist"></div>
           </div>
         </div>
@@ -548,31 +550,12 @@
           />
           <div class="scene-caption">
             <h1>Магазин</h1>
-            <p>Покупка у системы</p>
+            <p>Куры, корм и наборы — всегда в наличии</p>
           </div>
         </div>
+        <div class="trade-hint"><strong>🏪 Покупка у системы</strong><span>Здесь покупаешь кур и зерно по фиксированной цене. Потраченные монеты поступают в казну.</span></div>
         <div class="card shop-catalog">
-          <div class="product">
-            <img
-              src="/assets/redesign/egg.webp"
-              class="product-image"
-              alt=""
-              decoding="async"
-            />
-            <div>
-              <h3>Яйцо</h3>
-              <small>У фермеров на рынке</small>
-            </div>
-            <strong class="price"
-              >5<img
-                src="/assets/redesign/coin.webp"
-                class="icon"
-                alt=""
-                decoding="async" /></strong
-            ><button class="btn small" onclick="selectBuy('eggs')">
-              На рынок
-            </button>
-          </div>
+          <h2 class="cardtitle">Для твоей фермы</h2>
           <div class="product">
             <img
               src="/assets/redesign/grain.webp"
@@ -616,6 +599,7 @@
             </button>
           </div>
         </div>
+        <div class="trade-shortcut"><span>🥚 Нужны яйца или хочешь продать урожай?</span><button type="button" class="btn alt" onclick="tab('market')">На рынок игроков →</button></div>
         <div class="bundle">
           <h2>
             <img
