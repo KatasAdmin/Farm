@@ -108,11 +108,16 @@ async function upgradeBuilding(kind) {
   if (!confirm("Улучшить " + name + " за " + number(price) + " монет?")) return;
   await perform("/api/upgrade", {item:kind});
 }
+function emojiAvatar(emoji) {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" rx="64" fill="#1285c9"/><text x="64" y="91" text-anchor="middle" font-size="78">'+emoji+'</text></svg>';
+  return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+}
 function avatarSource(p) {
   if (p.avatar === "chicken") return "/assets/redesign/hen.webp";
   if (p.avatar === "egg") return "/assets/redesign/egg.webp";
-  if (p.avatar === "flower") return "/assets/redesign/profile.webp";
-  if (p.gender === "female" && p.avatar === "default") return "/assets/redesign/profile.webp";
+  if (p.avatar === "flower") return emojiAvatar("🌻");
+  if (p.gender === "female" && p.avatar === "default") return emojiAvatar("👩‍🌾");
+  if (p.gender === "unspecified" && p.avatar === "default") return emojiAvatar("🧑‍🌾");
   return "/assets/redesign/farmer.webp";
 }
 function toggleProfileEditor() {
