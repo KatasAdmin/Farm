@@ -71,9 +71,7 @@ GROW_SECONDS=12*3600
 def coop_limit(p):return 10*p["coop_level"]
 def storage_limit(p):return 100*p["storage_level"]
 def upgrade_cost(kind,level):return (40 if kind=="coop" else 30)*level
-def advance(c,p,now=None):
- """Simulate only completed feeding cycles; persist atomically with the locked player."""
- now=time.time() if now is None else now
+def update_incubation(c,p,now):
  if p["incubation_started"] is not None and now>=p["incubation_started"]+INCUBATE_SECONDS:
   ready=p["incubation_started"]+INCUBATE_SECONDS+GROW_SECONDS
   c.execute("UPDATE players SET incubation_started=NULL,chick_ready_at=%s WHERE id=%s",(ready,p["id"]))
@@ -82,9 +80,13 @@ def advance(c,p,now=None):
   c.execute("UPDATE players SET chickens=chickens+1,chick_ready_at=NULL WHERE id=%s",(p["id"],))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"chick_matured",1,now))
   p={**p,"chickens":p["chickens"]+1,"chick_ready_at":None}
+ return p
+def advance(c,p,now=None):
+ """Simulate completed daily cycles before maturing incubated chicks, avoiding retroactive production."""
+ now=time.time() if now is None else now
  start=p["last_tick"] if p["last_tick"] is not None else now
  due=max(0,int((now-start)//CYCLE))
- if due<=0:return p
+ if due<=0:return update_incubation(c,p,now)
  grain,eggs,hens=p["grain"],p["eggs"],p["chickens"]
  eggs_before=eggs
  satiety,critical=p["satiety"],p["critical_cycles"]
@@ -119,7 +121,7 @@ def advance(c,p,now=None):
   c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,gained))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",gained,now))
  c.execute("UPDATE players SET grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,last_tick=%s WHERE id=%s",(grain,eggs,hens,satiety,critical,start+due*CYCLE,p["id"]))
- return {**p,"grain":grain,"eggs":eggs,"chickens":hens,"satiety":satiety,"critical_cycles":critical,"last_tick":start+due*CYCLE}
+ return update_incubation(c,{**p,"grain":grain,"eggs":eggs,"chickens":hens,"satiety":satiety,"critical_cycles":critical,"last_tick":start+due*CYCLE},now)
 @app.get("/",response_class=HTMLResponse)
 def index():return open("index.html",encoding="utf8").read()
 @app.get("/health")
