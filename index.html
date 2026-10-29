@@ -10,7 +10,7 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=26" />
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=27" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
     <script src="/assets/game.js?v=26" defer></script>
@@ -119,36 +119,14 @@
             />
           </div>
         </div>
-        <div class="quicknav">
-          <button class="quick" onclick="tab('shop')">
-            <span class="nav-art" aria-hidden="true"
-              ><img
-                src="/assets/redesign/shop-icon.webp"
-                class="icon"
-                alt=""
-                decoding="async" /></span
-            >Торговля</button
-          ><button class="quick" onclick="tab('storage')">
-            <span class="nav-art" aria-hidden="true"
-              ><img
-                src="/assets/redesign/storage.webp"
-                class="icon"
-                alt=""
-                decoding="async" /></span
-            >Склад</button
-          ><button class="quick" onclick="tab('coop')">
-            <span class="nav-art" aria-hidden="true"
-              ><img
-                src="/assets/redesign/coop-icon.webp"
-                class="icon"
-                alt=""
-                decoding="async" /></span
-            >Курятник</button
-          ><button class="quick" onclick="tab('tasks')">
-            <span class="nav-art" aria-hidden="true"
-              ><span class="nav-art" aria-hidden="true"
-                ><img src="/assets/redesign/achievement.webp" alt="" /></span></span
-            >Задания
+        <div class="quicknav farm-quicknav" aria-label="Быстрые действия на ферме">
+          <button type="button" class="quick" onclick="tab('coop')">
+            <span class="nav-art" aria-hidden="true"><img src="/assets/redesign/coop-icon.webp" class="icon" alt="" decoding="async"></span>
+            <span>Курятник</span>
+          </button>
+          <button type="button" class="quick" onclick="tab('storage')">
+            <span class="nav-art" aria-hidden="true"><img src="/assets/redesign/storage.webp" class="icon" alt="" decoding="async"></span>
+            <span>Склад</span>
           </button>
         </div>
         <h2 class="section-title">
