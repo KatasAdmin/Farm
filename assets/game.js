@@ -202,6 +202,34 @@ async function completeTutorialStep() {
     else toast("Обучение завершено! Получено 5 монет.");
   }
 }
+function tgInitData() {return window.Telegram?.WebApp?.initData || "";}
+async function useLoginResult(result) {
+  token=result.token;
+  localStorage.setItem("farm_token",token);
+  await refresh();
+}
+async function telegramLogin() {
+  if(pending)return;
+  try{busy(true);await useLoginResult(await api("/api/telegram/login",{telegram_data:tgInitData()}));}
+  catch(e){toast(e.message);}finally{busy(false);}
+}
+async function linkTelegram() {
+  if(pending)return;
+  try{busy(true);await api("/api/telegram/link",{telegram_data:tgInitData()});await refresh();toast("Telegram привязан!");}
+  catch(e){toast(e.message);}finally{busy(false);}
+}
+async function setAccountPassword(){
+  const input=el("settings-password");
+  if(input.value.length<8)return toast("Пароль должен содержать минимум 8 символов");
+  try{busy(true);await api("/api/password/set",{password:input.value});input.value="";toast("Пароль установлен");}
+  catch(e){toast(e.message);}finally{busy(false);}
+}
+async function setAccountNickname(){
+  const input=el("settings-nickname");
+  if(!input.value.trim())return toast("Введите ник");
+  try{busy(true);await api("/api/nickname/set",{name:input.value.trim()});input.value="";await refresh();toast("Ник сохранён");}
+  catch(e){toast(e.message);}finally{busy(false);}
+}
 function showLogin() {
   token = null;
   localStorage.removeItem("farm_token");
@@ -215,16 +243,22 @@ el("join-form").addEventListener("submit", async (event) => {
   if (pending) return;
   busy(true);
   try {
-    const result = await api("/api/join", { name: el("name").value.trim(), gender: el("join-gender").value });
+    const result = await api("/api/join", { name: el("name").value.trim(), gender: el("join-gender").value, password: el("register-password").value });
     token = result.token;
     localStorage.setItem("farm_token", token);
     await refresh();
-    if (result.recovery_code) showRecoveryCode(result.recovery_code);
+    el("register-password").value="";
   } catch (error) {
     toast(error.message);
   } finally {
     busy(false);
   }
+});
+el("password-login-form").addEventListener("submit",async event=>{
+  event.preventDefault();
+  if(pending)return;
+  try{busy(true);await useLoginResult(await api("/api/login",{name:el("login-name").value.trim(),password:el("login-password").value}));el("login-password").value="";}
+  catch(e){toast(e.message);}finally{busy(false);}
 });
 el("recover-form").addEventListener("submit",async event=>{
   event.preventDefault();
@@ -513,6 +547,8 @@ async function loadHistory() {
 }
 function render() {
   const p = state.me;
+  if(el("telegram-link-status"))el("telegram-link-status").textContent=p.telegram_id?"Telegram привязан ✓":"Telegram пока не привязан";
+
   const pr = state.progression || {};
   const xp = Number(pr.xp || 0), lvl = Number(pr.level || 1);
   const prev = 25*(lvl-1)*(lvl-1), next = Number(pr.next_level_xp || 25);
@@ -757,7 +793,7 @@ async function refresh() {
 function logout() {
   if (
     confirm(
-      "Выйти? Локальный ключ доступа будет удалён. Восстановление входа сервером пока не поддерживается.",
+      "Выйти из фермы? Для следующего входа понадобится ник и пароль либо привязанный Telegram.",
     )
   ) {
     showLogin();
@@ -780,3 +816,8 @@ setInterval(countdown, 1000);
 tab("farm");
 if (token) refresh();
 else el("login").hidden = false;
+
+document.addEventListener("DOMContentLoaded",()=>{
+  const tg=Boolean(tgInitData());
+  document.querySelectorAll(".telegram-entry").forEach(x=>x.hidden=!tg);
+});
