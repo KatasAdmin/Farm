@@ -34,6 +34,12 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS incubator_owned boolean NOT NULL DEFAULT false")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS incubation_started double precision")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS chick_ready_at double precision")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS incubator_level integer NOT NULL DEFAULT 1")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS tutorial_step integer NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS tutorial_rewarded boolean NOT NULL DEFAULT false")
+  c.execute("CREATE TABLE IF NOT EXISTS incubation_jobs(id text PRIMARY KEY,player_id text NOT NULL,started double precision NOT NULL,hatch_at double precision NOT NULL,mature_at double precision NOT NULL)")
+  c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) SELECT 'legacy-'||id,id,COALESCE(incubation_started,chick_ready_at-86400),COALESCE(incubation_started+43200,chick_ready_at-43200),COALESCE(chick_ready_at,incubation_started+86400) FROM players WHERE incubation_started IS NOT NULL OR chick_ready_at IS NOT NULL ON CONFLICT(id) DO NOTHING")
+  c.execute("UPDATE players SET incubation_started=NULL,chick_ready_at=NULL WHERE incubation_started IS NOT NULL OR chick_ready_at IS NOT NULL")
   c.execute("CREATE TABLE IF NOT EXISTS money_log(id text primary key,player_id text,kind text,delta int,details text,created double precision)")
   c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
   c.execute("CREATE TABLE IF NOT EXISTS farm_events(id text primary key,player_id text NOT NULL,kind text NOT NULL,amount int NOT NULL,created double precision NOT NULL)")
@@ -68,18 +74,23 @@ PROMO_PRICE=300
 INCUBATOR_PRICE=120
 INCUBATE_SECONDS=12*3600
 GROW_SECONDS=12*3600
+INCUBATOR_LEVEL_HOURS={1:24,2:24,3:20,4:18,5:16}
+INCUBATOR_UPGRADE_COST={1:100,2:160,3:240,4:340}
+def incubation_stages(level):
+ seconds=INCUBATOR_LEVEL_HOURS[level]*3600
+ return seconds//2,seconds-seconds//2
 def coop_limit(p):return 10*p["coop_level"]
 def storage_limit(p):return 100*p["storage_level"]
 def upgrade_cost(kind,level):return (40 if kind=="coop" else 30)*level
 def update_incubation(c,p,now):
- if p["incubation_started"] is not None and now>=p["incubation_started"]+INCUBATE_SECONDS:
-  ready=p["incubation_started"]+INCUBATE_SECONDS+GROW_SECONDS
-  c.execute("UPDATE players SET incubation_started=NULL,chick_ready_at=%s WHERE id=%s",(ready,p["id"]))
-  p={**p,"incubation_started":None,"chick_ready_at":ready}
- if p["chick_ready_at"] is not None and now>=p["chick_ready_at"] and p["chickens"]<coop_limit(p):
-  c.execute("UPDATE players SET chickens=chickens+1,chick_ready_at=NULL WHERE id=%s",(p["id"],))
-  c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"chick_matured",1,now))
-  p={**p,"chickens":p["chickens"]+1,"chick_ready_at":None}
+ jobs=c.execute("SELECT id FROM incubation_jobs WHERE player_id=%s AND mature_at<=%s ORDER BY mature_at,id FOR UPDATE",(p["id"],now)).fetchall()
+ free=max(0,coop_limit(p)-p["chickens"])
+ matured=min(len(jobs),free)
+ if matured:
+  for row in jobs[:matured]:c.execute("DELETE FROM incubation_jobs WHERE id=%s",(row["id"],))
+  c.execute("UPDATE players SET chickens=chickens+%s WHERE id=%s",(matured,p["id"]))
+  c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"chick_matured",matured,now))
+  p={**p,"chickens":p["chickens"]+matured}
  return p
 def advance(c,p,now=None):
  """Simulate completed daily cycles before maturing incubated chicks, avoiding retroactive production."""
@@ -181,11 +192,15 @@ def state(authorization:str=Header(default="")):
    if yes:c.execute("INSERT INTO player_achievements(player_id,achievement,unlocked_at) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING",(p["id"],key,time.time()))
   achievements=[x["achievement"] for x in c.execute("SELECT achievement FROM player_achievements WHERE player_id=%s",(p["id"],)).fetchall()]
   promotion={"active":time.time()<p["created_at"]+PROMO_SECONDS and p["bundle_uses"]<5,"seconds_left":max(0,int(p["created_at"]+PROMO_SECONDS-time.time())),"used":p["bundle_uses"],"limit":5,"price":PROMO_PRICE,"value":500}
-  incubation={"owned":p["incubator_owned"],"incubation_started":p["incubation_started"],"chick_ready_at":p["chick_ready_at"],"incubator_price":INCUBATOR_PRICE,"capacity":1,"incubate_seconds":INCUBATE_SECONDS,"grow_seconds":GROW_SECONDS}
+  jobs=c.execute("SELECT id,started,hatch_at,mature_at FROM incubation_jobs WHERE player_id=%s ORDER BY started,id",(p["id"],)).fetchall()
+  stage_seconds=incubation_stages(p["incubator_level"])
+  incubation={"owned":p["incubator_owned"],"level":p["incubator_level"],"capacity":p["incubator_level"],"jobs":jobs,"active":len(jobs),"next_upgrade_cost":INCUBATOR_UPGRADE_COST.get(p["incubator_level"]),"incubator_price":INCUBATOR_PRICE,"incubate_seconds":stage_seconds[0],"grow_seconds":stage_seconds[1]}
+  tutorial={"step":p["tutorial_step"],"completed":p["tutorial_step"]>=3,"rewarded":p["tutorial_rewarded"]}
+
   can_refill=p["autobuy_enabled"] and p["grain"]<p["chickens"] and p["coins"]>=2*p["autobuy_amount"] and p["grain"]+p["eggs"]+p["autobuy_amount"]<=storage_limit(p)
   expected_eggs=min(p["chickens"],p["grain"]+(p["autobuy_amount"] if can_refill else 0))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"expected_eggs":expected_eggs,"autobuy_expected":bool(can_refill),"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
+  return {"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"expected_eggs":expected_eggs,"autobuy_expected":bool(can_refill),"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -350,7 +365,7 @@ def save_profile(q:Request,authorization:str=Header(default="")):
 
 @app.post("/api/incubator")
 def incubator_action(q:Request,authorization:str=Header(default="")):
- if q.item not in ("buy","start"):raise HTTPException(400,"Некорректное действие")
+ if q.item not in ("buy","start","upgrade"):raise HTTPException(400,"Некорректное действие")
  with db() as c:
   p=advance(c,person(c,authorization,True))
   if q.item=="buy":
@@ -361,8 +376,37 @@ def incubator_action(q:Request,authorization:str=Header(default="")):
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"incubator",-INCUBATOR_PRICE,"Покупка инкубатора",time.time()))
    return {"ok":True,"spent":INCUBATOR_PRICE}
   if not p["incubator_owned"]:raise HTTPException(400,"Сначала купите инкубатор")
-  if p["incubation_started"] is not None or p["chick_ready_at"] is not None:raise HTTPException(409,"Инкубатор занят")
+  if q.item=="upgrade":
+   cost=INCUBATOR_UPGRADE_COST.get(p["incubator_level"])
+   if cost is None:raise HTTPException(400,"Максимальный уровень")
+   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
+   c.execute("UPDATE players SET coins=coins-%s,incubator_level=incubator_level+1 WHERE id=%s",(cost,p["id"]))
+   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"incubator_upgrade",-cost,"Инкубатор: уровень "+str(p["incubator_level"]+1),time.time()))
+   return {"ok":True,"spent":cost}
+  active=c.execute("SELECT COUNT(*)::int AS n FROM incubation_jobs WHERE player_id=%s",(p["id"],)).fetchone()["n"]
+  if active>=p["incubator_level"]:raise HTTPException(409,"Все места инкубатора заняты")
   if p["eggs"]<1:raise HTTPException(400,"Нужно одно яйцо на складе")
-  if p["chickens"]>=coop_limit(p):raise HTTPException(400,"Расширьте курятник")
-  c.execute("UPDATE players SET eggs=eggs-1,incubation_started=%s WHERE id=%s",(time.time(),p["id"]))
+  if p["chickens"]+active>=coop_limit(p):raise HTTPException(400,"Расширьте курятник")
+  now=time.time()
+  egg_seconds,grow_seconds=incubation_stages(p["incubator_level"])
+  c.execute("UPDATE players SET eggs=eggs-1 WHERE id=%s",(p["id"],))
+  c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],now,now+egg_seconds,now+egg_seconds+grow_seconds))
  return {"ok":True}
+
+@app.post("/api/tutorial")
+def tutorial_action(q:Request,authorization:str=Header(default="")):
+ if q.item not in ("coop","grain","eggs"):raise HTTPException(400,"Неверный шаг")
+ steps=("coop","grain","eggs")
+ with db() as c:
+  p=advance(c,person(c,authorization,True))
+  step=p["tutorial_step"]
+  if step>=3:raise HTTPException(409,"Обучение уже завершено")
+  if steps[step]!=q.item:raise HTTPException(409,"Сначала выполните текущий шаг")
+  new_step=step+1
+  reward=5 if new_step==3 and not p["tutorial_rewarded"] else 0
+  c.execute("UPDATE players SET tutorial_step=%s,tutorial_rewarded=CASE WHEN %s>0 THEN true ELSE tutorial_rewarded END,coins=coins+%s WHERE id=%s",(new_step,reward,reward,p["id"]))
+  if reward:
+   c.execute("UPDATE reward_emission SET total_minted=total_minted+%s WHERE id=1",(reward,))
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"tutorial",reward,"Обучение начинающего фермера",time.time()))
+ return {"ok":True,"step":new_step,"awarded":reward}

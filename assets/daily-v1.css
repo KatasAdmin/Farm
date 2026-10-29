@@ -67,3 +67,13 @@
 #profile .profile-card > .three {margin-top: 7px;gap: 9px;}
 #profile #profile-editor:not([hidden]) {margin-bottom: 22px;}
 @media(max-width:360px){#profile .profile-card > button[onclick="toggleProfileEditor()"] {margin-bottom:20px;padding:10px 14px;font-size:13px;}}
+
+/* v18: beginner walkthrough and compact incubator controls */
+#tutorial-card[hidden],#coop-incubator-pane[hidden],#coop-birds-pane[hidden] {display:none!important}
+.tutorial-card{margin:10px 12px 14px;border-color:#ffdc74;background:linear-gradient(145deg,#0d62b4,#07346e);box-shadow:0 3px 16px #00194355}
+.tutorial-heading{display:flex;align-items:center;gap:10px}.tutorial-heading img{width:45px;height:45px;object-fit:contain}.tutorial-heading div{display:grid;gap:3px}.tutorial-heading strong{font-size:18px;color:#fff8ce}.tutorial-heading small{color:#d8ebff}
+.tutorial-card p{line-height:1.45;margin:9px 0}
+.coop-switch{margin:12px 12px 15px}
+.incubator-jobs{display:grid;gap:9px;margin:12px 0}
+.incubator-job{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;border-radius:12px;border:1px solid #62c9ff;background:#073a77;font-size:13px}.incubator-job strong{color:#fff}
+#incubator-upgrade{margin-top:10px}

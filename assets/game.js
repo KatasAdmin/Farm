@@ -168,15 +168,39 @@ async function saveProfile() {
 }
 async function shopIncubatorAction() {
   if (!state || pending) return;
-  if (state.incubator?.owned) return tab("upgrades");
+  if (state.incubator?.owned) {tab("coop");coopSection("incubator");return;}
   await perform("/api/incubator",{item:"buy"});
 }
 async function incubatorAction() {
   if (!state || pending) return;
-  const i = state.incubator || {};
-  if (!i.owned) return perform("/api/incubator",{item:"buy"});
-  if (i.incubation_started != null || i.chick_ready_at != null) return toast("Инкубатор занят");
-  await perform("/api/incubator",{item:"start"});
+  const i=state.incubator||{};
+  await perform("/api/incubator",{item:i.owned?"start":"buy"});
+}
+async function incubatorUpgrade() {
+  if (!state || pending) return;
+  const cost=state.incubator?.next_upgrade_cost;
+  if (cost == null) return;
+  if (!confirm("Улучшить инкубатор за "+number(cost)+" монет?")) return;
+  await perform("/api/incubator",{item:"upgrade"});
+}
+function coopSection(mode) {
+  const incubator=mode==="incubator";
+  el("coop-incubator-pane").hidden=!incubator;
+  el("coop-birds-pane").hidden=incubator;
+  el("coop-tab-incubator").classList.toggle("active",incubator);
+  el("coop-tab-birds").classList.toggle("active",!incubator);
+}
+async function completeTutorialStep() {
+  if (!state || pending) return;
+  const steps=["coop","grain","eggs"];
+  const step=state.tutorial?.step||0;
+  if (step>=3) return;
+  const ok=await perform("/api/tutorial",{item:steps[step]});
+  if (ok) {
+    if (step===0){tab("coop");coopSection("birds");}
+    else if (step===1)tab("shop");
+    else toast("Обучение завершено! Получено 5 монет.");
+  }
 }
 function showLogin() {
   token = null;
@@ -470,19 +494,23 @@ function render() {
   const promo = state.promotion || {};
   document.querySelectorAll("[data-promo-value]").forEach(x => x.textContent = number(promo.value));
   document.querySelectorAll("[data-promo-price]").forEach(x => x.textContent = number(promo.price));
-  const inc = state.incubator || {};
-  document.querySelectorAll("[data-incubator-capacity]").forEach(x => x.textContent = number(inc.capacity));
-  document.querySelectorAll("[data-incubator-price]").forEach(x => x.textContent = number(inc.incubator_price));
-  document.querySelectorAll("[data-incubate-duration]").forEach(x => x.textContent = formatDuration(inc.incubate_seconds));
-  document.querySelectorAll("[data-grow-duration]").forEach(x => x.textContent = formatDuration(inc.grow_seconds));
-  const button = el("incubator-action");
-  if (button) {
-    const occupied = inc.incubation_started != null || inc.chick_ready_at != null;
-    button.textContent = !inc.owned ? `Купить · ${number(inc.incubator_price)} монет`
-      : occupied ? "Инкубатор занят" : "Заложить 1 яйцо";
-    button.disabled = pending || (!inc.owned ? p.coins < inc.incubator_price
-      : occupied || p.eggs < 1 || p.chickens >= state.buildings.coop_capacity);
-  }
+  const inc=state.incubator||{};
+  const jobs=inc.jobs||[];
+  document.querySelectorAll("[data-incubator-capacity]").forEach(x=>x.textContent=number(inc.capacity||1));
+  document.querySelectorAll("[data-incubator-price]").forEach(x=>x.textContent=number(inc.incubator_price||120));
+  document.querySelectorAll("[data-incubate-duration]").forEach(x=>x.textContent=formatDuration(inc.incubate_seconds||43200));
+  document.querySelectorAll("[data-grow-duration]").forEach(x=>x.textContent=formatDuration(inc.grow_seconds||43200));
+  if (el("incubator-level"))el("incubator-level").textContent=number(inc.level||1);
+  if (el("incubator-free"))el("incubator-free").textContent=number(Math.max(0,(inc.capacity||1)-jobs.length));
+  const up=el("incubator-upgrade");
+  if (up){up.hidden=!inc.owned;up.disabled=pending||inc.next_upgrade_cost==null||p.coins<inc.next_upgrade_cost;up.textContent=inc.next_upgrade_cost==null?"Максимальный уровень":"Улучшить · "+number(inc.next_upgrade_cost)+" монет";}
+  const button=el("incubator-action");
+  if(button){const full=jobs.length>=(inc.capacity||1);
+    button.textContent=!inc.owned?"Купить · "+number(inc.incubator_price)+" монет":"Заложить 1 яйцо";
+    button.disabled=pending||(!inc.owned?p.coins<inc.incubator_price:full||p.eggs<1||p.chickens+jobs.length>=state.buildings.coop_capacity);}
+  const tutorial=state.tutorial||{};
+  const step=Math.min(3,tutorial.step||0), card=el("tutorial-card");
+  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить в Торговле. Куры едят автоматически раз в сутки.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
   const history = el("production-history");
   if (history) history.innerHTML = state.production_history?.length
     ? state.production_history.map(event => `<div class="ledger-row income">${image("redesign/egg")}<div><strong>+${number(event.amount)} яиц</strong><small>${new Date(event.created * 1000).toLocaleString("ru-RU")}</small></div></div>`).join("")
@@ -656,25 +684,25 @@ function countdown() {
     ? `До конца: ${formatDuration(promo.seconds_left - elapsed)} · осталось покупок: ${Math.max(0,promo.limit-promo.used)} / ${promo.limit}`
     : "Акция завершена";
   el("bundle-buy").disabled = pending || !promoActive || state.me.coins < promo.price;
-  const inc = state.incubator;
-  const now = state.now + elapsed;
-  const remaining = inc.incubation_started != null
-    ? inc.incubation_started + inc.incubate_seconds - now
-    : inc.chick_ready_at != null ? inc.chick_ready_at - now : null;
-  const full = state.me.chickens >= state.buildings.coop_capacity;
-  let status = !inc.owned ? "Можно купить один раз"
-    : remaining == null ? "Готов к работе · нужно 1 яйцо"
-    : inc.chick_ready_at != null && remaining <= 0 && full
-      ? "Цыплёнок вырос. Расширь курятник — он ждёт свободное место."
-      : remaining <= 0 ? "Проверяем завершение на сервере…"
-      : (inc.incubation_started != null ? "До цыплёнка: " : "До взрослой курицы: ") + formatDuration(remaining);
-  el("incubation-status").textContent = status;
-  document.querySelectorAll("[data-incubator-summary]").forEach(x => x.textContent = status);
-  document.querySelectorAll("[data-stage]").forEach(x => x.classList.toggle("active", inc.owned && x.dataset.stage === (inc.chick_ready_at != null ? "chick" : "egg")));
+  const inc=state.incubator||{}, now=state.now+elapsed;
+  const jobs=inc.jobs||[];
+  const full=state.me.chickens>=state.buildings.coop_capacity;
+  const status=!inc.owned?"Инкубатор ещё не куплен":jobs.length===0?"Свободен · заложи яйцо":jobs.length+" из "+inc.capacity+" мест занято";
+  if(el("incubation-status"))el("incubation-status").textContent=status;
+  document.querySelectorAll("[data-incubator-summary]").forEach(x=>x.textContent=status);
+  const list=el("incubator-jobs");
+  if(list)list.innerHTML=jobs.map((j,i)=>{
+    const hatch=now<j.hatch_at;
+    const remaining=(hatch?j.hatch_at:j.mature_at)-now;
+    const label=remaining<=0&&full?"Нужно место в курятнике":remaining<=0?"Завершается…":formatDuration(remaining);
+    return '<div class="incubator-job"><strong>'+(hatch?'🥚 Яйцо':'🐣 Цыплёнок')+' №'+(i+1)+'</strong><span>'+safe(label)+'</span></div>';
+  }).join("") || '<p class="muted">Все ячейки свободны.</p>';
+  document.querySelectorAll("[data-stage]").forEach(x=>x.classList.toggle("active",inc.owned&&jobs.length>0&&x.dataset.stage===(now<jobs[0].hatch_at?"egg":"chick")));
   const seconds = Math.max(0,state.farm.seconds_to_next - elapsed);
   document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = formatDuration(seconds));
   // Reconcile completed timers with the server; the browser never grants resources.
-  const expired = seconds <= 0 || (remaining != null && remaining <= 0 && !(inc.chick_ready_at != null && full));
+  const completedJobs = jobs.some(j => now >= j.mature_at) && !full;
+  const expired = seconds <= 0 || completedJobs;
   if (expired && !pending && !refreshPromise && elapsed >= 2 && document.visibilityState === "visible") refresh();
   if (el("purchase-dialog").open) purchaseQuote();
 }
