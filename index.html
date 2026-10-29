@@ -10,9 +10,10 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=19" />
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=22" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
-    <script src="/assets/game.js?v=21" defer></script>
+    <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+    <script src="/assets/game.js?v=22" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -48,11 +49,13 @@
             maxlength="22"
             placeholder="Как тебя зовут?"
             required
-          /><label for="join-gender">Пол (необязательно)</label>
+          /><label for="register-password">Пароль (минимум 8 символов)</label><input id="register-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required><label for="join-gender">Пол (необязательно)</label>
           <select id="join-gender"><option value="unspecified">Не указано</option><option value="male">Мужской</option><option value="female">Женский</option></select>
           <button class="btn wide" type="submit">Начать новую жизнь →</button>
         </form>
-        <details class="recovery-login"><summary>Уже есть ферма? Восстановить доступ</summary><form id="recover-form"><label for="recover-name">Имя фермера</label><input id="recover-name" autocomplete="username" required maxlength="22"><label for="recover-code">Сохранённый код восстановления</label><input id="recover-code" autocomplete="off" autocapitalize="none" spellcheck="false" required><button class="btn wide" type="submit">Войти в свою ферму</button></form></details><small>Сохрани код восстановления после регистрации — он понадобится при смене телефона или очистке браузера.</small>
+        <form id="password-login-form" class="password-login"><h3>Уже есть ферма? Войти</h3><label for="login-name">Ник</label><input id="login-name" autocomplete="username" maxlength="22" required><label for="login-password">Пароль</label><input id="login-password" type="password" autocomplete="current-password" required><button class="btn blue wide" type="submit">Войти</button></form>
+        <button type="button" class="btn blue wide telegram-entry" onclick="telegramLogin()" hidden>Войти через Telegram</button>
+        <details class="recovery-login"><summary>Старый аккаунт? Восстановить по коду</summary><form id="recover-form"><label for="recover-name">Имя фермера</label><input id="recover-name" autocomplete="username" required maxlength="22"><label for="recover-code">Сохранённый код восстановления</label><input id="recover-code" autocomplete="off" autocapitalize="none" spellcheck="false" required><button class="btn wide" type="submit">Войти в свою ферму</button></form></details><small>Регистрируйся по уникальному нику и паролю. Старые аккаунты без пароля можно восстановить по сохранённому коду.</small>
       </div>
     </section>
     <div id="app" class="shell" hidden>
@@ -826,10 +829,10 @@
         </div>
         <details class="economy-card profile-settings">
           <summary><img src="/assets/redesign/settings.webp" class="icon" alt="" /><span><strong>Настройки</strong><small>Управление хозяйством</small></span><b>›</b></summary>
-          <div class="economy-details"><p class="muted">Сохранённый код позволит восстановить доступ после смены телефона. Создание нового кода отключает предыдущий.</p><button class="btn blue wide" onclick="generateRecoveryCode()">Создать код восстановления</button><button class="btn blue wide" onclick="tab('shop')">Настроить автозакупку</button></div>
+          <div class="economy-details"><p class="muted">Сохранённый код позволит восстановить доступ после смены телефона. Создание нового кода отключает предыдущий.</p><p class="muted">Для старого аккаунта установи пароль — после этого сможешь входить по нику с любого устройства.</p><label for="settings-password">Новый пароль (от 8 символов)</label><input id="settings-password" type="password" autocomplete="new-password" minlength="8" maxlength="128"><button class="btn blue wide" onclick="setAccountPassword()">Установить / сменить пароль</button><p id="telegram-link-status" class="muted">Telegram не привязан</p><button class="btn blue wide telegram-entry" onclick="linkTelegram()" hidden>Привязать этот Telegram</button><label for="settings-nickname">Выбрать ник для Telegram-аккаунта</label><input id="settings-nickname" maxlength="22" placeholder="Ник (для созданных через Telegram)"><button class="btn blue wide" onclick="setAccountNickname()">Сохранить ник</button><button class="btn blue wide" onclick="generateRecoveryCode()">Создать код восстановления</button><button class="btn blue wide" onclick="tab('shop')">Настроить автозакупку</button></div>
         </details>
         <p class="muted">
-          Доступ хранится в этом браузере. При выходе восстановить ферму можно по имени и сохранённому коду восстановления.
+          Вход доступен по нику и паролю. Старый код восстановления остаётся резервным способом.
         </p>
         <button class="btn alt wide" onclick="logout()">
           Выйти из аккаунта
