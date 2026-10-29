@@ -10,10 +10,10 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=23" />
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=24" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=22" defer></script>
+    <script src="/assets/game.js?v=24" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -397,7 +397,7 @@
       </section>
       <section id="market" class="panel" aria-label="Продажа товаров">
         <div class="panelhead"><button class="back" onclick="tab('shop')" aria-label="К покупкам">‹</button><img src="/assets/redesign/egg.webp" class="icon" alt=""><div><h1>Торговля</h1><small>ТОРГОВЛЯ · МОИ ОБЪЯВЛЕНИЯ</small></div></div>
-        <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button type="button" aria-pressed="false" onclick="tab('shop')">Купить</button><button type="button" class="active" aria-pressed="true">Продать</button></div><p class="muted">Яйца купят другие игроки, когда найдётся покупатель.</p>
+        <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button type="button" aria-pressed="false" onclick="tab('shop')">Купить</button><button type="button" class="active" aria-pressed="true">Продать</button></div><p class="compact-trade-hint">Продажа не мгновенная: монеты поступят, когда кто-то купит твои яйца.</p>
         <div id="sellPane" class="marketpanel active">
           <div class="card">
             <h2 class="cardtitle">
@@ -409,35 +409,11 @@
               />Выставить товар
             </h2>
             <p id="myStock" class="muted"></p>
-            <div class="fieldrow">
-              <label for="sellitem"
-                >Товар<select id="sellitem" onchange="sellType()">
-                  <option value="eggs">Яйца · 1 монета</option>
-                  <option value="grain" disabled>Зерно · позже</option>
-                </select></label
-              ><label for="sellnum"
-                >Количество<input
-                  id="sellnum"
-                  type="number"
-                  inputmode="numeric"
-                  value="1"
-                  min="1"
-                  max="10000"
-                  oninput="sellQuote()"
-              /></label>
-            </div>
-            <label id="grainPriceWrap" for="sellprice" hidden
-              >Монет за единицу зерна<input
-                id="sellprice"
-                type="number"
-                inputmode="numeric"
-                value="2"
-                min="1"
-                max="10000"
-                oninput="sellQuote()"
-            /></label>
+            <input type="hidden" id="sellitem" value="eggs"><input type="hidden" id="sellprice" value="1">
+            <div class="trade-amount-line"><span class="trade-egg-label">🥚 Яйца · 1 монета / шт.</span><label for="sellnum">Количество</label><div class="trade-amount-controls"><input id="sellnum" type="number" inputmode="numeric" min="1" max="10000" value="1" oninput="sellQuote()"><button type="button" class="btn small" onclick="sellMaximum()">Все</button></div></div>
+            <div id="grainPriceWrap" hidden></div>
             <div class="statsrow">
-              <span>При продаже всего лота</span
+              <span>Получишь после покупки игроком</span
               ><b><span id="sellquote">—</span></b>
             </div>
             <button class="btn wide" onclick="sellNow()">
@@ -448,14 +424,13 @@
             </p>
           </div>
           <div class="card">
-            <h2 class="cardtitle">Мои товары на продаже</h2>
-            <div id="mylist"></div>
+            <details class="trade-listings" open><summary>Мои объявления</summary><div id="mylist"></div></details>
           </div>
         </div>
 
       </section>
       <section id="shop" class="panel" aria-label="Торговля">
-        <div class="scene-banner">
+        <div class="scene-banner compact-trade-scene">
           <img
             src="/assets/redesign/shop.webp"
             class="scene-image"
@@ -469,7 +444,7 @@
         </div>
         <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button class="active" type="button" aria-pressed="true">Купить</button><button type="button" onclick="openSell('eggs')" aria-pressed="false">Продать</button></div>
         <div class="card shop-catalog">
-          <h2 class="cardtitle">Доступно для покупки</h2>
+          <h2 class="cardtitle">Купить товары</h2><p class="compact-trade-hint">Выбери товар, укажи количество и подтверди покупку.</p>
           <div class="product" id="trade-eggs-row"><img src="/assets/redesign/egg.webp" class="product-image" alt=""><div><h3>Яйца</h3><small id="eggs-available">Доступно: — шт.</small><small>У других игроков · 1 монета / шт.</small></div><button id="eggs-buy-button" class="btn small" onclick="selectBuy('eggs')">Купить</button></div>
           <div class="product">
             <img
@@ -514,6 +489,7 @@
             </button>
           </div>
         </div>
+        <details class="trade-extras"><summary>Ещё возможности: инкубатор, акция и автозакупка</summary>
         <div class="card incubator-shop"><img src="/assets/redesign/incubator.webp" class="product-image" alt=""><div><h2 class="cardtitle">Инкубатор</h2><p data-incubator-summary>Загружаем состояние…</p><small>Вместимость: <span data-incubator-capacity>—</span> яйцо · <span data-incubator-price>—</span> монет</small></div><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить · 120</button></div>
         <div class="bundle">
           <h2>
@@ -604,6 +580,8 @@
             Улучшения
           </button>
         </div>
+
+        </details>
       </section>
       <section id="wallet" class="panel" aria-label="Кошелёк">
         <div class="panelhead">
