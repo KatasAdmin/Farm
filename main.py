@@ -437,6 +437,7 @@ def buy(q:Request,authorization:str=Header(default="")):
  check(q.amount)
  if q.item not in ("grain","eggs"):raise HTTPException(400,"Товар не найден")
  with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
   rows=c.execute("SELECT * FROM market WHERE item=%s AND seller<>%s AND quantity>0 ORDER BY price,id FOR UPDATE",(q.item,p["id"])).fetchall()
   if sum(x["quantity"] for x in rows)<q.amount:raise HTTPException(400,"Недостаточно товара на рынке")
@@ -476,6 +477,7 @@ def buy(q:Request,authorization:str=Header(default="")):
 def cancel_listing(listing_id:str,authorization:str=Header(default="")):
  if len(listing_id)!=32:raise HTTPException(400,"Неверный номер объявления")
  with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
   entry=c.execute("SELECT * FROM market WHERE id=%s AND seller=%s FOR UPDATE",(listing_id,p["id"])).fetchone()
   if not entry or entry["quantity"]<=0:raise HTTPException(404,"Объявление уже закрыто")
