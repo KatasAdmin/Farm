@@ -124,3 +124,26 @@
 #profile .compact-ranking #leaders{margin-top:12px}
 #profile .profile-settings .economy-details>p.muted{font-size:13px;line-height:1.45}
 @media(max-width:370px){.compact-harvest-title>.icon{width:43px;height:43px}.compact-harvest .buttons .btn{font-size:12px}}
+
+/* v24: compact, approachable two-step trade */
+.compact-trade-scene{max-height:180px;overflow:hidden}
+.compact-trade-hint{font-size:13px;line-height:1.45;color:#d2ebff;margin:7px 13px 12px}
+#shop .shop-catalog{margin-top:8px;padding:12px}
+#shop .shop-catalog .product{padding:10px 6px;gap:8px}
+#shop .shop-catalog .product-image{width:49px;height:49px;object-fit:contain}
+#shop .shop-catalog h3{margin:0;font-size:17px}
+#shop .shop-catalog .product small{font-size:11px}
+#shop .shop-catalog .product .btn{min-width:64px;padding:9px 8px}
+.trade-extras{margin:10px 10px 19px}
+.trade-extras>summary{padding:13px 12px;border-radius:12px;border:1px solid #69bbff;background:#083d80;color:#d5edff;font-weight:700;font-size:13px;cursor:pointer}
+.trade-extras[open]>summary{margin-bottom:12px}
+.trade-extras .card,.trade-extras .bundle{margin-left:0;margin-right:0}
+.trade-amount-line{display:grid;gap:8px;margin:10px 0}
+.trade-egg-label{font-size:15px;font-weight:750;color:#fff}
+.trade-amount-line>label{font-size:13px;color:#d0eaff}
+.trade-amount-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}
+.trade-amount-controls input{width:100%;box-sizing:border-box;padding:11px 12px;font:inherit;color:#fff;background:#07346b;border:1px solid #67c8ff;border-radius:10px}
+.trade-amount-controls button{min-width:67px}
+.trade-listings summary{cursor:pointer;color:#e7f7ff;font-weight:700}
+.trade-listings #mylist{margin-top:9px}
+#market .marketpanel>.card{margin-top:10px}
