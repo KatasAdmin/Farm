@@ -130,7 +130,7 @@ function tab(id) {
     .querySelectorAll(".panel")
     .forEach((x) => x.classList.toggle("active", x.id === id));
   document.querySelectorAll("[data-tab]").forEach((x) => {
-    const active = x.dataset.tab === id;
+    const active = x.dataset.tab === (id === "market" ? "shop" : id);
     x.classList.toggle("active", active);
     if (active) x.setAttribute("aria-current", "page");
     else x.removeAttribute("aria-current");
@@ -139,19 +139,11 @@ function tab(id) {
   if (id === "wallet") loadHistory();
 }
 function marketTab(mode) {
-  el("buyPane").classList.toggle("active", mode === "buy");
-  el("sellPane").classList.toggle("active", mode === "sell");
-  for (const [id, active] of [
-    ["mbuy", mode === "buy"],
-    ["msell", mode === "sell"],
-  ]) {
-    el(id).classList.toggle("active", active);
-    el(id).setAttribute("aria-pressed", String(active));
-  }
+  if (mode === "buy") tab("shop");
+  else tab("market");
 }
 function openSell(item) {
   tab("market");
-  marketTab("sell");
   el("sellitem").value = item;
   sellType();
 }
@@ -169,6 +161,10 @@ function marketRows(item) {
     : [];
 }
 function quote(item, n) {
+  if (item === "eggs") {
+    const available = Number(state?.available_eggs ?? 0);
+    return {cost:5*n,remaining:Math.max(0,n-available)};
+  }
   let remaining = n,
     cost = 0;
   for (const row of [...marketRows(item)].sort((a, b) => a.price - b.price)) {
@@ -181,32 +177,26 @@ function quote(item, n) {
 }
 function drawPool() {
   if (!state) return;
-  const items = chosenFilter === "all" ? ["eggs", "grain"] : [chosenFilter];
-  el("pool").innerHTML =
-    items
-      .map((item) => {
-        const rows = marketRows(item),
-          count = rows.reduce((a, x) => a + x.quantity, 0);
-        const prices = rows.map((x) => x.price),
-          min = prices.length ? Math.min(...prices) : item === "eggs" ? 5 : 2;
-        const priceText = prices.some((x) => x !== min) ? `от ${min}` : min;
-        return `<div class="product">${image(art[item], "product-image")}<div><h3>${item === "eggs" ? "Яйца" : "Зерно"}</h3><small>В пуле: ${number(count)} шт.</small><small>Цена: <b class="gold">${priceText}</b> ${image("redesign/coin")} / шт.</small></div>${count ? `<button class="btn small" onclick="selectBuy('${item}')">Купить</button>` : '<span class="empty-label">Нет в наличии</span>'}</div>`;
-      })
-      .join("") +
-    '<p class="muted">Твои объявления не включены в доступный для покупки пул.</p>';
+  const available = Number(state.available_eggs ?? 0);
+  const label = el("eggs-available");
+  const buy = el("eggs-buy-button");
+  if (label) label.textContent = "Доступно для покупки: " + number(available) + " шт.";
+  if (buy) {
+    buy.disabled = available <= 0;
+    buy.textContent = available > 0 ? "Купить" : "Нет в наличии";
+  }
 }
 function selectBuy(item) {
-  tab("market");
-  marketTab("buy");
   const rows = marketRows(item);
-  if (!rows.length) {
-    toast("Пока нет предложений фермеров");
+  const available = item === "eggs" ? Number(state?.available_eggs ?? 0) : rows.reduce((sum,row) => sum + row.quantity, 0);
+  if (!available) {
+    toast("Сейчас нет яиц в продаже");
     return;
   }
   openPurchase({
     kind: "market",
     item,
-    price: Math.min(...rows.map((x) => x.price)),
+    price: item === "eggs" ? 5 : Math.min(...rows.map((x) => x.price)),
   });
 }
 function showShop(item) {
@@ -223,7 +213,7 @@ function openPurchase(data) {
   purchase = data;
   el("purchase-title").textContent =
     data.kind === "market"
-      ? "Покупка у фермеров"
+      ? "Покупка яиц"
       : data.kind === "bundle"
         ? "Набор фермера"
         : "Покупка товара";
@@ -260,11 +250,11 @@ function purchaseQuote() {
   let info = !valid
     ? "Введите целое количество от 1 до 10 000"
     : result.remaining > 0
-      ? "Недостаточно товара в доступном пуле"
+      ? "Доступного количества недостаточно"
       : result.cost > state.me.coins
         ? "Недостаточно монет на балансе"
         : market
-          ? "Выкуп делится между продавцами. Комиссия 0%."
+          ? "Покупка яиц у других игроков."
           : "Монеты поступят в игровую казну.";
   el("purchase-availability").textContent = info;
   el("purchase-confirm").disabled =
@@ -380,7 +370,7 @@ function render() {
   const dailyMissions = [
     ["grain", "🌾 Купить 5 зерна", daily.grain_bought || 0, 5],
     ["eggs", "🥚 Получить яйцо от кур", daily.eggs_produced || 0, 1],
-    ["listing", "📦 Выставить яйцо на рынок", daily.eggs_listed || 0, 1]
+    ["listing", "📦 Выставить яйцо на продажу", daily.eggs_listed || 0, 1]
   ];
   const dailyBox = el("daily-tasks");
   if (dailyBox) {
@@ -396,7 +386,7 @@ function render() {
   const listed = {grain:0,eggs:0};
   for (const item of state.my_listings || []) if (item.item in listed) listed[item.item] += item.quantity;
   const summary = el("storage-summary");
-  if (summary) summary.textContent = "Свободно: " + p.eggs + " яиц, " + p.grain + " зерна. На рынке: " + listed.eggs + " яиц, " + listed.grain + " зерна. Выставленный товар хранится отдельно, пока его не купят или ты не снимешь объявление.";
+  if (summary) summary.textContent = "Свободно: " + p.eggs + " яиц, " + p.grain + " зерна. На продаже: " + listed.eggs + " яиц, " + listed.grain + " зерна. Выставленный товар хранится отдельно, пока его не купят или ты не снимешь объявление.";
   const nextEggs = Math.min(p.grain,p.chickens);
   const harvestText = p.chickens <= 0 ? "Нет кур — купи несушку в магазине." : (nextEggs ? "Следующий сбор: +" + number(nextEggs) + " яиц · −" + number(nextEggs) + " зерна." : "Зерна не хватает: без корма новые яйца не появятся.");
   const farmHarvest = el("next-harvest"), coopHarvest = el("coop-harvest");

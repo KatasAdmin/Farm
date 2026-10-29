@@ -8,10 +8,10 @@
     />
     <meta name="theme-color" content="#06357f" />
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
-    <link rel="stylesheet" href="/assets/game.css?v=8" />
+    <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=1" />
-    <script src="/assets/game.js?v=8" defer></script>
+    <script src="/assets/game.js?v=9" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div>
@@ -128,7 +128,7 @@
                 class="icon"
                 alt=""
                 decoding="async" /></span
-            >Магазин</button
+            >Торговля</button
           ><button class="quick" onclick="tab('storage')">
             <span class="nav-art" aria-hidden="true"
               ><img
@@ -409,83 +409,10 @@
           <p class="muted" data-auto-status>Проверяем настройки…</p>
         </div>
       </section>
-      <section id="market" class="panel" aria-label="Рынок">
-        <div class="scene-banner">
-          <img
-            src="/assets/redesign/market.webp"
-            class="scene-image"
-            alt="Рынок"
-            decoding="async"
-          />
-          <div class="scene-caption">
-            <h1>Рынок</h1>
-            <p>Покупай и продавай товары другим игрокам</p>
-          </div>
-        </div>
-        <div class="trade-hint"><strong>🤝 Игроки ↔ игроки</strong><span>Здесь монеты переходят от покупателя к продавцу. Куры и зерно от системы — в магазине.</span><button type="button" onclick="tab('shop')">В магазин →</button></div>
-        <div class="switch" role="group" aria-label="Режим рынка">
-          <button
-            class="active"
-            onclick="marketTab('buy')"
-            id="mbuy"
-            aria-pressed="true"
-          >
-            Купить</button
-          ><button
-            class=""
-            onclick="marketTab('sell')"
-            id="msell"
-            aria-pressed="false"
-          >
-            Продать
-          </button>
-        </div>
-        <div id="buyPane" class="marketpanel active">
-          <div class="pills" role="group" aria-label="Фильтр товаров">
-            <button
-              class="active"
-              onclick="filterMarket('all')"
-              data-filter="all"
-            >
-              Все</button
-            ><button class="" onclick="filterMarket('eggs')" data-filter="eggs">
-              <img
-                src="/assets/redesign/egg.webp"
-                class="icon"
-                alt=""
-                decoding="async"
-              />Яйца</button
-            ><button
-              class=""
-              onclick="filterMarket('grain')"
-              data-filter="grain"
-            >
-              <img
-                src="/assets/redesign/grain.webp"
-                class="icon"
-                alt=""
-                decoding="async"
-              />Зерно
-            </button>
-          </div>
-          <div class="card catalog">
-            <h2 class="cardtitle">Предложения фермеров</h2>
-            <div id="pool"></div>
-          </div>
-          <details class="card market-info market-help">
-            <summary>Как работает общий рынок?</summary>
-            <p>✓ Все предложения объединяются в общий пул.</p>
-            <p>
-              ✓ В одной ценовой группе выкуп распределяется пропорционально.
-            </p>
-            <p>✓ Комиссия: <b>0%</b>. Монеты получает продавец.</p>
-            <p>✓ Если предложений нет, товар у игроков купить нельзя. Зерно всегда доступно в магазине.</p>
-          </details>
-          <button class="btn alt wide" onclick="refresh()">
-            Обновить предложения ↻
-          </button>
-        </div>
-        <div id="sellPane" class="marketpanel">
+      <section id="market" class="panel" aria-label="Продажа товаров">
+        <div class="panelhead"><button class="back" onclick="tab('shop')" aria-label="К покупкам">‹</button><img src="/assets/redesign/egg.webp" class="icon" alt=""><div><h1>Продать товар</h1><small>ТОРГОВЛЯ · МОИ ОБЪЯВЛЕНИЯ</small></div></div>
+        <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button type="button" onclick="tab('shop')">Купить</button><button type="button" class="active" aria-pressed="true">Продать</button></div><p class="muted">Яйца купят другие игроки, когда найдётся покупатель.</p>
+        <div id="sellPane" class="marketpanel active">
           <div class="card">
             <h2 class="cardtitle">
               <img
@@ -500,7 +427,7 @@
               <label for="sellitem"
                 >Товар<select id="sellitem" onchange="sellType()">
                   <option value="eggs">Яйца · 5 монет</option>
-                  <option value="grain">Зерно</option>
+                  <option value="grain" disabled>Зерно · позже</option>
                 </select></label
               ><label for="sellnum"
                 >Количество<input
@@ -528,10 +455,10 @@
               ><b><span id="sellquote">—</span></b>
             </div>
             <button class="btn wide" onclick="sellNow()">
-              Выставить на рынок
+              Выставить на продажу
             </button>
             <p class="muted">
-              Товар резервируется. До продажи остаток можно вернуть на склад.
+              Монеты поступят после покупки товара другим игроком. Непроданное можно вернуть на склад.
             </p>
           </div>
           <div class="card">
@@ -539,8 +466,9 @@
             <div id="mylist"></div>
           </div>
         </div>
+
       </section>
-      <section id="shop" class="panel" aria-label="Магазин">
+      <section id="shop" class="panel" aria-label="Торговля">
         <div class="scene-banner">
           <img
             src="/assets/redesign/shop.webp"
@@ -549,13 +477,14 @@
             decoding="async"
           />
           <div class="scene-caption">
-            <h1>Магазин</h1>
-            <p>Куры, корм и наборы — всегда в наличии</p>
+            <h1>Торговля</h1>
+            <p>Купить или продать товары</p>
           </div>
         </div>
-        <div class="trade-hint"><strong>🏪 Покупка у системы</strong><span>Здесь покупаешь кур и зерно по фиксированной цене. Потраченные монеты поступают в казну.</span></div>
+        <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button class="active" type="button" aria-pressed="true">Купить</button><button type="button" onclick="openSell('eggs')" aria-pressed="false">Продать</button></div>
         <div class="card shop-catalog">
-          <h2 class="cardtitle">Для твоей фермы</h2>
+          <h2 class="cardtitle">Доступно для покупки</h2>
+          <div class="product" id="trade-eggs-row"><img src="/assets/redesign/egg.webp" class="product-image" alt=""><div><h3>Яйца</h3><small id="eggs-available">Доступно: — шт.</small><small>5 монет за штуку</small></div><button id="eggs-buy-button" class="btn small" onclick="selectBuy('eggs')">Купить</button></div>
           <div class="product">
             <img
               src="/assets/redesign/grain.webp"
@@ -565,7 +494,7 @@
             />
             <div>
               <h3>Зерно</h3>
-              <small>Корм для кур</small>
+              <small>Корм для кур · всегда доступно</small>
             </div>
             <strong class="price"
               >2<img
@@ -586,7 +515,7 @@
             />
             <div>
               <h3>Курица</h3>
-              <small>Производит яйца</small>
+              <small>Несушка · всегда доступно</small>
             </div>
             <strong class="price"
               >30<img
@@ -599,7 +528,6 @@
             </button>
           </div>
         </div>
-        <div class="trade-shortcut"><span>🥚 Нужны яйца или хочешь продать урожай?</span><button type="button" class="btn alt" onclick="tab('market')">На рынок игроков →</button></div>
         <div class="bundle">
           <h2>
             <img
@@ -938,8 +866,8 @@
               <h3>Зерно</h3>
               <small><span data-value="grain">—</span> шт.</small>
             </div>
-            <button class="btn small" onclick="openSell('grain')">
-              Продать
+            <button class="btn small" onclick="showShop('grain')">
+              Купить
             </button>
           </div>
           <div class="product" data-storage="eggs">
@@ -1189,23 +1117,9 @@
             alt=""
             decoding="async" /></span
         ><span>Ферма</span></button
-      ><button class="nav-button" onclick="tab('market')" data-tab="market">
-        <span class="nav-art" aria-hidden="true"
-          ><img
-            src="/assets/redesign/shop-icon.webp"
-            class="icon"
-            alt=""
-            decoding="async" /></span
-        ><span>Рынок</span></button
-      ><button class="nav-button" onclick="tab('shop')" data-tab="shop">
-        <span class="nav-art" aria-hidden="true"
-          ><img
-            src="/assets/redesign/shop-icon.webp"
-            class="icon"
-            alt=""
-            decoding="async" /></span
-        ><span>Магазин</span></button
-      ><button class="nav-button" onclick="tab('wallet')" data-tab="wallet">
+      ><button class="nav-button" onclick="tab('shop')" data-tab="shop"><span class="nav-art" aria-hidden="true"><img src="/assets/redesign/shop-icon.webp" class="icon" alt=""></span><span>Торговля</span></button>
+      <button class="nav-button" onclick="tab('tasks')" data-tab="tasks"><span class="nav-art" aria-hidden="true"><img src="/assets/redesign/achievement.webp" class="icon" alt=""></span><span>Задания</span></button>
+      <button class="nav-button" onclick="tab('wallet')" data-tab="wallet">
         <span class="nav-art" aria-hidden="true"
           ><img
             src="/assets/redesign/wallet-icon.webp"

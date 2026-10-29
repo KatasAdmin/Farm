@@ -107,6 +107,7 @@ def state(authorization:str=Header(default="")):
  with db() as c:
   p=advance(c,person(c,authorization,True))
   listings=c.execute("SELECT m.item,m.price,m.quantity,p.name AS seller FROM market m JOIN players p ON p.id=m.seller WHERE m.quantity>0 ORDER BY m.price LIMIT 40").fetchall()
+  available_eggs=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("eggs",p["id"])).fetchone()["total"]
   mine=c.execute("SELECT id,item,quantity,price FROM market WHERE seller=%s AND quantity>0 ORDER BY item,price,id",(p["id"],)).fetchall()
   top=c.execute("SELECT name,coins,chickens FROM players ORDER BY coins DESC LIMIT 8").fetchall()
   day=time.strftime("%Y-%m-%d",time.gmtime())
@@ -114,7 +115,7 @@ def state(authorization:str=Header(default="")):
   event=c.execute("SELECT id,kind,amount FROM farm_events WHERE player_id=%s ORDER BY created DESC,id DESC LIMIT 1",(p["id"],)).fetchone()
   claims=[x["claim"] for x in c.execute("SELECT claim FROM daily_claims WHERE player_id=%s AND day=%s",(p["id"],day)).fetchall()]
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
-  return {"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
+  return {"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
