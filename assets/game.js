@@ -626,7 +626,9 @@ function countdown() {
   if (label && remaining != null) {
     const hours = Math.floor(Math.max(0,remaining)/3600);
     const mins = Math.floor((Math.max(0,remaining)%3600)/60);
-    label.textContent = (inc.incubation_started != null ? "🥚 До цыплёнка: " : "🐣 До взрослой курицы: ") + hours + " ч " + mins + " мин";
+    label.textContent = inc.chick_ready_at != null && remaining <= 0
+      ? "🐣 Цыплёнок готов. Освободи место в курятнике для взросления."
+      : (inc.incubation_started != null ? "🥚 До цыплёнка: " : "🐣 До взрослой курицы: ") + hours + " ч " + mins + " мин";
   }
   const seconds = Math.max(
     0,
