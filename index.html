@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=34" defer></script>
+    <script src="/assets/game.js?v=35" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -742,7 +742,7 @@
             <button class="btn blue wide" id="set-password-button" onclick="setAccountPassword()">Установить пароль</button>
             <p id="telegram-link-status" class="muted">Проверяем привязку Telegram…</p>
             <button id="link-telegram-button" class="btn blue wide telegram-entry" onclick="linkTelegram()" hidden>Привязать этот Telegram</button>
-            <p id="telegram-link-help" class="muted">Для привязки откройте эту ферму через Telegram Mini App, войдите по нику и паролю, затем нажмите «Привязать этот Telegram» здесь.</p>
+            <div id="telegram-link-help" class="muted" style="line-height:1.6"><strong>Как привязать Telegram:</strong><ol style="padding-left:1.3em;margin:8px 0"><li>Сначала убедитесь, что у фермы установлен пароль (выше).</li><li>Откройте в Telegram бота, через которого запускается именно эта ферма, и нажмите «Играть» или «Открыть приложение».</li><li>Войдите в СУЩЕСТВУЮЩУЮ ферму по нику и паролю — не создавайте новый аккаунт.</li><li>Откройте Профиль → Настройки → «Привязать этот Telegram».</li></ol><p id="telegram-browser-warning" style="margin:8px 0">Сейчас ферма открыта не как Telegram Mini App. Поэтому кнопка привязки недоступна. Нужен запуск через бота.</p><strong>Важно:</strong> заявки не являются реальными выплатами — денежные переводы пока отключены.</div>
             <div id="nickname-settings" hidden><label for="settings-nickname">Имя фермера для входа по паролю</label><input id="settings-nickname" maxlength="22" placeholder="Выбери уникальный ник"><button class="btn blue wide" onclick="setAccountNickname()">Сохранить ник</button></div>
             <details class="account-recovery-advanced"><summary>Код восстановления и дополнительные настройки</summary><p class="muted">Код позволяет восстановить старый аккаунт. Создание нового кода отключает предыдущий.</p><button class="btn blue wide" onclick="generateRecoveryCode()">Создать код восстановления</button><button class="btn blue wide" onclick="tab('shop')">Настроить автозакупку</button></details>
           </div>
