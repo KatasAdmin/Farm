@@ -362,6 +362,36 @@ async function loadHistory() {
 }
 function render() {
   const p = state.me;
+  const last = state.last_farm_event;
+  if (last && last.kind === "eggs_produced") {
+    const seenKey = "farm_seen_event_" + p.id;
+    if (localStorage.getItem(seenKey) !== last.id) {
+      localStorage.setItem(seenKey, last.id);
+      toast("🥚 Кури снесли " + number(last.amount) + " яиц! Они уже на складе.");
+    }
+  }
+  const daily = state.daily || {};
+  const dailyMissions = [
+    ["🌾 Купить 5 зерна", daily.grain_bought || 0, 5],
+    ["🥚 Получить яйцо от кур", daily.eggs_produced || 0, 1],
+    ["📦 Выставить яйцо на рынок", daily.eggs_listed || 0, 1]
+  ];
+  const dailyBox = el("daily-tasks");
+  if (dailyBox) {
+    dailyBox.innerHTML = dailyMissions.map(([name,value,target]) => {
+      const n = Math.min(value,target);
+      return '<div class="daily-task"><div><strong>' + name + '</strong><small>' + number(n) + ' / ' + target + (n >= target ? ' · Выполнено ✓' : '') + '</small></div><div class="progress"><span style="width:' + (100*n/target) + '%"></span></div></div>';
+    }).join("");
+  }
+  const listed = {grain:0,eggs:0};
+  for (const item of state.my_listings || []) if (item.item in listed) listed[item.item] += item.quantity;
+  const summary = el("storage-summary");
+  if (summary) summary.textContent = "Свободно: " + p.eggs + " яиц, " + p.grain + " зерна. На рынке: " + listed.eggs + " яиц, " + listed.grain + " зерна. Выставленный товар хранится отдельно, пока его не купят или ты не снимешь объявление.";
+  const nextEggs = Math.min(p.grain,p.chickens);
+  const harvestText = p.chickens <= 0 ? "Нет кур — купи несушку в магазине." : (nextEggs ? "Следующий сбор: +" + number(nextEggs) + " яиц · −" + number(nextEggs) + " зерна." : "Зерна не хватает: без корма новые яйца не появятся.");
+  const farmHarvest = el("next-harvest"), coopHarvest = el("coop-harvest");
+  if (farmHarvest) farmHarvest.textContent = harvestText;
+  if (coopHarvest) coopHarvest.textContent = harvestText;
   el("login").hidden = true;
   el("app").hidden = false;
   el("nav").hidden = false;
