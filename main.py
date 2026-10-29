@@ -20,6 +20,8 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_enabled boolean NOT NULL DEFAULT false")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_min integer NOT NULL DEFAULT 5")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_amount integer NOT NULL DEFAULT 20")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS coop_level integer NOT NULL DEFAULT 1")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS storage_level integer NOT NULL DEFAULT 1")
   c.execute("CREATE TABLE IF NOT EXISTS money_log(id text primary key,player_id text,kind text,delta int,details text,created double precision)")
   c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
   c.execute("CREATE TABLE IF NOT EXISTS farm_events(id text primary key,player_id text NOT NULL,kind text NOT NULL,amount int NOT NULL,created double precision NOT NULL)")
@@ -44,6 +46,10 @@ def person(c,h,lock=False):
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
 CYCLE=86400  # 1 real day, calibrated 10-day payback at full sales
+MAX_BUILDING_LEVEL=10
+def coop_limit(p):return 10*p["coop_level"]
+def storage_limit(p):return 100*p["storage_level"]
+def upgrade_cost(kind,level):return (40 if kind=="coop" else 30)*level
 def advance(c,p,now=None):
  """Simulate only completed feeding cycles; persist atomically with the locked player."""
  now=time.time() if now is None else now
@@ -56,7 +62,7 @@ def advance(c,p,now=None):
  # At most a century of steps, and stop after all birds have died.
  for _ in range(min(due,438000)):
   if hens<=0:break
-  if p["autobuy_enabled"] and grain<hens and p["coins"]>=2*max(1,p["autobuy_amount"]):
+  if p["autobuy_enabled"] and grain<hens and p["coins"]>=2*max(1,p["autobuy_amount"]) and grain+eggs+p["autobuy_amount"]<=storage_limit(p):
    refill=p["autobuy_amount"]
    p["coins"]-=2*refill
    grain+=refill
@@ -118,7 +124,7 @@ def state(authorization:str=Header(default="")):
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
   totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
   sold=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS amount FROM money_log WHERE player_id=%s AND kind='market_sale' AND details ~ '^eggs x[0-9]+
-  return {"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
+  return {"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -127,6 +133,8 @@ def shop(q:Request,authorization:str=Header(default="")):
  with db() as c:
   p=advance(c,person(c,authorization,True))
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
+  if q.item=="chickens" and p["chickens"]+q.amount>coop_limit(p):raise HTTPException(400,"В курятнике нет места. Улучшите курятник")
+  if q.item=="grain" and p["grain"]+p["eggs"]+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   if q.item=="grain":
    day=time.strftime("%Y-%m-%d",time.gmtime())
@@ -140,6 +148,8 @@ def buy_bundle(authorization:str=Header(default="")):
  with db() as c:
   p=advance(c,person(c,authorization,True))
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
+  if p["chickens"]+3>coop_limit(p):raise HTTPException(400,"Для набора нужно больше места в курятнике")
+  if p["grain"]+p["eggs"]+30>storage_limit(p):raise HTTPException(400,"Для набора нужно больше места на складе")
   c.execute("UPDATE players SET coins=coins-%s,chickens=chickens+3,grain=grain+30 WHERE id=%s",(cost,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"bundle",-cost,"3 курицы + 30 зерна",time.time()))
@@ -187,6 +197,7 @@ def buy(q:Request,authorization:str=Header(default="")):
    if remaining==0:break
   cost=sum(x["price"]*n for x,n in chosen)
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
+  if p["grain"]+p["eggs"]+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   for x,n in chosen:
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
@@ -387,3 +398,18 @@ def claim_reward(q:Request,authorization:str=Header(default="")):
   c.execute("UPDATE reward_emission SET total_minted=total_minted+%s WHERE id=1",(amount,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"daily_reward",amount,"Ежедневный бонус" if key=="bonus" else "Награда за задание: "+key,time.time()))
  return {"ok":True,"awarded":amount,"day":day}
+
+@app.post("/api/upgrade")
+def upgrade(q:Request,authorization:str=Header(default="")):
+ if q.item not in ("coop","storage"):raise HTTPException(400,"Неизвестная постройка")
+ key="coop_level" if q.item=="coop" else "storage_level"
+ with db() as c:
+  p=advance(c,person(c,authorization,True))
+  level=p[key]
+  if level>=MAX_BUILDING_LEVEL:raise HTTPException(400,"Максимальный уровень уже достигнут")
+  cost=upgrade_cost(q.item,level)
+  if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
+  c.execute("UPDATE players SET coins=coins-%s,"+key+"="+key+"+1 WHERE id=%s",(cost,p["id"]))
+  c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"upgrade",-cost,"Улучшение "+("курятника" if q.item=="coop" else "склада")+" до уровня "+str(level+1),time.time()))
+ return {"ok":True,"spent":cost,"level":level+1}
