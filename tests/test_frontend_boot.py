@@ -19,30 +19,30 @@ class FrontendBootSafety(unittest.TestCase):
    self.assertIn(value,html)
 class ProductionReleaseSafety(unittest.TestCase):
  def player(self,hens=1,grain=10,eggs=0):
-  return dict(last_tick=0,egg_at=0,egg_progress=0,feed_phase=0,
+  return dict(last_tick=100,egg_at=100,egg_progress=0,feed_phase=0,
               chickens=hens,fed_hens=hens,grain=grain,eggs=eggs,coins=100,
               storage_level=1,satiety=100,critical_cycles=0,
               autobuy_enabled=False,autobuy_amount=20)
  def test_single_hen_lays_one_egg_every_six_hours(self):
   from production_v4 import simulate
-  state,produced,_=simulate(self.player(),21600)
+  state,produced,_=simulate(self.player(),21700)
   self.assertEqual((state["eggs"],produced),(1,1))
-  state,produced,_=simulate(self.player(),86400)
+  state,produced,_=simulate(self.player(),86500)
   self.assertEqual((state["eggs"],produced),(4,4))
   self.assertEqual(state["grain"],9)
  def test_ten_hens_produce_ten_eggs_per_six_hours(self):
   from production_v4 import simulate
-  state,produced,_=simulate(self.player(hens=10),21600)
+  state,produced,_=simulate(self.player(hens=10),21700)
   self.assertEqual((state["eggs"],produced),(10,10))
  def test_storage_prevents_unlimited_eggs(self):
   from production_v4 import simulate
-  state,produced,_=simulate(self.player(hens=10,grain=10,eggs=89),21600)
+  state,produced,_=simulate(self.player(hens=10,grain=10,eggs=89),21700)
   self.assertEqual((state["eggs"],produced),(90,1))
  def test_no_grain_means_no_new_fed_hens_after_feeding(self):
   from production_v4 import simulate
-  state,_,_=simulate(self.player(hens=1,grain=0),64800)
+  state,_,_=simulate(self.player(hens=1,grain=0),64900)
   self.assertEqual(state["fed_hens"],0)
-  later,produced,_=simulate(state,86400)
+  later,produced,_=simulate(state,86500)
   self.assertEqual(produced,0)
 
 if __name__=="__main__":unittest.main()
