@@ -59,6 +59,10 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS money_log(id text primary key,player_id text,kind text,delta int,details text,created double precision)")
   c.execute("CREATE TABLE IF NOT EXISTS withdrawal_requests(id text PRIMARY KEY,player_id text NOT NULL,amount integer NOT NULL CHECK(amount>=100),status text NOT NULL DEFAULT 'pending',created double precision NOT NULL)")
   c.execute("CREATE UNIQUE INDEX IF NOT EXISTS one_pending_withdrawal_per_player ON withdrawal_requests(player_id) WHERE status='pending'")
+  c.execute("ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS reserved boolean NOT NULL DEFAULT false")
+  c.execute("CREATE TABLE IF NOT EXISTS trade_risk_events(id text PRIMARY KEY,buyer_id text NOT NULL,seller_id text NOT NULL,item text NOT NULL,quantity integer NOT NULL,coins integer NOT NULL,reason text NOT NULL,created double precision NOT NULL)")
+  c.execute("CREATE INDEX IF NOT EXISTS trade_risk_seller_time ON trade_risk_events(seller_id,created)")
+
   c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
   c.execute("""UPDATE players p SET
     xp_legacy_eggs=COALESCE((SELECT SUM(eggs_produced)::int FROM daily_activity d WHERE d.player_id=p.id),0),
