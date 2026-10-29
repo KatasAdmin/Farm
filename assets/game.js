@@ -139,19 +139,11 @@ function tab(id) {
   if (id === "wallet") loadHistory();
 }
 function marketTab(mode) {
-  el("buyPane").classList.toggle("active", mode === "buy");
-  el("sellPane").classList.toggle("active", mode === "sell");
-  for (const [id, active] of [
-    ["mbuy", mode === "buy"],
-    ["msell", mode === "sell"],
-  ]) {
-    el(id).classList.toggle("active", active);
-    el(id).setAttribute("aria-pressed", String(active));
-  }
+  if (mode === "buy") tab("shop");
+  else tab("market");
 }
 function openSell(item) {
   tab("market");
-  marketTab("sell");
   el("sellitem").value = item;
   sellType();
 }
@@ -181,26 +173,19 @@ function quote(item, n) {
 }
 function drawPool() {
   if (!state) return;
-  const items = chosenFilter === "all" ? ["eggs", "grain"] : [chosenFilter];
-  el("pool").innerHTML =
-    items
-      .map((item) => {
-        const rows = marketRows(item),
-          count = rows.reduce((a, x) => a + x.quantity, 0);
-        const prices = rows.map((x) => x.price),
-          min = prices.length ? Math.min(...prices) : item === "eggs" ? 5 : 2;
-        const priceText = prices.some((x) => x !== min) ? `от ${min}` : min;
-        return `<div class="product">${image(art[item], "product-image")}<div><h3>${item === "eggs" ? "Яйца" : "Зерно"}</h3><small>В пуле: ${number(count)} шт.</small><small>Цена: <b class="gold">${priceText}</b> ${image("redesign/coin")} / шт.</small></div>${count ? `<button class="btn small" onclick="selectBuy('${item}')">Купить</button>` : '<span class="empty-label">Нет в наличии</span>'}</div>`;
-      })
-      .join("") +
-    '<p class="muted">Твои объявления не включены в доступный для покупки пул.</p>';
+  const available = marketRows("eggs").reduce((total, row) => total + row.quantity, 0);
+  const label = el("eggs-available");
+  const buy = el("eggs-buy-button");
+  if (label) label.textContent = "Доступно для покупки: " + number(available) + " шт.";
+  if (buy) {
+    buy.disabled = available <= 0;
+    buy.textContent = available > 0 ? "Купить" : "Нет в наличии";
+  }
 }
 function selectBuy(item) {
-  tab("market");
-  marketTab("buy");
   const rows = marketRows(item);
   if (!rows.length) {
-    toast("Пока нет предложений фермеров");
+    toast("Сейчас нет яиц в продаже");
     return;
   }
   openPurchase({
@@ -260,11 +245,11 @@ function purchaseQuote() {
   let info = !valid
     ? "Введите целое количество от 1 до 10 000"
     : result.remaining > 0
-      ? "Недостаточно товара в доступном пуле"
+      ? "Доступного количества недостаточно"
       : result.cost > state.me.coins
         ? "Недостаточно монет на балансе"
         : market
-          ? "Выкуп делится между продавцами. Комиссия 0%."
+          ? "Покупка яиц у других игроков."
           : "Монеты поступят в игровую казну.";
   el("purchase-availability").textContent = info;
   el("purchase-confirm").disabled =
