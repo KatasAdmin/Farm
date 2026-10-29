@@ -1904,3 +1904,36 @@ h3,
 .ledger-row > span {
   font-family: system-ui, sans-serif;
 }
+/* Sapphire farm theme: deliberately scoped to this tab, including its navigation. */
+body[data-screen="farm"]{background:radial-gradient(ellipse at top,#1477c7,#062d65 55%,#031936)}
+body[data-screen="farm"] .shell{background:linear-gradient(#075299,#032552);padding-top:7px}
+body[data-screen="farm"] .head{background:linear-gradient(110deg,#064578e8,#087bced9);border:1px solid #42b8ef;border-radius:12px;height:55px;margin-bottom:5px}
+body[data-screen="farm"] .identity-line{display:none}
+body[data-screen="farm"] .farm-hero{margin-top:-67px;height:250px}
+body[data-screen="farm"] .farm-hero:after{background:linear-gradient(#064e99aa,transparent 35%,transparent 85%,#06376b)}
+body[data-screen="farm"] .farm-hero h1{top:77px}
+body[data-screen="farm"] .farm-hero h1 span{font-size:24px}
+body[data-screen="farm"] .quicknav{gap:5px}
+body[data-screen="farm"] .quick,body[data-screen="farm"] #farm .resource,body[data-screen="farm"] #farm .card,body[data-screen="farm"] #farm .text-button{background:linear-gradient(135deg,#0867b4,#073874 65%,#032956);border:1px solid #38b7f4;box-shadow:inset 0 1px 5px #69d8ff66,0 2px 4px #00173999}
+body[data-screen="farm"] .quick{min-height:59px;border-radius:10px}
+body[data-screen="farm"] #farm .resource{min-height:78px}
+body[data-screen="farm"] #farm .resource .icon{width:36px;height:36px}
+body[data-screen="farm"] #farm .section-title{font-size:20px;margin:8px 0 5px}
+body[data-screen="farm"] #farm .card{padding:8px 10px;margin-top:6px}
+body[data-screen="farm"] #farm .health-line h2{font-size:15px}
+body[data-screen="farm"] #farm .muted{color:#c0ddf7}
+body[data-screen="farm"] #farm .feed-reserve{margin-top:3px}
+body[data-screen="farm"] #farm .feed-reserve strong{font-size:12px}
+body[data-screen="farm"] #farm .flow{padding:0}
+body[data-screen="farm"] #farm .flow .icon{width:32px;height:32px}
+body[data-screen="farm"] #farm .cardtitle{font-size:16px;margin-bottom:3px}
+body[data-screen="farm"] #farm .cycle{font-size:10px;margin:2px}
+body[data-screen="farm"] #farm .statsrow{padding:3px 0;font-size:11px}
+body[data-screen="farm"] #farm .buttons{margin-top:5px;gap:6px}
+body[data-screen="farm"] #farm .btn{min-height:36px;padding:7px;font-size:15px}
+body[data-screen="farm"] #farm .btn.alt{background:linear-gradient(#fff797,#ffdc29 50%,#efa800);color:#392700;border-color:#ffed67;box-shadow:inset 0 2px #fff8,0 2px #9b6200}
+body[data-screen="farm"] .farm-footer-links{gap:6px;padding:6px 0}
+body[data-screen="farm"] #farm .text-button{flex:1;justify-content:center;min-height:34px;border-radius:9px;font-size:14px}
+body[data-screen="farm"] .bottom{background:linear-gradient(#075498f5,#032858);border:1px solid #3bcbff;box-shadow:0 -2px 12px #002258;padding-top:4px}
+body[data-screen="farm"] .nav-button.active{background:linear-gradient(#22d5ff,#008df0 55%,#0067b4);border-color:#91edff;box-shadow:inset 0 1px 5px #cffaff,0 0 9px #00baff}
+@media(max-width:360px){body[data-screen="farm"] .farm-hero{height:226px}body[data-screen="farm"] .quick{min-height:55px}}
