@@ -70,6 +70,7 @@ function busy(value) {
   document
     .querySelectorAll(".auto-toggle")
     .forEach((x) => (x.disabled = value));
+  if (!value && state && token) render();
   if (!value && purchase && el("purchase-dialog").open) purchaseQuote();
 }
 async function perform(path, data) {
@@ -79,10 +80,11 @@ async function perform(path, data) {
     const result = await api(path, data);
     if (el("purchase-dialog").open) el("purchase-dialog").close();
     // The operation has committed; refresh failure must never encourage a repeated charge.
-    toast(
-      "Операция выполнена" +
-        (result.spent ? ` · ${number(result.spent)} монет` : ""),
-    );
+    const message = path === "/api/sell"
+      ? "Товар выставлен на продажу. Монеты поступят после покупки другим игроком."
+      : path.startsWith("/api/cancel/") ? `Возвращено на склад: ${number(result.returned)} шт.`
+      : "Операция выполнена" + (result.spent ? ` · ${number(result.spent)} монет` : "");
+    toast(message);
     await refresh();
     if (currentTab === "wallet") await loadHistory();
     return true;
@@ -97,7 +99,7 @@ async function perform(path, data) {
 async function claimDaily(key) {
   if (pending) return;
   const completed = await perform("/api/claim", {item:key});
-  if (completed) toast("🎁 Награда получена! Монеты начислены.");
+  if (completed) toast("Награда получена! Монеты начислены.");
 }
 async function upgradeBuilding(kind) {
   if (pending || !state || !["coop","storage"].includes(kind)) return;
@@ -299,7 +301,7 @@ function showShop(item) {
 }
 function showBundle() {
   if (!state?.promotion?.active) return toast("Акция завершена");
-  openPurchase({ kind: "bundle", item: "chickens", price: 300 });
+  openPurchase({ kind: "bundle", item: "chickens", price: state.promotion.price });
 }
 function openPurchase(data) {
   if (pending) return;
@@ -314,7 +316,7 @@ function openPurchase(data) {
     data.kind === "bundle" ? "10 куриц + 100 зерна" : itemNames[data.item];
   el("purchase-price").textContent =
     data.kind === "bundle"
-      ? "300 монет · обычная стоимость 500"
+      ? `${state.promotion.price} монет · обычная стоимость ${state.promotion.value}`
       : `Цена: ${data.price} монет / шт.`;
   const img = el("purchase-dialog").querySelector(".purchase-art");
   img.src =
@@ -333,14 +335,21 @@ function stepAmount(delta) {
 }
 function purchaseQuote() {
   if (!purchase || !state) return;
-  const n = Number(el("purchase-amount").value);
+  const n = purchase.kind === "bundle" ? 1 : Number(el("purchase-amount").value);
   const valid = Number.isSafeInteger(n) && n >= 1 && n <= 10000;
   const market = purchase.kind === "market";
   const result = market
     ? quote(purchase.item, n)
     : { cost: purchase.price * n, remaining: 0 };
   el("purchase-total").textContent = valid ? number(result.cost) : "—";
-  let info = !valid
+  const room = purchase.item === "chickens"
+    ? state.buildings.coop_capacity - state.me.chickens
+    : state.buildings.storage_capacity - state.buildings.storage_used;
+  const noRoom = purchase.kind !== "bundle" && n > room;
+  const expired = purchase.kind === "bundle" && !promotionActive();
+  let info = expired ? "Акция завершена"
+    : noRoom ? (purchase.item === "chickens" ? "В курятнике нет места. Улучши курятник." : "На складе нет места. Улучши склад.")
+    : !valid
     ? "Введите целое количество от 1 до 10 000"
     : result.remaining > 0
       ? "Доступного количества недостаточно"
@@ -351,7 +360,7 @@ function purchaseQuote() {
           : "Монеты поступят в игровую казну.";
   el("purchase-availability").textContent = info;
   el("purchase-confirm").disabled =
-    pending || !valid || result.remaining > 0 || result.cost > state.me.coins;
+    pending || !valid || expired || noRoom || result.remaining > 0 || result.cost > state.me.coins;
 }
 async function confirmPurchase() {
   if (!purchase || pending) return;
@@ -459,17 +468,25 @@ function render() {
   if (el("profile-level")) el("profile-level").textContent = "Уровень " + lvl + " · " + xp + " XP";
   for (const img of document.querySelectorAll(".identity .avatar, .profile-avatar")) img.src = avatarSource(p);
   const promo = state.promotion || {};
-  if (el("promo-status")) el("promo-status").textContent = promo.active ? "Осталось: "+Math.ceil(promo.seconds_left/3600)+" ч · покупок "+promo.used+" из 5" : "Акция завершена";
-  if (el("bundle-buy")) {el("bundle-buy").disabled = !promo.active || p.coins < 300;el("bundle-buy").title = promo.active ? "До 5 покупок" : "Акция завершена";}
+  document.querySelectorAll("[data-promo-value]").forEach(x => x.textContent = number(promo.value));
+  document.querySelectorAll("[data-promo-price]").forEach(x => x.textContent = number(promo.price));
   const inc = state.incubator || {};
+  document.querySelectorAll("[data-incubator-capacity]").forEach(x => x.textContent = number(inc.capacity));
+  document.querySelectorAll("[data-incubator-price]").forEach(x => x.textContent = number(inc.incubator_price));
+  document.querySelectorAll("[data-incubate-duration]").forEach(x => x.textContent = formatDuration(inc.incubate_seconds));
+  document.querySelectorAll("[data-grow-duration]").forEach(x => x.textContent = formatDuration(inc.grow_seconds));
   const button = el("incubator-action");
-  const info = el("incubation-status");
-  if (button && info) {
-    if (!inc.owned) {info.textContent = "Стоимость 120 монет · покупается один раз";button.textContent = "Купить · 120 монет";button.disabled = p.coins < 120;}
-    else if (inc.incubation_started != null) {info.textContent = "🥚 Яйцо в инкубаторе";button.textContent = "Идёт инкубация";button.disabled = true;}
-    else if (inc.chick_ready_at != null) {info.textContent = "🐣 Цыплёнок растёт; нужна свободная вместимость курятника";button.textContent = "Цыплёнок растёт";button.disabled = true;}
-    else {info.textContent = "Инкубатор готов. Потрать 1 яйцо, чтобы вывести курицу";button.textContent = "Заложить 1 яйцо";button.disabled = p.eggs < 1 || p.chickens >= (state.buildings?.coop_capacity || 10);}
+  if (button) {
+    const occupied = inc.incubation_started != null || inc.chick_ready_at != null;
+    button.textContent = !inc.owned ? `Купить · ${number(inc.incubator_price)} монет`
+      : occupied ? "Инкубатор занят" : "Заложить 1 яйцо";
+    button.disabled = pending || (!inc.owned ? p.coins < inc.incubator_price
+      : occupied || p.eggs < 1 || p.chickens >= state.buildings.coop_capacity);
   }
+  const history = el("production-history");
+  if (history) history.innerHTML = state.production_history?.length
+    ? state.production_history.map(event => `<div class="ledger-row income">${image("redesign/egg")}<div><strong>+${number(event.amount)} яиц</strong><small>${new Date(event.created * 1000).toLocaleString("ru-RU")}</small></div></div>`).join("")
+    : '<p class="empty">Сборов пока не было. Здесь появятся яйца, произведённые твоими курами.</p>';
   const buildings = state.buildings || {};
   document.querySelectorAll("[data-building]").forEach((node) => {
     const value = buildings[node.dataset.building];
@@ -484,22 +501,22 @@ function render() {
   }
   const shopIncubator = el("incubator-shop-button");
   if (shopIncubator) {
-    shopIncubator.textContent = inc.owned ? "Открыть инкубатор" : "Купить · 120";
-    shopIncubator.disabled = !inc.owned && p.coins < 120;
+    shopIncubator.textContent = inc.owned ? "Открыть инкубатор" : "Купить · " + number(inc.incubator_price);
+    shopIncubator.disabled = pending || (!inc.owned && p.coins < inc.incubator_price);
   }
   const last = state.last_farm_event;
   if (last && (last.kind === "eggs_produced" || last.kind === "chick_matured")) {
     const seenKey = "farm_seen_event_" + p.id;
     if (localStorage.getItem(seenKey) !== last.id) {
       localStorage.setItem(seenKey, last.id);
-      toast(last.kind === "chick_matured" ? "🐣 Цыплёнок вырос! +1 курица." : "🥚 Куры снесли " + number(last.amount) + " яиц! Они уже на складе.");
+      toast(last.kind === "chick_matured" ? "Цыплёнок вырос! +1 курица." : "Куры снесли " + number(last.amount) + " яиц! Они уже на складе.");
     }
   }
   const progression = state.progression || {};
   const farmerLevel = el("farmer-level");
   const farmerXp = el("farmer-xp-caption");
   const xpBar = el("farmer-xp-bar");
-  if (farmerLevel) farmerLevel.textContent = "⭐ Уровень " + number(progression.level || 1) + " · " + number(progression.xp || 0) + " XP";
+  if (farmerLevel) farmerLevel.textContent = "Уровень " + number(progression.level || 1) + " · " + number(progression.xp || 0) + " XP";
   const totalXp = progression.xp || 0;
   const level = progression.level || 1;
   const baseXp = 25 * (level-1) * (level-1);
@@ -509,44 +526,48 @@ function render() {
   const earned = new Set(progression.achievements || []);
   const total = progression.totals || {};
   const achievements = [
-    ["first_egg","🥚","Первое яйцо",total.eggs_produced || 0,1],
-    ["ten_eggs","🐣","10 произведённых яиц",total.eggs_produced || 0,10],
-    ["three_hens","🐔","Три несушки",p.chickens || 0,3],
-    ["first_sale","🛍️","Первая продажа яйца",total.eggs_sold || 0,1],
-    ["hundred_sales","🏅","100 проданных яиц",total.eggs_sold || 0,100]
+    ["first_egg","redesign/egg","Первое яйцо",total.eggs_produced || 0,1],
+    ["ten_eggs","redesign/egg","10 произведённых яиц",total.eggs_produced || 0,10],
+    ["three_hens","redesign/hen","Три несушки",p.chickens || 0,3],
+    ["first_sale","redesign/shop-icon","Первая продажа яйца",total.eggs_sold || 0,1],
+    ["hundred_sales","redesign/achievement","100 проданных яиц",total.eggs_sold || 0,100]
   ];
   const achievementList = el("achievements-list");
   if (achievementList) achievementList.innerHTML = achievements.map(([key,icon,title,current,target]) => {
     const done = earned.has(key);
-    return '<div class="achievement-row' + (done?' achievement-done':'') + '"><span class="achievement-emoji">'+icon+'</span><div><strong>'+title+'</strong><small>'+(done?'Получено ✓':number(Math.min(current,target))+' / '+target)+'</small></div><span class="achievement-status">'+(done?'★':'🔒')+'</span></div>';
+    return '<div class="achievement-row' + (done?' achievement-done':'') + '"><span class="achievement-emoji">'+image(icon)+'</span><div><strong>'+title+'</strong><small>'+(done?'Получено ✓':number(Math.min(current,target))+' / '+target)+'</small></div><span class="achievement-status">'+(done?'★':'—')+'</span></div>';
   }).join("");
   const daily = state.daily || {};
   const claimed = new Set(state.claimed_rewards || []);
   const dailyMissions = [
-    ["grain", "🌾 Купить 5 зерна", daily.grain_bought || 0, 5],
-    ["eggs", "🥚 Получить яйцо от кур", daily.eggs_produced || 0, 1],
-    ["listing", "📦 Выставить яйцо на продажу", daily.eggs_listed || 0, 1]
+    ["grain", "Купить 5 зерна", daily.grain_bought || 0, 5],
+    ["eggs", "Получить яйцо от кур", daily.eggs_produced || 0, 1],
+    ["listing", "Выставить яйцо на продажу", daily.eggs_listed || 0, 1]
   ];
   const dailyBox = el("daily-tasks");
   if (dailyBox) {
     const bonusDone = claimed.has("bonus");
-    dailyBox.innerHTML = '<div class="daily-task"><div><strong>🎁 Бонус за вход</strong><small>+2 монеты · раз в сутки</small></div><button class="btn small" ' + (bonusDone ? 'disabled' : '') + ' onclick="claimDaily(\'bonus\')">' + (bonusDone ? 'Получено ✓' : 'Получить +2') + '</button></div>' +
+    const rewards = state.reward_values;
+    dailyBox.innerHTML = '<div class="daily-task"><div><strong>Бонус за вход</strong><small>+' + number(rewards.bonus) + ' монет · раз в сутки</small></div><button class="btn small" ' + (bonusDone ? 'disabled' : '') + ' onclick="claimDaily(\'bonus\')">' + (bonusDone ? 'Получено ✓' : 'Получить +' + number(rewards.bonus)) + '</button></div>' +
       dailyMissions.map(([key,name,value,target]) => {
         const n = Math.min(value,target);
         const done = n >= target;
         const isClaimed = claimed.has(key);
-        return '<div class="daily-task"><div><strong>' + name + '</strong><small>' + number(n) + ' / ' + target + ' · +1 монета</small></div><div class="progress"><span style="width:' + (100*n/target) + '%"></span></div><button class="btn small" ' + (!done || isClaimed ? 'disabled' : '') + ' onclick="claimDaily(\'' + key + '\')">' + (isClaimed ? 'Получено ✓' : done ? 'Забрать +1' : 'Выполни задание') + '</button></div>';
+        return '<div class="daily-task"><div><strong>' + name + '</strong><small>' + number(n) + ' / ' + target + ' · +' + number(rewards[key]) + ' монет</small></div><div class="progress"><span style="width:' + (100*n/target) + '%"></span></div><button class="btn small" ' + (!done || isClaimed ? 'disabled' : '') + ' onclick="claimDaily(\'' + key + '\')">' + (isClaimed ? 'Получено ✓' : done ? 'Забрать +' + number(rewards[key]) : 'Выполни задание') + '</button></div>';
       }).join("");
   }
   const listed = {grain:0,eggs:0};
   for (const item of state.my_listings || []) if (item.item in listed) listed[item.item] += item.quantity;
   const summary = el("storage-summary");
   if (summary) summary.textContent = "Свободно: " + p.eggs + " яиц, " + p.grain + " зерна. На продаже: " + listed.eggs + " яиц, " + listed.grain + " зерна. Выставленный товар хранится отдельно, пока его не купят или ты не снимешь объявление.";
-  const nextEggs = Math.min(p.grain,p.chickens);
-  const harvestText = p.chickens <= 0 ? "Нет кур — купи несушку в магазине." : (nextEggs ? "Следующий сбор: +" + number(nextEggs) + " яиц · −" + number(nextEggs) + " зерна." : "Зерна не хватает: без корма новые яйца не появятся.");
-  const farmHarvest = el("next-harvest"), coopHarvest = el("coop-harvest");
-  if (farmHarvest) farmHarvest.textContent = harvestText;
-  if (coopHarvest) coopHarvest.textContent = harvestText;
+  const nextEggs = state.farm.expected_eggs;
+  const harvestText = p.chickens <= 0 ? "Пока нет кур — купи несушку в Торговле."
+    : `Ожидается +${number(nextEggs)} яиц · −${number(nextEggs)} зерна` + (state.farm.autobuy_expected ? " · с автозакупкой" : "");
+  for (const id of ["next-harvest", "coop-harvest"]) el(id).textContent = harvestText;
+  const storageWarning = el("storage-warning");
+  const free = buildings.storage_capacity - buildings.storage_used;
+  storageWarning.hidden = free > 0;
+  storageWarning.textContent = `Склад заполнен: ${number(buildings.storage_used)} / ${number(buildings.storage_capacity)}. Для покупок расширь склад или продай товары. При кормлении зерно заменяется яйцами — сбор не пропадёт.`;
   el("login").hidden = true;
   el("app").hidden = false;
   el("nav").hidden = false;
@@ -569,9 +590,10 @@ function render() {
     : "Пока нет куриц";
   el("warning").textContent = !p.chickens
     ? "Купи несушку в магазине."
-    : p.grain < p.chickens
-      ? "Корма на следующий день не хватит. Докупи зерно."
+    : state.farm.expected_eggs < p.chickens
+      ? "Корма на следующий сбор не хватит. Докупи зерно или проверь автозакупку."
       : "Кормление и производство — автоматически, раз в сутки.";
+  el("warning").dataset.alert = String(p.chickens > 0 && state.farm.expected_eggs < p.chickens);
   el("treasury").textContent = number(state.economy.treasury) + " монет";
   document.querySelectorAll(".auto-card").forEach((card) => {
     const input = card.querySelector("input");
@@ -617,29 +639,44 @@ function render() {
   countdown();
   if (el("purchase-dialog").open) purchaseQuote();
 }
+function formatDuration(seconds) {
+  const n = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(n / 3600)} ч ${String(Math.floor((n % 3600) / 60)).padStart(2,"0")} мин ${String(n % 60).padStart(2,"0")} с`;
+}
+function elapsedSeconds() { return Math.max(0, (Date.now() - refreshedAt) / 1000); }
+function promotionActive() {
+  return !!state?.promotion?.active && state.promotion.seconds_left > elapsedSeconds();
+}
 function countdown() {
   if (!state) return;
-  const inc = state.incubator || {};
-  const now = Number(state.now || Date.now()/1000) + (Date.now()-refreshedAt)/1000;
-  const remaining = inc.incubation_started != null ? inc.incubation_started + 43200-now : inc.chick_ready_at != null ? inc.chick_ready_at - now : null;
-  const label = el("incubation-status");
-  if (label && remaining != null) {
-    const hours = Math.floor(Math.max(0,remaining)/3600);
-    const mins = Math.floor((Math.max(0,remaining)%3600)/60);
-    label.textContent = inc.chick_ready_at != null && remaining <= 0
-      ? "🐣 Цыплёнок готов. Освободи место в курятнике для взросления."
-      : (inc.incubation_started != null ? "🥚 До цыплёнка: " : "🐣 До взрослой курицы: ") + hours + " ч " + mins + " мин";
-  }
-  const seconds = Math.max(
-    0,
-    state.farm.seconds_to_next - Math.floor((Date.now() - refreshedAt) / 1000),
-  );
-  document
-    .querySelectorAll("[data-next-tick]")
-    .forEach(
-      (x) =>
-        (x.textContent = `${Math.floor(seconds / 3600)} ч ${Math.floor((seconds % 3600) / 60)} мин`),
-    );
+  const elapsed = elapsedSeconds();
+  const promo = state.promotion;
+  const promoActive = promotionActive();
+  el("promo-status").textContent = promoActive
+    ? `До конца: ${formatDuration(promo.seconds_left - elapsed)} · осталось покупок: ${Math.max(0,promo.limit-promo.used)} / ${promo.limit}`
+    : "Акция завершена";
+  el("bundle-buy").disabled = pending || !promoActive || state.me.coins < promo.price;
+  const inc = state.incubator;
+  const now = state.now + elapsed;
+  const remaining = inc.incubation_started != null
+    ? inc.incubation_started + inc.incubate_seconds - now
+    : inc.chick_ready_at != null ? inc.chick_ready_at - now : null;
+  const full = state.me.chickens >= state.buildings.coop_capacity;
+  let status = !inc.owned ? "Можно купить один раз"
+    : remaining == null ? "Готов к работе · нужно 1 яйцо"
+    : inc.chick_ready_at != null && remaining <= 0 && full
+      ? "Цыплёнок вырос. Расширь курятник — он ждёт свободное место."
+      : remaining <= 0 ? "Проверяем завершение на сервере…"
+      : (inc.incubation_started != null ? "До цыплёнка: " : "До взрослой курицы: ") + formatDuration(remaining);
+  el("incubation-status").textContent = status;
+  document.querySelectorAll("[data-incubator-summary]").forEach(x => x.textContent = status);
+  document.querySelectorAll("[data-stage]").forEach(x => x.classList.toggle("active", inc.owned && x.dataset.stage === (inc.chick_ready_at != null ? "chick" : "egg")));
+  const seconds = Math.max(0,state.farm.seconds_to_next - elapsed);
+  document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = formatDuration(seconds));
+  // Reconcile completed timers with the server; the browser never grants resources.
+  const expired = seconds <= 0 || (remaining != null && remaining <= 0 && !(inc.chick_ready_at != null && full));
+  if (expired && !pending && !refreshPromise && elapsed >= 2 && document.visibilityState === "visible") refresh();
+  if (el("purchase-dialog").open) purchaseQuote();
 }
 async function refresh() {
   if (refreshPromise) return refreshPromise;

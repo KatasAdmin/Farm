@@ -1,0 +1,203 @@
+{
+  "result": "PASS",
+  "browser": "Chromium mobile/touch",
+  "layout_checks": [
+    {
+      "width": 320,
+      "screen": "farm",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "coop",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "shop",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "market",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "tasks",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "upgrades",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "profile",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "storage",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "wallet",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "farm",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "coop",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "shop",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "market",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "tasks",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "upgrades",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "profile",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "storage",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "wallet",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "farm",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "coop",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "shop",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "market",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "tasks",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "upgrades",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "profile",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "storage",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "wallet",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "farm",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "coop",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "shop",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "market",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "tasks",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "upgrades",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "profile",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "storage",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "wallet",
+      "result": "PASS"
+    }
+  ],
+  "javascript_errors": [],
+  "image_errors": [],
+  "checks": [
+    "health",
+    "registration/reload",
+    "live purchase quote",
+    "grain purchase",
+    "daily reward",
+    "achievements tab",
+    "production history",
+    "sell notification",
+    "cancel restores egg",
+    "incubator purchase",
+    "egg/chick/hen timing",
+    "promotion remaining count",
+    "bottom navigation clearance"
+  ]
+}
