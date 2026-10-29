@@ -303,7 +303,7 @@ function tab(id) {
     else x.removeAttribute("aria-current");
   });
   window.scrollTo({ top: 0, behavior: "instant" });
-  if (id === "wallet") loadHistory();
+  if (id === "wallet") { loadHistory(); loadWithdrawalStatus(); }
 }
 function taskSection(which) {
   const achievements = which === "achievements";
@@ -552,6 +552,42 @@ async function loadHistory() {
     el("history").textContent = error.message;
   }
 }
+async function loadWithdrawalStatus() {
+  const note=el("withdrawal-status");
+  if(!note||!token)return;
+  try{
+    const value=await api("/api/withdraw/status");
+    const request=value.request;
+    note.textContent=request
+      ? "Последняя заявка: "+number(request.amount)+" монет · "+
+        (request.status==="pending"?"ожидает ручной проверки":request.status==="rejected"?"отклонена":"статус: "+request.status)
+      : "Заявок на вывод пока нет.";
+  }catch(error){note.textContent="Не удалось проверить заявки: "+error.message;}
+}
+function openWithdrawalRequest() {
+  if(!state)return toast("Сначала войдите в игру");
+  if(!state.me.telegram_id){
+    toast("Для заявки на вывод привяжите Telegram в настройках профиля");
+    return tab("profile");
+  }
+  if(state.me.coins<100)return toast("Для заявки нужно минимум 100 монет");
+  el("withdrawal-amount").value=100;
+  el("withdrawal-dialog").showModal();
+}
+async function submitWithdrawalRequest() {
+  if(pending)return;
+  try{
+    const n=amount("withdrawal-amount",1000000);
+    if(n<100)throw Error("Минимальная заявка — 100 монет");
+    if(!confirm("Отправить заявку на "+number(n)+" монет? Это не автоматическая выплата: сначала потребуется проверка."))return;
+    busy(true);
+    await api("/api/withdraw/request",{amount:n});
+    el("withdrawal-dialog").close();
+    toast("Заявка получена и ожидает ручной проверки. Деньги не перечислены.");
+    await loadWithdrawalStatus();
+  }catch(error){toast(error.message);}
+  finally{busy(false);}
+}
 function render() {
   const p = state.me;
   if(el("telegram-link-status"))el("telegram-link-status").textContent=p.telegram_id?"Telegram привязан ✓":"Telegram пока не привязан";
@@ -583,7 +619,7 @@ function render() {
     button.disabled=pending||(!inc.owned?p.coins<inc.incubator_price:full||p.eggs<12||p.coins<15||p.chickens+jobs.length>=state.buildings.coop_capacity);}
   const tutorial=state.tutorial||{};
   const step=Math.min(3,tutorial.step||0), card=el("tutorial-card");
-  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить в Торговле. Куры едят автоматически раз в 6 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
+  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить в Торговле. Куры едят автоматически раз в 18 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
   const history = el("production-history");
   if (history) history.innerHTML = state.production_history?.length
     ? state.production_history.map(event => `<div class="ledger-row income">${image("redesign/egg")}<div><strong>+${number(event.amount)} яиц</strong><small>${new Date(event.created * 1000).toLocaleString("ru-RU")}</small></div></div>`).join("")
@@ -693,7 +729,7 @@ function render() {
     ? "Купи несушку в магазине."
     : state.farm.expected_eggs < p.chickens
       ? "Корма на следующий сбор не хватит. Докупи зерно или проверь автозакупку."
-      : "Производство каждые 2 часа, кормление каждые 6 часов.";
+      : "Производство каждые 6 часов, кормление каждые 18 часов.";
   el("warning").dataset.alert = String(p.chickens > 0 && state.farm.expected_eggs < p.chickens);
   el("treasury").textContent = number(state.economy.treasury) + " монет";
   document.querySelectorAll(".auto-card").forEach((card) => {
