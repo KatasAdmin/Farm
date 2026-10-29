@@ -591,11 +591,25 @@ async function loadWithdrawalStatus() {
   try{
     const value=await api("/api/withdraw/status");
     const request=value.request;
+    const cancelButton=el("withdrawal-cancel");
+    if(cancelButton)cancelButton.hidden=!request||request.status!=="pending";
     note.textContent=request
       ? "Последняя заявка: "+number(request.amount)+" монет · "+
         (request.status==="pending"?"ожидает ручной проверки":request.status==="rejected"?"отклонена":"статус: "+request.status)
       : "Заявок на вывод пока нет.";
   }catch(error){note.textContent="Не удалось проверить заявки: "+error.message;}
+}
+async function cancelWithdrawalRequest(){
+  if(!token||pending)return;
+  if(!confirm("Отменить текущую заявку на вывод? Зарезервированные монеты вернутся в кошелёк."))return;
+  try{
+    busy(true);
+    const result=await api("/api/withdraw/cancel",{});
+    toast(result.returned>0?"Заявка отменена: +"+number(result.returned)+" монет":"Заявка отменена");
+    await refresh();
+    await loadWithdrawalStatus();
+    await loadHistory();
+  }catch(error){toast(error.message);}finally{busy(false);}
 }
 function openWithdrawalRequest() {
   if(!state)return toast("Сначала войдите в игру");
@@ -633,6 +647,12 @@ function render() {
   if(el("telegram-link-help"))el("telegram-link-help").hidden=isLinked;
   if(el("nickname-settings"))el("nickname-settings").hidden=!p.name.startsWith("tg_");
 
+  const daily=state.day_stats||{};
+  const assignStat=(id,value)=>{const node=el(id);if(node)node.textContent=number(value||0);};
+  assignStat("stat-produced",daily.eggs);
+  assignStat("stat-sales",daily.sales_coins);
+  assignStat("stat-feed",daily.feed_spent_coins);
+  assignStat("stat-margin",daily.feed_margin_coins);
   const pr = state.progression || {};
   const xp = Number(pr.xp || 0), lvl = Number(pr.level || 1);
   const prev = 25*(lvl-1)*(lvl-1), next = Number(pr.next_level_xp || 25);

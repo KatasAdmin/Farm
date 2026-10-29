@@ -59,6 +59,13 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS money_log(id text primary key,player_id text,kind text,delta int,details text,created double precision)")
   c.execute("CREATE TABLE IF NOT EXISTS withdrawal_requests(id text PRIMARY KEY,player_id text NOT NULL,amount integer NOT NULL CHECK(amount>=100),status text NOT NULL DEFAULT 'pending',created double precision NOT NULL)")
   c.execute("CREATE UNIQUE INDEX IF NOT EXISTS one_pending_withdrawal_per_player ON withdrawal_requests(player_id) WHERE status='pending'")
+  c.execute("ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS reserved boolean NOT NULL DEFAULT false")
+  c.execute("CREATE TABLE IF NOT EXISTS trade_risk_events(id text PRIMARY KEY,buyer_id text NOT NULL,seller_id text NOT NULL,item text NOT NULL,quantity integer NOT NULL,coins integer NOT NULL,reason text NOT NULL,created double precision NOT NULL)")
+  c.execute("CREATE INDEX IF NOT EXISTS trade_risk_seller_time ON trade_risk_events(seller_id,created)")
+  c.execute("CREATE TABLE IF NOT EXISTS market_trade_audit(id text PRIMARY KEY,buyer_id text NOT NULL,seller_id text NOT NULL,item text NOT NULL,quantity integer NOT NULL,coins integer NOT NULL,created double precision NOT NULL)")
+  c.execute("CREATE INDEX IF NOT EXISTS trade_audit_pair_recent ON market_trade_audit(buyer_id,seller_id,created)")
+
+
   c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
   c.execute("""UPDATE players p SET
     xp_legacy_eggs=COALESCE((SELECT SUM(eggs_produced)::int FROM daily_activity d WHERE d.player_id=p.id),0),
@@ -322,6 +329,13 @@ def state(authorization:str=Header(default="")):
   day=time.strftime("%Y-%m-%d",time.gmtime())
   activity=c.execute("SELECT grain_bought,eggs_listed,eggs_produced FROM daily_activity WHERE player_id=%s AND day=%s",(p["id"],day)).fetchone() or {"grain_bought":0,"eggs_listed":0,"eggs_produced":0}
   event=c.execute("SELECT id,kind,amount FROM farm_events WHERE player_id=%s ORDER BY created DESC,id DESC LIMIT 1",(p["id"],)).fetchone()
+  day_start=time.time()-(time.time()%86400)
+  cash=c.execute("""SELECT
+   COALESCE(SUM(CASE WHEN kind='market_sale' THEN delta ELSE 0 END),0)::int AS sales,
+   COALESCE(SUM(CASE WHEN (kind='shop' AND details LIKE 'grain x%') OR kind='auto_grain' OR (kind='market_buy' AND details LIKE 'grain x%') THEN -delta ELSE 0 END),0)::int AS feed_spent
+   FROM money_log WHERE player_id=%s AND created>=%s""",(p["id"],day_start)).fetchone()
+  day_stats={"eggs":activity["eggs_produced"],"grain_bought":activity["grain_bought"],"eggs_listed":activity["eggs_listed"],"sales_coins":cash["sales"],"feed_spent_coins":cash["feed_spent"],"feed_margin_coins":cash["sales"]-cash["feed_spent"]}
+
   claims=[x["claim"] for x in c.execute("SELECT claim FROM daily_claims WHERE player_id=%s AND day=%s",(p["id"],day)).fetchall()]
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
   totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
@@ -361,7 +375,7 @@ def state(authorization:str=Header(default="")):
   prediction=forecast_v4(p,observed_at,jobs) if p.get('production_model',3)>=4 else forecast(p,observed_at,jobs)
   expected_eggs=min(p["fed_hens"],max(0,storage_limit(p)-p["grain"]-p["eggs"]))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
+  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -448,6 +462,13 @@ def buy(q:Request,authorization:str=Header(default="")):
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,x["seller"],"market_sale",x["price"]*n,q.item+" x"+str(n),time.time()))
+   trade_at=time.time()
+   count=c.execute("SELECT COUNT(*)::int AS n FROM market_trade_audit WHERE buyer_id=%s AND seller_id=%s AND created>%s",(p["id"],x["seller"],trade_at-86400)).fetchone()["n"]
+   c.execute("INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,trade_at))
+   if count>=9 or x["price"]*n>=500:
+    reason="frequent_pair" if count>=9 else "large_trade"
+    c.execute("INSERT INTO trade_risk_events(id,buyer_id,seller_id,item,quantity,coins,reason,created) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,reason,trade_at))
+    logger.warning("trade_flagged reason=%s buyer=%s seller=%s",reason,p["id"],x["seller"])
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"market_buy",-cost,q.item+" x"+str(q.amount),time.time()))
  return {"ok":True,"spent":cost}
 
@@ -475,14 +496,27 @@ def request_withdrawal(q:Request,authorization:str=Header(default="")):
   if c.execute("SELECT 1 FROM withdrawal_requests WHERE player_id=%s AND status='pending'",(p["id"],)).fetchone():
    raise HTTPException(409,"Предыдущая заявка ещё ожидает проверки")
   request_id=uuid.uuid4().hex
-  c.execute("INSERT INTO withdrawal_requests(id,player_id,amount,status,created) VALUES(%s,%s,%s,'pending',%s)",(request_id,p["id"],q.amount,time.time()))
+  c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(q.amount,p["id"]))
+  c.execute("INSERT INTO withdrawal_requests(id,player_id,amount,status,created,reserved) VALUES(%s,%s,%s,'pending',%s,true)",(request_id,p["id"],q.amount,time.time()))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"withdraw_reserve",-q.amount,"Резерв заявки на вывод",time.time()))
  return {"ok":True,"id":request_id,"status":"pending"}
+
+@app.post("/api/withdraw/cancel")
+def cancel_withdrawal(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization,True)
+  request=c.execute("UPDATE withdrawal_requests SET status='cancelled' WHERE player_id=%s AND status='pending' RETURNING amount,reserved",(p["id"],)).fetchone()
+  if not request:raise HTTPException(404,"Нет активной заявки")
+  if request["reserved"]:
+   c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(request["amount"],p["id"]))
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"withdraw_release",request["amount"],"Возврат резерва по отменённой заявке",time.time()))
+ return {"ok":True,"returned":request["amount"] if request["reserved"] else 0}
 
 @app.get("/api/withdraw/status")
 def withdrawal_status(authorization:str=Header(default="")):
  with db() as c:
   p=person(c,authorization)
-  last=c.execute("SELECT id,amount,status,created FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
+  last=c.execute("SELECT id,amount,status,created,reserved FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
  return {"minimum":100,"request":last,"payouts_enabled":False}
 
 @app.post("/api/promo/redeem")

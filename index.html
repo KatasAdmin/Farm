@@ -12,9 +12,9 @@
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
-    <link rel="stylesheet" href="/assets/update29.css?v=30" />
+    <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=30" defer></script>
+    <script src="/assets/game.js?v=33" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -198,6 +198,16 @@
           <div class="buttons"><button class="btn" data-buy-feed onclick="tab('shop');showShop('grain')">Купить корм</button><button class="btn alt" onclick="openSell('eggs')">Продать яйца</button></div>
           <details class="farm-explainer"><summary>От чего зависит прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Каждая сытая курица несёт яйцо каждые 6 часов. Одно зерно на курицу расходуется каждые 18 часов. Яйца можно продать игрокам или использовать в инкубаторе.</p></details>
         </div>
+        <details class="card farm-day-statistics">
+          <summary>📊 Статистика хозяйства за сегодня</summary>
+          <div class="farm-stats-grid">
+            <div><span>Произведено яиц</span><strong id="stat-produced">—</strong></div>
+            <div><span>Выручка от продаж</span><strong id="stat-sales">—</strong></div>
+            <div><span>Расходы на зерно</span><strong id="stat-feed">—</strong></div>
+            <div><span>Разница</span><strong id="stat-margin">—</strong></div>
+          </div>
+          <p class="muted">За текущие сутки по UTC. Разница учитывает только продажи и покупку зерна, без кур, построек и инкубатора. Выставленные яйца ещё не считаются проданными.</p>
+        </details>
         <div class="farm-footer-links">
           <button class="text-button" onclick="tab('upgrades')">
             <span class="nav-art" aria-hidden="true"
@@ -594,7 +604,7 @@
               + Пополнить</button
             ><button class="btn blue" onclick="openWithdrawalRequest()">→ Заявка на вывод</button>
           </div>
-          <p class="muted">1 монета = 1 грн. Пополнение пока не подключено. Заявки на вывод от 100 монет принимаются только на ручную проверку; реальные выплаты пока отключены.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p>
+          <p class="muted">Игровой ориентир: 1 монета = 1 грн. Реальные пополнения и выплаты отключены. Для новых заявок от 100 монет сумма резервируется до отмены или ручного решения. Это не обещание денежной выплаты.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
         </div>
         <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
           <h2 class="cardtitle">🎁 Бонусный код</h2>

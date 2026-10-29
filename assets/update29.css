@@ -59,3 +59,14 @@ input{scroll-margin-block:80px}
 #wallet .promo-wallet-controls button{min-width:105px;min-height:44px;padding:10px}
 #wallet #promo-code-status:not(:empty){margin:9px 0 0;font-weight:700}
 @media(max-width:380px){#wallet .promo-wallet-controls{grid-template-columns:1fr}#wallet .promo-wallet-controls button{width:100%}}
+
+/* v33 — read-only daily farm summary */
+#farm .farm-day-statistics{margin:11px 9px;padding:12px 14px}
+#farm .farm-day-statistics summary{cursor:pointer;font-weight:750;color:#eaf7ff;font-size:15px}
+#farm .farm-stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:13px 0 8px}
+#farm .farm-stats-grid>div{display:flex;flex-direction:column;gap:4px;padding:11px;border:1px solid rgba(129,208,255,.37);border-radius:12px;background:rgba(2,27,72,.38);min-width:0}
+#farm .farm-stats-grid span{font-size:12px;line-height:1.3;color:#cce9ff}
+#farm .farm-stats-grid strong{font-size:20px;overflow-wrap:anywhere}
+#farm .farm-day-statistics .muted{font-size:11px;line-height:1.5;margin-top:10px}
+#wallet #withdrawal-cancel{margin:4px 0 11px}
+@media(max-width:360px){#farm .farm-day-statistics{margin-inline:5px}#farm .farm-stats-grid{gap:5px}#farm .farm-stats-grid>div{padding:8px}}
