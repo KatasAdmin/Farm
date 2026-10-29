@@ -464,7 +464,7 @@ def withdrawal_status(authorization:str=Header(default="")):
 def redeem_promo(q:Request,authorization:str=Header(default="")):
  # Code is never stored as plaintext. The initial code has 20 random characters.
  code=q.code.strip().upper()
- if len(code)>64 or not code.startswith("FARM-") or len(code)!=29:
+ if len(code)>64 or not code.startswith("FARM-") or len(code)!=28:
   raise HTTPException(400,"Неверный формат бонусного кода")
  digest=hashlib.sha256(code.encode("utf-8")).hexdigest()
  with db() as c:
