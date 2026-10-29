@@ -332,7 +332,7 @@ def state(authorization:str=Header(default="")):
   day_start=time.time()-(time.time()%86400)
   cash=c.execute("""SELECT
    COALESCE(SUM(CASE WHEN kind='market_sale' THEN delta ELSE 0 END),0)::int AS sales,
-   COALESCE(SUM(CASE WHEN (kind='shop' AND details LIKE 'grain x%') OR kind='auto_grain' OR (kind='market_buy' AND details LIKE 'grain x%') THEN -delta ELSE 0 END),0)::int AS feed_spent
+   COALESCE(SUM(CASE WHEN (kind='shop' AND details LIKE 'grain x%%') OR kind='auto_grain' OR (kind='market_buy' AND details LIKE 'grain x%%') THEN -delta ELSE 0 END),0)::int AS feed_spent
    FROM money_log WHERE player_id=%s AND created>=%s""",(p["id"],day_start)).fetchone()
   day_stats={"eggs":activity["eggs_produced"],"grain_bought":activity["grain_bought"],"eggs_listed":activity["eggs_listed"],"sales_coins":cash["sales"],"feed_spent_coins":cash["feed_spent"],"feed_margin_coins":cash["sales"]-cash["feed_spent"]}
 
