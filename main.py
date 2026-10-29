@@ -106,7 +106,7 @@ def telegram_identity(raw):
  try:issued=int(pairs.get("auth_date","0"))
  except ValueError:raise HTTPException(401,"Неверные данные Telegram")
  if issued>time.time()+60 or issued<time.time()-3600:raise HTTPException(401,"Откройте Telegram Mini App заново")
- check="\\n".join(k+"="+v for k,v in sorted(pairs.items()))
+ check="\n".join(k+"="+v for k,v in sorted(pairs.items()))
  secret=hmac.new(b"WebAppData",bot_token.encode(),hashlib.sha256).digest()
  calculated=hmac.new(secret,check.encode(),hashlib.sha256).hexdigest()
  if not hmac.compare_digest(calculated,supplied):raise HTTPException(401,"Не удалось проверить Telegram")
@@ -229,19 +229,26 @@ def password_login(q:Request):
  name=q.name.strip()
  if not name or not q.password:raise HTTPException(400,"Укажите ник и пароль")
  now=time.time()
+ failure=None
+ token=None
  with db() as c:
   c.execute("INSERT INTO login_failures(name,attempts,locked_until) VALUES(%s,0,0) ON CONFLICT DO NOTHING",(name.lower(),))
   fail=c.execute("SELECT * FROM login_failures WHERE name=%s FOR UPDATE",(name.lower(),)).fetchone()
-  if fail["locked_until"]>now:raise HTTPException(429,"Слишком много попыток. Попробуйте позже")
-  p=c.execute("SELECT id,password_hash FROM players WHERE lower(name)=lower(%s) FOR UPDATE",(name,)).fetchone()
-  if not p or not password_verify(q.password,p["password_hash"]):
-   attempts=fail["attempts"]+1
-   blocked=now+900 if attempts>=5 else 0
-   c.execute("UPDATE login_failures SET attempts=%s,locked_until=%s WHERE name=%s",(0 if blocked else attempts,blocked,name.lower()))
-   raise HTTPException(401,"Неверный ник или пароль")
-  c.execute("UPDATE login_failures SET attempts=0,locked_until=0 WHERE name=%s",(name.lower(),))
-  token=secrets.token_hex(24)
-  c.execute("UPDATE players SET token=%s WHERE id=%s",(token,p["id"]))
+  if fail["locked_until"]>now:
+   failure=429
+  else:
+   p=c.execute("SELECT id,password_hash FROM players WHERE lower(name)=lower(%s) FOR UPDATE",(name,)).fetchone()
+   if not p or not password_verify(q.password,p["password_hash"]):
+    attempts=fail["attempts"]+1
+    blocked=now+900 if attempts>=5 else 0
+    c.execute("UPDATE login_failures SET attempts=%s,locked_until=%s WHERE name=%s",(0 if blocked else attempts,blocked,name.lower()))
+    failure=401
+   else:
+    c.execute("UPDATE login_failures SET attempts=0,locked_until=0 WHERE name=%s",(name.lower(),))
+    token=secrets.token_hex(24)
+    c.execute("UPDATE players SET token=%s WHERE id=%s",(token,p["id"]))
+ if failure==429:raise HTTPException(429,"Слишком много попыток. Попробуйте через 15 минут")
+ if failure:raise HTTPException(401,"Неверный ник или пароль")
  return {"token":token}
 
 @app.post("/api/password/set")
