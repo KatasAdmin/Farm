@@ -1,0 +1,152 @@
+{
+  "source": "Original generated farming game illustrations; individual sprites extracted from a newly generated transparent sheet.",
+  "assets": [
+    {
+      "file": "achievement.webp",
+      "width": 325,
+      "height": 324,
+      "alpha": true,
+      "bytes": 36500
+    },
+    {
+      "file": "coin.webp",
+      "width": 304,
+      "height": 340,
+      "alpha": true,
+      "bytes": 25142
+    },
+    {
+      "file": "coop-icon.webp",
+      "width": 304,
+      "height": 303,
+      "alpha": true,
+      "bytes": 46388
+    },
+    {
+      "file": "coop.webp",
+      "width": 1536,
+      "height": 1024,
+      "alpha": false,
+      "bytes": 328200
+    },
+    {
+      "file": "crystal.webp",
+      "width": 325,
+      "height": 303,
+      "alpha": true,
+      "bytes": 34532
+    },
+    {
+      "file": "egg.webp",
+      "width": 305,
+      "height": 340,
+      "alpha": true,
+      "bytes": 17310
+    },
+    {
+      "file": "farmer.webp",
+      "width": 305,
+      "height": 303,
+      "alpha": true,
+      "bytes": 40654
+    },
+    {
+      "file": "gift.webp",
+      "width": 304,
+      "height": 324,
+      "alpha": true,
+      "bytes": 26376
+    },
+    {
+      "file": "grain.webp",
+      "width": 320,
+      "height": 340,
+      "alpha": true,
+      "bytes": 43374
+    },
+    {
+      "file": "hen.webp",
+      "width": 325,
+      "height": 340,
+      "alpha": true,
+      "bytes": 34164
+    },
+    {
+      "file": "incubator.webp",
+      "width": 320,
+      "height": 287,
+      "alpha": true,
+      "bytes": 33196
+    },
+    {
+      "file": "market.webp",
+      "width": 1536,
+      "height": 1024,
+      "alpha": false,
+      "bytes": 519318
+    },
+    {
+      "file": "profile.webp",
+      "width": 1536,
+      "height": 1024,
+      "alpha": false,
+      "bytes": 605888
+    },
+    {
+      "file": "settings.webp",
+      "width": 305,
+      "height": 324,
+      "alpha": true,
+      "bytes": 28838
+    },
+    {
+      "file": "shop-icon.webp",
+      "width": 320,
+      "height": 303,
+      "alpha": true,
+      "bytes": 45484
+    },
+    {
+      "file": "shop.webp",
+      "width": 1536,
+      "height": 1024,
+      "alpha": false,
+      "bytes": 533264
+    },
+    {
+      "file": "statistics.webp",
+      "width": 304,
+      "height": 287,
+      "alpha": true,
+      "bytes": 20222
+    },
+    {
+      "file": "storage.webp",
+      "width": 325,
+      "height": 287,
+      "alpha": true,
+      "bytes": 40774
+    },
+    {
+      "file": "upgrade.webp",
+      "width": 320,
+      "height": 324,
+      "alpha": true,
+      "bytes": 18182
+    },
+    {
+      "file": "wallet-icon.webp",
+      "width": 305,
+      "height": 287,
+      "alpha": true,
+      "bytes": 35418
+    },
+    {
+      "file": "wallet.webp",
+      "width": 1536,
+      "height": 1024,
+      "alpha": false,
+      "bytes": 405514
+    }
+  ]
+}
