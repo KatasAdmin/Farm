@@ -63,14 +63,14 @@ class LaunchEconomyTests(unittest.TestCase):
                 main.request_withdrawal(main.Request(amount=100), authorization="Bearer fake")
         self.assertEqual(e.exception.status_code, 403)
 
-    def test_withdrawal_pending_without_balance_debit(self):
+    def test_withdrawal_pending_reserves_balance(self):
         database = FakeDB()
         p = {"id": "id", "coins": 200, "telegram_id": 123}
         with patch.object(main, "db", return_value=database), patch.object(main, "person", return_value=p), patch.object(main, "advance", return_value=p):
             result = main.request_withdrawal(main.Request(amount=100), authorization="Bearer fake")
         self.assertEqual(result["status"], "pending")
         self.assertTrue(any("INSERT INTO withdrawal_requests" in s for s, _ in database.calls))
-        self.assertFalse(any("UPDATE players SET coins" in s for s, _ in database.calls))
+        self.assertTrue(any("UPDATE players SET coins=coins-%s" in s for s, _ in database.calls))
 
 if __name__ == "__main__":
     unittest.main()
