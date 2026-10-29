@@ -485,6 +485,8 @@ def sell(q:Request,authorization:str=Header(default="")):
  check(q.amount);check(q.price)
  if q.item not in ("grain","eggs"):raise HTTPException(400,"Товар не найден")
  with db() as c:
+  # Same transaction-level market lock as buy/cancel: deterministic order for concurrent trades.
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
   if p[q.item]<q.amount:raise HTTPException(400,"Недостаточно товара")
   c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s WHERE id=%s",(q.amount,p["id"]))
