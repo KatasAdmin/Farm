@@ -12,7 +12,11 @@ BASE_URL = 'http://127.0.0.1:8085'
 def main():
     paths = sorted('/' + p.relative_to(ROOT).as_posix()
                    for p in (ROOT / 'assets').rglob('*') if p.suffix in {'.png', '.webp'})
-    assert len(paths) == 158, f'Expected all 79 PNG/WebP pairs, found {len(paths)}'
+    assert len(paths) >= 158, f'Original art pack is incomplete: {len(paths)} images'
+    manifest = json.loads((ROOT / 'assets' / 'asset-manifest.json').read_text())
+    for asset in manifest['assets']:
+        assert (ROOT / asset['path']).is_file(), asset['path']
+        assert (ROOT / asset['png']).is_file(), asset['png']
     with httpx.Client(base_url=BASE_URL) as client:
         for path in paths:
             response = client.get(path)
