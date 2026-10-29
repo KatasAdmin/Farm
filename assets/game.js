@@ -381,6 +381,18 @@ async function loadHistory() {
 }
 function render() {
   const p = state.me;
+  const buildings = state.buildings || {};
+  document.querySelectorAll("[data-building]").forEach((node) => {
+    const value = buildings[node.dataset.building];
+    node.textContent = typeof value === "number" ? number(value) : "—";
+  });
+  for (const kind of ["coop","storage"]) {
+    const button = el("upgrade-"+kind);
+    if (!button) continue;
+    const price = buildings[kind+"_next_cost"];
+    button.disabled = price == null || price > p.coins || pending;
+    button.textContent = price == null ? "Максимальный уровень" : "Улучшить · "+number(price)+" монет";
+  }
   const last = state.last_farm_event;
   if (last && last.kind === "eggs_produced") {
     const seenKey = "farm_seen_event_" + p.id;
