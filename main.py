@@ -62,6 +62,9 @@ async def lifespan(app):
   c.execute("ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS reserved boolean NOT NULL DEFAULT false")
   c.execute("CREATE TABLE IF NOT EXISTS trade_risk_events(id text PRIMARY KEY,buyer_id text NOT NULL,seller_id text NOT NULL,item text NOT NULL,quantity integer NOT NULL,coins integer NOT NULL,reason text NOT NULL,created double precision NOT NULL)")
   c.execute("CREATE INDEX IF NOT EXISTS trade_risk_seller_time ON trade_risk_events(seller_id,created)")
+  c.execute("CREATE TABLE IF NOT EXISTS market_trade_audit(id text PRIMARY KEY,buyer_id text NOT NULL,seller_id text NOT NULL,item text NOT NULL,quantity integer NOT NULL,coins integer NOT NULL,created double precision NOT NULL)")
+  c.execute("CREATE INDEX IF NOT EXISTS trade_audit_pair_recent ON market_trade_audit(buyer_id,seller_id,created)")
+
 
   c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
   c.execute("""UPDATE players p SET
@@ -452,6 +455,13 @@ def buy(q:Request,authorization:str=Header(default="")):
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,x["seller"],"market_sale",x["price"]*n,q.item+" x"+str(n),time.time()))
+   trade_at=time.time()
+   count=c.execute("SELECT COUNT(*)::int AS n FROM market_trade_audit WHERE buyer_id=%s AND seller_id=%s AND created>%s",(p["id"],x["seller"],trade_at-86400)).fetchone()["n"]
+   c.execute("INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,trade_at))
+   if count>=9 or x["price"]*n>=500:
+    reason="frequent_pair" if count>=9 else "large_trade"
+    c.execute("INSERT INTO trade_risk_events(id,buyer_id,seller_id,item,quantity,coins,reason,created) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,reason,trade_at))
+    logger.warning("trade_flagged reason=%s buyer=%s seller=%s",reason,p["id"],x["seller"])
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"market_buy",-cost,q.item+" x"+str(q.amount),time.time()))
  return {"ok":True,"spent":cost}
 
