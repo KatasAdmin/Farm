@@ -10,9 +10,9 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=4" />
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=18" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
-    <script src="/assets/game.js?v=13" defer></script>
+    <script src="/assets/game.js?v=18" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div>
@@ -96,6 +96,7 @@
         >
       </header>
       <section id="farm" class="panel active" aria-label="Ферма">
+        <div id="tutorial-card" class="card tutorial-card" hidden><div class="tutorial-heading"><img src="/assets/redesign/achievement.webp" alt=""><div><strong>Добро пожаловать на ферму!</strong><small id="tutorial-progress">Шаг 1 из 3</small></div></div><p id="tutorial-instruction">Начнём с курятника.</p><button id="tutorial-next" class="btn wide" onclick="completeTutorialStep()">Посмотреть курятник</button><p class="muted">Три подсказки и +5 монет за завершение. Один раз на аккаунт.</p></div>
         <div class="farm-hero">
           <img
             src="/assets/backgrounds/farm_sunset.webp"
@@ -287,6 +288,19 @@
             <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
           </div>
         </div>
+        <div class="switch coop-switch"><button id="coop-tab-birds" class="active" onclick="coopSection('birds')">🐔 Несушки</button><button id="coop-tab-incubator" onclick="coopSection('incubator')">🐣 Инкубатор</button></div>
+        <div id="coop-incubator-pane" hidden>        <div class="card incubator-card">
+          <div class="upgrade"><img src="/assets/redesign/incubator.webp" class="upgrade-art" alt=""><div><h2>Инкубатор · уровень <span id="incubator-level">1</span></h2><p id="incubation-status">Загружаем состояние…</p></div></div>
+          <div id="incubator-jobs" class="incubator-jobs"></div><button class="btn wide" id="incubator-action" onclick="incubatorAction()">Купить инкубатор</button><button class="btn alt wide" id="incubator-upgrade" onclick="incubatorUpgrade()">Улучшить инкубатор</button>
+          <p class="feature-note">Свободно мест: <span id="incubator-free">—</span> / <span data-incubator-capacity>—</span></p>
+          <div class="incubation-stages" aria-label="Стадии инкубации">
+            <div data-stage="egg"><img src="/assets/redesign/egg.webp" alt=""><strong>Яйцо</strong><small data-incubate-duration>—</small></div><span>→</span>
+            <div data-stage="chick"><img src="/assets/characters/chick_yellow.webp" alt=""><strong>Цыплёнок</strong><small data-grow-duration>—</small></div><span>→</span>
+            <div data-stage="hen"><img src="/assets/redesign/hen.webp" alt=""><strong>Курица</strong><small>После взросления</small></div>
+          </div><p class="muted">Курица появится после завершения роста, если в курятнике есть место.</p>
+        </div>
+</div>
+        <div id="coop-birds-pane">
         <div class="coop-hero">
           <img
             src="/assets/redesign/coop.webp"
@@ -407,6 +421,7 @@
             <span></span>
           </button>
           <p class="muted" data-auto-status>Проверяем настройки…</p>
+        </div>
         </div>
       </section>
       <section id="market" class="panel" aria-label="Продажа товаров">
@@ -1086,16 +1101,7 @@
           </button>
           <p class="muted" data-auto-status>Проверяем настройки…</p>
         </div>
-        <div class="card incubator-card">
-          <div class="upgrade"><img src="/assets/redesign/incubator.webp" class="upgrade-art" alt=""><div><h2>Инкубатор</h2><p id="incubation-status">Загружаем состояние…</p></div></div>
-          <button class="btn wide" id="incubator-action" onclick="incubatorAction()">Купить инкубатор</button>
-          <p class="feature-note">Вместимость: <span data-incubator-capacity>—</span> яйцо</p>
-          <div class="incubation-stages" aria-label="Стадии инкубации">
-            <div data-stage="egg"><img src="/assets/redesign/egg.webp" alt=""><strong>Яйцо</strong><small data-incubate-duration>—</small></div><span>→</span>
-            <div data-stage="chick"><img src="/assets/characters/chick_yellow.webp" alt=""><strong>Цыплёнок</strong><small data-grow-duration>—</small></div><span>→</span>
-            <div data-stage="hen"><img src="/assets/redesign/hen.webp" alt=""><strong>Курица</strong><small>После взросления</small></div>
-          </div><p class="muted">Курица появится после завершения роста, если в курятнике есть место.</p>
-        </div>
+        <button class="btn alt wide" onclick="tab('coop');coopSection('incubator')">🐣 Инкубатор находится в курятнике</button>
       </section>
     </div>
     <nav id="nav" class="bottom" aria-label="Основная навигация" hidden>
