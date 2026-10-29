@@ -99,6 +99,15 @@ async function claimDaily(key) {
   const completed = await perform("/api/claim", {item:key});
   if (completed) toast("🎁 Награда получена! Монеты начислены.");
 }
+async function upgradeBuilding(kind) {
+  if (pending || !state || !["coop","storage"].includes(kind)) return;
+  const values = state.buildings || {};
+  const price = values[kind + "_next_cost"];
+  if (price == null) return;
+  const name = kind === "coop" ? "курятник" : "склад";
+  if (!confirm("Улучшить " + name + " за " + number(price) + " монет?")) return;
+  await perform("/api/upgrade", {item:kind});
+}
 function showLogin() {
   token = null;
   localStorage.removeItem("farm_token");
