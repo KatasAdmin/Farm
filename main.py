@@ -21,6 +21,8 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_min integer NOT NULL DEFAULT 5")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_amount integer NOT NULL DEFAULT 20")
   c.execute("CREATE TABLE IF NOT EXISTS money_log(id text primary key,player_id text,kind text,delta int,details text,created double precision)")
+  c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
+  c.execute("CREATE TABLE IF NOT EXISTS farm_events(id text primary key,player_id text NOT NULL,kind text NOT NULL,amount int NOT NULL,created double precision NOT NULL)")
   c.execute("UPDATE players SET last_tick=%s WHERE last_tick IS NULL",(time.time(),))
   c.execute("UPDATE market SET price=5 WHERE item='eggs' AND price<>5")
  yield
@@ -45,6 +47,7 @@ def advance(c,p,now=None):
  due=max(0,int((now-start)//CYCLE))
  if due<=0:return p
  grain,eggs,hens=p["grain"],p["eggs"],p["chickens"]
+ eggs_before=eggs
  satiety,critical=p["satiety"],p["critical_cycles"]
  # At most a century of steps, and stop after all birds have died.
  for _ in range(min(due,438000)):
@@ -71,6 +74,11 @@ def advance(c,p,now=None):
     hens-=1
     critical=0
     satiety=20 if hens else 0
+ if eggs>eggs_before:
+  gained=eggs-eggs_before
+  day=time.strftime("%Y-%m-%d",time.gmtime(now))
+  c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,gained))
+  c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",gained,now))
  c.execute("UPDATE players SET grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,last_tick=%s WHERE id=%s",(grain,eggs,hens,satiety,critical,start+due*CYCLE,p["id"]))
  return {**p,"grain":grain,"eggs":eggs,"chickens":hens,"satiety":satiety,"critical_cycles":critical,"last_tick":start+due*CYCLE}
 @app.get("/",response_class=HTMLResponse)
@@ -98,7 +106,10 @@ def state(authorization:str=Header(default="")):
   listings=c.execute("SELECT m.item,m.price,m.quantity,p.name AS seller FROM market m JOIN players p ON p.id=m.seller WHERE m.quantity>0 ORDER BY m.price LIMIT 40").fetchall()
   mine=c.execute("SELECT id,item,quantity,price FROM market WHERE seller=%s AND quantity>0 ORDER BY item,price,id",(p["id"],)).fetchall()
   top=c.execute("SELECT name,coins,chickens FROM players ORDER BY coins DESC LIMIT 8").fetchall()
-  return {"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
+  day=time.strftime("%Y-%m-%d",time.gmtime())
+  activity=c.execute("SELECT grain_bought,eggs_listed,eggs_produced FROM daily_activity WHERE player_id=%s AND day=%s",(p["id"],day)).fetchone() or {"grain_bought":0,"eggs_listed":0,"eggs_produced":0}
+  event=c.execute("SELECT id,kind,amount FROM farm_events WHERE player_id=%s ORDER BY created DESC,id DESC LIMIT 1",(p["id"],)).fetchone()
+  return {"daily":activity,"daily_day":day,"last_farm_event":event,"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -108,6 +119,9 @@ def shop(q:Request,authorization:str=Header(default="")):
   p=advance(c,person(c,authorization,True))
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
+  if q.item=="grain":
+   day=time.strftime("%Y-%m-%d",time.gmtime())
+   c.execute("INSERT INTO daily_activity(player_id,day,grain_bought) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET grain_bought=daily_activity.grain_bought+EXCLUDED.grain_bought",(p["id"],day,q.amount))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"shop",-cost,q.item+" x"+str(q.amount),time.time()))
  return {"ok":True}
@@ -136,6 +150,9 @@ def sell(q:Request,authorization:str=Header(default="")):
   c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s WHERE id=%s",(q.amount,p["id"]))
   price=5 if q.item=="eggs" else q.price
   c.execute("INSERT INTO market VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],q.item,q.amount,price))
+  if q.item=="eggs":
+   day=time.strftime("%Y-%m-%d",time.gmtime())
+   c.execute("INSERT INTO daily_activity(player_id,day,eggs_listed) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_listed=daily_activity.eggs_listed+EXCLUDED.eggs_listed",(p["id"],day,q.amount))
  return {"ok":True}
 @app.post("/api/buy")
 def buy(q:Request,authorization:str=Header(default="")):
