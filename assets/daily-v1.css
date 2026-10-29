@@ -88,3 +88,13 @@
 .recovery-dialog::backdrop{background:rgba(0,12,38,.82)}
 #recovery-shown-code{display:block;word-break:break-all;padding:13px;margin:15px 0;background:#071c49;color:#ffef9b;border:1px dashed #f8d272;border-radius:10px;font-size:16px;user-select:all}
 .recovery-dialog .btn{margin-top:10px}
+
+/* Usernames + passwords; Telegram integration only inside a verified mini app */
+.password-login {display:grid;gap:9px;margin:16px 0 11px;padding:13px;border-radius:14px;border:1px solid rgba(126,205,255,.75);background:rgba(5,42,103,.9)}
+.password-login h3{margin:0 0 3px;font-size:17px;color:#fff}
+.password-login label{font-size:13px;text-align:left;color:#def4ff}
+.password-login input,#register-password,#settings-password,#settings-nickname{box-sizing:border-box;width:100%;min-height:42px;padding:10px;background:#081e4f;border:1px solid #68c6ff;border-radius:9px;color:#fff;font:inherit}
+.profile-settings .economy-details label{display:block;margin:8px 0 4px;font-size:13px;color:#e1f4ff}
+.profile-settings .economy-details button{margin:10px 0}
+.telegram-entry:not([hidden]){display:block;margin:10px auto;background:linear-gradient(180deg,#35b7ed,#1266a9)}
+.recovery-login{margin-top:12px}

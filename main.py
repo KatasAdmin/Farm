@@ -1,4 +1,5 @@
-import os,time,uuid,secrets,hashlib,hmac
+import os,time,uuid,secrets,hashlib,hmac,json
+from urllib.parse import parse_qsl
 import psycopg
 from psycopg.rows import dict_row
 from fastapi import FastAPI,HTTPException,Header
@@ -43,6 +44,9 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS incubator_level integer NOT NULL DEFAULT 1")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS tutorial_step integer NOT NULL DEFAULT 0")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS recovery_hash text")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS password_hash text")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS telegram_id bigint UNIQUE")
+  c.execute("CREATE TABLE IF NOT EXISTS login_failures(name text PRIMARY KEY,attempts int NOT NULL DEFAULT 0,locked_until double precision NOT NULL DEFAULT 0)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS tutorial_rewarded boolean NOT NULL DEFAULT false")
   c.execute("CREATE TABLE IF NOT EXISTS incubation_jobs(id text PRIMARY KEY,player_id text NOT NULL,started double precision NOT NULL,hatch_at double precision NOT NULL,mature_at double precision NOT NULL)")
   c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) SELECT 'legacy-'||id,id,COALESCE(incubation_started,chick_ready_at-86400),COALESCE(incubation_started+43200,chick_ready_at-43200),COALESCE(chick_ready_at,incubation_started+86400) FROM players WHERE incubation_started IS NOT NULL OR chick_ready_at IS NOT NULL ON CONFLICT(id) DO NOTHING")
@@ -76,6 +80,41 @@ class Request(BaseModel):
  avatar:str="default"
  avatar_photo:str=""
  code:str=""
+ password:str=""
+ telegram_data:str=""
+def password_hash(password):
+ if not 8<=len(password)<=128:raise HTTPException(400,"Пароль должен содержать от 8 до 128 символов")
+ salt=secrets.token_bytes(16)
+ key=hashlib.pbkdf2_hmac("sha256",password.encode(),salt,350000)
+ return salt.hex()+":"+key.hex()
+
+def password_verify(password,stored):
+ if not stored or len(password)>128:return False
+ try:
+  salt,value=stored.split(":")
+  key=hashlib.pbkdf2_hmac("sha256",password.encode(),bytes.fromhex(salt),350000)
+  return hmac.compare_digest(key,bytes.fromhex(value))
+ except (ValueError,TypeError):return False
+
+def telegram_identity(raw):
+ bot_token=os.environ.get("TELEGRAM_BOT_TOKEN","")
+ if not bot_token:raise HTTPException(503,"Вход через Telegram пока не настроен")
+ if not raw or len(raw)>12000:raise HTTPException(401,"Откройте игру через Telegram")
+ pairs=dict(parse_qsl(raw,keep_blank_values=True))
+ supplied=pairs.pop("hash","")
+ pairs.pop("signature",None)
+ try:issued=int(pairs.get("auth_date","0"))
+ except ValueError:raise HTTPException(401,"Неверные данные Telegram")
+ if issued>time.time()+60 or issued<time.time()-3600:raise HTTPException(401,"Откройте Telegram Mini App заново")
+ check="\n".join(k+"="+v for k,v in sorted(pairs.items()))
+ secret=hmac.new(b"WebAppData",bot_token.encode(),hashlib.sha256).digest()
+ calculated=hmac.new(secret,check.encode(),hashlib.sha256).hexdigest()
+ if not hmac.compare_digest(calculated,supplied):raise HTTPException(401,"Не удалось проверить Telegram")
+ try:user=json.loads(pairs["user"]);uid=int(user["id"])
+ except (KeyError,ValueError,TypeError,json.JSONDecodeError):raise HTTPException(401,"Не найден пользователь Telegram")
+ if uid<=0:raise HTTPException(401,"Неверный Telegram ID")
+ return uid
+
 def person(c,h,lock=False):
  p=c.execute("SELECT * FROM players WHERE token=%s"+(" FOR UPDATE" if lock else ""),(h.replace("Bearer ",""),)).fetchone()
  if not p:raise HTTPException(401,"Войдите в игру")
@@ -167,20 +206,108 @@ def health():return {"ok":True}
 @app.post("/api/join")
 def join(q:Request):
  name=q.name.strip()[:22]
- if len(name)<2:raise HTTPException(400,"Имя слишком короткое")
- token=uuid.uuid4().hex
- recovery=secrets.token_urlsafe(24)
- hashed=hashlib.sha256(recovery.encode()).hexdigest()
+ if len(name)<2:raise HTTPException(400,"Ник должен содержать от 2 до 22 символов")
+ if q.gender not in ("male","female","unspecified"):raise HTTPException(400,"Некорректный пол")
+ stored=password_hash(q.password)
+ token=secrets.token_hex(24)
  try:
   with db() as c:
+   # Serialize sign-ups to avoid duplicate nicknames differing only by case.
+   c.execute("SELECT pg_advisory_xact_lock(1984532)")
+   if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s)",(name,)).fetchone():
+    raise HTTPException(409,"Ник уже занят")
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
-   if treasury<100:raise HTTPException(409,"Стартовый фонд исчерпан: новые регистрации временно закрыты")
-   if q.gender not in ("male","female","unspecified"):raise HTTPException(400,"Некорректный пол")
-   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender,recovery_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,%s,%s,%s,%s,2,1,0,0,0,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,hashed))
+   if treasury<100:raise HTTPException(409,"Стартовый фонд исчерпан")
+   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender,password_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,%s,%s,%s,%s,2,1,0,0,0,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,stored))
    c.execute("UPDATE economy SET treasury=treasury-100 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-100,"Начальный баланс: "+name,time.time()))
- except psycopg.errors.UniqueViolation:raise HTTPException(409,"Имя уже занято")
- return {"token":token,"recovery_code":recovery}
+ except psycopg.errors.UniqueViolation:raise HTTPException(409,"Ник уже занят")
+ return {"token":token}
+
+@app.post("/api/login")
+def password_login(q:Request):
+ name=q.name.strip()
+ if not name or not q.password:raise HTTPException(400,"Укажите ник и пароль")
+ now=time.time()
+ failure=None
+ token=None
+ with db() as c:
+  c.execute("INSERT INTO login_failures(name,attempts,locked_until) VALUES(%s,0,0) ON CONFLICT DO NOTHING",(name.lower(),))
+  fail=c.execute("SELECT * FROM login_failures WHERE name=%s FOR UPDATE",(name.lower(),)).fetchone()
+  if fail["locked_until"]>now:
+   failure=429
+  else:
+   p=c.execute("SELECT id,password_hash FROM players WHERE lower(name)=lower(%s) FOR UPDATE",(name,)).fetchone()
+   if not p or not password_verify(q.password,p["password_hash"]):
+    attempts=fail["attempts"]+1
+    blocked=now+900 if attempts>=5 else 0
+    c.execute("UPDATE login_failures SET attempts=%s,locked_until=%s WHERE name=%s",(0 if blocked else attempts,blocked,name.lower()))
+    failure=401
+   else:
+    c.execute("UPDATE login_failures SET attempts=0,locked_until=0 WHERE name=%s",(name.lower(),))
+    token=secrets.token_hex(24)
+    c.execute("UPDATE players SET token=%s WHERE id=%s",(token,p["id"]))
+ if failure==429:raise HTTPException(429,"Слишком много попыток. Попробуйте через 15 минут")
+ if failure:raise HTTPException(401,"Неверный ник или пароль")
+ return {"token":token}
+
+@app.post("/api/password/set")
+def set_password(q:Request,authorization:str=Header(default="")):
+ stored=password_hash(q.password)
+ with db() as c:
+  p=person(c,authorization,True)
+  c.execute("UPDATE players SET password_hash=%s WHERE id=%s",(stored,p["id"]))
+ return {"ok":True}
+
+@app.get("/api/auth/config")
+def auth_config():
+ return {"telegram_enabled":bool(os.environ.get("TELEGRAM_BOT_TOKEN"))}
+
+@app.post("/api/telegram/link")
+def link_telegram(q:Request,authorization:str=Header(default="")):
+ uid=telegram_identity(q.telegram_data)
+ with db() as c:
+  p=person(c,authorization,True)
+  if p["telegram_id"] is not None and p["telegram_id"]!=uid:raise HTTPException(409,"Сначала отвяжите прежний Telegram через поддержку")
+  other=c.execute("SELECT id FROM players WHERE telegram_id=%s",(uid,)).fetchone()
+  if other and other["id"]!=p["id"]:raise HTTPException(409,"Этот Telegram уже привязан к другой ферме")
+  c.execute("UPDATE players SET telegram_id=%s WHERE id=%s",(uid,p["id"]))
+ return {"ok":True}
+
+@app.post("/api/telegram/login")
+def login_telegram(q:Request):
+ uid=telegram_identity(q.telegram_data)
+ with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
+  p=c.execute("SELECT id FROM players WHERE telegram_id=%s FOR UPDATE",(uid,)).fetchone()
+  if not p:
+   treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
+   if treasury<100:raise HTTPException(409,"Новые регистрации временно закрыты")
+   name="tg_"+str(uid)
+   if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s)",(name,)).fetchone():
+    raise HTTPException(409,"Выберите другой способ входа")
+   pid=uuid.uuid4().hex
+   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,telegram_id,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,%s,%s,%s,2,1,0,0,0,0)",(pid,name,secrets.token_hex(24),time.time(),time.time(),uid))
+   c.execute("UPDATE economy SET treasury=treasury-100 WHERE id=1")
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-100,"Начальный баланс: "+name,time.time()))
+   p={"id":pid}
+  token=secrets.token_hex(24)
+  c.execute("UPDATE players SET token=%s WHERE id=%s",(token,p["id"]))
+ return {"token":token}
+
+@app.post("/api/nickname/set")
+def set_nickname(q:Request,authorization:str=Header(default="")):
+ name=q.name.strip()[:22]
+ if len(name)<2:raise HTTPException(400,"Ник должен содержать от 2 до 22 символов")
+ with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984532)")
+  p=person(c,authorization,True)
+  if not p["name"].startswith("tg_"):raise HTTPException(409,"Ник уже установлен")
+  if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s) AND id<>%s",(name,p["id"])).fetchone():
+   raise HTTPException(409,"Ник уже занят")
+  c.execute("UPDATE players SET name=%s WHERE id=%s",(name,p["id"]))
+ return {"ok":True}
+
 @app.get("/api/state")
 def state(authorization:str=Header(default="")):
  with db() as c:
@@ -234,7 +361,7 @@ def state(authorization:str=Header(default="")):
   can_refill=p["autobuy_enabled"] and p["grain"]<p["chickens"] and p["coins"]>=GRAIN_PRICE*p["autobuy_amount"] and p["grain"]+p["eggs"]+p["autobuy_amount"]<=storage_limit(p)
   expected_eggs=min(p["fed_hens"],max(0,storage_limit(p)-p["grain"]-p["eggs"]))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"expected_eggs":expected_eggs,"autobuy_expected":bool(can_refill),"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
+  return {"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"expected_eggs":expected_eggs,"autobuy_expected":bool(can_refill),"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
