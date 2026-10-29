@@ -655,8 +655,10 @@ async function submitWithdrawalRequest() {
     busy(true);
     await api("/api/withdraw/request",{amount:n});
     el("withdrawal-dialog").close();
-    toast("Заявка получена и ожидает ручной проверки. Деньги не перечислены.");
+    await refresh();
     await loadWithdrawalStatus();
+    await loadHistory();
+    toast("Заявка принята: "+number(n)+" монет списано с баланса в резерв. Реальная выплата не выполнена.");
   }catch(error){toast(error.message);}
   finally{busy(false);}
 }
