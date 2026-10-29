@@ -1,0 +1,204 @@
+/* NOVAYA ZHIZN / AZURE V4 — visual-only override.
+   Keeps the existing DOM, API contracts, events and live player data. */
+:root {
+  --bg: #03152e;
+  --panel: #072c61;
+  --line: #278ee9;
+  --text: #f9fcff;
+  --muted: #c7e5ff;
+  --green: #67f620;
+  --gold: #ffe26a;
+  color: var(--text);
+  background: #041226;
+  font-family: system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+}
+html { scroll-behavior: smooth; }
+body {
+  overflow-x: hidden;
+  color: #fff;
+  background:
+    radial-gradient(ellipse at 50% -18%,#168efa90,transparent 64%),
+    linear-gradient(180deg,#063f99 0%,#042b71 35%,#041b47 70%,#020c28 100%);
+  background-attachment: fixed;
+}
+.shell {
+  max-width: 430px;
+  overflow: hidden;
+  padding: 8px 9px calc(91px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(ellipse at 66% 11%,#198aff44,transparent 65%),
+    linear-gradient(180deg,#0065c99e,#052f7fea 42%,#041840fa);
+  box-shadow: 0 0 40px #0009, inset 1px 0 #87d9ff30, inset -1px 0 #87d9ff30;
+}
+.head {
+  height: 65px;
+  margin: 0 -3px 4px;
+  padding: 4px 7px;
+  background: linear-gradient(180deg,#00388bfc,#044c9dd6 60%,#05346b9c);
+  border: 1px solid #67bfffa3;
+  border-radius: 14px;
+  box-shadow: inset 0 2px 2px #b9edff4d, 0 3px 14px #0005;
+}
+.avatar {width:51px;height:51px;border-radius:50%;border:2px solid #75dfff;background:#0366ad;filter:drop-shadow(0 2px 3px #0005);}
+.identity strong{font-size:17px;text-shadow:0 2px 3px #00143e;}
+.identity small{color:#edf7ff;font-size:10px;}
+.identity-line{height:7px;border:1px solid #5edcff;background:linear-gradient(90deg,#5efa21 60%,#1570c3 60%);box-shadow:0 0 6px #28ceff;}
+.coin-balance,.gems{
+  border-radius:13px;
+  background:linear-gradient(180deg,#006ecbbf,#063d8cfc);
+  border:1px solid #4ac5ff9e;
+  box-shadow:inset 0 1px #9deaff55,0 3px 5px #001a4655;
+}
+.coin-balance .icon,.gems img{filter:drop-shadow(0 2px 2px #001833);}
+.panelhead{
+  min-height:44px;margin:2px 0 7px;
+}
+.panelhead h1{font-size:25px;color:#fff;}
+.panelhead small{color:#c7e9ff;}
+.back{background:linear-gradient(#1a96e6,#04468d);border:1px solid #b0edff;box-shadow:inset 0 1px #fff8,0 3px 8px #001637;}
+.farm-hero{
+  height:270px;
+  margin:-73px -9px 0;
+  padding-top:73px;
+  border-radius:0 0 13px 13px;
+  box-shadow:inset 0 -6px 12px #071a63;
+}
+.farm-landscape{object-position:52% 48%;filter:saturate(1.22) contrast(1.03);}
+.farm-hero:after{
+  background:linear-gradient(180deg,#063f96b5 0%,transparent 42%,#002e5b11 78%,#004092a3 100%);
+}
+.farm-hero h1{top:88px;left:18px;color:#fff;line-height:1.08;font-size:24px;text-shadow:0 3px 0 #004080,0 4px 9px #001b5d;}
+.farm-hero h1 span{font-size:27px;letter-spacing:0;}
+.flock{height:75px;left:28px;right:20px;bottom:0;}
+.hen{height:78px;width:72px;}
+.hen-two{height:68px;width:60px;}
+.chicks{width:57px;height:58px;}
+.quicknav{gap:5px;margin-top:-1px;}
+.quick{
+  min-height:72px;
+  padding:5px 2px;
+  gap:1px;
+  color:white;
+  background:linear-gradient(154deg,#10a8f4 0%,#0868c8 30%,#033b91 70%,#022555 100%);
+  border:1px solid #58d4ff;
+  border-radius:12px;
+  font-size:11px;
+  box-shadow:inset 0 2px 2px #e2ffff83,inset 0 -2px 0 #001949,0 3px 9px #00113d91;
+  text-shadow:0 1px 3px #00153f;
+}
+.quick .nav-art{width:44px;height:42px;}
+.quick .nav-art img{width:61px;left:-9px;}
+.section-title{font-size:19px;margin:9px 0 6px;}
+.section-title span{border-color:#4bcfff;color:#e2f5ff;background:#083b8c;}
+.three{gap:5px;}
+.resource{
+  min-height:91px;
+  padding:5px 2px;
+  border:1px solid #3bccff;
+  border-radius:13px;
+  background:linear-gradient(154deg,#0877d5d9 0%,#053f90 65%,#042758 100%);
+  box-shadow:inset 0 2px #a6f6ff59,inset 0 -1px #001737,0 4px 12px #00103f7a;
+}
+.resource .icon{height:40px;width:43px;filter:drop-shadow(0 2px 2px #00193a66);}
+.resource span{font-size:11px;color:#e1f2ff;}
+.resource strong{font-size:24px;color:#fff;}
+.card,.market-card,.shop-card,.info-card,.profile-card {
+  background:linear-gradient(155deg,#0c57afed 0%,#043c87fa 39%,#062458fa 100%);
+  border:1px solid #2aa9fd;
+  border-radius:14px;
+  box-shadow:inset 0 2px 2px #b7faff45,inset 0 -2px 0 #001d4d88,0 4px 10px #00143f69;
+}
+.card{padding:10px;margin-top:7px;}
+.cardtitle{margin-bottom:6px;font-size:17px;}
+.cardtitle .icon{height:23px;width:23px;}
+.herd{padding:8px 9px;}
+.health-line h2{font-size:15px;}
+.health-line strong,.coop-summary h2 span{color:#aeff5f;}
+.feed-reserve{margin-top:4px;}
+.clock{color:#ffe977;}
+.progress{height:14px;border:1px solid #82e9ff;background:linear-gradient(#0d315f,#0c5694);box-shadow:inset 0 1px 3px #001837;}
+.progress > span{background:linear-gradient(#cbffa0,#7bfc27 45%,#16ce13);box-shadow:0 0 8px #71fd4e,inset 0 2px #fff8;}
+.flow{padding:3px 4px;}
+.flow .icon{width:44px;height:44px;}
+.flow > div{font-size:11px;}
+.arrow{font-size:25px;color:#8ee7ff;text-shadow:0 0 6px #3abfff;}
+.cycle{color:#deefff;}
+.btn {
+  border-radius:11px;
+  border:1px solid #a2ff69;
+  background:linear-gradient(180deg,#d2ff78 0%,#78ff2e 38%,#13ca1b 84%,#079a16 100%);
+  color:#062b12;
+  text-shadow:0 1px #efffaca9;
+  min-height:43px;
+  box-shadow:inset 0 2px 2px #fff9,0 3px 0 #03702c,0 5px 10px #00113e8a;
+}
+.btn.alt, .btn.blue{
+  border-color:#7fd6ff;
+  background:linear-gradient(#49ceff 0%,#007ada 48%,#0753b6 100%);
+  color:#fff;
+  text-shadow:0 1px 2px #001a57;
+  box-shadow:inset 0 1px 3px #d6fcff80,0 3px 0 #003472;
+}
+.buttons{gap:7px;}
+.farm-footer-links button, .farm-footer-links a{
+  border-color:#63c7ff;
+  background:linear-gradient(#0c93e7,#05488e);
+  color:#fff;
+}
+.scene-banner{height:143px;margin:0 -9px;}
+.scene-banner:after{background:linear-gradient(#032e7b44,transparent 38%,#06347e 100%);}
+.scene-caption{text-shadow:0 2px 6px #001843;}
+.coop-hero{height:178px;margin:0 -9px;}
+.coop-summary{margin-top:-7px;}
+.switch > button,.pills button{
+  background:linear-gradient(#126fc1,#05346f);
+  border-color:#49b0ec;
+  color:#f4fbff;
+  box-shadow:inset 0 1px #c2f1ff66,0 2px 4px #00143b;
+}
+.switch > button.active,.pills button.active{
+  color:#fff;
+  background:linear-gradient(#40bcff,#007ecb 62%,#064f9b);
+  border-color:#70ddff;
+}
+input,select{
+  color:#fff;
+  border-color:#58b8fb;
+  background:linear-gradient(#103f82,#031f50);
+  border-radius:9px;
+}
+label,small,.muted{color:#bcdaf5;}
+.bottom{
+  background:linear-gradient(#073e88f7,#031949fc);
+  border-top:1px solid #4fbeff;
+  box-shadow:0 -3px 15px #00174477,inset 0 1px #9de8ff4d;
+  backdrop-filter:blur(12px);
+}
+.nav-button{border-radius:11px;color:#e6f5ff;}
+.nav-button.active{
+  background:linear-gradient(#1bcdff,#0477de 53%,#053fa3);
+  border-color:#48e3ff;
+  color:white;
+  box-shadow:inset 0 2px #baffff85,0 0 9px #00aaff99,0 3px 5px #00112e;
+}
+.nav-button .nav-art{height:26px;}
+.login{background:#05285d;border-color:#7fe5ff;}
+.login-content{background:linear-gradient(#0658af,#021b4a);}
+#toast{background:#063d87;border-color:#40caff;color:white;}
+dialog,.dialog-card{background:linear-gradient(#0c65bd,#031d51);border:1px solid #5cceff;color:#fff;}
+/* Tone down old green elements that were defined with fixed colors. */
+#farm .resource,#farm .card{color:#fff;}
+#farm .three strong{color:#fff;}
+#farm .farm-hero + .quicknav{z-index:1;}
+/* Mobile fit: independently scrollable document; no horizontal clip */
+@media (max-width:359px){
+  .shell{padding-inline:6px}
+  .farm-hero{margin-left:-6px;margin-right:-6px;height:242px}
+  .quick{font-size:10px;min-height:65px}
+  .resource{min-height:82px}
+  .resource .icon{height:34px;width:36px}
+  .head{gap:4px}
+  .identity strong{font-size:14px}
+  .coin-balance{padding-inline:3px}
+}
+@media (prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}
