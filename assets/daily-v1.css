@@ -160,3 +160,51 @@
 #farm .farm-quicknav .quick .nav-art{flex:0 0 40px;width:40px;height:40px}
 #farm .farm-quicknav .quick .nav-art img{width:100%;height:100%;object-fit:contain}
 @media(max-width:360px){#farm .farm-quicknav{gap:6px;margin-inline:3px}#farm .farm-quicknav .quick{font-size:12px;padding-inline:6px;gap:5px}}
+
+/* v28: one visual language across Farm, Coop and Storage */
+.unified-farm-panel{--farm-card-border:rgba(115,198,250,.68);--farm-card-bg:linear-gradient(150deg,rgba(14,85,163,.92),rgba(4,38,91,.96))}
+.unified-farm-panel .card{box-sizing:border-box;border:1px solid var(--farm-card-border);border-radius:17px;background:var(--farm-card-bg);box-shadow:0 6px 17px rgba(0,15,53,.13);margin:11px 9px;padding:14px}
+.unified-farm-panel .cardtitle,.unified-farm-panel .card h2{line-height:1.25}
+.unified-farm-panel .panelhead{margin-bottom:10px}
+.unified-farm-panel .panelhead h1{font-size:23px;letter-spacing:-.25px}
+.unified-farm-panel .panelhead small{font-size:10px;letter-spacing:.65px}
+.unified-farm-panel .panelhead .back{min-width:40px;min-height:40px;border-radius:11px}
+.unified-farm-panel .unified-primary-card{border-color:#7bd1ff;background:linear-gradient(150deg,#106ac0ee,#053778f8);box-shadow:0 5px 18px #001d5370}
+#farm .farm-hero,#coop .coop-hero,#storage .storage-hero{overflow:hidden;border-radius:16px;margin-inline:9px;box-shadow:0 5px 17px rgba(0,18,57,.2)}
+#coop .coop-hero,#storage .storage-hero{height:auto;aspect-ratio:16/9}
+#coop .coop-hero .scene-image,#storage .storage-hero .scene-image{width:100%;height:100%;object-fit:cover}
+#farm .farm-hero{margin-bottom:7px}
+#coop .coop-switch{margin:8px 9px 12px}
+#coop .coop-summary{margin-top:10px}
+#coop .coop-summary .coop-level{line-height:1.5}
+#coop .coop-stock{display:flex;gap:8px;flex-wrap:wrap}
+#coop .coop-stock span{flex:1;min-width:105px}
+#coop .unified-details,#storage .unified-details{padding:12px 14px}
+.unified-farm-panel .unified-details summary{cursor:pointer;list-style-position:inside;font-weight:750;font-size:15px;color:#f0f9ff}
+.unified-farm-panel .unified-details-content{margin-top:10px}
+#coop .unified-details-content .cardtitle{display:none}
+#coop .economics .statsrow{font-size:13px;padding:8px 0}
+#coop .economics .muted{font-size:12px;line-height:1.5;margin-top:7px}
+#coop .payback{margin:8px 9px 13px;padding:12px 15px;border-radius:15px}
+#coop .payback strong{font-size:20px}
+#coop .production-history{padding:12px 14px}
+#coop .production-history summary{font-size:14px}
+#coop .auto-card .unified-details-content>.muted{font-size:12px;line-height:1.5}
+#storage .pills{display:flex;gap:7px;overflow-x:auto;margin:11px 9px 7px;padding-bottom:2px}
+#storage .pills button{white-space:nowrap;flex:1;min-width:0}
+#storage .storage-overview{margin-bottom:8px}
+#storage .storage-overview #storage-summary{font-size:12px;line-height:1.5}
+#storage .storage-list{padding:5px 10px}
+#storage .storage-list .product{padding:12px 4px;gap:9px}
+#storage .storage-list .product+.product{border-top:1px solid rgba(137,211,255,.22)}
+#storage .storage-list .product-image{width:53px;height:53px;object-fit:contain}
+#storage .storage-list .product h3{font-size:17px}
+#storage .storage-list .product .btn{padding:10px 12px}
+@media(max-width:375px){
+ .unified-farm-panel .card{margin-inline:5px;padding:11px}
+ #farm .farm-hero,#coop .coop-hero,#storage .storage-hero{margin-inline:5px}
+ #coop .coop-switch,#storage .pills{margin-inline:5px}
+ #storage .pills{gap:4px}
+ #storage .pills button{padding-inline:5px;font-size:12px}
+ #coop .coop-stock span{min-width:95px}
+}

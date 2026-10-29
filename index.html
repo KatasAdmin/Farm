@@ -10,7 +10,7 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=27" />
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
     <script src="/assets/game.js?v=26" defer></script>
@@ -95,7 +95,7 @@
           /><span>—</span></span
         >
       </header>
-      <section id="farm" class="panel active" aria-label="Ферма">
+      <section id="farm" class="panel active unified-farm-panel" aria-label="Ферма">
         <div id="tutorial-card" class="card tutorial-card" hidden><div class="tutorial-heading"><img src="/assets/redesign/achievement.webp" alt=""><div><strong>Добро пожаловать на ферму!</strong><small id="tutorial-progress">Шаг 1 из 3</small></div></div><p id="tutorial-instruction">Начнём с курятника.</p><button id="tutorial-next" class="btn wide" onclick="completeTutorialStep()">Посмотреть курятник</button><p class="muted">Три подсказки и +5 монет за завершение. Один раз на аккаунт.</p></div>
         <div class="farm-hero">
           <img
@@ -185,7 +185,7 @@
           </div>
           <p id="warning" class="muted"></p><p id="storage-warning" class="capacity-warning" role="status" hidden></p>
         </div>
-        <div class="card compact-harvest">
+        <div class="card compact-harvest unified-primary-card">
           <div class="compact-harvest-title"><img src="/assets/redesign/egg.webp" alt="" class="icon"><div><h2>Следующий сбор яиц</h2><p id="next-harvest" class="feature-note" role="status">Рассчитываем время…</p></div></div>
           <p class="compact-harvest-feed">Кормление через <strong data-feed-tick>—</strong></p>
           <div class="buttons">
@@ -195,7 +195,7 @@
             </button>
           </div>
           <details class="farm-explainer"><summary>Как работает моя ферма?</summary>
-            <p>Каждая сытая курица несёт яйцо каждые 18 часов. Зерно расходуется раз в 18 часов. Яйца можно продать игрокам или использовать в инкубаторе.</p>
+            <p>Каждая сытая курица несёт яйцо каждые 6 часов. Зерно расходуется раз в 18 часов. Яйца можно продать игрокам или использовать в инкубаторе.</p>
           </details>
         </div>
         <div class="farm-footer-links">
@@ -218,7 +218,7 @@
           </button>
         </div>
       </section>
-      <section id="coop" class="panel" aria-label="Курятник">
+      <section id="coop" class="panel unified-farm-panel" aria-label="Курятник">
         <div class="panelhead">
           <button
             class="back"
@@ -259,7 +259,7 @@
           />
         </div>
 
-        <div class="card coop-summary">
+        <div class="card coop-summary unified-primary-card">
           <h2>Мои несушки <span data-sat aria-label="Сытость">—</span></h2>
           <p class="coop-level">Уровень <b data-building="coop_level">—</b> · Вместимость <b data-value="chickens">—</b> / <b data-building="coop_capacity">—</b></p>
           <div class="coop-stock">
@@ -306,33 +306,26 @@
           <p id="coop-harvest" class="feature-note">Следующий сбор рассчитывается…</p>
         </div>
         <details class="card production-history"><summary>История производства яиц</summary><div id="production-history"></div></details>
-        <div class="card economics">
-          <h2 class="cardtitle">
-            <img
-              src="/assets/redesign/grain.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            />Экономика одной курицы
-          </h2>
+        <details class="card economics unified-details"><summary>Экономика одной курицы</summary><div class="unified-details-content">
+
           <div class="statsrow">
-            <span>Расход корма</span><b>8 монет/сутки</b>
+            <span>Расход корма</span><b>≈ 2,67 монеты/сутки</b>
           </div>
           <div class="statsrow">
-            <span>Доход от продажи яйца</span><b>12 монет/сутки при продаже всех яиц</b>
+            <span>Доход от продажи яйца</span><b>4 монеты/сутки при продаже всех яиц</b>
           </div>
           <div class="statsrow">
-            <span>Прибыль при продаже</span><b>+4 монеты/сутки при полном спросе</b>
+            <span>Прибыль при продаже</span><b>+1,33 монеты/сутки при полном спросе</b>
           </div>
           <p class="muted">
             Яйца продаются другим игрокам. Доход зависит от спроса.
           </p>
-        </div>
+</div></details>
         <div class="payback">
-          <span class="calendar">10</span>
-          <div>Окупаемость<strong>≈ 10 дней</strong></div>
+          <span class="calendar">30</span>
+          <div>Окупаемость<strong>≈ 30 дней</strong></div>
         </div>
-        <div class="card auto-card">
+        <details class="card auto-card unified-details"><summary>Автозакупка корма</summary><div class="unified-details-content">
           <h2 class="cardtitle">
             <img
               src="/assets/objects/feed_sack.webp"
@@ -370,7 +363,7 @@
             <span></span>
           </button>
           <p class="muted" data-auto-status>Проверяем настройки…</p>
-        </div>
+        </div></details>
         </div>
       </section>
       <section id="market" class="panel" aria-label="Продажа товаров">
@@ -741,7 +734,7 @@
           Выйти из аккаунта
         </button>
       </section>
-      <section id="storage" class="panel" aria-label="Склад">
+      <section id="storage" class="panel unified-farm-panel" aria-label="Склад">
         <div class="panelhead">
           <button
             class="back"
@@ -774,8 +767,8 @@
           ><button onclick="storageFilter('eggs',this)">Яйца</button
           ><button onclick="storageFilter('chickens',this)">Куры</button>
         </div>
-        <div class="card"><h2 class="cardtitle">Мой запас</h2><p id="storage-summary" class="muted">Загружаем свободные и выставленные товары…</p></div>
-        <div class="card storage-list">
+        <div class="card storage-overview"><h2 class="cardtitle">Мой запас</h2><p id="storage-summary" class="muted">Загружаем свободные и выставленные товары…</p></div>
+        <div class="card storage-list unified-primary-card">
           <div class="product" data-storage="grain">
             <img
               src="/assets/redesign/grain.webp"
