@@ -1,0 +1,250 @@
+{
+  "result": "PASS",
+  "engine": "Chromium mobile/touch",
+  "layouts": [
+    {
+      "width": 320,
+      "screen": "farm",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "coop",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "storage",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "shop",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "market",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "tasks",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "profile",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "wallet",
+      "result": "PASS"
+    },
+    {
+      "width": 320,
+      "screen": "upgrades",
+      "result": "PASS"
+    },
+    {
+      "width": 360,
+      "screen": "farm",
+      "result": "PASS"
+    },
+    {
+      "width": 360,
+      "screen": "coop",
+      "result": "PASS"
+    },
+    {
+      "width": 360,
+      "screen": "storage",
+      "result": "PASS"
+    },
+    {
+      "width": 360,
+      "screen": "shop",
+      "result": "PASS"
+    },
+    {
+      "width": 360,
+      "screen": "market",
+      "result": "PASS"
+    },
+    {
+      "width": 360,
+      "screen": "tasks",
+      "result": "PASS"
+    },
+    {
+      "width": 360,
+      "screen": "profile",
+      "result": "PASS"
+    },
+    {
+      "width": 360,
+      "screen": "wallet",
+      "result": "PASS"
+    },
+    {
+      "width": 360,
+      "screen": "upgrades",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "farm",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "coop",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "storage",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "shop",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "market",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "tasks",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "profile",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "wallet",
+      "result": "PASS"
+    },
+    {
+      "width": 375,
+      "screen": "upgrades",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "farm",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "coop",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "storage",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "shop",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "market",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "tasks",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "profile",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "wallet",
+      "result": "PASS"
+    },
+    {
+      "width": 390,
+      "screen": "upgrades",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "farm",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "coop",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "storage",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "shop",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "market",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "tasks",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "profile",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "wallet",
+      "result": "PASS"
+    },
+    {
+      "width": 430,
+      "screen": "upgrades",
+      "result": "PASS"
+    }
+  ],
+  "javascript_errors": [],
+  "image_errors": [],
+  "timer_expiry_state_requests": 1,
+  "checks": [
+    "registration/password",
+    "onboarding",
+    "forecast 6/12h",
+    "separate timers",
+    "server-only expiry",
+    "resume idempotency",
+    "identical coop forecast",
+    "storage filters",
+    "sell all",
+    "cancel restores eggs",
+    "purchase total",
+    "modal at 500px height",
+    "achievements",
+    "session reload"
+  ]
+}

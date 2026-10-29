@@ -5,6 +5,10 @@ const art = {
   eggs: "redesign/egg",
   chickens: "redesign/hen",
 };
+function eggQuantity(n) {
+  const v=Math.abs(n)%100, last=v%10;
+  return `${number(n)} ${v>=11 && v<=14 ? "яиц" : last===1 ? "яйцо" : last>=2 && last<=4 ? "яйца" : "яиц"}`;
+}
 const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица" };
 const number = (n) => new Intl.NumberFormat("ru-RU").format(n);
 let token = localStorage.getItem("farm_token");
@@ -15,6 +19,7 @@ let state = null,
   purchase = null;
 let refreshPromise = null,
   refreshedAt = 0;
+let lastTimerRefresh = 0;
 function safe(s) {
   return String(s).replace(
     /[&<>"']/g,
@@ -618,6 +623,7 @@ function render() {
   if (el("profile-level")) el("profile-level").textContent = "Уровень " + lvl + " · " + xp + " XP";
   for (const img of document.querySelectorAll(".identity .avatar, .profile-avatar")) img.src = avatarSource(p);
   const promo = state.promotion || {};
+  document.querySelectorAll("[data-promo-discount]").forEach(x => x.textContent = `−${Math.round(100*(1-promo.price/promo.value))}%`);
   document.querySelectorAll("[data-promo-value]").forEach(x => x.textContent = number(promo.value));
   document.querySelectorAll("[data-promo-price]").forEach(x => x.textContent = number(promo.price));
   const inc=state.incubator||{};
@@ -713,15 +719,22 @@ function render() {
   const listed = {grain:0,eggs:0};
   for (const item of state.my_listings || []) if (item.item in listed) listed[item.item] += item.quantity;
   const summary = el("storage-summary");
-  if (summary) summary.textContent = "Свободно: " + p.eggs + " яиц, " + p.grain + " зерна. На продаже: " + listed.eggs + " яиц, " + listed.grain + " зерна. Выставленный товар хранится отдельно, пока его не купят или ты не снимешь объявление.";
-  const nextEggs = state.farm.expected_eggs;
-  const harvestText = p.chickens <= 0 ? "Пока нет кур — купи несушку в Торговле."
-    : `Ожидается +${number(nextEggs)} яиц · −${number(nextEggs)} зерна` + (state.farm.autobuy_expected ? " · с автозакупкой" : "");
-  for (const id of ["next-harvest", "coop-harvest"]) el(id).textContent = harvestText;
+  el("storage-listed").textContent = `${number(listed.eggs)} яиц · ${number(listed.grain)} зерна`;
+  const f = state.farm;
+  const approx = f.forecast_approximate ? "~" : "";
+  document.querySelectorAll("[data-eggs-6h]").forEach(x => x.textContent = `${approx}+${eggQuantity(f.eggs_next_6h)}`);
+  document.querySelectorAll("[data-eggs-12h]").forEach(x => x.textContent = `${approx}+${eggQuantity(f.eggs_next_12h)}`);
+  document.querySelectorAll("[data-feed-required]").forEach(x => x.textContent = number(f.grain_required_next_feed));
+  document.querySelectorAll("[data-fed-hens]").forEach(x => x.textContent = number(f.fed_hens));
+  document.querySelectorAll("[data-forecast-note]").forEach(x => x.textContent = f.forecast_note);
+  const brief=el("forecast-brief"); brief.hidden=!f.forecast_approximate; brief.textContent="Есть взрослеющие цыплята — оценка для нынешних несушек.";
+  const feedStatus = f.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления."
+    : f.grain_shortage > 0 ? "Запас пополнит автозакупка, если хватит монет и места." : "Зерна для следующего кормления достаточно.";
+  document.querySelectorAll("[data-feed-status]").forEach(x => {x.textContent = feedStatus;x.dataset.alert = String(f.effective_grain_shortage > 0);});
+  document.querySelectorAll("[data-buy-feed]").forEach(x => x.classList.toggle("needs-feed", f.effective_grain_shortage > 0));
   const storageWarning = el("storage-warning");
-  const free = buildings.storage_capacity - buildings.storage_used;
-  storageWarning.hidden = free > 0;
-  storageWarning.textContent = `Склад заполнен: ${number(buildings.storage_used)} / ${number(buildings.storage_capacity)}. Для покупок расширь склад или продай товары. При кормлении зерно заменяется яйцами — сбор не пропадёт.`;
+  storageWarning.hidden = buildings.storage_used < buildings.storage_capacity;
+  storageWarning.textContent = `Склад заполнен: ${number(buildings.storage_used)} / ${number(buildings.storage_capacity)}. Новые яйца не поместятся. Продай товары или улучши склад.`;
   el("login").hidden = true;
   el("app").hidden = false;
   el("nav").hidden = false;
@@ -738,16 +751,11 @@ function render() {
     x.parentElement.setAttribute("aria-valuenow", sat);
     x.style.background = sat < 35 ? "linear-gradient(#ffb65d,#db3b29)" : "";
   });
-  const cycles = p.chickens > 0 ? Math.floor(p.grain / p.chickens) : 0;
   el("feedstock").textContent = p.chickens
-    ? `${cycles*6} ч. корма (${p.chickens} кур × 1 зерно/6 ч)`
-    : "Пока нет куриц";
-  el("warning").textContent = !p.chickens
-    ? "Купи несушку в магазине."
-    : state.farm.expected_eggs < p.chickens
-      ? "Корма на следующий сбор не хватит. Докупи зерно или проверь автозакупку."
-      : "Производство каждые 6 часов, кормление каждые 18 часов.";
-  el("warning").dataset.alert = String(p.chickens > 0 && state.farm.expected_eggs < p.chickens);
+    ? `${number(p.grain)} зерна · ~${Math.floor(state.farm.feed_stock_seconds/3600)} ч без автозакупки`
+    : `${number(p.grain)} зерна · пока нет кур`;
+  el("warning").textContent = state.farm.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления." : "Кормление раз в 18 часов · 1 зерно на курицу.";
+  el("warning").dataset.alert = String(state.farm.effective_grain_shortage > 0);
   el("treasury").textContent = number(state.economy.treasury) + " монет";
   document.querySelectorAll(".auto-card").forEach((card) => {
     const input = card.querySelector("input");
@@ -793,6 +801,10 @@ function render() {
   countdown();
   if (el("purchase-dialog").open) purchaseQuote();
 }
+function clockDuration(seconds) {
+  const n = Math.max(0, Math.ceil(seconds));
+  return [Math.floor(n/3600),Math.floor(n/60)%60,n%60].map(x=>String(x).padStart(2,"0")).join(":");
+}
 function formatDuration(seconds) {
   const n = Math.max(0, Math.ceil(seconds));
   return `${Math.floor(n / 3600)} ч ${String(Math.floor((n % 3600) / 60)).padStart(2,"0")} мин ${String(n % 60).padStart(2,"0")} с`;
@@ -824,14 +836,14 @@ function countdown() {
     return '<div class="incubator-job"><strong>'+(hatch?'🥚 Яйцо':'🐣 Цыплёнок')+' №'+(i+1)+'</strong><span>'+safe(label)+'</span></div>';
   }).join("") || '<p class="muted">Все ячейки свободны.</p>';
   document.querySelectorAll("[data-stage]").forEach(x=>x.classList.toggle("active",inc.owned&&jobs.length>0&&x.dataset.stage===(now<jobs[0].hatch_at?"egg":"chick")));
-  const seconds = Math.max(0,state.farm.seconds_to_next - elapsed);
-  document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = formatDuration(seconds));
-  const nextFeed = Math.max(0,(state.farm.feed_seconds_to_next||0)-elapsed);
-  document.querySelectorAll("[data-feed-tick]").forEach(x => x.textContent=formatDuration(nextFeed));
+  const seconds = Math.max(0,state.farm.seconds_to_next_egg - elapsed);
+  document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = clockDuration(seconds));
+  const nextFeed = Math.max(0,state.farm.seconds_to_next_feed-elapsed);
+  document.querySelectorAll("[data-feed-tick]").forEach(x => x.textContent=clockDuration(nextFeed));
   // Reconcile completed timers with the server; the browser never grants resources.
   const completedJobs = jobs.some(j => now >= j.mature_at) && !full;
-  const expired = seconds <= 0 || completedJobs;
-  if (expired && !pending && !refreshPromise && elapsed >= 2 && document.visibilityState === "visible") refresh();
+  const expired = seconds <= 0 || nextFeed <= 0 || completedJobs;
+  if (expired && !pending && !refreshPromise && elapsed >= 1 && Date.now()-lastTimerRefresh >= 5000 && document.visibilityState === "visible") { lastTimerRefresh=Date.now(); refresh(); }
   if (el("purchase-dialog").open) purchaseQuote();
 }
 async function refresh() {

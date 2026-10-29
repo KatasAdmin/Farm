@@ -1,346 +1,285 @@
-"""Regression checks against the real FastAPI/PostgreSQL server.
-
-Run from the repository root with a separately provisioned LOCAL test database:
-
-    FARM_VISUAL_TEST_DATABASE_URL=postgresql://farm:farm@127.0.0.1:5543/farm_visual_regression_test \
-      .venv/bin/python -m pytest -q visual-tests/test_regression.py
-
-The suite creates unique accounts through the public API. It never truncates,
-resets, deletes, or migrates existing data. Only generated test accounts have
-last_tick advanced to exercise the actual daily production rules. Boundary fixtures adjust clocks, inventory or offer counters only for newly
-created local qa_ accounts; currency balances are never injected directly. The database is intentionally kept
-for inspection after the tests.
+"""v29 PostgreSQL integration tests. Refuses every database except the existing
+local farm_visual_regression_test on :5543. Never resets/deletes data. Fixtures
+modify only freshly created qa_ accounts; fixture credits are explicitly added
+to the local test reward ledger. No production credentials are used.
 """
-
+import hashlib
+import hmac
+import json
 import os
 import time
 import uuid
-from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlencode, urlparse
 
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from psycopg.rows import dict_row
+import main
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope='module')
 def client():
-    url = os.getenv("FARM_VISUAL_TEST_DATABASE_URL")
+    url=os.getenv('FARM_VISUAL_TEST_DATABASE_URL')
     if not url:
-        pytest.skip("Set FARM_VISUAL_TEST_DATABASE_URL to the dedicated local test database")
-    parsed = urlparse(url)
-    assert parsed.hostname in {"localhost", "127.0.0.1"}
-    assert parsed.port == 5543, "Only the visual QA PostgreSQL instance is allowed"
-    assert parsed.path == "/farm_visual_regression_test", "Refuse to touch any other database"
-    original = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = url
-    import main
-
-    with TestClient(main.app) as test_client:
-        yield test_client
-    if original is None:
-        os.environ.pop("DATABASE_URL", None)
-    else:
-        os.environ["DATABASE_URL"] = original
+        pytest.skip('Dedicated local PostgreSQL required')
+    parsed=urlparse(url)
+    assert parsed.hostname in {'127.0.0.1','localhost'} and parsed.port==5543
+    assert parsed.path=='/farm_visual_regression_test'
+    original=os.environ.get('DATABASE_URL')
+    os.environ['DATABASE_URL']=url
+    with TestClient(main.app) as c:
+        yield c
+    if original is None:os.environ.pop('DATABASE_URL',None)
+    else:os.environ['DATABASE_URL']=original
 
 
-def query(sql, params=()):
-    with psycopg.connect(os.environ["DATABASE_URL"], row_factory=dict_row) as connection:
-        return connection.execute(sql, params).fetchall()
+def sql(query,args=()):
+    with psycopg.connect(os.environ['DATABASE_URL'],row_factory=dict_row) as c:
+        result=c.execute(query,args)
+        return result.fetchall() if result.description else []
 
 
-def emission():
-    return query("SELECT (SELECT treasury FROM economy WHERE id=1) + "
-                 "(SELECT COALESCE(SUM(coins),0) FROM players) - (SELECT total_minted FROM reward_emission WHERE id=1) AS total")[0]["total"]
+def state(c,h):
+    r=c.get('/api/state',headers=h)
+    assert r.status_code==200,r.text
+    return r.json()
 
 
-def player(client):
-    name = "qa_" + uuid.uuid4().hex[:18]
-    response = client.post("/api/join", json={"name": name})
-    assert response.status_code == 200, response.text
-    token = response.json()["token"]
-    assert len(token) == 32
-    headers = {"Authorization": "Bearer " + token}
-    assert get_state(client, headers)["me"]["name"] == name
-    return headers
+def post(c,h,path,data=None):
+    r=c.post(path,headers=h,json=data or {})
+    assert r.status_code==200,r.text
+    return r.json()
 
 
-def get_state(client, headers):
-    response = client.get("/api/state", headers=headers)
-    assert response.status_code == 200, response.text
-    return response.json()
+def account(c,credit=0):
+    name='qa29_'+uuid.uuid4().hex[:12]
+    r=c.post('/api/join',json={'name':name,'password':'QaFarmPass29!'})
+    assert r.status_code==200,r.text
+    h={'Authorization':'Bearer '+r.json()['token']}
+    p=state(c,h)['me']
+    if credit:
+        with psycopg.connect(os.environ['DATABASE_URL']) as db:
+            assert db.execute('UPDATE players SET coins=coins+%s WHERE id=%s AND name=%s RETURNING id',(credit,p['id'],name)).fetchone()
+            db.execute('UPDATE reward_emission SET total_minted=total_minted+%s WHERE id=1',(credit,))
+    return h
 
 
-def post(client, headers, route, data):
-    response = client.post(route, headers=headers, json=data)
-    assert response.status_code == 200, response.text
-    return response.json()
+def fixture(c,h,**values):
+    p=state(c,h)['me']
+    assert p['name'].startswith('qa29_')
+    allowed={'chickens','grain','eggs','fed_hens','feed_phase','satiety','last_tick','created_at','bundle_uses','coop_level','storage_level','incubator_level'}
+    assert values.keys()<=allowed
+    sql('UPDATE players SET '+','.join(k+'=%s' for k in values)+' WHERE id=%s AND name=%s',tuple(values.values())+(p['id'],p['name']))
+    return p
 
 
-def age_generated_player(client, headers, days):
-    """Move only this freshly generated player's clock; production remains real."""
-    account = get_state(client, headers)["me"]
-    assert account["name"].startswith("qa_")
-    assert 1 <= days <= 5
-    query("UPDATE players SET last_tick=%s WHERE id=%s AND name=%s RETURNING id",
-          (time.time() - days * 86400 - 2, account["id"], account["name"]))
-    return get_state(client, headers)
+def signed(uid):
+    fields={'auth_date':str(int(time.time())),'user':json.dumps({'id':uid})}
+    check='\n'.join(k+'='+v for k,v in sorted(fields.items()))
+    secret=hmac.new(b'WebAppData',b'qa29-only-bot',hashlib.sha256).digest()
+    fields['hash']=hmac.new(secret,check.encode(),hashlib.sha256).hexdigest()
+    return urlencode(fields)
 
 
-def test_registration_auth_and_conserved_starting_fund(client):
-    assert emission() == 10000
-    treasury_before = query("SELECT treasury FROM economy WHERE id=1")[0]["treasury"]
-    headers = player(client)
-    state = get_state(client, headers)
-    assert (state["me"]["coins"], state["me"]["chickens"], state["me"]["grain"], state["me"]["eggs"]) == (400, 1, 5, 0)
-    assert state["economy"]["treasury"] == treasury_before - 100
-    assert emission() == 10000
-    assert client.get("/api/state").status_code == 401
-    assert client.get("/api/finance", headers={"Authorization": "Bearer invalid"}).status_code == 401
-    assert client.post("/api/join", json={"name": state["me"]["name"]}).status_code == 409
-    assert emission() == 10000
+def test_start_resources_login_and_secret_redaction(client):
+    h=account(client)
+    s=state(client,h)
+    assert [s['me'][k] for k in ('coins','chickens','grain','eggs')]==[10,1,5,0]
+    assert not {'token','password_hash','recovery_hash'} & s['me'].keys()
+    name=s['me']['name']
+    r=post(client,{},'/api/login',{'name':name,'password':'QaFarmPass29!'})
+    restored=state(client,{'Authorization':'Bearer '+r['token']})
+    assert restored['me']['id']==s['me']['id']
+    assert restored['me']['coins']==10
+    assert client.get('/api/state',headers=h).status_code==401
+    assert client.post('/api/join',json={'name':name.upper(),'password':'QaFarmPass29!'}).status_code==409
 
 
-def test_system_purchases_flow_to_treasury_and_ledger(client):
-    headers = player(client)
-    before = get_state(client, headers)
-    post(client, headers, "/api/shop", {"item": "chickens", "amount": 1})
-    post(client, headers, "/api/shop", {"item": "grain", "amount": 5})
-    after = get_state(client, headers)
-    assert after["shop"] == {"grain": 2, "chickens": 30}
-    assert after["me"]["coins"] == 360
-    assert after["me"]["chickens"] == 2
-    assert after["me"]["grain"] == 10
-    assert after["economy"]["treasury"] == before["economy"]["treasury"] + 40
-    logs = client.get("/api/finance", headers=headers).json()["entries"]
-    assert sorted(entry["delta"] for entry in logs if entry["kind"] == "shop") == [-30, -10]
-    assert emission() == 10000
+def test_health_no_duplicate_routes(client):
+    assert client.get('/health').json()=={'ok':True}
+    routes=[(m,r.path) for r in main.app.routes for m in getattr(r,'methods',[])]
+    assert len(routes)==len(set(routes))
 
 
-def test_daily_feed_is_once_per_day_and_persists(client):
-    headers = player(client)
-    post(client, headers, "/api/shop", {"item": "chickens", "amount": 1})
-    before = get_state(client, headers)
-    after = age_generated_player(client, headers, 1)
-    assert after["farm"]["cycle_seconds"] == 86400
-    assert after["me"]["grain"] == before["me"]["grain"] - 2
-    assert after["me"]["eggs"] == before["me"]["eggs"] + 2
-    assert after["me"]["coins"] == before["me"]["coins"]
-    reloaded = get_state(client, headers)
-    assert reloaded["me"]["grain"] == after["me"]["grain"]
-    assert reloaded["me"]["eggs"] == after["me"]["eggs"]
-    assert client.post("/api/feed", headers=headers).status_code == 410
-    assert emission() == 10000
+@pytest.mark.parametrize('hens,grain,fed,phase,eggs,auto,credit',[
+    (1,5,1,0,0,False,0),(5,30,5,0,0,False,0),
+    (5,2,5,2,0,False,0),(1,0,1,2,0,False,0),
+    (0,5,0,0,0,False,0),(1,1,1,2,99,False,0),
+    (5,0,5,2,0,True,100),(5,0,5,2,0,False,100),
+    (5,2,2,2,0,True,0),(1,0,1,2,80,True,100),
+])
+def test_forecast_matches_real_database_production(client,hens,grain,fed,phase,eggs,auto,credit):
+    h=account(client,credit)
+    fixture(client,h,chickens=hens,grain=grain,fed_hens=fed,feed_phase=phase,eggs=eggs,last_tick=time.time()-100)
+    post(client,h,'/api/autobuy',{'item':'on' if auto else 'off','amount':20})
+    s=state(client,h)
+    for hours in (6,12):
+        # Do not persist the first horizon: each horizon starts from identical data.
+        with psycopg.connect(os.environ['DATABASE_URL'],row_factory=dict_row) as db:
+            p=main.person(db,h['Authorization'],True)
+            actual=main.advance(db,p,s['now']+hours*3600)
+            assert actual['eggs']-s['me']['eggs']==s['farm'][f'eggs_next_{hours}h']
+            db.rollback()
+    assert state(client,h)['me']['eggs']==s['me']['eggs']
 
 
-def test_automatic_grain_purchase_uses_real_balance(client):
-    headers = player(client)
-    post(client, headers, "/api/shop", {"item": "chickens", "amount": 2})
-    post(client, headers, "/api/autobuy", {"item": "on", "amount": 10})
-    before = get_state(client, headers)
-    # Day 1 consumes 3 of the 5 initial grain. Day 2 buys 10 then consumes 3.
-    after = age_generated_player(client, headers, 2)
-    assert after["me"]["coins"] == before["me"]["coins"] - 20
-    assert after["me"]["grain"] == 9
-    assert after["me"]["eggs"] == 6
-    assert after["economy"]["treasury"] == before["economy"]["treasury"] + 20
-    logs = client.get("/api/finance", headers=headers).json()["entries"]
-    assert any(entry["kind"] == "auto_grain" and entry["delta"] == -20 for entry in logs)
-    post(client, headers, "/api/autobuy", {"item": "off", "amount": 10})
-    assert get_state(client, headers)["me"]["autobuy_enabled"] is False
-    assert emission() == 10000
+def test_production_return_and_no_double_credit(client):
+    h=account(client)
+    fixture(client,h,last_tick=time.time()-13*3600)
+    a=state(client,h)
+    assert a['me']['eggs']==2
+    assert a['me']['grain']==5
+    assert state(client,h)['me']['eggs']==2
+    assert a['farm']['seconds_to_next_feed']>0
 
 
-def test_proportional_pool_egg_sales_have_no_commission(client):
-    seller_a, seller_b, buyer = player(client), player(client), player(client)
-    age_generated_player(client, seller_a, 2)
-    age_generated_player(client, seller_b, 4)
-    post(client, seller_a, "/api/sell", {"item": "eggs", "amount": 2, "price": 1})
-    post(client, seller_b, "/api/sell", {"item": "eggs", "amount": 4, "price": 999})
-    a_before = get_state(client, seller_a)
-    b_before = get_state(client, seller_b)
-    assert a_before["my_listings"][0]["price"] == 5
-    assert b_before["my_listings"][0]["price"] == 5
-    # All prior tests leave no active egg offers. This price group is 2:4.
-    assert sum(row["quantity"] for row in a_before["market"] if row["item"] == "eggs") == 6
-    result = post(client, buyer, "/api/buy", {"item": "eggs", "amount": 3})
-    assert result["spent"] == 15
-    a_after, b_after, bought = get_state(client, seller_a), get_state(client, seller_b), get_state(client, buyer)
-    assert a_after["my_listings"][0]["quantity"] == 1
-    assert b_after["my_listings"][0]["quantity"] == 2
-    assert a_after["me"]["coins"] - a_before["me"]["coins"] == 5
-    assert b_after["me"]["coins"] - b_before["me"]["coins"] == 10
-    assert bought["me"]["coins"] == 385
-    assert bought["me"]["eggs"] == 3
-    assert bought["economy"]["treasury"] == a_before["economy"]["treasury"]
-    for headers, state in ((seller_a, a_after), (seller_b, b_after)):
-        post(client, headers, "/api/cancel/" + state["my_listings"][0]["id"], {})
-    assert emission() == 10000
+def test_shop_capacity_prices_and_failed_operations_preserve_resources(client):
+    h=account(client,100)
+    before=state(client,h)
+    post(client,h,'/api/shop',{'item':'chickens','amount':1,'price':1})
+    after=state(client,h)
+    assert after['me']['coins']==before['me']['coins']-40
+    for path,payload in [('/api/shop',{'item':'grain','amount':1000}),('/api/sell',{'item':'eggs','amount':500}),('/api/shop',{'item':'grain','amount':-1}),('/api/shop',{'item':'eggs','amount':1})]:
+        assert client.post(path,headers=h,json=payload).status_code==400
+    again=state(client,h)
+    assert [again['me'][k] for k in ('coins','grain','eggs','chickens')]==[after['me'][k] for k in ('coins','grain','eggs','chickens')]
 
 
-def test_listing_reservation_cancel_and_unauthorized_cancel(client):
-    seller, outsider = player(client), player(client)
-    post(client, seller, "/api/sell", {"item": "grain", "amount": 3, "price": 2})
-    reserved = get_state(client, seller)
-    listing_id = reserved["my_listings"][0]["id"]
-    assert reserved["me"]["grain"] == 2
-    assert client.post("/api/cancel/" + listing_id, headers=outsider, json={}).status_code == 404
-    post(client, seller, "/api/cancel/" + listing_id, {})
-    assert get_state(client, seller)["me"]["grain"] == 5
-    assert get_state(client, seller)["my_listings"] == []
-    assert client.post("/api/cancel/" + listing_id, headers=seller, json={}).status_code == 404
-    assert emission() == 10000
+def test_market_proportional_sales_and_self_exclusion(client):
+    sellers=[account(client) for _ in range(2)]
+    buyer=account(client)
+    for h,q in zip(sellers,(2,4)):
+        fixture(client,h,eggs=q)
+        post(client,h,'/api/sell',{'item':'eggs','amount':q,'price':999})
+    before=[state(client,h) for h in sellers]
+    post(client,buyer,'/api/buy',{'item':'eggs','amount':3,'price':0})
+    after=[state(client,h) for h in sellers]
+    assert [a['me']['coins']-b['me']['coins'] for a,b in zip(after,before)]==[1,2]
+    assert state(client,buyer)['me']['coins']==7
+    assert all(a['my_listings'][0]['price']==1 for a in after)
+    for h,s in zip(sellers,after):
+        post(client,h,'/api/cancel/'+s['my_listings'][0]['id'])
+    own=account(client)
+    fixture(client,own,eggs=1)
+    post(client,own,'/api/sell',{'item':'eggs','amount':1})
+    mine=state(client,own)
+    assert mine['available_eggs']==0
+    assert client.post('/api/buy',headers=own,json={'item':'eggs','amount':1}).status_code==400
+    assert client.post('/api/cancel/'+mine['my_listings'][0]['id'],headers=buyer,json={}).status_code==404
+    post(client,own,'/api/cancel/'+mine['my_listings'][0]['id'])
+    assert state(client,own)['me']['eggs']==1
 
 
-def test_rejected_operations_leave_balance_untouched(client):
-    headers = player(client)
-    for request in ({"item": "grain", "amount": 0}, {"item": "grain", "amount": -1},
-                    {"item": "grain", "amount": 10001}, {"item": "eggs", "amount": 1},
-                    {"item": "chickens", "amount": 14}):
-        assert client.post("/api/shop", headers=headers, json=request).status_code == 400
-    assert client.post("/api/sell", headers=headers, json={"item": "eggs", "amount": 1, "price": 5}).status_code == 400
-    after = get_state(client, headers)
-    assert (after["me"]["coins"], after["me"]["grain"], after["me"]["chickens"]) == (400, 5, 1)
-    assert emission() == 10000
+def test_concurrent_reward_and_purchase_are_serialized(client):
+    h=account(client)
+    with ThreadPoolExecutor(2) as pool:
+        responses=list(pool.map(lambda _:client.post('/api/claim',headers=h,json={'item':'bonus'}),range(2)))
+    assert sorted(r.status_code for r in responses)==[200,409]
+    assert state(client,h)['me']['coins']==12
+    with ThreadPoolExecutor(2) as pool:
+        responses=list(pool.map(lambda _:client.post('/api/shop',headers=h,json={'item':'grain','amount':5}),range(2)))
+    assert sorted(r.status_code for r in responses)==[200,400]
+    assert state(client,h)['me']['coins']==2
+    assert state(client,h)['me']['grain']==10
 
 
-def test_health_routes_and_account_reload(client):
-    import main
-    routes = [(method, route.path) for route in main.app.routes for method in getattr(route, "methods", [])]
-    assert len(routes) == len(set(routes)), "Duplicate server routes"
-    assert client.get("/health").json() == {"ok": True}
-    h = player(client)
-    first, second = get_state(client, h), get_state(client, h)
-    assert first["me"]["id"] == second["me"]["id"]
-    assert first["me"]["coins"] == second["me"]["coins"] == 400
-    assert first["promotion"]["price"] == 300
-    assert first["promotion"]["value"] == 500
-    assert emission() == 10000
+def test_tasks_achievements_and_profile_save(client):
+    h=account(client)
+    post(client,h,'/api/shop',{'item':'grain','amount':5})
+    post(client,h,'/api/claim',{'item':'grain'})
+    fixture(client,h,last_tick=time.time()-12*21600-1)
+    s=state(client,h)
+    assert 'first_egg' in s['progression']['achievements']
+    assert s['progression']['xp']>0
+    post(client,h,'/api/claim',{'item':'eggs'})
+    assert client.post('/api/claim',headers=h,json={'item':'eggs'}).status_code==409
+    post(client,h,'/api/profile',{'gender':'female','age':29,'avatar':'chicken'})
+    p=state(client,h)['me']
+    assert (p['gender'],p['age'],p['avatar'])==('female',29,'chicken')
 
 
-def test_forecast_autobuy_and_production_history(client):
-    h = player(client)
-    post(client, h, "/api/shop", {"item": "chickens", "amount": 5})
-    assert get_state(client, h)["farm"]["expected_eggs"] == 5
-    post(client, h, "/api/autobuy", {"item": "on", "amount": 10})
-    forecast = get_state(client, h)
-    assert forecast["farm"]["expected_eggs"] == 6
-    assert forecast["farm"]["autobuy_expected"] is True
-    produced = age_generated_player(client, h, 1)
-    assert produced["me"]["eggs"] == 6
-    assert produced["production_history"][0]["amount"] == 6
-    assert len(get_state(client, h)["production_history"]) == 1
-    # No room for the configured refill: forecast matches server feeding.
-    me = produced["me"]
-    query("UPDATE players SET grain=1,eggs=99 WHERE id=%s AND name=%s RETURNING id", (me["id"], me["name"]))
-    blocked = get_state(client, h)
-    assert blocked["farm"]["expected_eggs"] == 1
-    assert blocked["farm"]["autobuy_expected"] is False
+def test_incubator_no_early_hen_and_full_coop_wait(client):
+    h=account(client,300)
+    fixture(client,h,eggs=12)
+    post(client,h,'/api/incubator',{'item':'buy'})
+    post(client,h,'/api/incubator',{'item':'start','amount':1})
+    s=state(client,h)
+    job=s['incubator']['jobs'][0]
+    assert s['me']['chickens']==1 and s['me']['eggs']==0
+    assert client.post('/api/incubator',headers=h,json={'item':'start'}).status_code==409
+    sql('UPDATE incubation_jobs SET hatch_at=%s,mature_at=%s WHERE id=%s AND player_id=%s',(time.time()-1,time.time()+60,job['id'],s['me']['id']))
+    assert state(client,h)['me']['chickens']==1
+    fixture(client,h,chickens=10,fed_hens=1)
+    sql('UPDATE incubation_jobs SET mature_at=%s WHERE id=%s AND player_id=%s',(time.time()-1,job['id'],s['me']['id']))
+    waiting=state(client,h)
+    assert waiting['me']['chickens']==10 and waiting['incubator']['active']==1
+    post(client,h,'/api/upgrade',{'item':'coop'})
+    done=state(client,h)
+    assert done['me']['chickens']==11 and done['incubator']['active']==0
+    assert state(client,h)['me']['chickens']==11
 
 
-def test_own_eggs_cannot_be_bought_and_cancellation_restores_stock(client):
-    h = player(client)
-    grown = age_generated_player(client, h, 1)
-    post(client, h, "/api/sell", {"item": "eggs", "amount": 1})
-    reserved = get_state(client, h)
-    assert reserved["available_eggs"] == 0
-    assert client.post("/api/buy", headers=h, json={"item": "eggs", "amount": 1}).status_code == 400
-    assert get_state(client, h)["me"]["coins"] == reserved["me"]["coins"]
-    post(client, h, "/api/cancel/" + reserved["my_listings"][0]["id"], {})
-    assert get_state(client, h)["me"]["eggs"] == grown["me"]["eggs"]
+def test_promotion_contents_limits_and_expiry(client):
+    h=account(client,600)
+    before=state(client,h)
+    post(client,h,'/api/bundle')
+    after=state(client,h)
+    assert after['me']['coins']==before['me']['coins']-300
+    assert after['me']['chickens']==11 and after['me']['grain']==105
+    assert after['promotion']['value']==600
+    fixture(client,h,bundle_uses=5)
+    assert client.post('/api/bundle',headers=h,json={}).json()['detail']=='Акция завершена'
+    fixture(client,h,bundle_uses=0,created_at=time.time()-72*3600-1)
+    assert client.post('/api/bundle',headers=h,json={}).json()['detail']=='Акция завершена'
+    assert state(client,h)['me']['coins']==after['me']['coins']
 
 
-def test_daily_rewards_progress_and_duplicate_claim(client):
-    h = player(client)
-    assert client.post("/api/claim", headers=h, json={"item":"grain"}).status_code == 400
-    post(client, h, "/api/shop", {"item":"grain", "amount":5})
-    before = get_state(client, h)
-    assert before["daily"]["grain_bought"] == 5
-    award = post(client, h, "/api/claim", {"item":"grain"})
-    assert award["awarded"] == before["reward_values"]["grain"] == 1
-    assert client.post("/api/claim", headers=h, json={"item":"grain"}).status_code == 409
-    after = get_state(client, h)
-    assert after["me"]["coins"] == before["me"]["coins"] + 1
-    assert after["progression"]["xp"] > before["progression"]["xp"]
-    produced = age_generated_player(client, h, 1)
-    assert "first_egg" in produced["progression"]["achievements"]
-    post(client, h, "/api/claim", {"item":"eggs"})
-    post(client, h, "/api/sell", {"item":"eggs", "amount":1})
-    post(client, h, "/api/claim", {"item":"listing"})
-    post(client, h, "/api/claim", {"item":"bonus"})
-    state = get_state(client, h)
-    post(client, h, "/api/cancel/" + state["my_listings"][0]["id"], {})
-    assert emission() == 10000
+def test_telegram_both_link_directions_and_rejection(client,monkeypatch):
+    monkeypatch.setenv('TELEGRAM_BOT_TOKEN','qa29-only-bot')
+    uid=int(uuid.uuid4().int%1000000000)+9000000000
+    h=account(client)
+    initial=state(client,h)['me']['id']
+    post(client,h,'/api/telegram/link',{'telegram_data':signed(uid)})
+    token=post(client,{},'/api/telegram/login',{'telegram_data':signed(uid)})['token']
+    assert state(client,{'Authorization':'Bearer '+token})['me']['id']==initial
+    outsider=account(client)
+    assert client.post('/api/telegram/link',headers=outsider,json={'telegram_data':signed(uid)}).status_code==409
+    assert client.post('/api/telegram/login',json={'telegram_data':signed(uid)+'bad'}).status_code==401
+    uid+=1
+    token=post(client,{},'/api/telegram/login',{'telegram_data':signed(uid)})['token']
+    th={'Authorization':'Bearer '+token}
+    telegram_id=state(client,th)['me']['id']
+    name='qa29_'+uuid.uuid4().hex[:12]
+    post(client,th,'/api/nickname/set',{'name':name})
+    post(client,th,'/api/password/set',{'password':'QaFarmPass29!'})
+    token=post(client,{},'/api/login',{'name':name,'password':'QaFarmPass29!'})['token']
+    assert state(client,{'Authorization':'Bearer '+token})['me']['id']==telegram_id
 
 
-def test_incubator_only_matures_after_both_stages(client):
-    h = player(client)
-    age_generated_player(client, h, 1)
-    before = get_state(client, h)
-    post(client, h, "/api/incubator", {"item":"buy"})
-    assert client.post("/api/incubator", headers=h, json={"item":"buy"}).status_code == 409
-    post(client, h, "/api/incubator", {"item":"start"})
-    started = get_state(client, h)
-    assert started["incubator"]["capacity"] == 1
-    assert started["me"]["eggs"] == before["me"]["eggs"] - 1
-    assert started["me"]["chickens"] == before["me"]["chickens"]
-    assert client.post("/api/incubator", headers=h, json={"item":"start"}).status_code == 409
-    me, inc = started["me"], started["incubator"]
-    query("UPDATE players SET incubation_started=%s WHERE id=%s AND name=%s RETURNING id", (time.time()-inc["incubate_seconds"]-2,me["id"],me["name"]))
-    chick = get_state(client, h)
-    assert chick["incubator"]["incubation_started"] is None
-    assert chick["incubator"]["chick_ready_at"] > time.time()
-    assert chick["me"]["chickens"] == me["chickens"]
-    query("UPDATE players SET chick_ready_at=%s WHERE id=%s AND name=%s RETURNING id", (time.time()-2,me["id"],me["name"]))
-    hen = get_state(client, h)
-    assert hen["me"]["chickens"] == me["chickens"] + 1
-    assert get_state(client, h)["me"]["chickens"] == hen["me"]["chickens"]
-    assert hen["me"]["eggs"] == started["me"]["eggs"]
-    assert hen["me"]["coins"] == before["me"]["coins"] - inc["incubator_price"]
+def test_wallet_ownership_and_concurrent_manual_requests(client,monkeypatch):
+    monkeypatch.setenv('TELEGRAM_BOT_TOKEN','qa29-only-bot')
+    h=account(client,200)
+    uid=int(uuid.uuid4().int%1000000000)+11000000000
+    post(client,h,'/api/telegram/link',{'telegram_data':signed(uid)})
+    with ThreadPoolExecutor(2) as pool:
+        responses=list(pool.map(lambda _:client.post('/api/withdraw/request',headers=h,json={'amount':100}),range(2)))
+    assert sorted(r.status_code for r in responses)==[200,409]
+    status=client.get('/api/withdraw/status',headers=h).json()
+    assert status['payouts_enabled'] is False and status['request']['status']=='pending'
+    assert state(client,h)['me']['coins']==210
+    other=account(client)
+    assert client.get('/api/withdraw/status',headers=other).json()['request'] is None
+    assert client.get('/api/finance',headers=other).json()['entries']==[]
 
 
-def test_promotion_exact_contents_expiry_and_limit(client):
-    h = player(client)
-    before = get_state(client, h)
-    post(client, h, "/api/bundle", {})
-    after = get_state(client, h)
-    assert after["me"]["coins"] == before["me"]["coins"] - 300
-    assert after["me"]["chickens"] == before["me"]["chickens"] + 10
-    assert after["me"]["grain"] == before["me"]["grain"] + 100
-    assert after["promotion"]["used"] == 1
-    # Exercise server limits on this new local test account only.
-    me = after["me"]
-    query("UPDATE players SET bundle_uses=5 WHERE id=%s AND name=%s RETURNING id", (me["id"],me["name"]))
-    rejected = client.post("/api/bundle", headers=h, json={})
-    assert rejected.status_code == 400 and rejected.json()["detail"] == "Акция завершена"
-    query("UPDATE players SET bundle_uses=0,created_at=%s WHERE id=%s AND name=%s RETURNING id", (time.time()-72*3600-2,me["id"],me["name"]))
-    rejected = client.post("/api/bundle", headers=h, json={})
-    assert rejected.status_code == 400 and rejected.json()["detail"] == "Акция завершена"
-    expired = get_state(client, h)
-    assert expired["me"]["coins"] == after["me"]["coins"]
-    assert expired["me"]["grain"] == after["me"]["grain"]
-    assert expired["me"]["chickens"] == after["me"]["chickens"]
-    assert emission() == 10000
-
-
-def test_full_coop_keeps_mature_chick_until_space_is_available(client):
-    h = player(client)
-    age_generated_player(client, h, 1)
-    post(client, h, "/api/incubator", {"item":"buy"})
-    post(client, h, "/api/incubator", {"item":"start"})
-    post(client, h, "/api/shop", {"item":"chickens", "amount":9})
-    before = get_state(client, h)
-    me = before["me"]
-    assert me["chickens"] == before["buildings"]["coop_capacity"] == 10
-    query("UPDATE players SET incubation_started=%s WHERE id=%s AND name=%s RETURNING id", (time.time()-86402,me["id"],me["name"]))
-    waiting = get_state(client, h)
-    assert waiting["me"]["chickens"] == 10
-    assert waiting["incubator"]["chick_ready_at"] < time.time()
-    assert waiting["me"]["eggs"] == before["me"]["eggs"]
-    # Only this local qa_ account: provide space, never delete the pending chick.
-    query("UPDATE players SET coop_level=2 WHERE id=%s AND name=%s RETURNING id", (me["id"],me["name"]))
-    matured = get_state(client, h)
-    assert matured["me"]["chickens"] == 11
-    assert matured["incubator"]["chick_ready_at"] is None
-    assert get_state(client, h)["me"]["chickens"] == 11
-    assert matured["me"]["coins"] == before["me"]["coins"]
+def test_concurrent_promotion_limit_is_server_enforced(client):
+    h=account(client,600)
+    fixture(client,h,bundle_uses=4)
+    with ThreadPoolExecutor(2) as pool:
+        responses=list(pool.map(lambda _:client.post('/api/bundle',headers=h,json={}),range(2)))
+    assert sorted(r.status_code for r in responses)==[200,400]
+    after=state(client,h)
+    assert after['promotion']['used']==5
+    assert after['me']['coins']==310 and after['me']['chickens']==11

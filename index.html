@@ -12,8 +12,9 @@
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
+    <link rel="stylesheet" href="/assets/update29.css?v=29" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=26" defer></script>
+    <script src="/assets/game.js?v=29" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -185,18 +186,17 @@
           </div>
           <p id="warning" class="muted"></p><p id="storage-warning" class="capacity-warning" role="status" hidden></p>
         </div>
-        <div class="card compact-harvest unified-primary-card">
-          <div class="compact-harvest-title"><img src="/assets/redesign/egg.webp" alt="" class="icon"><div><h2>Следующий сбор яиц</h2><p id="next-harvest" class="feature-note" role="status">Рассчитываем время…</p></div></div>
-          <p class="compact-harvest-feed">Кормление через <strong data-feed-tick>—</strong></p>
-          <div class="buttons">
-            <button class="btn" onclick="tab('shop')">Купить корм</button
-            ><button class="btn alt" onclick="openSell('eggs')">
-              Продать яйца
-            </button>
-          </div>
-          <details class="farm-explainer"><summary>Как работает моя ферма?</summary>
-            <p>Каждая сытая курица несёт яйцо каждые 6 часов. Зерно расходуется раз в 18 часов. Яйца можно продать игрокам или использовать в инкубаторе.</p>
-          </details>
+        <div class="card compact-harvest unified-primary-card forecast-card">
+          <h2 class="cardtitle">БЛИЖАЙШИЙ СБОР ЯИЦ</h2>
+          <div class="forecast-output"><img src="/assets/redesign/egg.webp" class="icon" alt=""><div>
+            <p>Ожидается в ближайшие 6 часов:</p><strong id="next-harvest" data-eggs-6h>—</strong>
+            <p class="forecast-secondary">В ближайшие 12 часов: <b data-eggs-12h>—</b></p>
+          </div></div>
+          <p id="forecast-brief" class="muted" hidden></p>
+          <div class="forecast-timers"><div><span>Следующий сбор</span><strong data-next-tick>—</strong></div><div><span>Следующее кормление</span><strong data-feed-tick>—</strong></div></div>
+          <div class="forecast-feeding"><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><strong>Следующее кормление: −<span data-feed-required>—</span> зерна</strong><p data-feed-status>Проверяем запас…</p></div></div>
+          <div class="buttons"><button class="btn" data-buy-feed onclick="tab('shop');showShop('grain')">Купить корм</button><button class="btn alt" onclick="openSell('eggs')">Продать яйца</button></div>
+          <details class="farm-explainer"><summary>От чего зависит прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Каждая сытая курица несёт яйцо каждые 6 часов. Одно зерно на курицу расходуется каждые 18 часов. Яйца можно продать игрокам или использовать в инкубаторе.</p></details>
         </div>
         <div class="farm-footer-links">
           <button class="text-button" onclick="tab('upgrades')">
@@ -303,23 +303,22 @@
           </div>
           <p class="cycle">Цикл: 1 яйцо каждые 6 часов</p>
           <div class="statsrow"><span>Следующий сбор через</span><b data-next-tick>—</b></div>
-          <p id="coop-harvest" class="feature-note">Следующий сбор рассчитывается…</p>
+          <div class="statsrow"><span>Следующее кормление через</span><b data-feed-tick>—</b></div>
+          <p id="coop-harvest" class="feature-note">За 6 часов: <b data-eggs-6h>—</b> · За 12 часов: <b data-eggs-12h>—</b></p>
+          <p class="feature-note">Кормление: −<span data-feed-required>—</span> зерна · Сытых кур: <span data-fed-hens>—</span></p><p class="muted" data-feed-status></p>
+          <details class="farm-explainer"><summary>Условия прогноза</summary><p data-forecast-note></p></details>
         </div>
         <details class="card production-history"><summary>История производства яиц</summary><div id="production-history"></div></details>
         <details class="card economics unified-details"><summary>Экономика одной курицы</summary><div class="unified-details-content">
 
-          <div class="statsrow">
-            <span>Расход корма</span><b>≈ 2,67 монеты/сутки</b>
-          </div>
-          <div class="statsrow">
-            <span>Доход от продажи яйца</span><b>4 монеты/сутки при продаже всех яиц</b>
-          </div>
-          <div class="statsrow">
-            <span>Прибыль при продаже</span><b>+1,33 монеты/сутки при полном спросе</b>
-          </div>
-          <p class="muted">
-            Яйца продаются другим игрокам. Доход зависит от спроса.
-          </p>
+          <div class="statsrow"><span>Цена курицы</span><b>40 монет</b></div>
+          <div class="statsrow"><span>Яйца за сутки</span><b>до 4 шт. × 1 монета</b></div>
+          <div class="statsrow"><span>Выручка</span><b>4 монеты/сутки при продаже всех яиц</b></div>
+          <div class="statsrow"><span>Кормление</span><b>1 зерно / 18 часов</b></div>
+          <div class="statsrow"><span>Цена зерна</span><b>2 монеты</b></div>
+          <div class="statsrow"><span>Средний расход корма</span><b>≈ 2,67 монеты/сутки</b></div>
+          <div class="statsrow"><span>Игровой результат</span><b>≈ 1,33 монеты/сутки</b></div>
+          <p class="muted">Расчёт предполагает продажу всех яиц, достаточно корма, место на складе и отсутствие других расходов. Окупаемость ≈ 30 дней не гарантирована: спрос формируют игроки.</p>
 </div></details>
         <div class="payback">
           <span class="calendar">30</span>
@@ -399,6 +398,7 @@
           </div>
         </div>
 
+      <details class="card trade-rules"><summary>Как работает торговля?</summary><p>Зерно и кур продаёт система. Яйца поступают от других игроков. Свои объявления купить нельзя.</p><p>Покупки распределяются между продавцами пропорционально их количеству товара при одинаковой цене. Монеты приходят после покупки, а непроданный остаток можно вернуть, если на складе есть место.</p></details>
       </section>
       <section id="shop" class="panel" aria-label="Торговля">
         <div class="scene-banner compact-trade-scene">
@@ -473,7 +473,7 @@
             Набор фермера
           </h2>
           <div class="bundle-inner">
-            <h3>Акционный набор <span class="promo-percent">−50%</span></h3>
+            <h3>Акционный набор <span class="promo-percent" data-promo-discount>—</span></h3>
             <p>10 куриц + 100 зерна</p>
             <p class="promo-value">Обычная стоимость: <s><span data-promo-value>—</span> монет</s></p>
             <p id="promo-status" class="promo-status">Акция доступна новым игрокам 3 дня · до 5 покупок</p>
@@ -755,7 +755,7 @@
         </div>
         <div class="storage-hero">
           <img
-            src="/assets/backgrounds/warehouse_scene.webp"
+            src="/assets/redesign/storage.webp"
             class="scene-image"
             alt="Амбар для хранения ресурсов"
             decoding="async"
@@ -767,7 +767,7 @@
           ><button onclick="storageFilter('eggs',this)">Яйца</button
           ><button onclick="storageFilter('chickens',this)">Куры</button>
         </div>
-        <div class="card storage-overview"><h2 class="cardtitle">Мой запас</h2><p id="storage-summary" class="muted">Загружаем свободные и выставленные товары…</p></div>
+        <div class="card storage-overview"><h2 class="cardtitle">Мой запас</h2><div id="storage-summary" class="stock-summary"><span>Свободное зерно <b data-value="grain">—</b></span><span>Свободные яйца <b data-value="eggs">—</b></span><span>На продаже <b id="storage-listed">—</b></span></div></div>
         <div class="card storage-list unified-primary-card">
           <div class="product" data-storage="grain">
             <img

@@ -1,0 +1,18 @@
+{
+  "unit": {
+    "passed": 42,
+    "failed": 0
+  },
+  "postgresql": {
+    "passed": 22,
+    "failed": 0
+  },
+  "baseline_differential_states": 2000,
+  "mobile_layout_checks": 45,
+  "images_decoded": 195,
+  "python_syntax": "PASS",
+  "javascript_syntax": "PASS",
+  "backup_verified": false,
+  "physical_devices_tested": false,
+  "safari_tested": false
+}

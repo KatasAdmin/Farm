@@ -1,4 +1,5 @@
-import os,time,uuid,secrets,hashlib,hmac,json
+import os,time,uuid,secrets,hashlib,hmac,json,logging
+logger=logging.getLogger("farm.security")
 from urllib.parse import parse_qsl
 import psycopg
 from psycopg.rows import dict_row
@@ -7,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
+from production import CYCLE, FEED_EVERY, GRAIN_PRICE, simulate, forecast
 def db():return psycopg.connect(os.environ["DATABASE_URL"],row_factory=dict_row)
 @asynccontextmanager
 async def lifespan(app):
@@ -112,7 +114,9 @@ def telegram_identity(raw):
  check="\n".join(k+"="+v for k,v in sorted(pairs.items()))
  secret=hmac.new(b"WebAppData",bot_token.encode(),hashlib.sha256).digest()
  calculated=hmac.new(secret,check.encode(),hashlib.sha256).hexdigest()
- if not hmac.compare_digest(calculated,supplied):raise HTTPException(401,"Не удалось проверить Telegram")
+ if not hmac.compare_digest(calculated,supplied):
+  logger.warning("telegram_invalid_signature")
+  raise HTTPException(401,"Не удалось проверить Telegram")
  try:user=json.loads(pairs["user"]);uid=int(user["id"])
  except (KeyError,ValueError,TypeError,json.JSONDecodeError):raise HTTPException(401,"Не найден пользователь Telegram")
  if uid<=0:raise HTTPException(401,"Неверный Telegram ID")
@@ -124,11 +128,8 @@ def person(c,h,lock=False):
  return p
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
-CYCLE=21600  # 1 egg every 6 hours per fed chicken
-FEED_EVERY=3  # feed every three production cycles = 18 hours
 HEN_PRICE=40
 EGG_PRICE=1
-GRAIN_PRICE=2
 MAX_BUILDING_LEVEL=10
 PROMO_SECONDS=3*86400
 PROMO_PRICE=300
@@ -159,49 +160,16 @@ def advance(c,p,now=None):
  start=p["last_tick"] if p["last_tick"] is not None else now
  due=max(0,int((now-start)//CYCLE))
  if due<=0:return update_incubation(c,p,now)
- grain,eggs,hens=p["grain"],p["eggs"],p["chickens"]
- coins=p["coins"]
- fed_hens=min(hens,p["fed_hens"])
- phase=p["feed_phase"]
- satiety,critical=p["satiety"],p["critical_cycles"]
- produced=0
- # No unbounded catch-up: hens eventually starve without feed.
- for _ in range(min(due,438000)):
-  if hens<=0:break
-  # Only currently fed hens lay eggs; eggs cannot fill beyond the warehouse.
-  available=max(0,storage_limit(p)-grain-eggs)
-  laid=min(fed_hens,available)
-  eggs+=laid
-  produced+=laid
-  phase=(phase+1)%FEED_EVERY
-  if phase!=0:continue
-  if p["autobuy_enabled"] and grain<hens and coins>=GRAIN_PRICE*max(1,p["autobuy_amount"]) and grain+eggs+p["autobuy_amount"]<=storage_limit(p):
-   refill=p["autobuy_amount"]
-   coins-=GRAIN_PRICE*refill
-   grain+=refill
-   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(GRAIN_PRICE*refill,))
-   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"auto_grain",-GRAIN_PRICE*refill,"Зерно: "+str(refill),now))
-  fed=min(grain,hens)
-  grain-=fed
-  fed_hens=fed
-  if fed==hens:
-   satiety=min(100,satiety+3)
-   critical=0
-  else:
-   missing=hens-fed
-   satiety=max(0,satiety-max(1,(3*missing+hens-1)//hens))
-   critical=critical+1 if satiety==0 else 0
-   if critical>=48:
-    hens-=1
-    fed_hens=min(fed_hens,hens)
-    critical=0
-    satiety=20 if hens else 0
+ result,produced,refills=simulate(p,now)
+ for refill in refills:
+  c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(GRAIN_PRICE*refill,))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"auto_grain",-GRAIN_PRICE*refill,"Зерно: "+str(refill),now))
  if produced:
   day=time.strftime("%Y-%m-%d",time.gmtime(now))
   c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,produced))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
- c.execute("UPDATE players SET coins=%s,grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,fed_hens=%s,feed_phase=%s,last_tick=%s WHERE id=%s",(coins,grain,eggs,hens,satiety,critical,fed_hens,phase,start+due*CYCLE,p["id"]))
- return update_incubation(c,{**p,"coins":coins,"grain":grain,"eggs":eggs,"chickens":hens,"satiety":satiety,"critical_cycles":critical,"fed_hens":fed_hens,"feed_phase":phase,"last_tick":start+due*CYCLE},now)
+ c.execute("UPDATE players SET coins=%s,grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,fed_hens=%s,feed_phase=%s,last_tick=%s WHERE id=%s",tuple(result[k] for k in ("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick"))+(p["id"],))
+ return update_incubation(c,result,now)
 @app.get("/",response_class=HTMLResponse)
 def index():return open("index.html",encoding="utf8").read()
 @app.get("/health")
@@ -251,7 +219,9 @@ def password_login(q:Request):
     token=secrets.token_hex(24)
     c.execute("UPDATE players SET token=%s WHERE id=%s",(token,p["id"]))
  if failure==429:raise HTTPException(429,"Слишком много попыток. Попробуйте через 15 минут")
- if failure:raise HTTPException(401,"Неверный ник или пароль")
+ if failure:
+  logger.warning("password_login_failed")
+  raise HTTPException(401,"Неверный ник или пароль")
  return {"token":token}
 
 @app.post("/api/password/set")
@@ -272,6 +242,7 @@ def auth_config():
 def link_telegram(q:Request,authorization:str=Header(default="")):
  uid=telegram_identity(q.telegram_data)
  with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
   p=person(c,authorization,True)
   if p["telegram_id"] is not None and p["telegram_id"]!=uid:raise HTTPException(409,"Сначала отвяжите прежний Telegram через поддержку")
   other=c.execute("SELECT id FROM players WHERE telegram_id=%s",(uid,)).fetchone()
@@ -363,10 +334,11 @@ def state(authorization:str=Header(default="")):
   incubation={"owned":p["incubator_owned"],"level":p["incubator_level"],"capacity":p["incubator_level"],"jobs":jobs,"active":len(jobs),"next_upgrade_cost":INCUBATOR_UPGRADE_COST.get(p["incubator_level"]),"incubator_price":INCUBATOR_PRICE,"incubate_seconds":stage_seconds[0],"grow_seconds":stage_seconds[1]}
   tutorial={"step":p["tutorial_step"],"completed":p["tutorial_step"]>=3,"rewarded":p["tutorial_rewarded"]}
 
-  can_refill=p["autobuy_enabled"] and p["grain"]<p["chickens"] and p["coins"]>=GRAIN_PRICE*p["autobuy_amount"] and p["grain"]+p["eggs"]+p["autobuy_amount"]<=storage_limit(p)
+  observed_at=time.time()
+  prediction=forecast(p,observed_at,jobs)
   expected_eggs=min(p["fed_hens"],max(0,storage_limit(p)-p["grain"]-p["eggs"]))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"expected_eggs":expected_eggs,"autobuy_expected":bool(can_refill),"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":time.time()}
+  return {"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
