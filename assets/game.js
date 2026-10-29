@@ -161,6 +161,10 @@ function marketRows(item) {
     : [];
 }
 function quote(item, n) {
+  if (item === "eggs") {
+    const available = Number(state?.available_eggs ?? 0);
+    return {cost:5*n,remaining:Math.max(0,n-available)};
+  }
   let remaining = n,
     cost = 0;
   for (const row of [...marketRows(item)].sort((a, b) => a.price - b.price)) {
@@ -173,7 +177,7 @@ function quote(item, n) {
 }
 function drawPool() {
   if (!state) return;
-  const available = marketRows("eggs").reduce((total, row) => total + row.quantity, 0);
+  const available = Number(state.available_eggs ?? 0);
   const label = el("eggs-available");
   const buy = el("eggs-buy-button");
   if (label) label.textContent = "Доступно для покупки: " + number(available) + " шт.";
@@ -184,14 +188,15 @@ function drawPool() {
 }
 function selectBuy(item) {
   const rows = marketRows(item);
-  if (!rows.length) {
+  const available = item === "eggs" ? Number(state?.available_eggs ?? 0) : rows.reduce((sum,row) => sum + row.quantity, 0);
+  if (!available) {
     toast("Сейчас нет яиц в продаже");
     return;
   }
   openPurchase({
     kind: "market",
     item,
-    price: Math.min(...rows.map((x) => x.price)),
+    price: item === "eggs" ? 5 : Math.min(...rows.map((x) => x.price)),
   });
 }
 function showShop(item) {
