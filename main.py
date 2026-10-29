@@ -83,6 +83,7 @@ class Request(BaseModel):
  avatar_photo:str=""
  code:str=""
  password:str=""
+ current_password:str=""
  telegram_data:str=""
 def password_hash(password):
  if not 8<=len(password)<=128:raise HTTPException(400,"Пароль должен содержать от 8 до 128 символов")
@@ -258,6 +259,8 @@ def set_password(q:Request,authorization:str=Header(default="")):
  stored=password_hash(q.password)
  with db() as c:
   p=person(c,authorization,True)
+  if p["password_hash"] and not password_verify(q.current_password,p["password_hash"]):
+   raise HTTPException(403,"Чтобы изменить пароль, введите действующий пароль")
   c.execute("UPDATE players SET password_hash=%s WHERE id=%s",(stored,p["id"]))
  return {"ok":True}
 
