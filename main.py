@@ -25,6 +25,8 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS created_at double precision")
   c.execute("UPDATE players SET created_at=%s WHERE created_at IS NULL",(time.time(),))
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS bundle_uses integer NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS welcome_granted boolean NOT NULL DEFAULT false")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS game_status text NOT NULL DEFAULT 'farmer'")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS gender text NOT NULL DEFAULT 'unspecified'")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS age integer")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar text NOT NULL DEFAULT 'default'")
@@ -141,6 +143,11 @@ def join(q:Request):
 def state(authorization:str=Header(default="")):
  with db() as c:
   p=advance(c,person(c,authorization,True))
+  if not p["welcome_granted"]:
+   c.execute("UPDATE players SET coins=coins+300,welcome_granted=true WHERE id=%s",(p["id"],))
+   c.execute("UPDATE reward_emission SET total_minted=total_minted+300 WHERE id=1")
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"welcome",300,"Приветственный бонус для развития фермы",time.time()))
+   p={**p,"coins":p["coins"]+300,"welcome_granted":True}
   listings=c.execute("SELECT m.item,m.price,m.quantity,p.name AS seller FROM market m JOIN players p ON p.id=m.seller WHERE m.quantity>0 ORDER BY m.price LIMIT 40").fetchall()
   available_eggs=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("eggs",p["id"])).fetchone()["total"]
   mine=c.execute("SELECT id,item,quantity,price FROM market WHERE seller=%s AND quantity>0 ORDER BY item,price,id",(p["id"],)).fetchall()
