@@ -52,6 +52,8 @@ async def lifespan(app):
   c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) SELECT 'legacy-'||id,id,COALESCE(incubation_started,chick_ready_at-86400),COALESCE(incubation_started+43200,chick_ready_at-43200),COALESCE(chick_ready_at,incubation_started+86400) FROM players WHERE incubation_started IS NOT NULL OR chick_ready_at IS NOT NULL ON CONFLICT(id) DO NOTHING")
   c.execute("UPDATE players SET incubation_started=NULL,chick_ready_at=NULL WHERE incubation_started IS NOT NULL OR chick_ready_at IS NOT NULL")
   c.execute("CREATE TABLE IF NOT EXISTS money_log(id text primary key,player_id text,kind text,delta int,details text,created double precision)")
+  c.execute("CREATE TABLE IF NOT EXISTS withdrawal_requests(id text PRIMARY KEY,player_id text NOT NULL,amount integer NOT NULL CHECK(amount>=100),status text NOT NULL DEFAULT 'pending',created double precision NOT NULL)")
+  c.execute("CREATE UNIQUE INDEX IF NOT EXISTS one_pending_withdrawal_per_player ON withdrawal_requests(player_id) WHERE status='pending'")
   c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
   c.execute("""UPDATE players p SET
     xp_legacy_eggs=COALESCE((SELECT SUM(eggs_produced)::int FROM daily_activity d WHERE d.player_id=p.id),0),
@@ -459,6 +461,27 @@ def cancel_listing(listing_id:str,authorization:str=Header(default="")):
   c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(entry["quantity"],p["id"]))
   c.execute("UPDATE market SET quantity=0 WHERE id=%s",(listing_id,))
  return {"ok":True,"returned":entry["quantity"]}
+
+@app.post("/api/withdraw/request")
+def request_withdrawal(q:Request,authorization:str=Header(default="")):
+ if q.amount<100:raise HTTPException(400,"Минимальная заявка — 100 монет")
+ if q.amount>1000000:raise HTTPException(400,"Сумма заявки слишком большая")
+ with db() as c:
+  p=advance(c,person(c,authorization,True))
+  if not p["telegram_id"]:raise HTTPException(403,"Для заявки на вывод сначала привяжите Telegram в профиле")
+  if p["coins"]<q.amount:raise HTTPException(400,"Недостаточно монет")
+  if c.execute("SELECT 1 FROM withdrawal_requests WHERE player_id=%s AND status='pending'",(p["id"],)).fetchone():
+   raise HTTPException(409,"Предыдущая заявка ещё ожидает проверки")
+  request_id=uuid.uuid4().hex
+  c.execute("INSERT INTO withdrawal_requests(id,player_id,amount,status,created) VALUES(%s,%s,%s,'pending',%s)",(request_id,p["id"],q.amount,time.time()))
+ return {"ok":True,"id":request_id,"status":"pending"}
+
+@app.get("/api/withdraw/status")
+def withdrawal_status(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization)
+  last=c.execute("SELECT id,amount,status,created FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
+ return {"minimum":100,"request":last,"payouts_enabled":False}
 
 @app.get("/api/finance")
 def finance(authorization:str=Header(default="")):
