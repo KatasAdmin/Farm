@@ -270,22 +270,6 @@ def claim_reward(q:Request,authorization:str=Header(default="")):
   c.execute("UPDATE reward_emission SET total_minted=total_minted+%s WHERE id=1",(amount,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"daily_reward",amount,"Ежедневный бонус" if key=="bonus" else "Награда за задание: "+key,time.time()))
  return {"ok":True,"awarded":amount,"day":day}
-",(p["id"],)).fetchone()["amount"]
-  xp=totals["grain_bought"]+5*totals["eggs_produced"]+2*totals["eggs_listed"]+3*sold
-  import math
-  level=1+math.isqrt(xp//25)
-  next_xp=25*level*level
-  unlocked={
-   "first_egg":totals["eggs_produced"]>=1,
-   "ten_eggs":totals["eggs_produced"]>=10,
-   "three_hens":p["chickens"]>=3,
-   "first_sale":sold>=1,
-   "hundred_sales":sold>=100
-  }
-  for key,yes in unlocked.items():
-   if yes:c.execute("INSERT INTO player_achievements(player_id,achievement,unlocked_at) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING",(p["id"],key,time.time()))
-  achievements=[x["achievement"] for x in c.execute("SELECT achievement FROM player_achievements WHERE player_id=%s",(p["id"],)).fetchall()]
-  return {"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
