@@ -22,11 +22,6 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_legacy_eggs integer")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_legacy_listed integer")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_legacy_sold integer")
-  c.execute("""UPDATE players p SET
-    xp_legacy_eggs=COALESCE((SELECT SUM(eggs_produced)::int FROM daily_activity d WHERE d.player_id=p.id),0),
-    xp_legacy_listed=COALESCE((SELECT SUM(eggs_listed)::int FROM daily_activity d WHERE d.player_id=p.id),0),
-    xp_legacy_sold=COALESCE((SELECT SUM((split_part(details,' x',2))::int)::int FROM money_log m WHERE m.player_id=p.id AND m.kind='market_sale' AND m.details ~ '^eggs x[0-9]+$'),0)
-   WHERE p.xp_legacy_eggs IS NULL""")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS critical_cycles integer NOT NULL DEFAULT 0")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_enabled boolean NOT NULL DEFAULT false")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_min integer NOT NULL DEFAULT 5")
@@ -54,6 +49,11 @@ async def lifespan(app):
   c.execute("UPDATE players SET incubation_started=NULL,chick_ready_at=NULL WHERE incubation_started IS NOT NULL OR chick_ready_at IS NOT NULL")
   c.execute("CREATE TABLE IF NOT EXISTS money_log(id text primary key,player_id text,kind text,delta int,details text,created double precision)")
   c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
+  c.execute("""UPDATE players p SET
+    xp_legacy_eggs=COALESCE((SELECT SUM(eggs_produced)::int FROM daily_activity d WHERE d.player_id=p.id),0),
+    xp_legacy_listed=COALESCE((SELECT SUM(eggs_listed)::int FROM daily_activity d WHERE d.player_id=p.id),0),
+    xp_legacy_sold=COALESCE((SELECT SUM((split_part(details,' x',2))::int)::int FROM money_log m WHERE m.player_id=p.id AND m.kind='market_sale' AND m.details ~ '^eggs x[0-9]+$'),0)
+   WHERE p.xp_legacy_eggs IS NULL""")
   c.execute("CREATE TABLE IF NOT EXISTS farm_events(id text primary key,player_id text NOT NULL,kind text NOT NULL,amount int NOT NULL,created double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS daily_claims(player_id text NOT NULL,day text NOT NULL,claim text NOT NULL,amount int NOT NULL,PRIMARY KEY(player_id,day,claim))")
   c.execute("CREATE TABLE IF NOT EXISTS player_achievements(player_id text NOT NULL,achievement text NOT NULL,unlocked_at double precision NOT NULL,PRIMARY KEY(player_id,achievement))")
