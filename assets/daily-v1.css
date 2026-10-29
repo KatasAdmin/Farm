@@ -49,3 +49,21 @@
 .incubator-shop .btn {flex:1 1 140px;}
 .incubator-card .upgrade {align-items:center;}
 @media(max-width:390px) {.promo-status{max-width:60%;font-size:11px}.profile-landscape{height:165px!important}.head{padding-top:4px!important}}
+
+/* Profile editor: intentional breathing room above resource cards */
+#profile .profile-card > button[onclick="toggleProfileEditor()"] {
+  display: inline-flex;
+  width: auto;
+  max-width: calc(100% - 24px);
+  margin: 14px auto 24px;
+  padding: 11px 21px;
+  border: 1px solid #79d8ff;
+  border-radius: 14px;
+  background: linear-gradient(180deg,#39b8fa 0%,#117bc4 51%,#0753a3 100%);
+  box-shadow: 0 4px 0 #023978,0 6px 14px #001e5590;
+  color: #fff;
+  font-weight: 750;
+}
+#profile .profile-card > .three {margin-top: 7px;gap: 9px;}
+#profile #profile-editor:not([hidden]) {margin-bottom: 22px;}
+@media(max-width:360px){#profile .profile-card > button[onclick="toggleProfileEditor()"] {margin-bottom:20px;padding:10px 14px;font-size:13px;}}
