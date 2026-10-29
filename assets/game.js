@@ -224,7 +224,7 @@ async function setAccountPassword(){
   if(pending||!state)return;
   const input=el("settings-password"),current=el("settings-current-password");
   if(input.value.length<8)return toast("Пароль должен содержать минимум 8 символов");
-  if(state.me.password_hash&&!current.value)return toast("Введите текущий пароль");
+  if(state.has_password&&!current.value)return toast("Введите текущий пароль");
   try{
     busy(true);
     await api("/api/password/set",{password:input.value,current_password:current.value});
@@ -600,7 +600,7 @@ async function submitWithdrawalRequest() {
 function render() {
   const p = state.me;
   const isLinked = Boolean(p.telegram_id);
-  const hasPassword = Boolean(p.password_hash);
+  const hasPassword = Boolean(state.has_password);
   if(el("telegram-link-status"))el("telegram-link-status").textContent=isLinked?"Telegram привязан ✓ — вход в эту же ферму доступен из бота":"Telegram не привязан";
   if(el("account-password-status"))el("account-password-status").textContent=hasPassword?"Пароль установлен ✓ — можно входить по нику":"Пароль не установлен — создай его для входа через сайт";
   if(el("current-password-wrap"))el("current-password-wrap").hidden=!hasPassword;
