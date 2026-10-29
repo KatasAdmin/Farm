@@ -10,8 +10,8 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=2" />
-    <script src="/assets/game.js?v=11" defer></script>
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=3" />
+    <script src="/assets/game.js?v=12" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div>
@@ -47,7 +47,9 @@
             maxlength="22"
             placeholder="Как тебя зовут?"
             required
-          /><button class="btn wide" type="submit">Начать новую жизнь →</button>
+          /><label for="join-gender">Пол (необязательно)</label>
+          <select id="join-gender"><option value="unspecified">Не указано</option><option value="male">Мужской</option><option value="female">Женский</option></select>
+          <button class="btn wide" type="submit">Начать новую жизнь →</button>
         </form>
         <small
           >Вход в существующую ферму сохраняется в этом браузере. Не очищай
@@ -69,8 +71,8 @@
             decoding="async"
           /><span
             ><strong data-value="name">Фермер</strong
-            ><small>Фермер · моя история</small
-            ><span class="identity-line"></span
+            ><small id="identity-level">Уровень 1 · 0 XP</small
+            ><span class="identity-line"><span id="identity-xp-fill"></span></span
           ></span></button
         ><button
           class="coin-balance"
@@ -89,7 +91,7 @@
             class="icon"
             alt=""
             decoding="async"
-          /><span>—</span></span
+          /><span>0</span></span
         >
       </header>
       <section id="farm" class="panel active" aria-label="Ферма">
@@ -523,6 +525,7 @@
             </button>
           </div>
         </div>
+        <div class="card incubator-shop"><h2 class="cardtitle">🥚 Инкубатор</h2><p>Выводи цыплят из собственных яиц. Покупается один раз.</p><strong>120 монет</strong><button class="btn small" onclick="tab('upgrades')">Купить и выращивать →</button></div>
         <div class="bundle">
           <h2>
             <img
@@ -534,8 +537,10 @@
             Набор фермера
           </h2>
           <div class="bundle-inner">
-            <h3>Стартовый набор</h3>
-            <p>3 курицы + 30 зерна</p>
+            <h3>Акционный набор <span class="promo-percent">−40%</span></h3>
+            <p>10 куриц + 100 зерна</p>
+            <p class="promo-value">Обычная стоимость: <s>500 монет</s> · <b>300 монет</b></p>
+            <p id="promo-status" class="promo-status">Акция доступна новым игрокам 3 дня · до 5 покупок</p>
             <img
               src="/assets/redesign/gift.webp"
               class="bundle-chest"
@@ -546,8 +551,8 @@
               class="bundle-hen"
               alt=""
               decoding="async"
-            /><button class="btn gold-button" onclick="showBundle()">
-              150
+            /><button class="btn gold-button" id="bundle-buy" onclick="showBundle()">
+              300
               <img
                 src="/assets/redesign/coin.webp"
                 class="icon"
@@ -728,7 +733,7 @@
             <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
           </div>
         </div>
-        <div class="profile-landscape"><img src="/assets/redesign/profile.webp" alt="Солнечная ферма с амбаром и мельницей" width="1536" height="1024" /></div>
+        <div class="profile-landscape"><img src="/assets/redesign/profile.webp" alt="Ферма с амбаром"></div>
         <div class="card profile-card">
           <img
             src="/assets/redesign/farmer.webp"
@@ -737,7 +742,8 @@
             decoding="async"
           />
           <h2 data-value="name">Фермер</h2>
-          <p class="muted">Моя новая жизнь</p>
+          <p class="muted">Моя новая жизнь · <span id="profile-level">Уровень 1</span></p><button class="btn small" onclick="toggleProfileEditor()">Изменить аватар и данные</button>
+          <div id="profile-editor" class="profile-editor" hidden><label>Пол<select id="profile-gender"><option value="unspecified">Не указано</option><option value="male">Мужской</option><option value="female">Женский</option></select></label><label>Возраст<input id="profile-age" type="number" min="1" max="120" inputmode="numeric" placeholder="Не указан"></label><label>Аватар<select id="profile-avatar"><option value="default">По умолчанию</option><option value="farmer">Фермер</option><option value="flower">Цветок</option><option value="chicken">Курица</option><option value="egg">Яйцо</option></select></label><button class="btn wide" onclick="saveProfile()">Сохранить</button></div>
           <div class="three">
             <div class="resource">
               <img
@@ -1076,20 +1082,10 @@
           </button>
           <p class="muted" data-auto-status>Проверяем настройки…</p>
         </div>
-        <div class="card unavailable-feature">
-          <img
-            src="/assets/redesign/incubator.webp"
-            class="upgrade-art"
-            alt=""
-            decoding="async"
-          />
-          <div>
-            <h2>Инкубатор</h2>
-            <p class="muted">
-              Выведение цыплят пока не поддерживается сервером.
-            </p>
-            <button class="btn alt" disabled>Пока недоступен</button>
-          </div>
+        <div class="card incubator-card">
+          <div class="upgrade"><img src="/assets/redesign/incubator.webp" class="upgrade-art" alt=""><div><h2>Инкубатор</h2><p id="incubation-status">Загружаем состояние…</p></div></div>
+          <button class="btn wide" id="incubator-action" onclick="incubatorAction()">Купить инкубатор</button>
+          <p class="muted">Одно яйцо превращается в цыплёнка за 12 часов. Через следующие 12 часов он вырастает в курицу. Требуется место в курятнике.</p>
         </div>
       </section>
     </div>
