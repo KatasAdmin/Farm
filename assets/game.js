@@ -1,9 +1,9 @@
 "use strict";
 const el = (id) => document.getElementById(id);
 const art = {
-  grain: "objects/grain_wheat",
-  eggs: "objects/egg_single",
-  chickens: "characters/white_hen_right",
+  grain: "illustrated/wheat",
+  eggs: "illustrated/egg",
+  chickens: "illustrated/hen",
 };
 const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица" };
 const number = (n) => new Intl.NumberFormat("ru-RU").format(n);
@@ -25,7 +25,7 @@ function safe(s) {
   );
 }
 function image(path, cls = "icon") {
-  return `<img src="/assets/${path}.webp" class="${cls}" alt="" decoding="async">`;
+  return `<img src="/assets/${path}.webp" class="${cls}" alt="" decoding="sync">`;
 }
 function toast(message) {
   el("toast").textContent = message;
@@ -185,7 +185,7 @@ function drawPool() {
         const prices = rows.map((x) => x.price),
           min = prices.length ? Math.min(...prices) : item === "eggs" ? 5 : 2;
         const priceText = prices.some((x) => x !== min) ? `от ${min}` : min;
-        return `<div class="product">${image(art[item], "product-image")}<div><h3>${item === "eggs" ? "Яйца" : "Зерно"}</h3><small>В пуле: ${number(count)} шт.</small><small>Цена: <b class="gold">${priceText}</b> ${image("currency/gold_coin_star")} / шт.</small></div>${count ? `<button class="btn small" onclick="selectBuy('${item}')">Купить</button>` : '<span class="empty-label">Нет в наличии</span>'}</div>`;
+        return `<div class="product">${image(art[item], "product-image")}<div><h3>${item === "eggs" ? "Яйца" : "Зерно"}</h3><small>В пуле: ${number(count)} шт.</small><small>Цена: <b class="gold">${priceText}</b> ${image("illustrated/coin")} / шт.</small></div>${count ? `<button class="btn small" onclick="selectBuy('${item}')">Купить</button>` : '<span class="empty-label">Нет в наличии</span>'}</div>`;
       })
       .join("") +
     '<p class="muted">Твои объявления не включены в доступный для покупки пул.</p>';
@@ -231,7 +231,7 @@ function openPurchase(data) {
   const img = el("purchase-dialog").querySelector(".purchase-art");
   img.src =
     "/assets/" +
-    (data.kind === "bundle" ? "backgrounds/wallet_treasure" : art[data.item]) +
+    (data.kind === "bundle" ? "illustrated/wallet" : art[data.item]) +
     ".webp";
   el("purchase-amount").value = 1;
   el("purchase-amount").closest(".stepper").hidden = data.kind === "bundle";
@@ -416,7 +416,7 @@ function render() {
   el("leaders").innerHTML = state.top
     .map(
       (x, i) =>
-        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>${number(x.chickens)} куриц</small></div><b>${number(x.coins)} ${image("currency/gold_coin_star")}</b></div>`,
+        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>${number(x.chickens)} куриц</small></div><b>${number(x.coins)} ${image("illustrated/coin")}</b></div>`,
     )
     .join("");
   el("mylist").innerHTML = state.my_listings.length

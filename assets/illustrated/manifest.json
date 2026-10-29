@@ -1,0 +1,259 @@
+{
+  "version": 1,
+  "art_direction": "Original high resolution cozy farm illustrations, sapphire and warm gold, clean transparent standalone objects. No baked controls or text.",
+  "generation": "OpenAI image generation, 2026-10-29; originals retained in execution workspace; WebP encoded without resizing.",
+  "assets": [
+    {
+      "name": "avatar",
+      "path": "assets/illustrated/avatar.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 361656,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "barn",
+      "path": "assets/illustrated/barn.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 324290,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "chick",
+      "path": "assets/illustrated/chick.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 202982,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "coin",
+      "path": "assets/illustrated/coin.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 184408,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "coins",
+      "path": "assets/illustrated/coins.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 191814,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "coop-building",
+      "path": "assets/illustrated/coop-building.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 384322,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "coop",
+      "path": "assets/illustrated/coop.webp",
+      "kind": "scene",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 302180,
+      "channels": "srgb 3.0"
+    },
+    {
+      "name": "crate",
+      "path": "assets/illustrated/crate.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 298102,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "egg",
+      "path": "assets/illustrated/egg.webp",
+      "kind": "transparent_asset",
+      "width": 1230,
+      "height": 1278,
+      "bytes": 74058,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "eggs",
+      "path": "assets/illustrated/eggs.webp",
+      "kind": "transparent_asset",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 86720,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "gem",
+      "path": "assets/illustrated/gem.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 203552,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "heart",
+      "path": "assets/illustrated/heart.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 218704,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "hen",
+      "path": "assets/illustrated/hen.webp",
+      "kind": "transparent_asset",
+      "width": 1312,
+      "height": 1199,
+      "bytes": 212594,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "home-icon",
+      "path": "assets/illustrated/home-icon.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 240436,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "incubator",
+      "path": "assets/illustrated/incubator.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 326554,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "market-building",
+      "path": "assets/illustrated/market-building.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 454166,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "market",
+      "path": "assets/illustrated/market.webp",
+      "kind": "scene",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 535638,
+      "channels": "srgb 3.0"
+    },
+    {
+      "name": "profile-icon",
+      "path": "assets/illustrated/profile-icon.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 160950,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "sack",
+      "path": "assets/illustrated/sack.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 456086,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "shop-building",
+      "path": "assets/illustrated/shop-building.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 421768,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "shop",
+      "path": "assets/illustrated/shop.webp",
+      "kind": "scene",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 467354,
+      "channels": "srgb 3.0"
+    },
+    {
+      "name": "stats-icon",
+      "path": "assets/illustrated/stats-icon.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 203386,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "storage-building",
+      "path": "assets/illustrated/storage-building.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 325428,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "tasks-icon",
+      "path": "assets/illustrated/tasks-icon.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 174508,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "wallet-icon",
+      "path": "assets/illustrated/wallet-icon.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 258992,
+      "channels": "srgba 4.0"
+    },
+    {
+      "name": "wallet",
+      "path": "assets/illustrated/wallet.webp",
+      "kind": "scene",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 356772,
+      "channels": "srgb 3.0"
+    },
+    {
+      "name": "warehouse",
+      "path": "assets/illustrated/warehouse.webp",
+      "kind": "scene",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 532328,
+      "channels": "srgb 3.0"
+    },
+    {
+      "name": "wheat",
+      "path": "assets/illustrated/wheat.webp",
+      "kind": "transparent_asset",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 292844,
+      "channels": "srgba 4.0"
+    }
+  ]
+}

@@ -1944,3 +1944,21 @@ body[data-screen="farm"] #farm .quick .nav-art{width:51px;height:37px;background
 body[data-screen="farm"] #farm .quick .nav-art img{width:49px;height:37px;left:1px;top:0;object-fit:contain;filter:drop-shadow(0 2px 2px #001b33)}
 body[data-screen="farm"] #farm .quick:last-child .nav-art{width:36px;height:32px}
 body[data-screen="farm"] #farm .quick:last-child .nav-art img{width:52px;height:auto;left:-7px}
+/* Illustrated world: scene transitions keep art and real controls together. */
+.scene-banner:after{background:linear-gradient(#001d2455,transparent 45%,#03271f)}
+.coop-hero,.storage-hero{position:relative}
+.coop-hero:after,.storage-hero:after{content:"";position:absolute;inset:auto 0 0;height:23px;background:linear-gradient(transparent,#082c22);pointer-events:none}
+.coop-hero .scene-image{object-position:50% 55%}
+.storage-hero .scene-image{object-position:50% 57%}
+.scene-banner .scene-image{object-position:50% 49%}
+.treasure-image{object-position:50% 57%}
+.bundle-inner .bundle-chest{inset:0;width:100%;height:100%;object-fit:cover;object-position:70% 55%;border-radius:0}
+.bundle-inner:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#3a2108ee, #4e2c0aa6 48%,transparent 85%);pointer-events:none}
+.bundle-inner .bundle-hen{display:none}
+.profile-card{background:radial-gradient(ellipse at 50% 0%,#235d5e,#04291f 75%)}
+.nav-art .nav-art{display:contents}
+/* New transparent icons are complete assets, not cropped atlas tiles. */
+.nav-art img[src^="/assets/illustrated/"]{position:static!important;width:100%!important;height:100%!important;max-width:100%;object-fit:contain;filter:drop-shadow(0 1px 1px #001b33aa)}
+img[src^="/assets/illustrated/"]{image-rendering:auto}
+.coop-hero .scene-image{object-position:50% 45%}
+.treasure-image{-webkit-mask-image:linear-gradient(#000 86%,transparent);mask-image:linear-gradient(#000 86%,transparent)}

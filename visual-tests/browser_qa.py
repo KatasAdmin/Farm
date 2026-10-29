@@ -12,6 +12,7 @@ exercise real daily feeding/egg production. Screenshots contain actual API data.
 """
 
 import json
+import os
 import time
 import uuid
 from pathlib import Path
@@ -23,7 +24,7 @@ from psycopg.rows import dict_row
 
 BASE_URL = "http://127.0.0.1:8085"
 TEST_DATABASE = "postgresql://farm:farm@127.0.0.1:5543/farm_visual_test"
-OUTPUT = Path("/workspace/artifacts/farm-v3")
+OUTPUT = Path(os.environ.get("FARM_VISUAL_OUTPUT", "/workspace/artifacts/farm-v3"))
 SCREENS = ("farm", "coop", "market", "shop", "wallet", "profile", "storage", "tasks", "upgrades")
 
 
@@ -67,6 +68,8 @@ def ready(page):
     page.wait_for_function("!document.body.classList.contains('pending')")
     page.evaluate("document.fonts.ready")
     page.wait_for_function("Array.from(document.images).every(img => img.complete && img.naturalWidth > 0)")
+    page.evaluate("Promise.all(Array.from(document.images).map(img => img.decode()))")
+    page.wait_for_timeout(250)
     page.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
 
 
@@ -91,6 +94,7 @@ def screenshot(page, name):
     ready(page)
     page.wait_for_function("document.getElementById('toast').hidden", timeout=7000)
     page.evaluate("window.scrollTo(0, 0)")
+    page.wait_for_timeout(1500)
     page.screenshot(path=str(OUTPUT / (name + ".png")), full_page=False)
 
 
@@ -99,7 +103,7 @@ def main():
     assert api("/health") == {"ok": True}
     errors, bad_images, layout_checks = [], [], []
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(executable_path="/usr/bin/chromium", args=["--no-sandbox"])
+        browser = playwright.chromium.launch(executable_path="/usr/bin/chromium", args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"])
         context = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True,
                                       device_scale_factor=1, reduced_motion="reduce")
         page = context.new_page()
