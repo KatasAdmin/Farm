@@ -439,7 +439,7 @@ function sellQuote() {
   if (!state) return;
   const item = el("sellitem").value,
     n = Number(el("sellnum").value),
-    price = item === "eggs" ? 5 : Number(el("sellprice").value);
+    price = item === "eggs" ? (state.shop.eggs||1) : Number(el("sellprice").value);
   el("myStock").textContent = `На складе: ${number(state.me[item])} шт.`;
   el("sellquote").textContent =
     n > 0 && n <= state.me[item] && price > 0
@@ -454,7 +454,7 @@ function sellNow() {
     perform("/api/sell", {
       item,
       amount: n,
-      price: item === "eggs" ? 5 : amount("sellprice"),
+      price: item === "eggs" ? (state.shop.eggs||1) : amount("sellprice"),
     });
   } catch (error) {
     toast(error.message);
@@ -730,6 +730,8 @@ function countdown() {
   document.querySelectorAll("[data-stage]").forEach(x=>x.classList.toggle("active",inc.owned&&jobs.length>0&&x.dataset.stage===(now<jobs[0].hatch_at?"egg":"chick")));
   const seconds = Math.max(0,state.farm.seconds_to_next - elapsed);
   document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = formatDuration(seconds));
+  const nextFeed = Math.max(0,(state.farm.feed_seconds_to_next||0)-elapsed);
+  document.querySelectorAll("[data-feed-tick]").forEach(x => x.textContent=formatDuration(nextFeed));
   // Reconcile completed timers with the server; the browser never grants resources.
   const completedJobs = jobs.some(j => now >= j.mature_at) && !full;
   const expired = seconds <= 0 || completedJobs;

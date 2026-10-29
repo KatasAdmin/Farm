@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=19" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
-    <script src="/assets/game.js?v=20" defer></script>
+    <script src="/assets/game.js?v=21" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -237,7 +237,7 @@
           <p class="cycle">Цикл: 1 яйцо каждые 2 часа</p>
           <p id="next-harvest" class="feature-note" role="status">Рассчитываем следующий сбор яиц…</p>
           <div class="statsrow">
-            <span>Следующее кормление</span><b data-next-tick>—</b>
+            <span>Следующее кормление</span><b data-feed-tick>—</b>
           </div>
           <div class="buttons">
             <button class="btn" onclick="tab('shop')">Купить корм</button
@@ -530,7 +530,7 @@
               <small>Несушка · у системы</small>
             </div>
             <strong class="price"
-              >30<img
+              >40<img
                 src="/assets/redesign/coin.webp"
                 class="icon"
                 alt=""
