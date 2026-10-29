@@ -10,10 +10,10 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=24" />
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=25" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=24" defer></script>
+    <script src="/assets/game.js?v=25" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -38,7 +38,7 @@
             alt=""
             decoding="async"
           />
-          100 монет при регистрации · 1 курица · 5 зерна
+          10 монет при регистрации · 1 курица · 5 зерна
         </p>
         <form id="join-form">
           <label for="name">Имя фермера</label
@@ -217,7 +217,7 @@
             </button>
           </div>
           <details class="farm-explainer"><summary>Как работает моя ферма?</summary>
-            <p>Каждая сытая курица несёт яйцо каждые 2 часа. Зерно расходуется раз в 6 часов. Яйца можно продать игрокам или использовать в инкубаторе.</p>
+            <p>Каждая сытая курица несёт яйцо каждые 18 часов. Зерно расходуется раз в 18 часов. Яйца можно продать игрокам или использовать в инкубаторе.</p>
           </details>
         </div>
         <div class="farm-footer-links">
@@ -323,7 +323,7 @@
               /><span>1 яйцо</span>
             </div>
           </div>
-          <p class="cycle">Цикл: 1 яйцо каждые 2 часа</p>
+          <p class="cycle">Цикл: 1 яйцо каждые 6 часов</p>
           <div class="statsrow"><span>Следующий сбор через</span><b data-next-tick>—</b></div>
           <p id="coop-harvest" class="feature-note">Следующий сбор рассчитывается…</p>
         </div>
@@ -364,7 +364,7 @@
             />Автозакупка зерна
           </h2>
           <p class="muted">
-            Если корма не хватает, купить зерно перед кормлением каждые 6 часов.
+            Если корма не хватает, купить зерно перед кормлением каждые 18 часов.
           </p>
           <div class="fieldrow">
             <label for="auto-coop"
@@ -537,7 +537,7 @@
             />Автозакупка зерна
           </h2>
           <p class="muted">
-            Если корма не хватает, купить зерно перед кормлением каждые 6 часов.
+            Если корма не хватает, купить зерно перед кормлением каждые 18 часов.
           </p>
           <div class="fieldrow">
             <label for="auto-shop"
@@ -621,17 +621,18 @@
               title="Реальные пополнения пока не подключены"
             >
               + Пополнить</button
-            ><button
-              class="btn blue"
-              onclick=""
-              disabled
-              title="Реальный вывод пока не подключён"
-            >
-              → Вывести
-            </button>
+            ><button class="btn blue" onclick="openWithdrawalRequest()">→ Заявка на вывод</button>
           </div>
-          <p class="muted">Пополнение и вывод пока недоступны.</p>
+          <p class="muted">1 монета = 1 грн. Пополнение пока не подключено. Заявки на вывод от 100 монет принимаются только на ручную проверку; реальные выплаты пока отключены.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p>
         </div>
+        <dialog id="withdrawal-dialog" class="recovery-dialog">
+          <h2>Заявка на вывод</h2>
+          <p>Минимум 100 монет. Нужна привязка Telegram в профиле. Заявку проверит администрация. Отправка не означает одобрение или перечисление денег: выплаты пока не подключены.</p>
+          <label for="withdrawal-amount">Сумма в монетах</label>
+          <input id="withdrawal-amount" type="number" inputmode="numeric" min="100" max="1000000" value="100">
+          <button class="btn wide" onclick="submitWithdrawalRequest()">Отправить на проверку</button>
+          <button class="btn alt wide" onclick="document.getElementById('withdrawal-dialog').close()">Отмена</button>
+        </dialog>
         <button
           class="menu-row"
           onclick="document.getElementById('history-card').scrollIntoView({behavior:'smooth'})"
@@ -840,7 +841,7 @@
           </h2>
           <p class="muted">
             Зерно со склада расходуется автоматически: 1 зерно на курицу каждые
-            6 часов. Ручное кормление не требуется.
+            18 часов. Ручное кормление не требуется.
           </p>
           <button class="btn alt wide" onclick="tab('coop')">В курятник</button>
         </div>
@@ -983,7 +984,7 @@
             />Автозакупка зерна
           </h2>
           <p class="muted">
-            Если корма не хватает, купить зерно перед кормлением каждые 6 часов.
+            Если корма не хватает, купить зерно перед кормлением каждые 18 часов.
           </p>
           <div class="fieldrow">
             <label for="auto-upgrades"
