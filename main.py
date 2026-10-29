@@ -83,6 +83,7 @@ class Request(BaseModel):
  avatar_photo:str=""
  code:str=""
  password:str=""
+ current_password:str=""
  telegram_data:str=""
 def password_hash(password):
  if not 8<=len(password)<=128:raise HTTPException(400,"Пароль должен содержать от 8 до 128 символов")
@@ -258,6 +259,8 @@ def set_password(q:Request,authorization:str=Header(default="")):
  stored=password_hash(q.password)
  with db() as c:
   p=person(c,authorization,True)
+  if p["password_hash"] and not password_verify(q.current_password,p["password_hash"]):
+   raise HTTPException(403,"Чтобы изменить пароль, введите действующий пароль")
   c.execute("UPDATE players SET password_hash=%s WHERE id=%s",(stored,p["id"]))
  return {"ok":True}
 
@@ -363,7 +366,7 @@ def state(authorization:str=Header(default="")):
   can_refill=p["autobuy_enabled"] and p["grain"]<p["chickens"] and p["coins"]>=GRAIN_PRICE*p["autobuy_amount"] and p["grain"]+p["eggs"]+p["autobuy_amount"]<=storage_limit(p)
   expected_eggs=min(p["fed_hens"],max(0,storage_limit(p)-p["grain"]-p["eggs"]))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"expected_eggs":expected_eggs,"autobuy_expected":bool(can_refill),"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":time.time()}
+  return {"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"expected_eggs":expected_eggs,"autobuy_expected":bool(can_refill),"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)

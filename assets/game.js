@@ -215,14 +215,23 @@ async function telegramLogin() {
 }
 async function linkTelegram() {
   if(pending)return;
-  try{busy(true);await api("/api/telegram/link",{telegram_data:tgInitData()});await refresh();toast("Telegram привязан!");}
+  if(!tgInitData())return toast("Откройте ферму через Telegram Mini App, чтобы привязать аккаунт");
+  if(!confirm("Привязать этот Telegram к текущей ферме? После этого вход через Telegram будет открывать именно её."))return;
+  try{busy(true);await api("/api/telegram/link",{telegram_data:tgInitData()});await refresh();toast("Telegram привязан к этой ферме!");}
   catch(e){toast(e.message);}finally{busy(false);}
 }
 async function setAccountPassword(){
-  const input=el("settings-password");
+  if(pending||!state)return;
+  const input=el("settings-password"),current=el("settings-current-password");
   if(input.value.length<8)return toast("Пароль должен содержать минимум 8 символов");
-  try{busy(true);await api("/api/password/set",{password:input.value});input.value="";toast("Пароль установлен");}
-  catch(e){toast(e.message);}finally{busy(false);}
+  if(state.has_password&&!current.value)return toast("Введите текущий пароль");
+  try{
+    busy(true);
+    await api("/api/password/set",{password:input.value,current_password:current.value});
+    input.value="";current.value="";
+    await refresh();
+    toast("Пароль сохранён. Теперь оба способа входа ведут в эту ферму.");
+  }catch(e){toast(e.message);}finally{busy(false);}
 }
 async function setAccountNickname(){
   const input=el("settings-nickname");
@@ -590,7 +599,15 @@ async function submitWithdrawalRequest() {
 }
 function render() {
   const p = state.me;
-  if(el("telegram-link-status"))el("telegram-link-status").textContent=p.telegram_id?"Telegram привязан ✓":"Telegram пока не привязан";
+  const isLinked = Boolean(p.telegram_id);
+  const hasPassword = Boolean(state.has_password);
+  if(el("telegram-link-status"))el("telegram-link-status").textContent=isLinked?"Telegram привязан ✓ — вход в эту же ферму доступен из бота":"Telegram не привязан";
+  if(el("account-password-status"))el("account-password-status").textContent=hasPassword?"Пароль установлен ✓ — можно входить по нику":"Пароль не установлен — создай его для входа через сайт";
+  if(el("current-password-wrap"))el("current-password-wrap").hidden=!hasPassword;
+  if(el("set-password-button"))el("set-password-button").textContent=hasPassword?"Изменить пароль":"Установить пароль";
+  if(el("link-telegram-button"))el("link-telegram-button").hidden=isLinked||!Boolean(tgInitData());
+  if(el("telegram-link-help"))el("telegram-link-help").hidden=isLinked;
+  if(el("nickname-settings"))el("nickname-settings").hidden=!p.name.startsWith("tg_");
 
   const pr = state.progression || {};
   const xp = Number(pr.xp || 0), lvl = Number(pr.level || 1);
