@@ -647,12 +647,12 @@ function render() {
   if(el("telegram-link-help"))el("telegram-link-help").hidden=isLinked;
   if(el("nickname-settings"))el("nickname-settings").hidden=!p.name.startsWith("tg_");
 
-  const daily=state.day_stats||{};
+  const farmDailyStats=state.day_stats||{};
   const assignStat=(id,value)=>{const node=el(id);if(node)node.textContent=number(value||0);};
-  assignStat("stat-produced",daily.eggs);
-  assignStat("stat-sales",daily.sales_coins);
-  assignStat("stat-feed",daily.feed_spent_coins);
-  assignStat("stat-margin",daily.feed_margin_coins);
+  assignStat("stat-produced",farmDailyStats.eggs);
+  assignStat("stat-sales",farmDailyStats.sales_coins);
+  assignStat("stat-feed",farmDailyStats.feed_spent_coins);
+  assignStat("stat-margin",farmDailyStats.feed_margin_coins);
   const pr = state.progression || {};
   const xp = Number(pr.xp || 0), lvl = Number(pr.level || 1);
   const prev = 25*(lvl-1)*(lvl-1), next = Number(pr.next_level_xp || 25);
