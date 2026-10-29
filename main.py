@@ -549,6 +549,30 @@ def cancel_listing(listing_id:str,authorization:str=Header(default="")):
   c.execute("UPDATE market SET quantity=0 WHERE id=%s",(listing_id,))
  return {"ok":True,"returned":entry["quantity"]}
 
+def require_farm_admin(authorization):
+ expected=os.environ.get("FARM_ADMIN_API_KEY","")
+ supplied=authorization.removeprefix("Bearer ").strip()
+ if not expected or len(expected)<32 or not hmac.compare_digest(supplied,expected):
+  raise HTTPException(403,"Административный доступ не настроен или запрещён")
+
+@app.get("/api/admin/withdrawals")
+def admin_withdrawals(authorization:str=Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:
+  rows=c.execute("""SELECT w.id,w.amount,w.status,w.created,w.reserved,
+   p.name AS player_name, (p.telegram_id IS NOT NULL) AS telegram_linked
+   FROM withdrawal_requests w JOIN players p ON p.id=w.player_id
+   ORDER BY CASE WHEN w.status='pending' THEN 0 ELSE 1 END,w.created DESC LIMIT 200""").fetchall()
+ return {"requests":rows,"read_only":True,"payouts_enabled":False}
+
+@app.get("/api/admin/summary")
+def admin_summary(authorization:str=Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:
+  players=c.execute("SELECT COUNT(*)::int AS n,COALESCE(SUM(coins),0)::bigint AS coins FROM players").fetchone()
+  pending=c.execute("SELECT COUNT(*)::int AS n,COALESCE(SUM(amount),0)::bigint AS coins FROM withdrawal_requests WHERE status='pending'").fetchone()
+ return {"players":players["n"],"player_coins":players["coins"],"pending_requests":pending["n"],"pending_reserved_coins":pending["coins"],"read_only":True}
+
 @app.post("/api/withdraw/request")
 def request_withdrawal(q:Request,authorization:str=Header(default="")):
  if q.amount<100:raise HTTPException(400,"Минимальная заявка — 100 монет")
