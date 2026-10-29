@@ -465,6 +465,13 @@ async function confirmPurchase() {
     toast(error.message);
   }
 }
+function sellMaximum() {
+  if(!state)return;
+  const eggs=Math.min(10000,Math.max(0,Number(state.me.eggs)||0));
+  if(!eggs){toast("Пока нет яиц для продажи");return;}
+  el("sellnum").value=eggs;
+  sellQuote();
+}
 function sellType() {
   el("grainPriceWrap").hidden = el("sellitem").value !== "grain";
   sellQuote();
