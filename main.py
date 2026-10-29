@@ -16,6 +16,12 @@ async def lifespan(app):
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS satiety integer NOT NULL DEFAULT 100")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_tick double precision")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS production_model integer NOT NULL DEFAULT 1")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS fed_hens integer NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS feed_phase integer NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_legacy_eggs integer")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_legacy_listed integer")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_legacy_sold integer")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS critical_cycles integer NOT NULL DEFAULT 0")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_enabled boolean NOT NULL DEFAULT false")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_min integer NOT NULL DEFAULT 5")
@@ -43,13 +49,20 @@ async def lifespan(app):
   c.execute("UPDATE players SET incubation_started=NULL,chick_ready_at=NULL WHERE incubation_started IS NOT NULL OR chick_ready_at IS NOT NULL")
   c.execute("CREATE TABLE IF NOT EXISTS money_log(id text primary key,player_id text,kind text,delta int,details text,created double precision)")
   c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
+  c.execute("""UPDATE players p SET
+    xp_legacy_eggs=COALESCE((SELECT SUM(eggs_produced)::int FROM daily_activity d WHERE d.player_id=p.id),0),
+    xp_legacy_listed=COALESCE((SELECT SUM(eggs_listed)::int FROM daily_activity d WHERE d.player_id=p.id),0),
+    xp_legacy_sold=COALESCE((SELECT SUM((split_part(details,' x',2))::int)::int FROM money_log m WHERE m.player_id=p.id AND m.kind='market_sale' AND m.details ~ '^eggs x[0-9]+$'),0)
+   WHERE p.xp_legacy_eggs IS NULL""")
   c.execute("CREATE TABLE IF NOT EXISTS farm_events(id text primary key,player_id text NOT NULL,kind text NOT NULL,amount int NOT NULL,created double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS daily_claims(player_id text NOT NULL,day text NOT NULL,claim text NOT NULL,amount int NOT NULL,PRIMARY KEY(player_id,day,claim))")
   c.execute("CREATE TABLE IF NOT EXISTS player_achievements(player_id text NOT NULL,achievement text NOT NULL,unlocked_at double precision NOT NULL,PRIMARY KEY(player_id,achievement))")
   c.execute("CREATE TABLE IF NOT EXISTS reward_emission(id int PRIMARY KEY,total_minted bigint NOT NULL DEFAULT 0)")
   c.execute("INSERT INTO reward_emission(id,total_minted) VALUES(1,0) ON CONFLICT(id) DO NOTHING")
   c.execute("UPDATE players SET last_tick=%s WHERE last_tick IS NULL",(time.time(),))
-  c.execute("UPDATE market SET price=5 WHERE item='eggs' AND price<>5")
+  c.execute("UPDATE market SET price=1 WHERE item='eggs' AND price<>1")
+  # Existing farms switch from daily cycles at deployment; no backdated 2-hour eggs.
+  c.execute("UPDATE players SET production_model=2,last_tick=%s,fed_hens=chickens,feed_phase=0 WHERE production_model=1",(time.time(),))
  yield
 app=FastAPI(lifespan=lifespan)
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
@@ -69,7 +82,11 @@ def person(c,h,lock=False):
  return p
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
-CYCLE=86400  # 1 real day, calibrated 10-day payback at full sales
+CYCLE=7200  # 1 egg every 2 hours per fed chicken
+FEED_EVERY=3  # feed every three production cycles = 6 hours
+HEN_PRICE=40
+EGG_PRICE=1
+GRAIN_PRICE=2
 MAX_BUILDING_LEVEL=10
 PROMO_SECONDS=3*86400
 PROMO_PRICE=300
@@ -95,46 +112,54 @@ def update_incubation(c,p,now):
   p={**p,"chickens":p["chickens"]+matured}
  return p
 def advance(c,p,now=None):
- """Simulate completed daily cycles before maturing incubated chicks, avoiding retroactive production."""
+ """Process 2h egg ticks and 6h feeding ticks server-side without retroactive production."""
  now=time.time() if now is None else now
  start=p["last_tick"] if p["last_tick"] is not None else now
  due=max(0,int((now-start)//CYCLE))
  if due<=0:return update_incubation(c,p,now)
  grain,eggs,hens=p["grain"],p["eggs"],p["chickens"]
- eggs_before=eggs
+ coins=p["coins"]
+ fed_hens=min(hens,p["fed_hens"])
+ phase=p["feed_phase"]
  satiety,critical=p["satiety"],p["critical_cycles"]
- # At most a century of steps, and stop after all birds have died.
+ produced=0
+ # No unbounded catch-up: hens eventually starve without feed.
  for _ in range(min(due,438000)):
   if hens<=0:break
-  if p["autobuy_enabled"] and grain<hens and p["coins"]>=2*max(1,p["autobuy_amount"]) and grain+eggs+p["autobuy_amount"]<=storage_limit(p):
+  # Only currently fed hens lay eggs; eggs cannot fill beyond the warehouse.
+  available=max(0,storage_limit(p)-grain-eggs)
+  laid=min(fed_hens,available)
+  eggs+=laid
+  produced+=laid
+  phase=(phase+1)%FEED_EVERY
+  if phase!=0:continue
+  if p["autobuy_enabled"] and grain<hens and coins>=GRAIN_PRICE*max(1,p["autobuy_amount"]) and grain+eggs+p["autobuy_amount"]<=storage_limit(p):
    refill=p["autobuy_amount"]
-   p["coins"]-=2*refill
+   coins-=GRAIN_PRICE*refill
    grain+=refill
-   c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(2*refill,p["id"]))
-   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(2*refill,))
-   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"auto_grain",-2*refill,"Зерно: "+str(refill),now))
+   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(GRAIN_PRICE*refill,))
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"auto_grain",-GRAIN_PRICE*refill,"Зерно: "+str(refill),now))
   fed=min(grain,hens)
   grain-=fed
-  eggs+=fed
+  fed_hens=fed
   if fed==hens:
-   satiety=min(100,satiety+10)
+   satiety=min(100,satiety+3)
    critical=0
   else:
    missing=hens-fed
-   satiety=max(0,satiety-max(1,(10*missing+hens-1)//hens))
-   if satiety==0:critical+=1
-   else:critical=0
-   if critical>=12:
+   satiety=max(0,satiety-max(1,(3*missing+hens-1)//hens))
+   critical=critical+1 if satiety==0 else 0
+   if critical>=48:
     hens-=1
+    fed_hens=min(fed_hens,hens)
     critical=0
     satiety=20 if hens else 0
- if eggs>eggs_before:
-  gained=eggs-eggs_before
+ if produced:
   day=time.strftime("%Y-%m-%d",time.gmtime(now))
-  c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,gained))
-  c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",gained,now))
- c.execute("UPDATE players SET grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,last_tick=%s WHERE id=%s",(grain,eggs,hens,satiety,critical,start+due*CYCLE,p["id"]))
- return update_incubation(c,{**p,"grain":grain,"eggs":eggs,"chickens":hens,"satiety":satiety,"critical_cycles":critical,"last_tick":start+due*CYCLE},now)
+  c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,produced))
+  c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
+ c.execute("UPDATE players SET coins=%s,grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,fed_hens=%s,feed_phase=%s,last_tick=%s WHERE id=%s",(coins,grain,eggs,hens,satiety,critical,fed_hens,phase,start+due*CYCLE,p["id"]))
+ return update_incubation(c,{**p,"coins":coins,"grain":grain,"eggs":eggs,"chickens":hens,"satiety":satiety,"critical_cycles":critical,"fed_hens":fed_hens,"feed_phase":phase,"last_tick":start+due*CYCLE},now)
 @app.get("/",response_class=HTMLResponse)
 def index():return open("index.html",encoding="utf8").read()
 @app.get("/health")
@@ -151,7 +176,7 @@ def join(q:Request):
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
    if treasury<100:raise HTTPException(409,"Стартовый фонд исчерпан: новые регистрации временно закрыты")
    if q.gender not in ("male","female","unspecified"):raise HTTPException(400,"Некорректный пол")
-   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender,recovery_hash) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,hashed))
+   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender,recovery_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,%s,%s,%s,%s,2,1,0,0,0,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,hashed))
    c.execute("UPDATE economy SET treasury=treasury-100 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-100,"Начальный баланс: "+name,time.time()))
  except psycopg.errors.UniqueViolation:raise HTTPException(409,"Имя уже занято")
@@ -160,11 +185,10 @@ def join(q:Request):
 def state(authorization:str=Header(default="")):
  with db() as c:
   p=advance(c,person(c,authorization,True))
+  # New accounts start with 100 coins; previous bonuses remain untouched.
   if not p["welcome_granted"]:
-   c.execute("UPDATE players SET coins=coins+300,welcome_granted=true WHERE id=%s",(p["id"],))
-   c.execute("UPDATE reward_emission SET total_minted=total_minted+300 WHERE id=1")
-   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"welcome",300,"Приветственный бонус для развития фермы",time.time()))
-   p={**p,"coins":p["coins"]+300,"welcome_granted":True}
+   c.execute("UPDATE players SET welcome_granted=true WHERE id=%s",(p["id"],))
+   p={**p,"welcome_granted":True}
   listings=c.execute("SELECT m.item,m.price,m.quantity,p.name AS seller FROM market m JOIN players p ON p.id=m.seller WHERE m.quantity>0 ORDER BY m.price LIMIT 40").fetchall()
   available_eggs=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("eggs",p["id"])).fetchone()["total"]
   mine=c.execute("SELECT id,item,quantity,price FROM market WHERE seller=%s AND quantity>0 ORDER BY item,price,id",(p["id"],)).fetchall()
@@ -181,35 +205,41 @@ def state(authorization:str=Header(default="")):
   upgrades=c.execute("SELECT COUNT(*)::int AS n FROM money_log WHERE player_id=%s AND kind='upgrade'",(p["id"],)).fetchone()["n"]
   hatched=c.execute("SELECT COUNT(*)::int AS n FROM farm_events WHERE player_id=%s AND kind='chick_matured'",(p["id"],)).fetchone()["n"]
   packs=c.execute("SELECT COUNT(*)::int AS n FROM money_log WHERE player_id=%s AND kind='bundle'",(p["id"],)).fetchone()["n"]
-  xp=totals["grain_bought"]+5*totals["eggs_produced"]+2*totals["eggs_listed"]+3*sold+10*hens_bought+15*missions+20*upgrades+25*hatched+20*packs
+  old_eggs=p["xp_legacy_eggs"] or 0
+  old_listed=p["xp_legacy_listed"] or 0
+  old_sold=p["xp_legacy_sold"] or 0
+  egg_xp=5*old_eggs+5*((max(0,totals["eggs_produced"]-old_eggs)+11)//12)
+  listing_xp=2*old_listed+2*((max(0,totals["eggs_listed"]-old_listed)+11)//12)
+  sales_xp=3*old_sold+3*((max(0,sold-old_sold)+11)//12)
+  xp=totals["grain_bought"]+egg_xp+listing_xp+sales_xp+10*hens_bought+15*missions+20*upgrades+25*hatched+20*packs
   import math
   level=1+math.isqrt(xp//25)
   next_xp=25*level*level
   unlocked={
    "first_egg":totals["eggs_produced"]>=1,
-   "ten_eggs":totals["eggs_produced"]>=10,
+   "ten_eggs":totals["eggs_produced"]>=120,
    "three_hens":p["chickens"]>=3,
    "first_sale":sold>=1,
-   "hundred_sales":sold>=100
+   "hundred_sales":sold>=1200
   }
   for key,yes in unlocked.items():
    if yes:c.execute("INSERT INTO player_achievements(player_id,achievement,unlocked_at) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING",(p["id"],key,time.time()))
   achievements=[x["achievement"] for x in c.execute("SELECT achievement FROM player_achievements WHERE player_id=%s",(p["id"],)).fetchall()]
-  promotion={"active":time.time()<p["created_at"]+PROMO_SECONDS and p["bundle_uses"]<5,"seconds_left":max(0,int(p["created_at"]+PROMO_SECONDS-time.time())),"used":p["bundle_uses"],"limit":5,"price":PROMO_PRICE,"value":500}
+  promotion={"active":time.time()<p["created_at"]+PROMO_SECONDS and p["bundle_uses"]<5,"seconds_left":max(0,int(p["created_at"]+PROMO_SECONDS-time.time())),"used":p["bundle_uses"],"limit":5,"price":PROMO_PRICE,"value":600}
   jobs=c.execute("SELECT id,started,hatch_at,mature_at FROM incubation_jobs WHERE player_id=%s ORDER BY started,id",(p["id"],)).fetchall()
   stage_seconds=incubation_stages(p["incubator_level"])
   incubation={"owned":p["incubator_owned"],"level":p["incubator_level"],"capacity":p["incubator_level"],"jobs":jobs,"active":len(jobs),"next_upgrade_cost":INCUBATOR_UPGRADE_COST.get(p["incubator_level"]),"incubator_price":INCUBATOR_PRICE,"incubate_seconds":stage_seconds[0],"grow_seconds":stage_seconds[1]}
   tutorial={"step":p["tutorial_step"],"completed":p["tutorial_step"]>=3,"rewarded":p["tutorial_rewarded"]}
 
-  can_refill=p["autobuy_enabled"] and p["grain"]<p["chickens"] and p["coins"]>=2*p["autobuy_amount"] and p["grain"]+p["eggs"]+p["autobuy_amount"]<=storage_limit(p)
-  expected_eggs=min(p["chickens"],p["grain"]+(p["autobuy_amount"] if can_refill else 0))
+  can_refill=p["autobuy_enabled"] and p["grain"]<p["chickens"] and p["coins"]>=GRAIN_PRICE*p["autobuy_amount"] and p["grain"]+p["eggs"]+p["autobuy_amount"]<=storage_limit(p)
+  expected_eggs=min(p["fed_hens"],max(0,storage_limit(p)-p["grain"]-p["eggs"]))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"expected_eggs":expected_eggs,"autobuy_expected":bool(can_refill),"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
+  return {"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"expected_eggs":expected_eggs,"autobuy_expected":bool(can_refill),"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
  if q.item not in ("grain","chickens"):raise HTTPException(400,"Товар не найден")
- cost=q.amount*(2 if q.item=="grain" else 30)
+ cost=q.amount*(GRAIN_PRICE if q.item=="grain" else HEN_PRICE)
  with db() as c:
   p=advance(c,person(c,authorization,True))
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
@@ -236,7 +266,7 @@ def buy_bundle(authorization:str=Header(default="")):
   if coop>MAX_BUILDING_LEVEL or storage>MAX_BUILDING_LEVEL:raise HTTPException(400,"Достигнута максимальная вместимость построек")
   c.execute("UPDATE players SET coins=coins-%s,chickens=%s,grain=grain+100,coop_level=%s,storage_level=%s,bundle_uses=bundle_uses+1 WHERE id=%s",(PROMO_PRICE,hens,coop,storage,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(PROMO_PRICE,))
-  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"bundle",-PROMO_PRICE,"Акция: 10 кур + 100 зерна (цена товаров 500)",now))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"bundle",-PROMO_PRICE,"Акция: 10 кур + 100 зерна (стоимость товаров 600)",now))
  return {"ok":True,"spent":PROMO_PRICE}
 
 @app.post("/api/feed")
@@ -251,7 +281,7 @@ def sell(q:Request,authorization:str=Header(default="")):
   p=advance(c,person(c,authorization,True))
   if p[q.item]<q.amount:raise HTTPException(400,"Недостаточно товара")
   c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s WHERE id=%s",(q.amount,p["id"]))
-  price=5 if q.item=="eggs" else q.price
+  price=EGG_PRICE if q.item=="eggs" else q.price
   c.execute("INSERT INTO market VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],q.item,q.amount,price))
   if q.item=="eggs":
    day=time.strftime("%Y-%m-%d",time.gmtime())
@@ -331,7 +361,7 @@ def claim_reward(q:Request,authorization:str=Header(default="")):
    activity=c.execute("SELECT grain_bought,eggs_listed,eggs_produced FROM daily_activity WHERE player_id=%s AND day=%s",(p["id"],day)).fetchone()
    if not activity:raise HTTPException(400,"Задание ещё не выполнено")
    field={"grain":"grain_bought","eggs":"eggs_produced","listing":"eggs_listed"}[key]
-   target=5 if key=="grain" else 1
+   target=5 if key=="grain" else (3 if key=="eggs" else 1)
    if activity[field]<target:raise HTTPException(400,"Задание ещё не выполнено")
   amount=REWARD_AMOUNTS[key]
   saved=c.execute("INSERT INTO daily_claims(player_id,day,claim,amount) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING amount",(p["id"],day,key,amount)).fetchone()
@@ -390,11 +420,14 @@ def incubator_action(q:Request,authorization:str=Header(default="")):
    return {"ok":True,"spent":cost}
   active=c.execute("SELECT COUNT(*)::int AS n FROM incubation_jobs WHERE player_id=%s",(p["id"],)).fetchone()["n"]
   if active>=p["incubator_level"]:raise HTTPException(409,"Все места инкубатора заняты")
-  if p["eggs"]<1:raise HTTPException(400,"Нужно одно яйцо на складе")
+  if p["eggs"]<12:raise HTTPException(400,"Для выведения курицы нужно 12 яиц")
+  if p["coins"]<15:raise HTTPException(400,"Для инкубации нужно 15 монет")
   if p["chickens"]+active>=coop_limit(p):raise HTTPException(400,"Расширьте курятник")
   now=time.time()
   egg_seconds,grow_seconds=incubation_stages(p["incubator_level"])
-  c.execute("UPDATE players SET eggs=eggs-1 WHERE id=%s",(p["id"],))
+  c.execute("UPDATE players SET eggs=eggs-12,coins=coins-15 WHERE id=%s",(p["id"],))
+  c.execute("UPDATE economy SET treasury=treasury+15 WHERE id=1")
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"incubation",-15,"Выведение курицы: 12 яиц",now))
   c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],now,now+egg_seconds,now+egg_seconds+grow_seconds))
  return {"ok":True}
 

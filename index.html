@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=19" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
-    <script src="/assets/game.js?v=19" defer></script>
+    <script src="/assets/game.js?v=20" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -37,7 +37,7 @@
             alt=""
             decoding="async"
           />
-          400 монет (включая приветственный бонус) · 1 курица · 5 зерна
+          100 монет при регистрации · 1 курица · 5 зерна
         </p>
         <form id="join-form">
           <label for="name">Имя фермера</label
@@ -234,7 +234,7 @@
               /><span>1 яйцо</span>
             </div>
           </div>
-          <p class="cycle">Цикл: 1 раз в сутки</p>
+          <p class="cycle">Цикл: 1 яйцо каждые 2 часа</p>
           <p id="next-harvest" class="feature-note" role="status">Рассчитываем следующий сбор яиц…</p>
           <div class="statsrow">
             <span>Следующее кормление</span><b data-next-tick>—</b>
@@ -349,7 +349,7 @@
               /><span>1 яйцо</span>
             </div>
           </div>
-          <p class="cycle">Цикл: 1 раз в сутки</p>
+          <p class="cycle">Цикл: 1 яйцо каждые 2 часа</p>
           <div class="statsrow"><span>Следующий сбор через</span><b data-next-tick>—</b></div>
           <p id="coop-harvest" class="feature-note">Следующий сбор рассчитывается…</p>
         </div>
@@ -364,13 +364,13 @@
             />Экономика одной курицы
           </h2>
           <div class="statsrow">
-            <span>Расход корма</span><b>2 монеты/сутки</b>
+            <span>Расход корма</span><b>8 монет/сутки</b>
           </div>
           <div class="statsrow">
-            <span>Доход от продажи яйца</span><b>5 монет/сутки</b>
+            <span>Доход от продажи яйца</span><b>12 монет/сутки при продаже всех яиц</b>
           </div>
           <div class="statsrow">
-            <span>Прибыль при продаже</span><b>+3 монеты/сутки</b>
+            <span>Прибыль при продаже</span><b>+4 монеты/сутки при полном спросе</b>
           </div>
           <p class="muted">
             Яйца продаются другим игрокам. Доход зависит от спроса.
@@ -390,7 +390,7 @@
             />Автозакупка зерна
           </h2>
           <p class="muted">
-            Если корма не хватает, купить зерно перед суточным кормлением.
+            Если корма не хватает, купить зерно перед кормлением каждые 6 часов.
           </p>
           <div class="fieldrow">
             <label for="auto-coop"
@@ -438,7 +438,7 @@
             <div class="fieldrow">
               <label for="sellitem"
                 >Товар<select id="sellitem" onchange="sellType()">
-                  <option value="eggs">Яйца · 5 монет</option>
+                  <option value="eggs">Яйца · 1 монета</option>
                   <option value="grain" disabled>Зерно · позже</option>
                 </select></label
               ><label for="sellnum"
@@ -496,7 +496,7 @@
         <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button class="active" type="button" aria-pressed="true">Купить</button><button type="button" onclick="openSell('eggs')" aria-pressed="false">Продать</button></div>
         <div class="card shop-catalog">
           <h2 class="cardtitle">Доступно для покупки</h2>
-          <div class="product" id="trade-eggs-row"><img src="/assets/redesign/egg.webp" class="product-image" alt=""><div><h3>Яйца</h3><small id="eggs-available">Доступно: — шт.</small><small>У других игроков · 5 монет / шт.</small></div><button id="eggs-buy-button" class="btn small" onclick="selectBuy('eggs')">Купить</button></div>
+          <div class="product" id="trade-eggs-row"><img src="/assets/redesign/egg.webp" class="product-image" alt=""><div><h3>Яйца</h3><small id="eggs-available">Доступно: — шт.</small><small>У других игроков · 1 монета / шт.</small></div><button id="eggs-buy-button" class="btn small" onclick="selectBuy('eggs')">Купить</button></div>
           <div class="product">
             <img
               src="/assets/redesign/grain.webp"
@@ -552,7 +552,7 @@
             Набор фермера
           </h2>
           <div class="bundle-inner">
-            <h3>Акционный набор <span class="promo-percent">−40%</span></h3>
+            <h3>Акционный набор <span class="promo-percent">−50%</span></h3>
             <p>10 куриц + 100 зерна</p>
             <p class="promo-value">Обычная стоимость: <s><span data-promo-value>—</span> монет</s></p>
             <p id="promo-status" class="promo-status">Акция доступна новым игрокам 3 дня · до 5 покупок</p>
@@ -587,7 +587,7 @@
             />Автозакупка зерна
           </h2>
           <p class="muted">
-            Если корма не хватает, купить зерно перед суточным кормлением.
+            Если корма не хватает, купить зерно перед кормлением каждые 6 часов.
           </p>
           <div class="fieldrow">
             <label for="auto-shop"
@@ -924,8 +924,8 @@
             />Кормление без хлопот
           </h2>
           <p class="muted">
-            Зерно со склада расходуется автоматически: 1 зерно на курицу в
-            сутки. Ручное кормление не требуется.
+            Зерно со склада расходуется автоматически: 1 зерно на курицу каждые
+            6 часов. Ручное кормление не требуется.
           </p>
           <button class="btn alt wide" onclick="tab('coop')">В курятник</button>
         </div>
@@ -1068,7 +1068,7 @@
             />Автозакупка зерна
           </h2>
           <p class="muted">
-            Если корма не хватает, купить зерно перед суточным кормлением.
+            Если корма не хватает, купить зерно перед кормлением каждые 6 часов.
           </p>
           <div class="fieldrow">
             <label for="auto-upgrades"
