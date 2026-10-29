@@ -138,6 +138,21 @@ function tab(id) {
   window.scrollTo({ top: 0, behavior: "instant" });
   if (id === "wallet") loadHistory();
 }
+function taskSection(which) {
+  const achievements = which === "achievements";
+  const achievementsPane = el("achievement-pane");
+  const goalsPane = el("goals-pane");
+  if (!achievementsPane || !goalsPane) return;
+  achievementsPane.hidden = !achievements;
+  goalsPane.hidden = achievements;
+  for (const [id, active] of [["tasks-switch",!achievements],["achievements-switch",achievements]]) {
+    const button = el(id);
+    if (button) {
+      button.classList.toggle("active",active);
+      button.setAttribute("aria-pressed",String(active));
+    }
+  }
+}
 function marketTab(mode) {
   if (mode === "buy") tab("shop");
   else tab("market");
@@ -365,6 +380,31 @@ function render() {
       toast("🥚 Кури снесли " + number(last.amount) + " яиц! Они уже на складе.");
     }
   }
+  const progression = state.progression || {};
+  const farmerLevel = el("farmer-level");
+  const farmerXp = el("farmer-xp-caption");
+  const xpBar = el("farmer-xp-bar");
+  if (farmerLevel) farmerLevel.textContent = "⭐ Уровень " + number(progression.level || 1) + " · " + number(progression.xp || 0) + " XP";
+  const totalXp = progression.xp || 0;
+  const level = progression.level || 1;
+  const baseXp = 25 * (level-1) * (level-1);
+  const nextXp = progression.next_level_xp || 25;
+  if (farmerXp) farmerXp.textContent = "До следующего уровня: " + number(Math.max(0,nextXp - totalXp)) + " XP";
+  if (xpBar) xpBar.style.width = Math.min(100,100*Math.max(0,totalXp-baseXp)/Math.max(1,nextXp-baseXp)) + "%";
+  const earned = new Set(progression.achievements || []);
+  const total = progression.totals || {};
+  const achievements = [
+    ["first_egg","🥚","Первое яйцо",total.eggs_produced || 0,1],
+    ["ten_eggs","🐣","10 произведённых яиц",total.eggs_produced || 0,10],
+    ["three_hens","🐔","Три несушки",p.chickens || 0,3],
+    ["first_sale","🛍️","Первая продажа яйца",total.eggs_sold || 0,1],
+    ["hundred_sales","🏅","100 проданных яиц",total.eggs_sold || 0,100]
+  ];
+  const achievementList = el("achievements-list");
+  if (achievementList) achievementList.innerHTML = achievements.map(([key,icon,title,current,target]) => {
+    const done = earned.has(key);
+    return '<div class="achievement-row' + (done?' achievement-done':'') + '"><span class="achievement-emoji">'+icon+'</span><div><strong>'+title+'</strong><small>'+(done?'Получено ✓':number(Math.min(current,target))+' / '+target)+'</small></div><span class="achievement-status">'+(done?'★':'🔒')+'</span></div>';
+  }).join("");
   const daily = state.daily || {};
   const claimed = new Set(state.claimed_rewards || []);
   const dailyMissions = [

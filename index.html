@@ -10,8 +10,8 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=1" />
-    <script src="/assets/game.js?v=9" defer></script>
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=2" />
+    <script src="/assets/game.js?v=10" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div>
@@ -926,12 +926,22 @@
             <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
           </div>
         </div>
-        <div class="switch">
-          <button class="active" type="button">Цели хозяйства</button
-          ><button type="button" onclick="tab('profile')">Достижения</button>
+        <div class="switch" role="group" aria-label="Задания и достижения">
+          <button id="tasks-switch" class="active" type="button" onclick="taskSection('goals')" aria-pressed="true">Задания</button>
+          <button id="achievements-switch" type="button" onclick="taskSection('achievements')" aria-pressed="false">Достижения</button>
         </div>
+        <div id="achievement-pane" hidden>
+          <div class="card">
+            <h2 class="cardtitle">🏆 Мои достижения</h2>
+            <div id="farmer-level" class="farmer-level" aria-live="polite"></div>
+            <div class="progress"><span id="farmer-xp-bar"></span></div>
+            <p id="farmer-xp-caption" class="muted"></p>
+          </div>
+          <div class="card achievements-list" id="achievements-list"></div>
+        </div>
+        <div id="goals-pane">
         <p class="muted">
-          Твой путь фермера. Это цели по текущим запасам, без денежных наград.
+          Выполняй ежедневные задания и развивай хозяйство.
         </p>
         <div class="card" id="daily-task-card">
           <h2 class="cardtitle">☀️ Задания на сегодня</h2>
@@ -982,6 +992,7 @@
             </div>
             <strong data-goal-status="eggs">В процессе</strong>
           </div>
+        </div>
         </div>
         <button class="btn alt wide" onclick="tab('farm')">
           Вернуться на ферму
