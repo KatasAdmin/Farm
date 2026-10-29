@@ -259,6 +259,10 @@ def set_password(q:Request,authorization:str=Header(default="")):
   c.execute("UPDATE players SET password_hash=%s WHERE id=%s",(stored,p["id"]))
  return {"ok":True}
 
+@app.get("/api/auth/config")
+def auth_config():
+ return {"telegram_enabled":bool(os.environ.get("TELEGRAM_BOT_TOKEN"))}
+
 @app.post("/api/telegram/link")
 def link_telegram(q:Request,authorization:str=Header(default="")):
  uid=telegram_identity(q.telegram_data)
