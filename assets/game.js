@@ -108,6 +108,36 @@ async function upgradeBuilding(kind) {
   if (!confirm("Улучшить " + name + " за " + number(price) + " монет?")) return;
   await perform("/api/upgrade", {item:kind});
 }
+function avatarSource(p) {
+  if (p.avatar === "chicken") return "/assets/redesign/hen.webp";
+  if (p.avatar === "egg") return "/assets/redesign/egg.webp";
+  if (p.avatar === "flower") return "/assets/redesign/profile.webp";
+  if (p.gender === "female" && p.avatar === "default") return "/assets/redesign/profile.webp";
+  return "/assets/redesign/farmer.webp";
+}
+function toggleProfileEditor() {
+  const editor = el("profile-editor");
+  editor.hidden = !editor.hidden;
+  if (!editor.hidden && state) {
+    el("profile-gender").value = state.me.gender || "unspecified";
+    el("profile-age").value = state.me.age == null ? "" : state.me.age;
+    el("profile-avatar").value = state.me.avatar || "default";
+  }
+}
+async function saveProfile() {
+  const ageText = el("profile-age").value.trim();
+  const age = ageText === "" ? null : Number(ageText);
+  if (age !== null && (!Number.isSafeInteger(age) || age < 1 || age > 120)) return toast("Укажи возраст от 1 до 120");
+  const ok = await perform("/api/profile", {gender:el("profile-gender").value,age,avatar:el("profile-avatar").value});
+  if (ok) el("profile-editor").hidden = true;
+}
+async function incubatorAction() {
+  if (!state || pending) return;
+  const i = state.incubator || {};
+  if (!i.owned) return perform("/api/incubator",{item:"buy"});
+  if (i.incubation_started != null || i.chick_ready_at != null) return toast("Инкубатор занят");
+  await perform("/api/incubator",{item:"start"});
+}
 function showLogin() {
   token = null;
   localStorage.removeItem("farm_token");
@@ -121,7 +151,7 @@ el("join-form").addEventListener("submit", async (event) => {
   if (pending) return;
   busy(true);
   try {
-    const result = await api("/api/join", { name: el("name").value.trim() });
+    const result = await api("/api/join", { name: el("name").value.trim(), gender: el("join-gender").value });
     token = result.token;
     localStorage.setItem("farm_token", token);
     await refresh();
@@ -230,7 +260,8 @@ function showShop(item) {
   openPurchase({ kind: "shop", item, price });
 }
 function showBundle() {
-  openPurchase({ kind: "bundle", item: "chickens", price: 150 });
+  if (!state?.promotion?.active) return toast("Акция завершена");
+  openPurchase({ kind: "bundle", item: "chickens", price: 300 });
 }
 function openPurchase(data) {
   if (pending) return;
@@ -242,10 +273,10 @@ function openPurchase(data) {
         ? "Набор фермера"
         : "Покупка товара";
   el("purchase-name").textContent =
-    data.kind === "bundle" ? "3 курицы + 30 зерна" : itemNames[data.item];
+    data.kind === "bundle" ? "10 куриц + 100 зерна" : itemNames[data.item];
   el("purchase-price").textContent =
     data.kind === "bundle"
-      ? "150 монет за набор"
+      ? "300 монет · обычная стоимость 500"
       : `Цена: ${data.price} монет / шт.`;
   const img = el("purchase-dialog").querySelector(".purchase-art");
   img.src =
@@ -381,6 +412,26 @@ async function loadHistory() {
 }
 function render() {
   const p = state.me;
+  const pr = state.progression || {};
+  const xp = Number(pr.xp || 0), lvl = Number(pr.level || 1);
+  const prev = 25*(lvl-1)*(lvl-1), next = Number(pr.next_level_xp || 25);
+  const percent = Math.max(0,Math.min(100,100*(xp-prev)/Math.max(1,next-prev)));
+  if (el("identity-level")) el("identity-level").textContent = "Уровень " + lvl + " · " + xp + " XP";
+  if (el("identity-xp-fill")) el("identity-xp-fill").style.width = percent + "%";
+  if (el("profile-level")) el("profile-level").textContent = "Уровень " + lvl + " · " + xp + " XP";
+  for (const img of document.querySelectorAll(".identity .avatar, .profile-avatar")) img.src = avatarSource(p);
+  const promo = state.promotion || {};
+  if (el("promo-status")) el("promo-status").textContent = promo.active ? "Осталось: "+Math.ceil(promo.seconds_left/3600)+" ч · покупок "+promo.used+" из 5" : "Акция завершена";
+  if (el("bundle-buy")) {el("bundle-buy").disabled = !promo.active || p.coins < 300;el("bundle-buy").title = promo.active ? "До 5 покупок" : "Акция завершена";}
+  const inc = state.incubator || {};
+  const button = el("incubator-action");
+  const info = el("incubation-status");
+  if (button && info) {
+    if (!inc.owned) {info.textContent = "Стоимость 120 монет · покупается один раз";button.textContent = "Купить · 120 монет";button.disabled = p.coins < 120;}
+    else if (inc.incubation_started != null) {info.textContent = "🥚 Яйцо в инкубаторе";button.textContent = "Идёт инкубация";button.disabled = true;}
+    else if (inc.chick_ready_at != null) {info.textContent = "🐣 Цыплёнок растёт; нужна свободная вместимость курятника";button.textContent = "Цыплёнок растёт";button.disabled = true;}
+    else {info.textContent = "Инкубатор готов. Потрать 1 яйцо, чтобы вывести курицу";button.textContent = "Заложить 1 яйцо";button.disabled = p.eggs < 1 || p.chickens >= (state.buildings?.coop_capacity || 10);}
+  }
   const buildings = state.buildings || {};
   document.querySelectorAll("[data-building]").forEach((node) => {
     const value = buildings[node.dataset.building];
