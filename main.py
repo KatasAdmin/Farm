@@ -168,7 +168,7 @@ def join(q:Request):
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
    if treasury<100:raise HTTPException(409,"Стартовый фонд исчерпан: новые регистрации временно закрыты")
    if q.gender not in ("male","female","unspecified"):raise HTTPException(400,"Некорректный пол")
-   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender,recovery_hash) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,hashed))
+   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender,recovery_hash,production_model,fed_hens,feed_phase) VALUES(%s,%s,%s,%s,%s,%s,%s,2,1,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,hashed))
    c.execute("UPDATE economy SET treasury=treasury-100 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-100,"Начальный баланс: "+name,time.time()))
  except psycopg.errors.UniqueViolation:raise HTTPException(409,"Имя уже занято")
