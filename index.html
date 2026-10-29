@@ -54,7 +54,7 @@
           <button class="btn wide" type="submit">Начать новую жизнь →</button>
         </form>
         <form id="password-login-form" class="password-login"><h3>Уже есть ферма? Войти</h3><label for="login-name">Ник</label><input id="login-name" autocomplete="username" maxlength="22" required><label for="login-password">Пароль</label><input id="login-password" type="password" autocomplete="current-password" required><button class="btn blue wide" type="submit">Войти</button></form>
-        <button type="button" class="btn blue wide telegram-entry" onclick="telegramLogin()" hidden>Войти через Telegram</button>
+        <button type="button" class="btn blue wide telegram-entry" onclick="telegramLogin()" hidden>Войти через Telegram</button><p class="muted">Если ферма уже существует, сначала привяжи Telegram в её настройках — иначе при входе через Telegram создастся отдельный аккаунт.</p>
         <details class="recovery-login"><summary>Старый аккаунт? Восстановить по коду</summary><form id="recover-form"><label for="recover-name">Имя фермера</label><input id="recover-name" autocomplete="username" required maxlength="22"><label for="recover-code">Сохранённый код восстановления</label><input id="recover-code" autocomplete="off" autocapitalize="none" spellcheck="false" required><button class="btn wide" type="submit">Войти в свою ферму</button></form></details><small>Регистрируйся по уникальному нику и паролю. Старые аккаунты без пароля можно восстановить по сохранённому коду.</small>
       </div>
     </section>
