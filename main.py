@@ -155,23 +155,15 @@ def update_incubation(c,p,now):
  matured=min(len(jobs),free)
  if matured:
   for row in jobs[:matured]:c.execute("DELETE FROM incubation_jobs WHERE id=%s",(row["id"],))
-  c.execute("UPDATE players SET chickens=chickens+%s WHERE id=%s",(matured,p["id"]))
+  c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(matured,matured,p["id"]))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"chick_matured",matured,now))
-  p={**p,"chickens":p["chickens"]+matured}
+  p={**p,"chickens":p["chickens"]+matured,"fed_hens":p["fed_hens"]+matured}
  return p
-def activate_hens(c,p):
- """Newly obtained hens start producing once their first grain is paid."""
- extra=min(max(0,p["chickens"]-p["fed_hens"]),p["grain"])
- if extra:
-  c.execute("UPDATE players SET grain=grain-%s,fed_hens=fed_hens+%s WHERE id=%s",(extra,extra,p["id"]))
-  p={**p,"grain":p["grain"]-extra,"fed_hens":p["fed_hens"]+extra}
- return p
-
 def upgrade_production(c,p,now):
  # Finish legacy catch-up first; keep progress within the current 6-hour tick.
  old_progress=min(.999999, max(0,(now-p["last_tick"])/CYCLE)*min(p["fed_hens"],p["chickens"]))
  c.execute("UPDATE players SET production_model=4,egg_at=%s,egg_progress=%s WHERE id=%s",(now,old_progress,p["id"]))
- return activate_hens(c,{**p,"production_model":4,"egg_at":now,"egg_progress":old_progress})
+ return {**p,"production_model":4,"egg_at":now,"egg_progress":old_progress}
 
 def advance(c,p,now=None):
  """Process 6h egg ticks and 18h feeding ticks server-side without retroactive production."""
@@ -187,7 +179,7 @@ def advance(c,p,now=None):
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
   keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress")
   c.execute("UPDATE players SET "+",".join(k+"=%s" for k in keys)+" WHERE id=%s",tuple(result[k] for k in keys)+(p["id"],))
-  return activate_hens(c,update_incubation(c,result,now))
+  return update_incubation(c,result,now)
  start=p["last_tick"] if p["last_tick"] is not None else now
  due=max(0,int((now-start)//CYCLE))
  if due<=0:return upgrade_production(c,update_incubation(c,p,now),now)
@@ -380,7 +372,11 @@ def shop(q:Request,authorization:str=Header(default="")):
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if q.item=="chickens" and p["chickens"]+q.amount>coop_limit(p):raise HTTPException(400,"В курятнике нет места. Улучшите курятник")
   if q.item=="grain" and p["grain"]+p["eggs"]+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
-  c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
+  if q.item=="chickens":
+   # New hens arrive satiated; existing hungry hens are not refed.
+   c.execute("UPDATE players SET coins=coins-%s,chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(cost,q.amount,q.amount,p["id"]))
+  else:
+   c.execute("UPDATE players SET coins=coins-%s,grain=grain+%s WHERE id=%s",(cost,q.amount,p["id"]))
   if q.item=="grain":
    day=time.strftime("%Y-%m-%d",time.gmtime())
    c.execute("INSERT INTO daily_activity(player_id,day,grain_bought) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET grain_bought=daily_activity.grain_bought+EXCLUDED.grain_bought",(p["id"],day,q.amount))
@@ -399,7 +395,7 @@ def buy_bundle(authorization:str=Header(default="")):
   coop=max(p["coop_level"],(hens+9)//10)
   storage=max(p["storage_level"],(items+99)//100)
   if coop>MAX_BUILDING_LEVEL or storage>MAX_BUILDING_LEVEL:raise HTTPException(400,"Достигнута максимальная вместимость построек")
-  c.execute("UPDATE players SET coins=coins-%s,chickens=%s,grain=grain+100,coop_level=%s,storage_level=%s,bundle_uses=bundle_uses+1 WHERE id=%s",(PROMO_PRICE,hens,coop,storage,p["id"]))
+  c.execute("UPDATE players SET coins=coins-%s,chickens=%s,fed_hens=fed_hens+10,grain=grain+100,coop_level=%s,storage_level=%s,bundle_uses=bundle_uses+1 WHERE id=%s",(PROMO_PRICE,hens,coop,storage,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(PROMO_PRICE,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"bundle",-PROMO_PRICE,"Акция: 10 кур + 100 зерна (стоимость товаров 600)",now))
  return {"ok":True,"spent":PROMO_PRICE}
