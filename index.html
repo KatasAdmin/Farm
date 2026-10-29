@@ -10,7 +10,7 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=22" />
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=23" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
     <script src="/assets/game.js?v=22" defer></script>
@@ -152,7 +152,7 @@
           </button>
         </div>
         <h2 class="section-title">
-          Моё хозяйство <span title="Ресурсы на складе">?</span>
+          Моё хозяйство
         </h2>
         <div class="three">
           <div class="resource">
@@ -180,7 +180,7 @@
             /><span>Яйца</span><strong data-value="eggs">—</strong>
           </div>
         </div>
-        <div class="card herd">
+        <div class="card herd compact-herd">
           <div class="health-line">
             <img
               src="/assets/ui/heart_health.webp"
@@ -207,47 +207,18 @@
           </div>
           <p id="warning" class="muted"></p><p id="storage-warning" class="capacity-warning" role="status" hidden></p>
         </div>
-        <div class="card farm-cycle">
-          <h2 class="cardtitle">Производственный цикл</h2>
-          <div class="flow">
-            <div>
-              <img
-                src="/assets/redesign/grain.webp"
-                class="icon"
-                alt=""
-                decoding="async"
-              /><span>1 зерно</span>
-            </div>
-            <span class="arrow">→</span>
-            <div>
-              <img
-                src="/assets/redesign/hen.webp"
-                class="icon"
-                alt=""
-                decoding="async"
-              /><span>1 курица</span>
-            </div>
-            <span class="arrow">→</span>
-            <div>
-              <img
-                src="/assets/redesign/egg.webp"
-                class="icon"
-                alt=""
-                decoding="async"
-              /><span>1 яйцо</span>
-            </div>
-          </div>
-          <p class="cycle">Цикл: 1 яйцо каждые 2 часа</p>
-          <p id="next-harvest" class="feature-note" role="status">Рассчитываем следующий сбор яиц…</p>
-          <div class="statsrow">
-            <span>Следующее кормление</span><b data-feed-tick>—</b>
-          </div>
+        <div class="card compact-harvest">
+          <div class="compact-harvest-title"><img src="/assets/redesign/egg.webp" alt="" class="icon"><div><h2>Следующий сбор яиц</h2><p id="next-harvest" class="feature-note" role="status">Рассчитываем время…</p></div></div>
+          <p class="compact-harvest-feed">Кормление через <strong data-feed-tick>—</strong></p>
           <div class="buttons">
             <button class="btn" onclick="tab('shop')">Купить корм</button
             ><button class="btn alt" onclick="openSell('eggs')">
               Продать яйца
             </button>
           </div>
+          <details class="farm-explainer"><summary>Как работает моя ферма?</summary>
+            <p>Каждая сытая курица несёт яйцо каждые 2 часа. Зерно расходуется раз в 6 часов. Яйца можно продать игрокам или использовать в инкубаторе.</p>
+          </details>
         </div>
         <div class="farm-footer-links">
           <button class="text-button" onclick="tab('upgrades')">
@@ -789,44 +760,7 @@
             </div>
           </div>
         </div>
-        <button class="menu-row" onclick="tab('storage')">
-          <span class="nav-art" aria-hidden="true"
-            ><img
-              src="/assets/redesign/storage.webp"
-              class="icon"
-              alt=""
-              decoding="async" /></span
-          ><span>Склад</span><b>›</b></button
-        ><button class="menu-row" onclick="tab('tasks')">
-          <span class="nav-art" aria-hidden="true"
-            ><span class="nav-art" aria-hidden="true"
-              ><img src="/assets/redesign/achievement.webp" alt="" /></span></span
-          ><span>Мои цели</span><b>›</b></button
-        ><button class="menu-row" onclick="tab('upgrades')">
-          <span class="nav-art" aria-hidden="true"
-            ><img
-              src="/assets/redesign/upgrade.webp"
-              class="icon"
-              alt=""
-              decoding="async" /></span
-          ><span>Улучшения</span><b>›</b></button
-        ><button class="menu-row" onclick="tab('wallet')">
-          <span class="nav-art" aria-hidden="true"
-            ><img
-              src="/assets/redesign/wallet-icon.webp"
-              class="icon"
-              alt=""
-              decoding="async" /></span
-          ><span>Кошелёк</span><b>›</b>
-        </button>
-        <div class="card">
-          <h2 class="cardtitle">
-            <span class="nav-art" aria-hidden="true"
-              ><img src="/assets/redesign/statistics.webp" alt="" /></span
-            >Рейтинг фермеров
-          </h2>
-          <div id="leaders"></div>
-        </div>
+        <details class="card compact-ranking"><summary>🏆 Рейтинг фермеров</summary><div id="leaders"></div></details>
         <details class="economy-card profile-settings">
           <summary><img src="/assets/redesign/settings.webp" class="icon" alt="" /><span><strong>Настройки</strong><small>Управление хозяйством</small></span><b>›</b></summary>
           <div class="economy-details"><p class="muted">Сохранённый код позволит восстановить доступ после смены телефона. Создание нового кода отключает предыдущий.</p><p class="muted">Для старого аккаунта установи пароль — после этого сможешь входить по нику с любого устройства.</p><label for="settings-password">Новый пароль (от 8 символов)</label><input id="settings-password" type="password" autocomplete="new-password" minlength="8" maxlength="128"><button class="btn blue wide" onclick="setAccountPassword()">Установить / сменить пароль</button><p id="telegram-link-status" class="muted">Telegram не привязан</p><button class="btn blue wide telegram-entry" onclick="linkTelegram()" hidden>Привязать этот Telegram</button><label for="settings-nickname">Выбрать ник для Telegram-аккаунта</label><input id="settings-nickname" maxlength="22" placeholder="Ник (для созданных через Telegram)"><button class="btn blue wide" onclick="setAccountNickname()">Сохранить ник</button><button class="btn blue wide" onclick="generateRecoveryCode()">Создать код восстановления</button><button class="btn blue wide" onclick="tab('shop')">Настроить автозакупку</button></div>
