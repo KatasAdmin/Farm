@@ -479,14 +479,27 @@ def request_withdrawal(q:Request,authorization:str=Header(default="")):
   if c.execute("SELECT 1 FROM withdrawal_requests WHERE player_id=%s AND status='pending'",(p["id"],)).fetchone():
    raise HTTPException(409,"Предыдущая заявка ещё ожидает проверки")
   request_id=uuid.uuid4().hex
-  c.execute("INSERT INTO withdrawal_requests(id,player_id,amount,status,created) VALUES(%s,%s,%s,'pending',%s)",(request_id,p["id"],q.amount,time.time()))
+  c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(q.amount,p["id"]))
+  c.execute("INSERT INTO withdrawal_requests(id,player_id,amount,status,created,reserved) VALUES(%s,%s,%s,'pending',%s,true)",(request_id,p["id"],q.amount,time.time()))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"withdraw_reserve",-q.amount,"Резерв заявки на вывод",time.time()))
  return {"ok":True,"id":request_id,"status":"pending"}
+
+@app.post("/api/withdraw/cancel")
+def cancel_withdrawal(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization,True)
+  request=c.execute("UPDATE withdrawal_requests SET status='cancelled' WHERE player_id=%s AND status='pending' RETURNING amount,reserved",(p["id"],)).fetchone()
+  if not request:raise HTTPException(404,"Нет активной заявки")
+  if request["reserved"]:
+   c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(request["amount"],p["id"]))
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"withdraw_release",request["amount"],"Возврат резерва по отменённой заявке",time.time()))
+ return {"ok":True,"returned":request["amount"] if request["reserved"] else 0}
 
 @app.get("/api/withdraw/status")
 def withdrawal_status(authorization:str=Header(default="")):
  with db() as c:
   p=person(c,authorization)
-  last=c.execute("SELECT id,amount,status,created FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
+  last=c.execute("SELECT id,amount,status,created,reserved FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
  return {"minimum":100,"request":last,"payouts_enabled":False}
 
 @app.post("/api/promo/redeem")
