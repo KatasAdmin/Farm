@@ -19,6 +19,14 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS production_model integer NOT NULL DEFAULT 1")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS fed_hens integer NOT NULL DEFAULT 0")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS feed_phase integer NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_legacy_eggs integer")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_legacy_listed integer")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_legacy_sold integer")
+  c.execute("""UPDATE players p SET
+    xp_legacy_eggs=COALESCE((SELECT SUM(eggs_produced)::int FROM daily_activity d WHERE d.player_id=p.id),0),
+    xp_legacy_listed=COALESCE((SELECT SUM(eggs_listed)::int FROM daily_activity d WHERE d.player_id=p.id),0),
+    xp_legacy_sold=COALESCE((SELECT SUM((split_part(details,' x',2))::int)::int FROM money_log m WHERE m.player_id=p.id AND m.kind='market_sale' AND m.details ~ '^eggs x[0-9]+$'),0)
+   WHERE p.xp_legacy_eggs IS NULL""")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS critical_cycles integer NOT NULL DEFAULT 0")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_enabled boolean NOT NULL DEFAULT false")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS autobuy_min integer NOT NULL DEFAULT 5")
@@ -141,7 +149,7 @@ def advance(c,p,now=None):
    missing=hens-fed
    satiety=max(0,satiety-max(1,(3*missing+hens-1)//hens))
    critical=critical+1 if satiety==0 else 0
-   if critical>=12:
+   if critical>=48:
     hens-=1
     fed_hens=min(fed_hens,hens)
     critical=0
@@ -168,7 +176,7 @@ def join(q:Request):
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
    if treasury<100:raise HTTPException(409,"Стартовый фонд исчерпан: новые регистрации временно закрыты")
    if q.gender not in ("male","female","unspecified"):raise HTTPException(400,"Некорректный пол")
-   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender,recovery_hash,production_model,fed_hens,feed_phase) VALUES(%s,%s,%s,%s,%s,%s,%s,2,1,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,hashed))
+   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender,recovery_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,%s,%s,%s,%s,2,1,0,0,0,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,hashed))
    c.execute("UPDATE economy SET treasury=treasury-100 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-100,"Начальный баланс: "+name,time.time()))
  except psycopg.errors.UniqueViolation:raise HTTPException(409,"Имя уже занято")
@@ -197,7 +205,13 @@ def state(authorization:str=Header(default="")):
   upgrades=c.execute("SELECT COUNT(*)::int AS n FROM money_log WHERE player_id=%s AND kind='upgrade'",(p["id"],)).fetchone()["n"]
   hatched=c.execute("SELECT COUNT(*)::int AS n FROM farm_events WHERE player_id=%s AND kind='chick_matured'",(p["id"],)).fetchone()["n"]
   packs=c.execute("SELECT COUNT(*)::int AS n FROM money_log WHERE player_id=%s AND kind='bundle'",(p["id"],)).fetchone()["n"]
-  xp=totals["grain_bought"]+5*((totals["eggs_produced"]+11)//12)+2*((totals["eggs_listed"]+11)//12)+3*((sold+11)//12)+10*hens_bought+15*missions+20*upgrades+25*hatched+20*packs
+  old_eggs=p["xp_legacy_eggs"] or 0
+  old_listed=p["xp_legacy_listed"] or 0
+  old_sold=p["xp_legacy_sold"] or 0
+  egg_xp=5*old_eggs+5*((max(0,totals["eggs_produced"]-old_eggs)+11)//12)
+  listing_xp=2*old_listed+2*((max(0,totals["eggs_listed"]-old_listed)+11)//12)
+  sales_xp=3*old_sold+3*((max(0,sold-old_sold)+11)//12)
+  xp=totals["grain_bought"]+egg_xp+listing_xp+sales_xp+10*hens_bought+15*missions+20*upgrades+25*hatched+20*packs
   import math
   level=1+math.isqrt(xp//25)
   next_xp=25*level*level
