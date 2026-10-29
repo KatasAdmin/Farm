@@ -11,7 +11,8 @@
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=3" />
-    <script src="/assets/game.js?v=12" defer></script>
+    <link rel="stylesheet" href="/assets/polish.css?v=1" />
+    <script src="/assets/game.js?v=13" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div>
@@ -91,7 +92,7 @@
             class="icon"
             alt=""
             decoding="async"
-          /><span>0</span></span
+          /><span>—</span></span
         >
       </header>
       <section id="farm" class="panel active" aria-label="Ферма">
@@ -203,7 +204,7 @@
             <span class="clock" aria-hidden="true">◴</span>
             <p>Запаса корма хватит на<strong id="feedstock">—</strong></p>
           </div>
-          <p id="warning" class="muted"></p>
+          <p id="warning" class="muted"></p><p id="storage-warning" class="capacity-warning" role="status" hidden></p>
         </div>
         <div class="card farm-cycle">
           <h2 class="cardtitle">Производственный цикл</h2>
@@ -294,16 +295,17 @@
             decoding="async"
           />
         </div>
-        <p class="feature-note">Вместимость курятника зависит от уровня. Повысить его можно в разделе «Улучшения».</p>
+
         <div class="card coop-summary">
-          <h2>Мои несушки <span data-sat>—</span></h2>
+          <h2>Мои несушки <span data-sat aria-label="Сытость">—</span></h2>
+          <p class="coop-level">Уровень <b data-building="coop_level">—</b> · Вместимость <b data-value="chickens">—</b> / <b data-building="coop_capacity">—</b></p>
           <div class="coop-stock">
             <span>Куриц: <b data-value="chickens">—</b></span
             ><span>Зерна: <b data-value="grain">—</b></span>
           </div>
           <div class="progress"><span data-sat-bar></span></div>
           <button class="btn small" onclick="tab('upgrades')">
-            Развить хозяйство
+            Улучшить курятник
           </button>
         </div>
         <div class="card">
@@ -337,9 +339,10 @@
             </div>
           </div>
           <p class="cycle">Цикл: 1 раз в сутки</p>
+          <div class="statsrow"><span>Следующий сбор через</span><b data-next-tick>—</b></div>
           <p id="coop-harvest" class="feature-note">Следующий сбор рассчитывается…</p>
-          <p class="muted">Монеты за яйца появятся только после реальной покупки другим игроком.</p>
         </div>
+        <details class="card production-history"><summary>История производства яиц</summary><div id="production-history"></div></details>
         <div class="card economics">
           <h2 class="cardtitle">
             <img
@@ -407,8 +410,8 @@
         </div>
       </section>
       <section id="market" class="panel" aria-label="Продажа товаров">
-        <div class="panelhead"><button class="back" onclick="tab('shop')" aria-label="К покупкам">‹</button><img src="/assets/redesign/egg.webp" class="icon" alt=""><div><h1>Продать товар</h1><small>ТОРГОВЛЯ · МОИ ОБЪЯВЛЕНИЯ</small></div></div>
-        <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button type="button" onclick="tab('shop')">Купить</button><button type="button" class="active" aria-pressed="true">Продать</button></div><p class="muted">Яйца купят другие игроки, когда найдётся покупатель.</p>
+        <div class="panelhead"><button class="back" onclick="tab('shop')" aria-label="К покупкам">‹</button><img src="/assets/redesign/egg.webp" class="icon" alt=""><div><h1>Торговля</h1><small>ТОРГОВЛЯ · МОИ ОБЪЯВЛЕНИЯ</small></div></div>
+        <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button type="button" aria-pressed="false" onclick="tab('shop')">Купить</button><button type="button" class="active" aria-pressed="true">Продать</button></div><p class="muted">Яйца купят другие игроки, когда найдётся покупатель.</p>
         <div id="sellPane" class="marketpanel active">
           <div class="card">
             <h2 class="cardtitle">
@@ -481,7 +484,7 @@
         <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button class="active" type="button" aria-pressed="true">Купить</button><button type="button" onclick="openSell('eggs')" aria-pressed="false">Продать</button></div>
         <div class="card shop-catalog">
           <h2 class="cardtitle">Доступно для покупки</h2>
-          <div class="product" id="trade-eggs-row"><img src="/assets/redesign/egg.webp" class="product-image" alt=""><div><h3>Яйца</h3><small id="eggs-available">Доступно: — шт.</small><small>5 монет за штуку</small></div><button id="eggs-buy-button" class="btn small" onclick="selectBuy('eggs')">Купить</button></div>
+          <div class="product" id="trade-eggs-row"><img src="/assets/redesign/egg.webp" class="product-image" alt=""><div><h3>Яйца</h3><small id="eggs-available">Доступно: — шт.</small><small>У других игроков · 5 монет / шт.</small></div><button id="eggs-buy-button" class="btn small" onclick="selectBuy('eggs')">Купить</button></div>
           <div class="product">
             <img
               src="/assets/redesign/grain.webp"
@@ -491,7 +494,7 @@
             />
             <div>
               <h3>Зерно</h3>
-              <small>Корм для кур · всегда доступно</small>
+              <small>Корм для кур · у системы</small>
             </div>
             <strong class="price"
               >2<img
@@ -512,7 +515,7 @@
             />
             <div>
               <h3>Курица</h3>
-              <small>Несушка · всегда доступно</small>
+              <small>Несушка · у системы</small>
             </div>
             <strong class="price"
               >30<img
@@ -525,7 +528,7 @@
             </button>
           </div>
         </div>
-        <div class="card incubator-shop"><h2 class="cardtitle">🥚 Инкубатор</h2><p>Выводи цыплят из собственных яиц. Покупается один раз.</p><strong>120 монет</strong><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить · 120</button></div>
+        <div class="card incubator-shop"><img src="/assets/redesign/incubator.webp" class="product-image" alt=""><div><h2 class="cardtitle">Инкубатор</h2><p data-incubator-summary>Загружаем состояние…</p><small>Вместимость: <span data-incubator-capacity>—</span> яйцо · <span data-incubator-price>—</span> монет</small></div><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить · 120</button></div>
         <div class="bundle">
           <h2>
             <img
@@ -539,7 +542,7 @@
           <div class="bundle-inner">
             <h3>Акционный набор <span class="promo-percent">−40%</span></h3>
             <p>10 куриц + 100 зерна</p>
-            <p class="promo-value">Обычная стоимость: <s>500 монет</s> · <b>300 монет</b></p>
+            <p class="promo-value">Обычная стоимость: <s><span data-promo-value>—</span> монет</s></p>
             <p id="promo-status" class="promo-status">Акция доступна новым игрокам 3 дня · до 5 покупок</p>
             <img
               src="/assets/redesign/gift.webp"
@@ -552,7 +555,7 @@
               alt=""
               decoding="async"
             /><button class="btn gold-button" id="bundle-buy" onclick="showBundle()">
-              300
+              <span data-promo-price>—</span>
               <img
                 src="/assets/redesign/coin.webp"
                 class="icon"
@@ -1086,7 +1089,12 @@
         <div class="card incubator-card">
           <div class="upgrade"><img src="/assets/redesign/incubator.webp" class="upgrade-art" alt=""><div><h2>Инкубатор</h2><p id="incubation-status">Загружаем состояние…</p></div></div>
           <button class="btn wide" id="incubator-action" onclick="incubatorAction()">Купить инкубатор</button>
-          <p class="muted">Одно яйцо превращается в цыплёнка за 12 часов. Через следующие 12 часов он вырастает в курицу. Требуется место в курятнике.</p>
+          <p class="feature-note">Вместимость: <span data-incubator-capacity>—</span> яйцо</p>
+          <div class="incubation-stages" aria-label="Стадии инкубации">
+            <div data-stage="egg"><img src="/assets/redesign/egg.webp" alt=""><strong>Яйцо</strong><small data-incubate-duration>—</small></div><span>→</span>
+            <div data-stage="chick"><img src="/assets/characters/chick_yellow.webp" alt=""><strong>Цыплёнок</strong><small data-grow-duration>—</small></div><span>→</span>
+            <div data-stage="hen"><img src="/assets/redesign/hen.webp" alt=""><strong>Курица</strong><small>После взросления</small></div>
+          </div><p class="muted">Курица появится после завершения роста, если в курятнике есть место.</p>
         </div>
       </section>
     </div>

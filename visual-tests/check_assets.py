@@ -1,12 +1,13 @@
 """Check every supplied image through the local, real FastAPI static mount."""
 import json
+import os
 from pathlib import Path
 
 import httpx
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_URL = 'http://127.0.0.1:8085'
+BASE_URL = os.getenv('FARM_QA_URL', 'http://127.0.0.1:8085')
 
 
 def main():
