@@ -219,14 +219,33 @@ async function telegramLogin() {
   catch(e){toast(e.message);}finally{busy(false);}
 }
 async function linkTelegram() {
-  if(pending)return;
-  if(!tgInitData()){
-    alert("Чтобы привязать Telegram, откройте ферму внутри её Telegram-бота, войдите в этот же аккаунт и снова нажмите «Привязать Telegram». В обычном браузере Telegram не передаёт данные для привязки.");
+  if(pending||!state)return;
+  if(state.me.telegram_id)return toast("Telegram уже привязан ✓");
+  if(tgInitData()){
+    if(!confirm("Привязать Telegram к этой ферме?"))return;
+    try{busy(true);await api("/api/telegram/link",{telegram_data:tgInitData()});await refresh();toast("Telegram привязан ✓");}
+    catch(e){toast(e.message);}finally{busy(false);}
     return;
   }
-  if(!confirm("Привязать этот Telegram к текущей ферме? После этого вход через Telegram будет открывать именно её."))return;
-  try{busy(true);await api("/api/telegram/link",{telegram_data:tgInitData()});await refresh();toast("Telegram привязан к этой ферме!");}
-  catch(e){toast(e.message);}finally{busy(false);}
+  try{
+    busy(true);
+    const result=await api("/api/telegram/link/start",{});
+    if(result.linked){await refresh();return;}
+    window.open(result.url,"_blank");
+    toast("Открой Telegram, нажми Start у бота, затем вернись в ферму.");
+    if(window.farmLinkPoll)clearInterval(window.farmLinkPoll);
+    let attempts=0;
+    window.farmLinkPoll=setInterval(async()=>{
+      if(++attempts>60){clearInterval(window.farmLinkPoll);window.farmLinkPoll=null;return;}
+      try{
+        await refresh();
+        if(state?.me?.telegram_id){
+          clearInterval(window.farmLinkPoll);window.farmLinkPoll=null;
+          toast("✅ Telegram успешно привязан!");
+        }
+      }catch(e){}
+    },5000);
+  }catch(e){toast(e.message);}finally{busy(false);}
 }
 async function setAccountPassword(){
   if(pending||!state)return;
