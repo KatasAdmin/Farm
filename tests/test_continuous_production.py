@@ -44,4 +44,34 @@ class ContinuousProductionTests(unittest.TestCase):
   p["storage_level"]=1
   self.assertEqual(simulate(p,100000+21600)[1],1)
 
+class SimulatedReleaseLoad(unittest.TestCase):
+ def test_500_independent_farms_week_of_production(self):
+  # CPU-only load test; never connects to production PostgreSQL.
+  for index in range(500):
+   hens=(index%50)+1
+   p=farm(hens,grain=500,eggs=index%25)
+   p["storage_level"]=6
+   p["coins"]=1000
+   start=p["eggs"]
+   p,produced,_=simulate(p,100000+7*86400)
+   self.assertGreaterEqual(produced,0)
+   self.assertEqual(p["eggs"]-start,produced)
+   self.assertGreaterEqual(p["grain"],0)
+   self.assertGreaterEqual(p["coins"],0)
+   self.assertLessEqual(p["grain"]+p["eggs"],600)
+   self.assertEqual(simulate(p,100000+7*86400)[1],0)
+ def test_chunked_simulation_does_not_mint_extra_eggs(self):
+  for hens in [1,2,10,50]:
+   p=farm(hens,grain=500)
+   p["storage_level"]=6
+   whole,all_eggs,_=simulate(p,100000+2*86400)
+   part=p
+   combined=0
+   for hours in [3,9,18,24,30,39,48]:
+    part,n,_=simulate(part,100000+hours*3600)
+    combined+=n
+   self.assertEqual(combined,all_eggs)
+   self.assertEqual(part["eggs"],whole["eggs"])
+   self.assertEqual(part["grain"],whole["grain"])
+
 if __name__=="__main__":unittest.main()
