@@ -11,7 +11,7 @@ def db():return psycopg.connect(os.environ["DATABASE_URL"],row_factory=dict_row)
 @asynccontextmanager
 async def lifespan(app):
  with db() as c:
-  c.execute("CREATE TABLE IF NOT EXISTS players(id text primary key,name text unique,token text unique,coins int default 100,grain int default 5,chickens int default 1,eggs int default 0,last_feed float default 0)")
+  c.execute("CREATE TABLE IF NOT EXISTS players(id text primary key,name text unique,token text unique,coins int default 10,grain int default 5,chickens int default 1,eggs int default 0,last_feed float default 0)")
   c.execute("CREATE TABLE IF NOT EXISTS market(id text primary key,seller text,item text,quantity int,price int)")
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
@@ -65,8 +65,8 @@ async def lifespan(app):
   c.execute("INSERT INTO reward_emission(id,total_minted) VALUES(1,0) ON CONFLICT(id) DO NOTHING")
   c.execute("UPDATE players SET last_tick=%s WHERE last_tick IS NULL",(time.time(),))
   c.execute("UPDATE market SET price=1 WHERE item='eggs' AND price<>1")
-  # Existing farms switch from daily cycles at deployment; no backdated 2-hour eggs.
-  c.execute("UPDATE players SET production_model=2,last_tick=%s,fed_hens=chickens,feed_phase=0 WHERE production_model=1",(time.time(),))
+  # Preserve resources and balances; reset only the clock on the new production schedule.
+  c.execute("UPDATE players SET production_model=3,last_tick=%s WHERE production_model<3",(time.time(),))
  yield
 app=FastAPI(lifespan=lifespan)
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
@@ -121,8 +121,8 @@ def person(c,h,lock=False):
  return p
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
-CYCLE=7200  # 1 egg every 2 hours per fed chicken
-FEED_EVERY=3  # feed every three production cycles = 6 hours
+CYCLE=21600  # 1 egg every 6 hours per fed chicken
+FEED_EVERY=3  # feed every three production cycles = 18 hours
 HEN_PRICE=40
 EGG_PRICE=1
 GRAIN_PRICE=2
@@ -151,7 +151,7 @@ def update_incubation(c,p,now):
   p={**p,"chickens":p["chickens"]+matured}
  return p
 def advance(c,p,now=None):
- """Process 2h egg ticks and 6h feeding ticks server-side without retroactive production."""
+ """Process 6h egg ticks and 18h feeding ticks server-side without retroactive production."""
  now=time.time() if now is None else now
  start=p["last_tick"] if p["last_tick"] is not None else now
  due=max(0,int((now-start)//CYCLE))
@@ -217,10 +217,10 @@ def join(q:Request):
    if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s)",(name,)).fetchone():
     raise HTTPException(409,"Ник уже занят")
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
-   if treasury<100:raise HTTPException(409,"Стартовый фонд исчерпан")
-   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,gender,password_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,%s,%s,%s,%s,2,1,0,0,0,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,stored))
-   c.execute("UPDATE economy SET treasury=treasury-100 WHERE id=1")
-   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-100,"Начальный баланс: "+name,time.time()))
+   if treasury<10:raise HTTPException(409,"Стартовый фонд исчерпан")
+   c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,gender,password_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,%s,3,1,0,0,0,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,stored))
+   c.execute("UPDATE economy SET treasury=treasury-10 WHERE id=1")
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-10,"Начальный баланс: "+name,time.time()))
  except psycopg.errors.UniqueViolation:raise HTTPException(409,"Ник уже занят")
  return {"token":token}
 
@@ -282,14 +282,14 @@ def login_telegram(q:Request):
   p=c.execute("SELECT id FROM players WHERE telegram_id=%s FOR UPDATE",(uid,)).fetchone()
   if not p:
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
-   if treasury<100:raise HTTPException(409,"Новые регистрации временно закрыты")
+   if treasury<10:raise HTTPException(409,"Новые регистрации временно закрыты")
    name="tg_"+str(uid)
    if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s)",(name,)).fetchone():
     raise HTTPException(409,"Выберите другой способ входа")
    pid=uuid.uuid4().hex
-   c.execute("INSERT INTO players(id,name,token,last_tick,created_at,telegram_id,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,%s,%s,%s,2,1,0,0,0,0)",(pid,name,secrets.token_hex(24),time.time(),time.time(),uid))
-   c.execute("UPDATE economy SET treasury=treasury-100 WHERE id=1")
-   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-100,"Начальный баланс: "+name,time.time()))
+   c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,telegram_id,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,3,1,0,0,0,0)",(pid,name,secrets.token_hex(24),time.time(),time.time(),uid))
+   c.execute("UPDATE economy SET treasury=treasury-10 WHERE id=1")
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-10,"Начальный баланс: "+name,time.time()))
    p={"id":pid}
   token=secrets.token_hex(24)
   c.execute("UPDATE players SET token=%s WHERE id=%s",(token,p["id"]))
@@ -312,7 +312,7 @@ def set_nickname(q:Request,authorization:str=Header(default="")):
 def state(authorization:str=Header(default="")):
  with db() as c:
   p=advance(c,person(c,authorization,True))
-  # New accounts start with 100 coins; previous bonuses remain untouched.
+  # New accounts start with 10 coins; previous balances remain untouched.
   if not p["welcome_granted"]:
    c.execute("UPDATE players SET welcome_granted=true WHERE id=%s",(p["id"],))
    p={**p,"welcome_granted":True}
