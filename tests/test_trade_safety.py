@@ -46,5 +46,21 @@ class TradeSafetyTests(unittest.TestCase):
   self.assertTrue(any(sql.startswith("UPDATE players SET eggs") for sql,_ in fake.statements))
   self.assertTrue(any(sql.startswith("UPDATE market SET quantity=0") for sql,_ in fake.statements))
 
+class MarketConcurrencyGuards(unittest.TestCase):
+ def test_market_mutations_share_transaction_lock(self):
+  from pathlib import Path
+  source=(Path(__file__).resolve().parents[1]/"main.py").read_text(encoding="utf8")
+  for endpoint,next_endpoint in [('@app.post("/api/sell")','@app.post("/api/buy")'),('@app.post("/api/buy")','@app.post("/api/cancel/'),('@app.post("/api/cancel/','@app.get("/api/admin/')]:
+   fragment=source.split(endpoint,1)[1].split(next_endpoint,1)[0]
+   self.assertIn('pg_advisory_xact_lock(1984533)',fragment,endpoint)
+ def test_purchase_uses_locked_listings_and_balanced_transfers(self):
+  from pathlib import Path
+  source=(Path(__file__).resolve().parents[1]/"main.py").read_text(encoding="utf8")
+  fragment=source.split('@app.post("/api/buy")',1)[1].split('@app.post("/api/cancel/',1)[0]
+  self.assertIn('ORDER BY price,id FOR UPDATE',fragment)
+  self.assertIn('coins=coins-%s',fragment)
+  self.assertIn('coins=coins+%s',fragment)
+  self.assertIn('quantity=quantity-%s',fragment)
+
 if __name__=="__main__":
  unittest.main()
