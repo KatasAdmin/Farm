@@ -10,7 +10,7 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <script src="/assets/game.js" defer></script>
+    <script src="/assets/game.js?v=6" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div>
@@ -238,6 +238,7 @@
             </div>
           </div>
           <p class="cycle">Цикл: 1 раз в сутки</p>
+          <p id="next-harvest" class="feature-note" role="status">Рассчитываем следующий сбор яиц…</p>
           <div class="statsrow">
             <span>Следующее кормление</span><b data-next-tick>—</b>
           </div>
@@ -338,6 +339,8 @@
             </div>
           </div>
           <p class="cycle">Цикл: 1 раз в сутки</p>
+          <p id="coop-harvest" class="feature-note">Следующий сбор рассчитывается…</p>
+          <p class="muted">Монеты за яйца появятся только после реальной покупки другим игроком.</p>
         </div>
         <div class="card economics">
           <h2 class="cardtitle">
@@ -937,6 +940,7 @@
           ><button onclick="storageFilter('eggs',this)">Яйца</button
           ><button onclick="storageFilter('chickens',this)">Куры</button>
         </div>
+        <div class="card"><h2 class="cardtitle">Мой запас</h2><p id="storage-summary" class="muted">Загружаем свободные и выставленные товары…</p></div>
         <div class="card storage-list">
           <div class="product" data-storage="grain">
             <img
@@ -1021,6 +1025,12 @@
         <p class="muted">
           Твой путь фермера. Это цели по текущим запасам, без денежных наград.
         </p>
+        <div class="card" id="daily-task-card">
+          <h2 class="cardtitle">☀️ Задания на сегодня</h2>
+          <p class="muted">Обновляются ежедневно по UTC. Пока дают прогресс и достижения, но не создают новые монеты.</p>
+          <div id="daily-tasks" aria-live="polite"></div>
+        </div>
+        <h2 class="section-title">Долгосрочные цели</h2>
         <div class="card tasks-list">
           <div class="task-row">
             <img
