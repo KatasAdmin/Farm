@@ -123,7 +123,21 @@ def state(authorization:str=Header(default="")):
   claims=[x["claim"] for x in c.execute("SELECT claim FROM daily_claims WHERE player_id=%s AND day=%s",(p["id"],day)).fetchall()]
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
   totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
-  sold=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS amount FROM money_log WHERE player_id=%s AND kind='market_sale' AND details ~ '^eggs x[0-9]+
+  sold=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS amount FROM money_log WHERE player_id=%s AND kind='market_sale' AND details ~ '^eggs x[0-9]+$'",(p["id"],)).fetchone()["amount"]
+  xp=totals["grain_bought"]+5*totals["eggs_produced"]+2*totals["eggs_listed"]+3*sold
+  import math
+  level=1+math.isqrt(xp//25)
+  next_xp=25*level*level
+  unlocked={
+   "first_egg":totals["eggs_produced"]>=1,
+   "ten_eggs":totals["eggs_produced"]>=10,
+   "three_hens":p["chickens"]>=3,
+   "first_sale":sold>=1,
+   "hundred_sales":sold>=100
+  }
+  for key,yes in unlocked.items():
+   if yes:c.execute("INSERT INTO player_achievements(player_id,achievement,unlocked_at) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING",(p["id"],key,time.time()))
+  achievements=[x["achievement"] for x in c.execute("SELECT achievement FROM player_achievements WHERE player_id=%s",(p["id"],)).fetchall()]
   return {"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":2,"chickens":30},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":p["grain"]//max(1,p["chickens"])},"me":p,"market":listings,"my_listings":mine,"top":top,"now":time.time()}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
