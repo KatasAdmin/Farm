@@ -159,6 +159,20 @@ def update_incubation(c,p,now):
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"chick_matured",matured,now))
   p={**p,"chickens":p["chickens"]+matured}
  return p
+def activate_hens(c,p):
+ """Newly obtained hens start producing once their first grain is paid."""
+ extra=min(max(0,p["chickens"]-p["fed_hens"]),p["grain"])
+ if extra:
+  c.execute("UPDATE players SET grain=grain-%s,fed_hens=fed_hens+%s WHERE id=%s",(extra,extra,p["id"]))
+  p={**p,"grain":p["grain"]-extra,"fed_hens":p["fed_hens"]+extra}
+ return p
+
+def upgrade_production(c,p,now):
+ # Finish legacy catch-up first; keep progress within the current 6-hour tick.
+ old_progress=min(.999999, max(0,(now-p["last_tick"])/CYCLE)*min(p["fed_hens"],p["chickens"]))
+ c.execute("UPDATE players SET production_model=4,egg_at=%s,egg_progress=%s WHERE id=%s",(now,old_progress,p["id"]))
+ return activate_hens(c,{**p,"production_model":4,"egg_at":now,"egg_progress":old_progress})
+
 def advance(c,p,now=None):
  """Process 6h egg ticks and 18h feeding ticks server-side without retroactive production."""
  now=time.time() if now is None else now
