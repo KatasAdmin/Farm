@@ -147,3 +147,9 @@
 .trade-listings summary{cursor:pointer;color:#e7f7ff;font-weight:700}
 .trade-listings #mylist{margin-top:9px}
 #market .marketpanel>.card{margin-top:10px}
+
+/* v25: safe, reviewed withdrawal request; no payment credentials are collected */
+#withdrawal-dialog label{display:block;margin:12px 0 6px;font-weight:700;font-size:13px}
+#withdrawal-dialog input{box-sizing:border-box;width:100%;min-height:45px;padding:11px 12px;border:1px solid #76caff;border-radius:9px;background:#081e4f;color:#fff;font:inherit}
+#withdrawal-dialog p{line-height:1.5;font-size:13px;color:#d9efff}
+#withdrawal-status:not(:empty){padding:9px 3px;font-size:13px}
