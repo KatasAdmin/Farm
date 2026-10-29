@@ -310,6 +310,24 @@ def start_telegram_link(authorization:str=Header(default="")):
   c.execute("INSERT INTO telegram_link_codes(code_hash,player_id,expires) VALUES(%s,%s,%s)",(digest,p["id"],time.time()+300))
  return {"linked":False,"url":"https://t.me/Farmlife2026bot?start=link_"+code,"expires_seconds":300}
 
+def notify_farm_admin(request_id,player_name,telegram_id,amount):
+ bot=os.environ.get("TELEGRAM_BOT_TOKEN","")
+ recipient=os.environ.get("FARM_ADMIN_TELEGRAM_ID","")
+ if not bot or not recipient:return
+ message=("🐔 Новая заявка на вывод\\n"
+          "Заявка: "+request_id[:12]+"\\n"
+          "Игрок: "+player_name+"\\n"
+          "Telegram ID: "+str(telegram_id)+"\\n"
+          "Монет: "+str(amount)+"\\n"
+          "Статус: ожидает проверки. Реальные выплаты отключены.")
+ data=json.dumps({"chat_id":recipient,"text":message}).encode()
+ try:
+  req=URLRequest("https://api.telegram.org/bot"+bot+"/sendMessage",data=data,headers={"Content-Type":"application/json"})
+  with urlopen(req,timeout=4) as response:
+   if not json.load(response).get("ok"):logger.error("admin_notification_not_accepted")
+ except Exception:
+  logger.exception("admin_notification_failed")
+
 @app.post("/api/telegram/webhook")
 def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(default="")):
  secret=telegram_webhook_secret()
@@ -319,6 +337,15 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
  chat=message.get("chat") or {}
  sender=message.get("from") or {}
  command=message.get("text") or ""
+ if isinstance(command,str) and command.strip() in ("/start","/help"):
+  return {"method":"sendMessage","chat_id":chat.get("id"),"text":"🐔 Ферма. Для привязки Telegram нажмите кнопку «Привязать Telegram» в профиле игры."}
+ if isinstance(command,str) and command.strip() in ("/requests","/zayavki"):
+  if str(sender.get("id"))!=os.environ.get("FARM_ADMIN_TELEGRAM_ID","") or chat.get("id")!=sender.get("id"):
+   return {"ok":True}
+  with db() as c:
+   pending=c.execute("SELECT w.id,w.amount,p.name FROM withdrawal_requests w JOIN players p ON p.id=w.player_id WHERE w.status='pending' ORDER BY w.created ASC LIMIT 20").fetchall()
+  lines=["🐔 Актуальные заявки:"]+[x["id"][:12]+" · "+x["name"]+" · "+str(x["amount"])+" монет" for x in pending]
+  return {"method":"sendMessage","chat_id":chat.get("id"),"text":"\\n".join(lines) if pending else "Активных заявок нет."}
  if not (isinstance(command,str) and command.startswith("/start link_")):return {"ok":True}
  try:
   uid=int(sender.get("id",0))
@@ -589,6 +616,7 @@ def request_withdrawal(q:Request,authorization:str=Header(default="")):
   c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(q.amount,p["id"]))
   c.execute("INSERT INTO withdrawal_requests(id,player_id,amount,status,created,reserved) VALUES(%s,%s,%s,'pending',%s,true)",(request_id,p["id"],q.amount,time.time()))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"withdraw_reserve",-q.amount,"Резерв заявки на вывод",time.time()))
+ notify_farm_admin(request_id,p["name"],p["telegram_id"],q.amount)
  return {"ok":True,"id":request_id,"status":"pending"}
 
 @app.post("/api/withdraw/cancel")
