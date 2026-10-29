@@ -1,0 +1,1046 @@
+{
+  "version": "3.0",
+  "reference_style": "glossy richly illuminated farm simulation 3D illustration",
+  "asset_count": 79,
+  "assets": [
+    {
+      "name": "farm_sunset",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/farm_sunset.webp",
+      "png": "assets/backgrounds/farm_sunset.png",
+      "originalAtlasRectangle": [
+        0,
+        0,
+        300,
+        200
+      ],
+      "alpha": false
+    },
+    {
+      "name": "chicken_coop_warm",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/chicken_coop_warm.webp",
+      "png": "assets/backgrounds/chicken_coop_warm.png",
+      "originalAtlasRectangle": [
+        302,
+        0,
+        594,
+        200
+      ],
+      "alpha": false
+    },
+    {
+      "name": "farmers_market",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/farmers_market.webp",
+      "png": "assets/backgrounds/farmers_market.png",
+      "originalAtlasRectangle": [
+        598,
+        0,
+        913,
+        200
+      ],
+      "alpha": false
+    },
+    {
+      "name": "farm_shop",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/farm_shop.webp",
+      "png": "assets/backgrounds/farm_shop.png",
+      "originalAtlasRectangle": [
+        915,
+        0,
+        1215,
+        200
+      ],
+      "alpha": false
+    },
+    {
+      "name": "wallet_treasure",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/wallet_treasure.webp",
+      "png": "assets/backgrounds/wallet_treasure.png",
+      "originalAtlasRectangle": [
+        1217,
+        0,
+        1536,
+        200
+      ],
+      "alpha": false
+    },
+    {
+      "name": "barn_building_scene",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/barn_building_scene.webp",
+      "png": "assets/backgrounds/barn_building_scene.png",
+      "originalAtlasRectangle": [
+        0,
+        201,
+        149,
+        327
+      ],
+      "alpha": false
+    },
+    {
+      "name": "coop_building_scene",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/coop_building_scene.webp",
+      "png": "assets/backgrounds/coop_building_scene.png",
+      "originalAtlasRectangle": [
+        153,
+        201,
+        303,
+        327
+      ],
+      "alpha": false
+    },
+    {
+      "name": "market_booth_red_scene",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/market_booth_red_scene.webp",
+      "png": "assets/backgrounds/market_booth_red_scene.png",
+      "originalAtlasRectangle": [
+        304,
+        201,
+        459,
+        327
+      ],
+      "alpha": false
+    },
+    {
+      "name": "market_booth_blue_scene",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/market_booth_blue_scene.webp",
+      "png": "assets/backgrounds/market_booth_blue_scene.png",
+      "originalAtlasRectangle": [
+        463,
+        201,
+        614,
+        327
+      ],
+      "alpha": false
+    },
+    {
+      "name": "warehouse_scene",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/warehouse_scene.webp",
+      "png": "assets/backgrounds/warehouse_scene.png",
+      "originalAtlasRectangle": [
+        616,
+        201,
+        800,
+        327
+      ],
+      "alpha": false
+    },
+    {
+      "name": "incubator_scene",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/incubator_scene.webp",
+      "png": "assets/backgrounds/incubator_scene.png",
+      "originalAtlasRectangle": [
+        802,
+        201,
+        949,
+        327
+      ],
+      "alpha": false
+    },
+    {
+      "name": "village_scene",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/village_scene.webp",
+      "png": "assets/backgrounds/village_scene.png",
+      "originalAtlasRectangle": [
+        950,
+        201,
+        1160,
+        327
+      ],
+      "alpha": false
+    },
+    {
+      "name": "village_evening_scene",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/village_evening_scene.webp",
+      "png": "assets/backgrounds/village_evening_scene.png",
+      "originalAtlasRectangle": [
+        1161,
+        201,
+        1320,
+        327
+      ],
+      "alpha": false
+    },
+    {
+      "name": "treasure_chest_scene",
+      "category": "backgrounds",
+      "path": "assets/backgrounds/treasure_chest_scene.webp",
+      "png": "assets/backgrounds/treasure_chest_scene.png",
+      "originalAtlasRectangle": [
+        1320,
+        201,
+        1536,
+        327
+      ],
+      "alpha": false
+    },
+    {
+      "name": "farmer_avatar",
+      "category": "characters",
+      "path": "assets/characters/farmer_avatar.webp",
+      "png": "assets/characters/farmer_avatar.png",
+      "originalAtlasRectangle": [
+        5,
+        325,
+        117,
+        422
+      ],
+      "alpha": true
+    },
+    {
+      "name": "white_hen_left",
+      "category": "characters",
+      "path": "assets/characters/white_hen_left.webp",
+      "png": "assets/characters/white_hen_left.png",
+      "originalAtlasRectangle": [
+        119,
+        325,
+        212,
+        422
+      ],
+      "alpha": true
+    },
+    {
+      "name": "white_hen_right",
+      "category": "characters",
+      "path": "assets/characters/white_hen_right.webp",
+      "png": "assets/characters/white_hen_right.png",
+      "originalAtlasRectangle": [
+        219,
+        325,
+        313,
+        423
+      ],
+      "alpha": true
+    },
+    {
+      "name": "chick_yellow",
+      "category": "characters",
+      "path": "assets/characters/chick_yellow.webp",
+      "png": "assets/characters/chick_yellow.png",
+      "originalAtlasRectangle": [
+        320,
+        326,
+        383,
+        416
+      ],
+      "alpha": true
+    },
+    {
+      "name": "chicks_pair",
+      "category": "characters",
+      "path": "assets/characters/chicks_pair.webp",
+      "png": "assets/characters/chicks_pair.png",
+      "originalAtlasRectangle": [
+        384,
+        332,
+        465,
+        416
+      ],
+      "alpha": true
+    },
+    {
+      "name": "eggs_pair",
+      "category": "objects",
+      "path": "assets/objects/eggs_pair.webp",
+      "png": "assets/objects/eggs_pair.png",
+      "originalAtlasRectangle": [
+        473,
+        330,
+        588,
+        420
+      ],
+      "alpha": true
+    },
+    {
+      "name": "egg_single",
+      "category": "objects",
+      "path": "assets/objects/egg_single.webp",
+      "png": "assets/objects/egg_single.png",
+      "originalAtlasRectangle": [
+        594,
+        336,
+        665,
+        418
+      ],
+      "alpha": true
+    },
+    {
+      "name": "grain_wheat",
+      "category": "objects",
+      "path": "assets/objects/grain_wheat.webp",
+      "png": "assets/objects/grain_wheat.png",
+      "originalAtlasRectangle": [
+        666,
+        325,
+        756,
+        423
+      ],
+      "alpha": true
+    },
+    {
+      "name": "grain_pile",
+      "category": "objects",
+      "path": "assets/objects/grain_pile.webp",
+      "png": "assets/objects/grain_pile.png",
+      "originalAtlasRectangle": [
+        752,
+        337,
+        853,
+        417
+      ],
+      "alpha": true
+    },
+    {
+      "name": "eggs_and_sacks",
+      "category": "objects",
+      "path": "assets/objects/eggs_and_sacks.webp",
+      "png": "assets/objects/eggs_and_sacks.png",
+      "originalAtlasRectangle": [
+        863,
+        335,
+        978,
+        421
+      ],
+      "alpha": true
+    },
+    {
+      "name": "wood_crate",
+      "category": "objects",
+      "path": "assets/objects/wood_crate.webp",
+      "png": "assets/objects/wood_crate.png",
+      "originalAtlasRectangle": [
+        982,
+        335,
+        1081,
+        422
+      ],
+      "alpha": true
+    },
+    {
+      "name": "wood_barrel",
+      "category": "objects",
+      "path": "assets/objects/wood_barrel.webp",
+      "png": "assets/objects/wood_barrel.png",
+      "originalAtlasRectangle": [
+        1084,
+        333,
+        1184,
+        421
+      ],
+      "alpha": true
+    },
+    {
+      "name": "hay_bale",
+      "category": "objects",
+      "path": "assets/objects/hay_bale.webp",
+      "png": "assets/objects/hay_bale.png",
+      "originalAtlasRectangle": [
+        1193,
+        336,
+        1284,
+        421
+      ],
+      "alpha": true
+    },
+    {
+      "name": "gift_big",
+      "category": "objects",
+      "path": "assets/objects/gift_big.webp",
+      "png": "assets/objects/gift_big.png",
+      "originalAtlasRectangle": [
+        1285,
+        331,
+        1397,
+        420
+      ],
+      "alpha": true
+    },
+    {
+      "name": "gift_small",
+      "category": "objects",
+      "path": "assets/objects/gift_small.webp",
+      "png": "assets/objects/gift_small.png",
+      "originalAtlasRectangle": [
+        1406,
+        332,
+        1483,
+        414
+      ],
+      "alpha": true
+    },
+    {
+      "name": "wood_box_small",
+      "category": "objects",
+      "path": "assets/objects/wood_box_small.webp",
+      "png": "assets/objects/wood_box_small.png",
+      "originalAtlasRectangle": [
+        877,
+        430,
+        955,
+        502
+      ],
+      "alpha": true
+    },
+    {
+      "name": "wood_box_large",
+      "category": "objects",
+      "path": "assets/objects/wood_box_large.webp",
+      "png": "assets/objects/wood_box_large.png",
+      "originalAtlasRectangle": [
+        960,
+        428,
+        1038,
+        500
+      ],
+      "alpha": true
+    },
+    {
+      "name": "feed_sack",
+      "category": "objects",
+      "path": "assets/objects/feed_sack.webp",
+      "png": "assets/objects/feed_sack.png",
+      "originalAtlasRectangle": [
+        1047,
+        424,
+        1137,
+        504
+      ],
+      "alpha": true
+    },
+    {
+      "name": "flour_bag",
+      "category": "objects",
+      "path": "assets/objects/flour_bag.webp",
+      "png": "assets/objects/flour_bag.png",
+      "originalAtlasRectangle": [
+        1138,
+        422,
+        1233,
+        505
+      ],
+      "alpha": true
+    },
+    {
+      "name": "eggs_basket",
+      "category": "objects",
+      "path": "assets/objects/eggs_basket.webp",
+      "png": "assets/objects/eggs_basket.png",
+      "originalAtlasRectangle": [
+        1242,
+        428,
+        1350,
+        505
+      ],
+      "alpha": true
+    },
+    {
+      "name": "hay_bundle",
+      "category": "objects",
+      "path": "assets/objects/hay_bundle.webp",
+      "png": "assets/objects/hay_bundle.png",
+      "originalAtlasRectangle": [
+        1361,
+        427,
+        1449,
+        502
+      ],
+      "alpha": true
+    },
+    {
+      "name": "wooden_barrel_small",
+      "category": "objects",
+      "path": "assets/objects/wooden_barrel_small.webp",
+      "png": "assets/objects/wooden_barrel_small.png",
+      "originalAtlasRectangle": [
+        1450,
+        428,
+        1530,
+        505
+      ],
+      "alpha": true
+    },
+    {
+      "name": "chicken_icon",
+      "category": "objects",
+      "path": "assets/objects/chicken_icon.webp",
+      "png": "assets/objects/chicken_icon.png",
+      "originalAtlasRectangle": [
+        1198,
+        511,
+        1290,
+        594
+      ],
+      "alpha": true
+    },
+    {
+      "name": "egg_icon",
+      "category": "objects",
+      "path": "assets/objects/egg_icon.webp",
+      "png": "assets/objects/egg_icon.png",
+      "originalAtlasRectangle": [
+        1031,
+        510,
+        1101,
+        596
+      ],
+      "alpha": true
+    },
+    {
+      "name": "grain_icon",
+      "category": "objects",
+      "path": "assets/objects/grain_icon.webp",
+      "png": "assets/objects/grain_icon.png",
+      "originalAtlasRectangle": [
+        1100,
+        509,
+        1201,
+        595
+      ],
+      "alpha": true
+    },
+    {
+      "name": "chick_icon",
+      "category": "objects",
+      "path": "assets/objects/chick_icon.webp",
+      "png": "assets/objects/chick_icon.png",
+      "originalAtlasRectangle": [
+        1291,
+        509,
+        1370,
+        595
+      ],
+      "alpha": true
+    },
+    {
+      "name": "gem_blue_icon",
+      "category": "objects",
+      "path": "assets/objects/gem_blue_icon.webp",
+      "png": "assets/objects/gem_blue_icon.png",
+      "originalAtlasRectangle": [
+        1369,
+        508,
+        1460,
+        592
+      ],
+      "alpha": true
+    },
+    {
+      "name": "gold_coin",
+      "category": "currency",
+      "path": "assets/currency/gold_coin.webp",
+      "png": "assets/currency/gold_coin.png",
+      "originalAtlasRectangle": [
+        0,
+        411,
+        101,
+        508
+      ],
+      "alpha": true
+    },
+    {
+      "name": "gold_coins_stack",
+      "category": "currency",
+      "path": "assets/currency/gold_coins_stack.webp",
+      "png": "assets/currency/gold_coins_stack.png",
+      "originalAtlasRectangle": [
+        113,
+        413,
+        238,
+        509
+      ],
+      "alpha": true
+    },
+    {
+      "name": "gold_coin_star",
+      "category": "currency",
+      "path": "assets/currency/gold_coin_star.webp",
+      "png": "assets/currency/gold_coin_star.png",
+      "originalAtlasRectangle": [
+        245,
+        412,
+        342,
+        512
+      ],
+      "alpha": true
+    },
+    {
+      "name": "silver_coin",
+      "category": "currency",
+      "path": "assets/currency/silver_coin.webp",
+      "png": "assets/currency/silver_coin.png",
+      "originalAtlasRectangle": [
+        368,
+        414,
+        460,
+        508
+      ],
+      "alpha": true
+    },
+    {
+      "name": "blue_diamond",
+      "category": "currency",
+      "path": "assets/currency/blue_diamond.webp",
+      "png": "assets/currency/blue_diamond.png",
+      "originalAtlasRectangle": [
+        465,
+        416,
+        568,
+        504
+      ],
+      "alpha": true
+    },
+    {
+      "name": "green_diamond",
+      "category": "currency",
+      "path": "assets/currency/green_diamond.webp",
+      "png": "assets/currency/green_diamond.png",
+      "originalAtlasRectangle": [
+        571,
+        416,
+        675,
+        504
+      ],
+      "alpha": true
+    },
+    {
+      "name": "blue_crystals",
+      "category": "currency",
+      "path": "assets/currency/blue_crystals.webp",
+      "png": "assets/currency/blue_crystals.png",
+      "originalAtlasRectangle": [
+        683,
+        414,
+        783,
+        502
+      ],
+      "alpha": true
+    },
+    {
+      "name": "money_bag",
+      "category": "currency",
+      "path": "assets/currency/money_bag.webp",
+      "png": "assets/currency/money_bag.png",
+      "originalAtlasRectangle": [
+        783,
+        414,
+        866,
+        502
+      ],
+      "alpha": true
+    },
+    {
+      "name": "wallet_coins_icon",
+      "category": "currency",
+      "path": "assets/currency/wallet_coins_icon.webp",
+      "png": "assets/currency/wallet_coins_icon.png",
+      "originalAtlasRectangle": [
+        1418,
+        512,
+        1533,
+        596
+      ],
+      "alpha": true
+    },
+    {
+      "name": "barn",
+      "category": "buildings",
+      "path": "assets/buildings/barn.webp",
+      "png": "assets/buildings/barn.png",
+      "originalAtlasRectangle": [
+        2,
+        200,
+        149,
+        327
+      ],
+      "alpha": true
+    },
+    {
+      "name": "coop_house",
+      "category": "buildings",
+      "path": "assets/buildings/coop_house.webp",
+      "png": "assets/buildings/coop_house.png",
+      "originalAtlasRectangle": [
+        150,
+        200,
+        299,
+        327
+      ],
+      "alpha": true
+    },
+    {
+      "name": "red_market_stall",
+      "category": "buildings",
+      "path": "assets/buildings/red_market_stall.webp",
+      "png": "assets/buildings/red_market_stall.png",
+      "originalAtlasRectangle": [
+        301,
+        200,
+        458,
+        327
+      ],
+      "alpha": true
+    },
+    {
+      "name": "blue_market_stall",
+      "category": "buildings",
+      "path": "assets/buildings/blue_market_stall.webp",
+      "png": "assets/buildings/blue_market_stall.png",
+      "originalAtlasRectangle": [
+        462,
+        200,
+        613,
+        327
+      ],
+      "alpha": true
+    },
+    {
+      "name": "storage_barn",
+      "category": "buildings",
+      "path": "assets/buildings/storage_barn.webp",
+      "png": "assets/buildings/storage_barn.png",
+      "originalAtlasRectangle": [
+        616,
+        200,
+        797,
+        327
+      ],
+      "alpha": true
+    },
+    {
+      "name": "incubator",
+      "category": "buildings",
+      "path": "assets/buildings/incubator.webp",
+      "png": "assets/buildings/incubator.png",
+      "originalAtlasRectangle": [
+        797,
+        200,
+        946,
+        327
+      ],
+      "alpha": true
+    },
+    {
+      "name": "farmhouse",
+      "category": "buildings",
+      "path": "assets/buildings/farmhouse.webp",
+      "png": "assets/buildings/farmhouse.png",
+      "originalAtlasRectangle": [
+        1108,
+        200,
+        1297,
+        327
+      ],
+      "alpha": true
+    },
+    {
+      "name": "nav_farm",
+      "category": "ui",
+      "path": "assets/ui/nav_farm.webp",
+      "png": "assets/ui/nav_farm.png",
+      "originalAtlasRectangle": [
+        0,
+        507,
+        85,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_market",
+      "category": "ui",
+      "path": "assets/ui/nav_market.webp",
+      "png": "assets/ui/nav_market.png",
+      "originalAtlasRectangle": [
+        89,
+        507,
+        177,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_shop",
+      "category": "ui",
+      "path": "assets/ui/nav_shop.webp",
+      "png": "assets/ui/nav_shop.png",
+      "originalAtlasRectangle": [
+        177,
+        507,
+        264,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_wallet",
+      "category": "ui",
+      "path": "assets/ui/nav_wallet.webp",
+      "png": "assets/ui/nav_wallet.png",
+      "originalAtlasRectangle": [
+        265,
+        507,
+        342,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_profile",
+      "category": "ui",
+      "path": "assets/ui/nav_profile.webp",
+      "png": "assets/ui/nav_profile.png",
+      "originalAtlasRectangle": [
+        344,
+        507,
+        424,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_storage",
+      "category": "ui",
+      "path": "assets/ui/nav_storage.webp",
+      "png": "assets/ui/nav_storage.png",
+      "originalAtlasRectangle": [
+        427,
+        507,
+        506,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_coop",
+      "category": "ui",
+      "path": "assets/ui/nav_coop.webp",
+      "png": "assets/ui/nav_coop.png",
+      "originalAtlasRectangle": [
+        509,
+        507,
+        584,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_tasks",
+      "category": "ui",
+      "path": "assets/ui/nav_tasks.webp",
+      "png": "assets/ui/nav_tasks.png",
+      "originalAtlasRectangle": [
+        585,
+        507,
+        657,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_incubator",
+      "category": "ui",
+      "path": "assets/ui/nav_incubator.webp",
+      "png": "assets/ui/nav_incubator.png",
+      "originalAtlasRectangle": [
+        660,
+        507,
+        734,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_upgrades",
+      "category": "ui",
+      "path": "assets/ui/nav_upgrades.webp",
+      "png": "assets/ui/nav_upgrades.png",
+      "originalAtlasRectangle": [
+        735,
+        507,
+        814,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_statistics",
+      "category": "ui",
+      "path": "assets/ui/nav_statistics.webp",
+      "png": "assets/ui/nav_statistics.png",
+      "originalAtlasRectangle": [
+        819,
+        507,
+        906,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "nav_settings",
+      "category": "ui",
+      "path": "assets/ui/nav_settings.webp",
+      "png": "assets/ui/nav_settings.png",
+      "originalAtlasRectangle": [
+        908,
+        507,
+        1002,
+        562
+      ],
+      "alpha": false,
+      "note": "Image for navigation icon; use native HTML text below it"
+    },
+    {
+      "name": "heart_health",
+      "category": "ui",
+      "path": "assets/ui/heart_health.webp",
+      "png": "assets/ui/heart_health.png",
+      "originalAtlasRectangle": [
+        1214,
+        593,
+        1280,
+        670
+      ],
+      "alpha": false
+    },
+    {
+      "name": "star_achievement",
+      "category": "ui",
+      "path": "assets/ui/star_achievement.webp",
+      "png": "assets/ui/star_achievement.png",
+      "originalAtlasRectangle": [
+        1281,
+        593,
+        1350,
+        673
+      ],
+      "alpha": false
+    },
+    {
+      "name": "alert",
+      "category": "ui",
+      "path": "assets/ui/alert.webp",
+      "png": "assets/ui/alert.png",
+      "originalAtlasRectangle": [
+        1352,
+        594,
+        1417,
+        674
+      ],
+      "alpha": false
+    },
+    {
+      "name": "gift_reward",
+      "category": "ui",
+      "path": "assets/ui/gift_reward.webp",
+      "png": "assets/ui/gift_reward.png",
+      "originalAtlasRectangle": [
+        1419,
+        593,
+        1485,
+        669
+      ],
+      "alpha": false
+    },
+    {
+      "name": "trophy",
+      "category": "ui",
+      "path": "assets/ui/trophy.webp",
+      "png": "assets/ui/trophy.png",
+      "originalAtlasRectangle": [
+        1488,
+        592,
+        1535,
+        676
+      ],
+      "alpha": false
+    },
+    {
+      "name": "button_buy",
+      "category": "ui",
+      "path": "assets/ui/button_buy.webp",
+      "png": "assets/ui/button_buy.png",
+      "originalAtlasRectangle": [
+        8,
+        603,
+        164,
+        674
+      ],
+      "alpha": false
+    },
+    {
+      "name": "button_sell",
+      "category": "ui",
+      "path": "assets/ui/button_sell.webp",
+      "png": "assets/ui/button_sell.png",
+      "originalAtlasRectangle": [
+        165,
+        603,
+        317,
+        674
+      ],
+      "alpha": false
+    },
+    {
+      "name": "button_upgrade",
+      "category": "ui",
+      "path": "assets/ui/button_upgrade.webp",
+      "png": "assets/ui/button_upgrade.png",
+      "originalAtlasRectangle": [
+        322,
+        603,
+        477,
+        674
+      ],
+      "alpha": false
+    },
+    {
+      "name": "button_deposit",
+      "category": "ui",
+      "path": "assets/ui/button_deposit.webp",
+      "png": "assets/ui/button_deposit.png",
+      "originalAtlasRectangle": [
+        481,
+        603,
+        636,
+        674
+      ],
+      "alpha": false
+    },
+    {
+      "name": "button_withdraw",
+      "category": "ui",
+      "path": "assets/ui/button_withdraw.webp",
+      "png": "assets/ui/button_withdraw.png",
+      "originalAtlasRectangle": [
+        638,
+        603,
+        792,
+        674
+      ],
+      "alpha": false
+    }
+  ]
+}

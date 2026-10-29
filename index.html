@@ -1,156 +1,1277 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#071915"><title>НОВАЯ ЖИЗНЬ — Ферма</title>
-<style>
-:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#ecf9ef;background:#071411}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 52% -25%,#315b38 0%,#10271f 38%,#081715 76%);min-height:100vh}button,input,select{font:inherit}button{border:0;cursor:pointer;touch-action:manipulation}button:active{transform:scale(.97)}button:disabled{opacity:.5;cursor:not-allowed}input,select{width:100%;min-width:0;background:#0a211e;border:1px solid #315a4d;border-radius:13px;color:#eefbec;padding:12px;outline:none;min-height:45px}input:focus,select:focus{border-color:#8dec80}input[type=number]{font-variant-numeric:tabular-nums}.shell{max-width:540px;margin:auto;padding:16px 15px calc(104px + env(safe-area-inset-bottom))}.head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px}.name{font-size:13px;color:#c8ead3;font-weight:900;letter-spacing:1.5px}.username{font-size:12px;color:#92b4a5;margin-top:4px}.coin{border:1px solid #5e7435;background:linear-gradient(140deg,#304d29,#1b3524);border-radius:16px;padding:9px 13px;font-weight:900;font-size:22px;white-space:nowrap;color:#ffe9a0}.coin small{font-size:14px}.gold{color:#f6d675}.scene{height:235px;overflow:hidden;position:relative;border-radius:23px;background:linear-gradient(#264b59 0%,#78b1a7 52%,#7d9d4e 53%,#395d2f 100%);border:1px solid #5b875b;box-shadow:0 14px 35px #0007}.scene:before{content:"";position:absolute;width:64px;height:64px;border-radius:50%;background:#ffe9a6;box-shadow:0 0 65px #ffe9a6a8;top:22px;right:35px}.scene:after{content:"";position:absolute;bottom:-21px;left:-13%;width:130%;height:74px;background:#416935;border-radius:50% 50% 0 0}.horizon{position:absolute;top:10px;left:14px;color:#f5ffe7;background:#0e302cb2;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:850;z-index:3}.shed{position:absolute;bottom:38px;left:11%;width:132px;height:104px;background:linear-gradient(90deg,#c67c46,#e7a768);border:5px solid #744a32;border-radius:6px;box-shadow:8px 8px 0 #163e36a6;z-index:2}.shed:before{content:"";position:absolute;left:-18px;top:-47px;width:160px;height:61px;background:#864d3a;clip-path:polygon(50% 0,100% 78%,100% 100%,0 100%,0 78%)}.shed:after{content:"";position:absolute;bottom:0;left:45px;width:40px;height:62px;background:#513b2c;border:4px solid #f4cf8d;border-bottom:0}.farmbird{position:absolute;bottom:30px;right:15%;font-size:77px;z-index:3;filter:drop-shadow(4px 7px 2px #0005)}.grass{position:absolute;bottom:19px;left:2%;font-size:46px;z-index:3;letter-spacing:-14px}.section{display:flex;justify-content:space-between;align-items:center;margin:18px 1px 11px;gap:10px}.section h2{font-size:19px;margin:0;font-weight:900}.note{font-size:11px;color:#9eba9e}.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.resource{background:linear-gradient(160deg,#20452d,#122c26);border:1px solid #426b45;border-radius:17px;padding:12px 5px;text-align:center}.resource .ico{font-size:29px}.resource strong{display:block;font-size:23px;margin:2px}.resource small{color:#acbea8;font-size:12px}.card{background:linear-gradient(155deg,#17352c,#102823);border:1px solid #355c4b;border-radius:20px;margin-top:12px;padding:15px;box-shadow:0 8px 24px #0003}.cardtitle{display:flex;gap:9px;align-items:center;margin-bottom:11px}.cardtitle .emoji{font-size:24px}.cardtitle b{font-size:17px}.muted{color:#a4bfae;font-size:12px;line-height:1.5}.headline{font-size:24px;font-weight:950;margin:7px 0 4px}.kicker{color:#a8e6ad;font-weight:850;font-size:11px;letter-spacing:2px}.progress{height:13px;border-radius:15px;background:#0a201b;overflow:hidden;border:1px solid #4d7353;margin:8px 0}.fill{height:100%;width:100%;background:linear-gradient(90deg,#59c35b,#b1f078);border-radius:15px;transition:width .3s}.pair{display:flex;gap:9px;align-items:center;justify-content:space-between}.line{border-top:1px solid #315549;padding:11px 0;display:flex;align-items:center;justify-content:space-between;gap:9px}.line:first-child{border-top:0}.line .left{min-width:0}.line b{font-size:14px}.line small{font-size:11px;display:block;color:#9cbbac;margin-top:3px}.btn{background:linear-gradient(#a6f069,#65cc39);color:#12330d;border-radius:13px;padding:12px 15px;font-weight:900;font-size:14px;min-height:43px}.btn.blue{background:linear-gradient(#63bffd,#1873cf);color:white}.btn.alt{background:#294d3e;color:#e5f6ea;border:1px solid #4b7155}.btn.ghost{background:#1b352e;color:#bfd2bf;border:1px solid #38594b}.btn.wide{width:100%}.btn.small{font-size:12px;padding:9px 11px;min-height:37px}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px}.flow{display:flex;justify-content:center;align-items:center;gap:7px;margin:12px 0}.flow div{text-align:center;font-size:11px;color:#c8e3b7;flex:1}.flow .sym{font-size:26px;display:block}.flow .arrow{font-size:17px;color:#9fee7d;flex:0}.fieldrow{display:grid;grid-template-columns:1fr 100px;gap:9px}.fieldrow label{font-size:12px;color:#a6c0ac;display:block;margin:10px 0 5px}.switch{display:grid;grid-template-columns:1fr 1fr;background:#0b241f;border:1px solid #305446;border-radius:15px;padding:4px;gap:4px;margin:14px 0}.switch button{padding:12px;border-radius:12px;background:transparent;color:#a2b6a8;font-weight:800}.switch button.active{background:linear-gradient(#a3ed67,#61cc3b);color:#13360c}.panel,.marketpanel{display:none}.panel.active,.marketpanel.active{display:block}.pills{display:flex;gap:7px;overflow:auto;padding:2px 0 12px}.pills button{white-space:nowrap;background:#234538;color:#cae9cb;border:1px solid #41644e;border-radius:18px;padding:8px 13px;font-size:12px}.pills button.active{background:#93e96d;color:#12340f;font-weight:800}.panelhead{margin:4px 0 16px}.listing{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 0;border-top:1px solid #2d4e41}.listing .itemicon{font-size:29px;flex:0 0 38px}.listing .detail{flex:1;min-width:0}.listing strong{font-size:14px}.listing small{display:block;color:#8cb09e;font-size:12px;margin-top:3px}.bottom{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;background:#081812f5;border-top:1px solid #315044;box-shadow:0 -8px 35px #0008;padding:8px 4px calc(10px + env(safe-area-inset-bottom));z-index:6}.bottom button{background:transparent;color:#9bb6a2;max-width:112px;flex:1;border-radius:13px;padding:6px 2px;font-weight:700;font-size:10px}.bottom button span{display:block;font-size:22px;margin-bottom:4px}.bottom button.active{background:linear-gradient(#2c7139,#174b2b);color:#adf590}.toast{position:fixed;z-index:9;top:18px;left:50%;transform:translateX(-50%);max-width:480px;width:90%;display:none;background:#244f3f;border:1px solid #7ec77b;padding:13px;border-radius:13px;box-shadow:0 9px 25px #0008}.login{max-width:420px;margin:16vh auto 0;padding:24px;background:#163329;border:1px solid #4b754d;border-radius:23px}.login h1{margin:12px 0 5px}.login p{line-height:1.5;font-size:13px;color:#c2d9c5}.login .btn{margin-top:12px}.smallprint{font-size:11px;color:#8aaf99;line-height:1.5}.empty{text-align:center;padding:22px 10px;color:#a8bbab;font-size:13px}.statsrow{display:flex;justify-content:space-between;gap:6px;padding:7px 0;color:#b5cbb6;font-size:13px}.statsrow b{color:#e3f6d7}.moneyhero{border:1px solid #6a7133;border-radius:22px;padding:20px;background:linear-gradient(135deg,#31532e,#1b3729);margin:15px 0}.moneyhero .balance{font-size:42px;font-weight:900;color:#ffe68a;margin:12px 0}.warning{padding:11px;border-radius:11px;color:#eedcb2;background:#513c214d;font-size:12px;line-height:1.5;margin:10px 0}.scrollspace{height:15px}
-</style><style id="premium">
-:root{color:#f0f4e7;background:#091916}body{background:radial-gradient(ellipse at 15% 0%,#194033 0%,#091b18 52%,#071512 100%)}.shell{max-width:490px;padding:11px 13px calc(98px + env(safe-area-inset-bottom))}.head{padding:7px 2px 11px;margin:0}.name{font-size:11px;letter-spacing:1.75px;color:#b9ecb1}.username{font-size:12px}.coin{font-size:19px;padding:8px 11px;border-color:#6d7441;background:linear-gradient(145deg,#3b5531,#19382b);box-shadow:inset 0 1px #ffffff18}.farm-cover{position:relative;overflow:hidden;height:auto;aspect-ratio:1.55;border:1px solid #547954;border-radius:19px;box-shadow:0 14px 40px #0007}.farm-cover svg{width:100%;height:100%;display:block}.cover-label{position:absolute;top:12px;left:12px;background:#092d25b9;backdrop-filter:blur(8px);padding:8px 11px;border:1px solid #9cbb7850;border-radius:9px;font-size:11px;font-weight:900;letter-spacing:1px}.cover-label span{font-size:10px;letter-spacing:0;color:#b7ef9e;margin-left:7px}.cover-foot{position:absolute;bottom:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;color:#fff6da;background:#10281fbd;border:1px solid #ffffff27;border-radius:11px;padding:8px 10px;backdrop-filter:blur(8px);font-size:12px;font-weight:700}.section{margin:15px 1px 9px}.section h2{font-size:19px}.note{font-size:10px}.resource{background:linear-gradient(155deg,#23452b,#123025);border:1px solid #476742;box-shadow:inset 0 1px #ffffff12;border-radius:14px;padding:10px 5px}.resource .ico{font-size:26px}.resource strong{font-size:22px}.card{margin-top:10px;padding:13px 14px;border-radius:16px;border:1px solid #3d624b;background:linear-gradient(145deg,#1b3a2d,#10281f 94%);box-shadow:0 7px 17px #0003}.cardtitle{margin-bottom:8px}.cardtitle b{font-size:16px}.cardtitle .emoji{font-size:20px}.progress{margin:7px 0;height:12px}.statsrow{padding:6px 0;font-size:12px}.smallprint{font-size:11px;line-height:1.45;color:#9fb99e}.headline{font-size:23px}.panelhead{margin:4px 0 11px}.panelhead .muted{font-size:12px;line-height:1.4}.line,.listing{padding:10px 0}.btn{font-size:13px;min-height:40px;padding:10px 11px}.bottom{background:#071510f7;border-top:1px solid #356041;padding:5px 4px calc(9px + env(safe-area-inset-bottom))}.bottom button{font-size:10px;padding:6px 0}.bottom button span{font-size:20px}.bottom button.active{background:linear-gradient(#276e32,#164728)}.kicker{font-size:10px}.flow{margin:8px 0}.flow .sym{font-size:23px}.moneyhero{margin:9px 0}.warning{font-size:11px}.panel{padding-bottom:15px}
-</style><style id="mockup-finish">
-:root{--mint:#93ee74;--green:#3fa943}
-body{background:radial-gradient(ellipse at 10% -3%,#2d5134 0%,#102821 33%,#071915 72%)}
-.shell{padding-top:10px}.head{padding-bottom:13px}
-.quicknav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
-.quicknav button{background:linear-gradient(145deg,#315c38,#172f29);border:1px solid #668351;border-radius:14px;color:#e5f1d7;box-shadow:inset 0 1px #ffffff28,0 7px 15px #0004;padding:10px 1px;font-size:10px;font-weight:850;min-height:66px}
-.quicknav button span{display:block;font-size:25px;margin-bottom:6px;filter:drop-shadow(0 3px 3px #0006)}
-.farm-cover{border:2px solid #967d4f;box-shadow:0 12px 25px #0008,inset 0 0 20px #0004}
-.card{background:linear-gradient(140deg,#1a362e 0%,#0c2422 100%);border:1px solid #4b6751;box-shadow:inset 0 1px #ffffff12,0 9px 20px #0004}
-.btn:not(.alt):not(.ghost):not(.blue){background:linear-gradient(180deg,#c0fc7d 0%,#84dd48 48%,#4fc72a 100%);box-shadow:inset 0 2px #f5ffd766,0 4px 0 #2b8522;color:#163616;text-shadow:0 1px #fff5}
-.btn{border-radius:12px}
-.btn.alt{background:linear-gradient(#325849,#254b3e);border:1px solid #59755c}
-.resource{background:linear-gradient(160deg,#2c4b35,#122923);box-shadow:inset 0 1px #ffffff29,0 5px 14px #0003}
-.resource .ico{filter:drop-shadow(0 4px 4px #0006)}
-.section{margin:15px 1px 8px}
-.statsrow b{color:#efeed4}
-.income{border-radius:12px;background:linear-gradient(145deg,#102d28,#0c231f);border:1px solid #35543e;padding:10px 12px;margin:11px 0}
-.income>div{display:flex;justify-content:space-between;gap:10px;color:#aebdad;font-size:12px;padding:5px 0}
-.income>div b{color:#e8efd6}.income>.income-profit{border-top:1px solid #426049;color:#b5ecc1;font-weight:800}.income>.income-profit b{color:#95ef6b}
-.market-info{margin-top:13px;padding:12px 14px;background:linear-gradient(140deg,#342c4e,#25324b);border:1px solid #62537c;border-radius:14px;font-size:12px;line-height:1.45;color:#d7d3f5}
-.listing.market-product{padding:12px 0}
-.market-product .detail small{font-size:12px}.market-product .itemicon{font-size:31px}
-.market-product .btn{flex-shrink:0}
-.unavailable{border-radius:9px;padding:8px;background:#33493c;color:#a5b9a4;font-size:10px;font-weight:700;white-space:nowrap}
-.empty-product .listing:first-child{border-top:0}
-.panelhead{margin:3px 0 12px}
-.switch{border-color:#4f6652}
-.switch button.active{background:linear-gradient(#b0f27f,#5bce37)}
-.pills button.active{background:linear-gradient(#bcf89e,#82df61)}
-.bottom{background:linear-gradient(#0c241fef,#081815fa);border-top:1px solid #47694e}
-.bottom button.active{background:linear-gradient(#3d9336,#1a572c);box-shadow:inset 0 2px #ffffff18}
-@media(max-width:365px){.quicknav{gap:5px}.quicknav button{font-size:9px}.market-product .btn{padding:8px}}
-</style><style id="coop-enhancements">
-.coop-scene{height:210px;border-radius:19px;overflow:hidden;position:relative;background:radial-gradient(circle at 70% 15%,#e3ae5a,#73502d 35%,#352a1b 90%);border:2px solid #927042;box-shadow:inset 0 0 46px #1a1c0ed0,0 14px 28px #0005}
-.coop-scene:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 59px,#22190d33 60px 66px);pointer-events:none}
-.coop-scene:after{content:"";position:absolute;bottom:-36px;left:-10%;width:120%;height:85px;border-radius:50%;background:#b48a46}
-.coop-lamp{position:absolute;right:23%;top:0;color:#ffdb7e;text-shadow:0 0 35px #ffe579,0 0 65px #fbbd53;font-size:55px}
-.coop-house{position:absolute;left:9%;bottom:15px;font-size:108px;filter:drop-shadow(5px 10px 12px #000b);z-index:2}
-.coop-hen{position:absolute;right:12%;bottom:13px;font-size:94px;filter:drop-shadow(5px 10px 10px #000b);z-index:2}
-.coop-eggs{position:absolute;left:34%;bottom:14px;font-size:22px;z-index:3}
-.backlink{background:transparent;color:#b5dfa7;font-weight:750;padding:6px 0;margin-bottom:5px}
-.payback{margin:12px 0;border-radius:12px;padding:12px;background:linear-gradient(130deg,#765828,#342b1b);border:1px solid #a5813d;font-size:21px;font-weight:950;color:#ffe27d}
-.payback small{display:block;margin-top:4px;font-size:11px;color:#e0c995;font-weight:500}
-@media(max-width:380px){.coop-house{font-size:94px}.coop-hen{font-size:84px}}
-</style><style id="illustrated-assets">.farm-cover .illustration,.coop-scene .illustration{display:block;width:100%;height:100%;object-fit:cover}.farm-cover{aspect-ratio:1.55;min-height:210px}.coop-scene{height:auto;aspect-ratio:1.7}.coop-scene:before,.coop-scene:after{display:none}.farm-cover .cover-label,.farm-cover .cover-foot{z-index:2}.farm-cover .illustration{filter:saturate(1.18) contrast(1.04)}.coop-scene .illustration{filter:saturate(1.16)}</style><style id="v1-polish">
-:root{--bg:#061710;--line:#3b604b;--font:#f3f4e8;--accent:#b2f678}
-body{background:radial-gradient(ellipse at 20% 6%,#255138 0%,#0b211b 43%,#071611 100%)}
-.shell{max-width:485px;padding:11px 12px calc(105px + env(safe-area-inset-bottom))}
-.head{padding:9px 2px 13px}.name{color:#d6edb9;letter-spacing:2px;font-size:12px}
-.coin{font-size:21px;background:linear-gradient(140deg,#425437,#223b2c);border:1px solid #a1954e;border-radius:13px}
-.card{background:linear-gradient(155deg,#1a3730,#0e2622);border:1px solid #446b55;border-radius:16px;padding:13px 14px;box-shadow:inset 0 1px #ffffff18,0 10px 20px #0003}
-.cardtitle{gap:9px}.cardtitle .emoji{font-size:21px}.cardtitle b{font-size:15px}
-.btn{border-radius:12px}.btn:not(.alt):not(.ghost):not(.blue){background:linear-gradient(#c9ff96,#95ee54 40%,#52cb2d);box-shadow:inset 0 2px #fff6,0 4px #288a2e}
-.btn.alt{background:linear-gradient(#355b4a,#224637);border-color:#5a8065}
-.btn.blue{background:linear-gradient(#64c2ff,#2474cc);color:#fff}
-.farm-cover{aspect-ratio:1.48;min-height:215px;border-radius:20px;box-shadow:0 14px 34px #0006}
-.quicknav{gap:7px;margin-top:9px}.quicknav button{background:linear-gradient(145deg,#3b6040,#1a342b);min-height:62px;border-color:#829163;box-shadow:inset 0 1px #fff3,0 7px 16px #0004}
-.quicknav button span{font-size:24px}
-.section h2{font-size:18px}.section .note{color:#b5dc9e}
-.three{gap:7px}.resource{padding:9px 4px;background:linear-gradient(160deg,#325237,#142c24)}.resource strong{font-size:24px}.resource small{font-size:11px}
-.healthcard{background:linear-gradient(130deg,#1d4430,#102a23)}.sat-num{margin-left:auto;font-size:18px;color:#aff37f;font-weight:900}
-.progress{height:11px}.fill{box-shadow:inset 0 1px #fff7,0 0 11px #78eb6790}
-.flow{background:#112d24;border-radius:12px;padding:10px 4px;margin:10px 0;border:1px solid #3d5b44}
-.flow .sym{font-size:29px}.income{margin:8px 0;background:#102f26;border:1px solid #3f6651}
-.income>div{padding:5px 0}.income-profit{font-weight:850}
-.panelhead .headline{font-size:24px;font-weight:900}.panelhead .muted{font-size:12px}
-.switch{margin:10px 0 14px}.switch button{font-size:14px;padding:11px}
-.switch button.active{background:linear-gradient(#c1fa8c,#64ce3b)}.pills button{font-size:11px;padding:8px 12px}
-.catalog .listing,.shop-catalog .listing{border-top:1px solid #365648;padding:10px 0}
-.catalog .listing:first-of-type,.shop-catalog .listing:first-of-type{border-top:0}
-.shop-item .itemicon{font-size:36px;filter:drop-shadow(2px 4px 5px #0006)}
-.shop-item .detail strong{font-size:14px}.shop-item .detail small{font-size:11px}
-.buy-quick{border-top:1px solid #456148;padding-top:12px;margin-top:4px;font-size:12px;color:#d2eacb}
-.buy-quick .buttons{margin-top:8px}.buy-quick .btn{font-size:12px}
-.bundle{position:relative;overflow:hidden;border-radius:17px;border:1px solid #c69a3b;margin-top:13px;padding:16px 14px;background:linear-gradient(115deg,#59421d,#876223 60%,#2b4c29);box-shadow:inset 0 2px #fff3,0 12px 24px #0004}
-.bundle-kicker{font-size:11px;color:#f7ce73;font-weight:900;letter-spacing:1px}.bundle h3{font-size:18px;margin:8px 0 5px}.bundle p{font-size:12px;color:#f5ddac;max-width:63%;margin:0 0 15px}.bundle-mark{position:absolute;right:10px;top:30px;font-size:58px;filter:drop-shadow(0 8px 5px #0006)}.bundle>.btn{position:relative}
-.moneyhero{padding:17px;background:linear-gradient(130deg,#355738,#1d3427);border-color:#8b7a3e}.moneyhero .balance{font-size:46px;margin:8px 0 18px}
-.wallet-note{color:#c9c5a1;font-size:11px;line-height:1.5;padding:4px 5px}
-.bottom{padding:7px 4px calc(7px + env(safe-area-inset-bottom));background:linear-gradient(#102923f7,#081811fe);border-color:#4e7855}
-.bottom button{font-size:10px;max-width:95px;min-width:0}.bottom button span{font-family:system-ui;font-size:25px;line-height:27px}
-.bottom button.active{background:linear-gradient(#3e9137,#1f5a2d);color:#ccff98;border:1px solid #4c9548}
-@media(max-width:390px){.shell{padding-left:11px;padding-right:11px}.btn{font-size:12px}.quicknav button{font-size:9px}}
-</style></head><body><div id="toast" class="toast"></div>
-<div id="login" class="login" style="display:none"><div class="kicker">♛ НОВАЯ ЖИЗНЬ</div><h1>🐣 Начни свою ферму</h1><p>Стань фермером и развивай производство. Получи 100 монет из игрового фонда, одну курицу и 5 зерна.</p><input id="name" placeholder="Имя фермера" maxlength="22"><button class="btn wide" onclick="join()">Начать игру →</button></div>
-<div id="app" class="shell" style="display:none">
-<header class="head"><div><div class="name">♛ НОВАЯ ЖИЗНЬ</div><div class="username" id="username">Фермер</div></div><button class="coin" onclick="tab('wallet')"><small>🪙</small> <span id="coins">100</span> <small>＋</small></button></header>
-<section id="farm" class="panel active">
-<div class="farm-cover"><img class="illustration" src="/assets/farm-scene.svg" alt="Солнечная ферма, красный амбар и курицы" loading="eager"><div class="cover-label">🌾 МОЯ ФЕРМА <span>● В сети</span></div><div class="cover-foot">🐔 Курятник <span>🥚 Производство</span></div></div>
-<div class="quicknav"><button onclick="tab('shop')"><span>🏪</span>Магазин</button><button onclick="tab('market');marketTab('sell')"><span>📦</span>Склад</button><button onclick="tab('coop')"><span>🏠</span>Курятник</button><button onclick="tab('tasks')"><span>📋</span>Задания</button></div><div class="section"><h2>Моё хозяйство</h2><span class="note">● Онлайн</span></div>
-<div class="three"><div class="resource"><div class="ico">🐔</div><strong id="chickens">1</strong><small>Курицы</small></div><div class="resource"><div class="ico">🌾</div><strong id="grain">5</strong><small>Зерно</small></div><div class="resource"><div class="ico">🥚</div><strong id="eggs">0</strong><small>Яйца</small></div></div>
-<div class="card healthcard"><div class="cardtitle"><span class="emoji">💚</span><b>Состояние стада</b><span id="sat" class="sat-num">100%</span></div><div class="progress"><div id="satbar" class="fill"></div></div><div class="statsrow"><span id="healthtext">Сыты</span><span id="feedstock">Запас: 5 дней</span></div><p class="smallprint" id="warning">Корм расходуется автоматически.</p></div>
-<div class="card"><div class="cardtitle"><span class="emoji">🥚</span><b>Производство</b><span class="note" id="nexttick" style="margin-left:auto">Следующий цикл</span></div><div class="flow"><div><span class="sym">🌾</span>1 зерно</div><div class="arrow">➜</div><div><span class="sym">🐔</span>1 курица</div><div class="arrow">➜</div><div><span class="sym">🥚</span>1 яйцо</div></div><div class="income"><div>🌾 Корм <b>−2 🪙/сут.</b></div><div>🥚 Яйцо <b>5 🪙/шт.</b></div><div class="income-profit">При продаже <b>+3 🪙/сут.</b></div></div><p class="smallprint">Окупаемость курицы — от 10 дней, если яйца покупают.</p><div class="buttons" style="margin-top:13px"><button class="btn" onclick="tab('shop')">🌾 Купить корм</button><button class="btn alt" onclick="tab('market');marketTab('sell')">🥚 Продать яйца</button></div></div>
-<div class="buttons" style="margin-top:12px"><button class="btn alt" onclick="tab('market')">🛒 Рынок</button><button class="btn alt" onclick="tab('shop')">🏪 Магазин фермы</button></div>
-</section>
-<section id="coop" class="panel"><div class="panelhead"><button class="backlink" onclick="tab('farm')">‹ Назад на ферму</button><div class="headline">🐔 Курятник</div></div>
-<div class="coop-scene"><img class="illustration" src="/assets/coop-scene.svg" alt="Уютный деревянный курятник с несушкой и яйцами" loading="lazy"><div class="coop-house">🏚️</div><div class="coop-hen">🐔</div><div class="coop-eggs">🥚🥚🥚</div></div>
-<div class="card"><div class="cardtitle"><span class="emoji">🏡</span><b>Мои несушки</b></div><div class="statsrow"><span>Куриц</span><b id="coopHens">1</b></div><div class="statsrow"><span>Сытость стада</span><b id="coopSat">100%</b></div><div class="progress"><div id="coopBar" class="fill"></div></div><div class="statsrow"><span>Зерно на складе</span><b id="coopGrain">5</b></div><div class="statsrow"><span>Яйца на складе</span><b id="coopEggs">0</b></div><div class="statsrow"><span>Кормление и кладка</span><b>Каждые сутки</b></div><div class="buttons" style="margin-top:12px"><button class="btn" onclick="tab('shop')">🌾 Купить корм</button><button class="btn alt" onclick="tab('market');marketTab('sell')">🥚 Продать яйца</button></div></div>
-<div class="card"><div class="cardtitle"><span class="emoji">📈</span><b>Экономика курицы</b></div><div class="statsrow"><span>Покупка несушки</span><b>30 🪙</b></div><div class="statsrow"><span>1 зерно в сутки</span><b>2 🪙</b></div><div class="statsrow"><span>1 яйцо в сутки</span><b>5 🪙</b></div><div class="payback">≈ 10 дней <small>до окупаемости при продаже всех яиц</small></div><p class="smallprint">Курицы питаются автоматически. При длительном отсутствии корма сытость падает, и стадо может сокращаться.</p></div>
-<div class="card"><div class="cardtitle"><span class="emoji">🤖</span><b>Кормление без хлопот</b></div><p class="muted">Автозакупка зерна настраивается в магазине фермы и работает только при наличии монет.</p><button class="btn alt wide" onclick="tab('shop')">Настроить автозакупку</button></div></section>
-<section id="tasks" class="panel"><div class="panelhead"><button class="backlink" onclick="tab('farm')">‹ Назад на ферму</button><div class="headline">📋 Задания</div><p class="muted">Первые цели хозяйства. Награды за задания появятся позже, без новых монет из воздуха.</p></div><div class="card"><div class="cardtitle"><span class="emoji">🌾</span><b>Подготовить запас корма</b></div><div class="statsrow"><span>Цель: 10 зерна</span><b id="taskGrain">0 / 10</b></div></div><div class="card"><div class="cardtitle"><span class="emoji">🐔</span><b>Развить хозяйство</b></div><div class="statsrow"><span>Цель: 3 курицы</span><b id="taskHens">0 / 3</b></div></div><div class="card"><div class="cardtitle"><span class="emoji">🥚</span><b>Произвести яйца</b></div><div class="statsrow"><span>Цель: 10 яиц на складе</span><b id="taskEggs">0 / 10</b></div></div></section>
-<section id="market" class="panel"><div class="panelhead"><div class="kicker">ТОРГОВЛЯ МЕЖДУ ИГРОКАМИ</div><div class="headline">🛒 Общий рынок</div><div class="muted">Общий пул товаров. Покупка делится между продавцами пропорционально.</div></div>
-<div class="switch"><button id="mbuy" class="active" onclick="marketTab('buy')">🛍 Купить</button><button id="msell" onclick="marketTab('sell')">📦 Продать</button></div>
-<div id="buyPane" class="marketpanel active"><div class="pills"><button class="active" data-filter="all" onclick="filterMarket('all')">Все</button><button data-filter="eggs" onclick="filterMarket('eggs')">🥚 Яйца</button><button data-filter="grain" onclick="filterMarket('grain')">🌾 Зерно</button></div><div class="card catalog"><div class="cardtitle"><span class="emoji">🛒</span><b>Товары фермеров</b><span class="note" style="margin-left:auto">Общий пул</span></div><div id="pool"></div></div><div class="card" id="quickbuy"><div class="cardtitle"><span class="emoji">🧺</span><b>Оформить покупку</b></div><div class="fieldrow"><div><label>Товар</label><select id="buyitem" onchange="buyQuote()"><option value="eggs">🥚 Яйца</option><option value="grain">🌾 Зерно</option></select></div><div><label>Штук</label><input id="buynum" type="number" value="1" min="1" max="10000" oninput="buyQuote()"></div></div><p class="smallprint" id="buyquote">Проверяем доступность</p><button class="btn wide" onclick="buyNow()">Купить у игроков</button></div><div class="market-info">🤝 Единый пул: покупка распределяется пропорционально между продавцами. Комиссия 0%.</div></div>
-<div id="sellPane" class="marketpanel"><div class="card"><div class="cardtitle"><span class="emoji">📦</span><b>Выставить товар</b></div><p class="muted" id="myStock">Товар на складе</p><div class="fieldrow"><div><label>Товар</label><select id="sellitem" onchange="sellType()"><option value="eggs">🥚 Яйца · 5 🪙</option><option value="grain">🌾 Зерно</option></select></div><div><label>Штук</label><input id="sellnum" type="number" min="1" value="1" oninput="sellQuote()"></div></div><div id="grainPriceWrap" style="display:none"><label class="muted">Цена за единицу зерна</label><input type="number" id="sellprice" min="1" value="2" oninput="sellQuote()"></div><div class="statsrow"><span>При продаже всего лота</span><b id="sellquote">5 🪙</b></div><button class="btn wide" onclick="sellNow()">Выставить в общий пул</button><p class="smallprint">Товар резервируется. Если продаж нет, можно вернуть его на склад.</p></div><div class="card"><div class="cardtitle"><span class="emoji">📋</span><b>Мои объявления</b></div><div id="mylist" class="empty">Нет объявлений</div></div></div></section>
-<section id="shop" class="panel"><div class="panelhead"><div class="kicker">ПОКУПКА У СИСТЕМЫ</div><div class="headline">🏪 Магазин</div><div class="muted">Товары для твоей фермы</div></div>
-<div class="card shop-catalog"><div class="cardtitle"><span class="emoji">🛍️</span><b>Ресурсы фермы</b></div>
-<div class="listing shop-item"><span class="itemicon">🌾</span><div class="detail"><strong>Зерно</strong><small>Корм для несушек · 2 🪙/шт.</small></div><button class="btn small" onclick="shop('grain',5)">5 шт · 10</button></div>
-<div class="listing shop-item"><span class="itemicon">🐔</span><div class="detail"><strong>Курица</strong><small>1 яйцо/день · 30 🪙</small></div><button class="btn small" onclick="shop('chickens',1)">Купить</button></div>
-<div class="listing shop-item"><span class="itemicon">🥚</span><div class="detail"><strong>Яйцо</strong><small>По 5 🪙 у игроков</small></div><button class="btn alt small" onclick="tab('market')">На рынок</button></div>
-<div class="buy-quick"><span>🌾 Ещё зерно</span><div class="buttons"><button class="btn alt" onclick="shop('grain',20)">20 · 40 🪙</button><button class="btn alt" onclick="shop('grain',50)">50 · 100 🪙</button></div></div></div>
-<div class="bundle"><div><span class="bundle-kicker">🎁 ФЕРМЕРСКИЙ НАБОР</span><h3>Развивай хозяйство</h3><p>Курицы и корм без лишних действий</p></div><div class="bundle-mark">🐔🌾</div><button class="btn small" onclick="buyStarterBundle()">3 куры + 30 зерна · 150 🪙</button></div>
-<div class="card"><div class="cardtitle"><span class="emoji">🤖</span><b>Автозакупка корма</b></div><p class="muted">Перед дневным кормлением, если зерна не хватает на всех кур, система может купить указанное количество зерна за монеты с баланса.</p><div class="fieldrow"><div><label>Количество зерна</label><input id="autoqty" type="number" value="20" min="1" max="2000"></div><div><label>Стоимость</label><div class="statsrow" id="autoquote">40 🪙</div></div></div><div class="buttons" style="margin-top:11px"><button class="btn" onclick="autoBuy(true)">Включить</button><button class="btn alt" onclick="autoBuy(false)">Выключить</button></div><div class="muted" id="autostatus" style="margin-top:9px">Автозакупка выключена</div></div>
-
-</section>
-<section id="wallet" class="panel"><div class="panelhead"><div class="kicker">ФИНАНСЫ</div><div class="headline">💰 Кошелёк</div></div><div class="moneyhero"><div class="muted">Баланс игровых монет</div><div class="balance">🪙 <span id="walletbalance">100</span></div><div class="buttons"><button class="btn" onclick="toast('Пополнение настоящими деньгами пока не подключено')">＋ Пополнить</button><button class="btn blue" onclick="toast('Вывод настоящих денег пока не подключён')">➜ Вывести</button></div></div><p class="wallet-note">Пополнение и вывод пока недоступны. Монеты используются только внутри игры.</p><div class="card"><div class="cardtitle"><span class="emoji">🏦</span><b>Казна и экономика</b></div><div class="statsrow"><span>Начальный выпуск</span><b>10 000 🪙</b></div><div class="statsrow"><span>Баланс казны</span><b id="treasury">—</b></div><div class="statsrow"><span>Комиссия общего рынка</span><b>0%</b></div></div><div class="card"><div class="cardtitle"><span class="emoji">📜</span><b>История операций</b></div><div id="history"><div class="empty">Нет операций</div></div></div></section>
-<section id="profile" class="panel"><div class="panelhead"><div class="kicker">НОВАЯ ЖИЗНЬ</div><div class="headline">👤 Профиль</div></div><div class="card"><div class="cardtitle"><span class="emoji">👨‍🌾</span><b id="profilename">Фермер</b></div><div class="three"><div class="resource"><strong id="pc">0</strong><small>Монеты</small></div><div class="resource"><strong id="ph">0</strong><small>Курицы</small></div><div class="resource"><strong id="pe">0</strong><small>Яйца</small></div></div></div><div class="card"><div class="cardtitle"><span class="emoji">🏆</span><b>Рейтинг фермеров</b></div><div id="leaders"></div></div><button class="btn ghost wide" style="margin-top:15px" onclick="logout()">Выйти из аккаунта</button></section>
-</div>
-<nav id="nav" class="bottom" style="display:none"><button class="active" data-tab="farm" onclick="tab('farm')"><span>⌂</span>Ферма</button><button data-tab="market" onclick="tab('market')"><span>🛒</span>Рынок</button><button data-tab="shop" onclick="tab('shop')"><span>▣</span>Магазин</button><button data-tab="wallet" onclick="tab('wallet')"><span>▤</span>Кошелёк</button><button data-tab="profile" onclick="tab('profile')"><span>♟</span>Профиль</button></nav>
-<script>
-const el=id=>document.getElementById(id);let token=localStorage.getItem('farm_token');let state=null;let pending=false;let chosenFilter='all';let currentTab='farm';
-function amount(id){let n=Number(el(id).value);if(!Number.isSafeInteger(n)||n<1||n>10000)throw Error('Введите правильное количество');return n}
-function toast(msg){let x=el('toast');x.textContent=msg;x.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>x.style.display='none',3400)}
-async function api(path,payload){let r=await fetch(path,{method:payload?'POST':'GET',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(token||'')},body:payload?JSON.stringify(payload):undefined});let v=await r.json();if(!r.ok)throw Error(typeof v.detail==='string'?v.detail:'Ошибка сервера');return v}
-function safe(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
-async function join(){try{let x=await api('/api/join',{name:el('name').value});token=x.token;localStorage.setItem('farm_token',token);await refresh()}catch(e){toast('⚠️ '+e.message)}}
-async function perform(path,data){if(pending)return;pending=true;try{let v=await api(path,data);toast('✅ Операция выполнена'+(v.spent?' · '+v.spent+' 🪙':''));await refresh();return v}catch(e){toast('⚠️ '+e.message)}finally{pending=false}}
-function tab(id){currentTab=id;document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));window.scrollTo(0,0);if(id==='wallet')loadHistory()}
-function marketTab(t){el('buyPane').classList.toggle('active',t==='buy');el('sellPane').classList.toggle('active',t==='sell');el('mbuy').classList.toggle('active',t==='buy');el('msell').classList.toggle('active',t==='sell')}
-function filterMarket(f){chosenFilter=f;document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('active',x.dataset.filter===f));drawPool()}
-function drawPool(){if(!state)return;let rows=state.market.filter(x=>x.seller!==state.me.name&&(chosenFilter==='all'||x.item===chosenFilter));let grouped={};rows.forEach(x=>{let k=x.item+'_'+x.price;if(!grouped[k])grouped[k]={item:x.item,price:x.price,quantity:0};grouped[k].quantity+=x.quantity});let parts=Object.values(grouped).sort((a,b)=>a.item.localeCompare(b.item)||a.price-b.price);el('pool').innerHTML=parts.length?parts.map(x=>'<div class="listing market-product"><span class="itemicon">'+(x.item==='eggs'?'🥚':'🌾')+'</span><div class="detail"><strong>'+(x.item==='eggs'?'Яйца':'Зерно')+'</strong><small>В пуле: '+x.quantity+' · '+x.price+' 🪙/шт.</small></div><button class="btn small" onclick="selectBuy(\''+x.item+'\')">Купить</button></div>').join(''):'<div class="empty-product"><div class="listing market-product"><span class="itemicon">🥚</span><div class="detail"><strong>Яйца</strong><small>5 🪙 · пока 0 шт.</small></div><span class="unavailable">Нет в наличии</span></div><div class="listing market-product"><span class="itemicon">🌾</span><div class="detail"><strong>Зерно</strong><small>Нет предложений игроков</small></div><button class="btn alt small" onclick="tab(\'shop\')">Магазин</button></div></div>';}
-function selectBuy(item){el('buyitem').value=item;buyQuote();el('quickbuy').scrollIntoView({behavior:'smooth',block:'center'})}
-function buyQuote(){if(!state)return;let rows=state.market.filter(x=>x.item===el('buyitem').value&&x.seller!==state.me.name);let n=Number(el('buynum').value)||0;let available=rows.reduce((a,b)=>a+b.quantity,0);let sorted=[...rows].sort((a,b)=>a.price-b.price);let rem=n,cost=0;for(let x of sorted){let k=Math.min(rem,x.quantity);cost+=k*x.price;rem-=k;if(rem<=0)break}el('buyquote').textContent='Доступно: '+available+' шт. '+(rem>0?'Недостаточно товара':('Стоимость: '+cost+' 🪙')); }
-function sellType(){el('grainPriceWrap').style.display=el('sellitem').value==='grain'?'block':'none';sellQuote()}
-function sellQuote(){if(!state)return;let item=el('sellitem').value,n=Number(el('sellnum').value)||0,price=item==='eggs'?5:Number(el('sellprice').value)||0;el('myStock').textContent='На складе: '+state.me[item]+' шт.';el('sellquote').textContent=n>0&&n<=state.me[item]?n*price+' 🪙 при продаже': 'Недостаточно товара'}
-function buyNow(){try{perform('/api/buy',{item:el('buyitem').value,amount:amount('buynum')})}catch(e){toast(e.message)}}
-function sellNow(){try{let item=el('sellitem').value,n=amount('sellnum');if(!state||n>state.me[item])throw Error('Недостаточно товара');perform('/api/sell',{item,amount:n,price:item==='eggs'?5:amount('sellprice')})}catch(e){toast(e.message)}}
-function cancelLot(id){if(confirm('Снять объявление и вернуть остаток на склад?'))perform('/api/cancel/'+id,{})}
-function shop(item,n){perform('/api/shop',{item,amount:n})}
-async function buyStarterBundle(){if(pending)return;if(!confirm('Купить 3 курицы и 30 зерна за 150 монет?'))return;
-const data=state?.me;if(!data||data.coins<150){toast('⚠️ Не хватает монет');return;}
-pending=true;
-try{await api('/api/bundle',{});toast('✅ Набор куплен');await refresh();}
-catch(e){toast('⚠️ '+e.message);}
-finally{pending=false}}
-
-function autoBuy(on){try{perform('/api/autobuy',{item:on?'on':'off',amount:amount('autoqty')})}catch(e){toast(e.message)}}
-async function loadHistory(){try{let v=await api('/api/finance');el('history').innerHTML=v.entries.length?v.entries.map(x=>'<div class="listing"><span class="itemicon">'+(x.delta>=0?'↗️':'↙️')+'</span><div class="detail"><strong>'+safe(x.details)+'</strong><small>'+new Date(x.created*1000).toLocaleString('ru-RU')+'</small></div><b style="color:'+(x.delta>=0?'#a7ef8c':'#ffe6a4')+'">'+(x.delta>0?'+':'')+x.delta+' 🪙</b></div>').join(''):'<div class="empty">Пока нет записей. Новые покупки и продажи появятся здесь.</div>'}catch(e){el('history').textContent=e.message}}
-async function refresh(){try{let d=await api('/api/state');state=d;let p=d.me;el('login').style.display='none';el('app').style.display='block';el('nav').style.display='flex';['coins','grain','chickens','eggs'].forEach(k=>el(k).textContent=p[k]);el('coopHens').textContent=p.chickens;el('coopSat').textContent=(p.satiety??100)+'%';el('coopBar').style.width=Math.max(0,Math.min(100,p.satiety??100))+'%';el('coopGrain').textContent=p.grain;el('coopEggs').textContent=p.eggs;el('taskGrain').textContent=Math.min(10,p.grain)+' / 10';el('taskHens').textContent=Math.min(3,p.chickens)+' / 3';el('taskEggs').textContent=Math.min(10,p.eggs)+' / 10';el('walletbalance').textContent=p.coins;el('treasury').textContent=d.economy.treasury+' 🪙';el('username').textContent='Фермер '+p.name;el('profilename').textContent=p.name;el('pc').textContent=p.coins;el('ph').textContent=p.chickens;el('pe').textContent=p.eggs;let sat=Math.max(0,Math.min(100,p.satiety??100));el('sat').textContent=sat+'%';el('satbar').style.width=sat+'%';el('satbar').style.background=sat<35?'#e77965':sat<65?'#e0c469':'linear-gradient(90deg,#59c35b,#b1f078)';el('healthtext').textContent=p.chickens===0?'Нет кур':sat<35?'Критический голод':sat<65?'Голодны':'Сыты';el('feedstock').textContent='Запас: '+Math.floor(p.grain/Math.max(1,p.chickens))+' дн.';el('warning').textContent=p.chickens===0?'Купи курицу в магазине.':p.grain<p.chickens?'⚠️ Корма не хватит на следующий день. Докупи зерно.':'🌾 Зерно автоматически списывается каждый день, когда куры едят.';let next=d.farm.seconds_to_next;el('nexttick').textContent='Через '+Math.floor(next/3600)+' ч '+Math.ceil((next%3600)/60)+' мин';el('autostatus').textContent=p.autobuy_enabled?'✅ Автозакупка включена · '+p.autobuy_amount+' зерна':'Автозакупка выключена';el('autoqty').value=p.autobuy_amount;el('autoquote').textContent=2*p.autobuy_amount+' 🪙';el('leaders').innerHTML=d.top.map((x,i)=>'<div class="listing"><span>'+(i+1)+'.</span><div class="detail"><strong>'+safe(x.name)+'</strong><small>🐔 '+x.chickens+' куриц</small></div><b class="gold">'+x.coins+' 🪙</b></div>').join('');el('mylist').innerHTML=d.my_listings.length?d.my_listings.map(x=>'<div class="listing"><span class="itemicon">'+(x.item==='eggs'?'🥚':'🌾')+'</span><div class="detail"><strong>'+x.quantity+' шт.</strong><small>'+x.price+' 🪙/шт.</small></div><button class="btn ghost small" onclick="cancelLot(\''+x.id+'\')">Вернуть</button></div>').join(''):'<div class="empty">У тебя нет активных объявлений.</div>';drawPool();buyQuote();sellQuote()}catch(e){if(e.message.includes('Войдите')||e.message.includes('недействительна')){localStorage.removeItem('farm_token');token=null}if(!token){el('login').style.display='block';el('app').style.display='none';el('nav').style.display='none'}else toast('⚠️ '+e.message)}}
-function logout(){localStorage.removeItem('farm_token');token=null;location.reload()}
-el('autoqty').addEventListener('input',()=>{el('autoquote').textContent=2*(Number(el('autoqty').value)||0)+' 🪙'});if(token)refresh();else el('login').style.display='block';setInterval(()=>{if(token&&document.visibilityState==='visible')refresh()},60000);
-</script></body></html>
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#06241b" />
+    <title>НОВАЯ ЖИЗНЬ — Ферма</title>
+    <link rel="stylesheet" href="/assets/game.css" />
+    <script src="/assets/game.js" defer></script>
+  </head>
+  <body>
+    <div id="toast" role="status" aria-live="polite" hidden></div>
+    <section id="login" class="login" hidden>
+      <img
+        src="/assets/backgrounds/farm_sunset.webp"
+        class="login-scene"
+        alt="Ферма на закате"
+        decoding="async"
+      />
+      <div class="login-content">
+        <p class="eyebrow">НОВАЯ ЖИЗНЬ</p>
+        <h1>Твоя ферма ждёт</h1>
+        <p>
+          Заботься о курицах, продавай урожай и развивай хозяйство вместе с
+          другими фермерами.
+        </p>
+        <p class="starter">
+          <img
+            src="/assets/currency/gold_coin_star.webp"
+            class="icon"
+            alt=""
+            decoding="async"
+          />
+          100 монет · 1 курица · 5 зерна
+        </p>
+        <form id="join-form">
+          <label for="name">Имя фермера</label
+          ><input
+            id="name"
+            autocomplete="nickname"
+            minlength="2"
+            maxlength="22"
+            placeholder="Как тебя зовут?"
+            required
+          /><button class="btn wide" type="submit">Начать новую жизнь →</button>
+        </form>
+        <small
+          >Вход в существующую ферму сохраняется в этом браузере. Не очищай
+          данные браузера: сервер использует ключ доступа, а не пароль.</small
+        >
+      </div>
+    </section>
+    <div id="app" class="shell" hidden>
+      <header class="head">
+        <button
+          class="identity"
+          onclick="tab('profile')"
+          aria-label="Открыть профиль"
+        >
+          <img
+            src="/assets/characters/farmer_avatar.webp"
+            class="avatar"
+            alt=""
+            decoding="async"
+          /><span
+            ><strong data-value="name">Фермер</strong
+            ><small>Фермер · моя история</small
+            ><span class="identity-line"></span
+          ></span></button
+        ><button
+          class="coin-balance"
+          onclick="tab('wallet')"
+          aria-label="Открыть кошелёк"
+        >
+          <img
+            src="/assets/currency/gold_coin_star.webp"
+            class="icon"
+            alt=""
+            decoding="async"
+          /><b data-value="coins">—</b></button
+        ><span class="gems" title="Кристаллы пока не используются"
+          ><img
+            src="/assets/currency/blue_diamond.webp"
+            class="icon"
+            alt=""
+            decoding="async"
+          /><span>—</span></span
+        >
+      </header>
+      <section id="farm" class="panel active" aria-label="Ферма">
+        <div class="farm-hero">
+          <img
+            src="/assets/backgrounds/farm_sunset.webp"
+            class="farm-landscape"
+            alt="Красный амбар, ветряк и ферма на закате"
+            decoding="async"
+          />
+          <h1><span>НОВАЯ ЖИЗНЬ</span>Ферма</h1>
+          <div class="flock" aria-hidden="true">
+            <img
+              src="/assets/characters/white_hen_left.webp"
+              class="hen hen-one"
+              alt=""
+              decoding="async"
+            /><img
+              src="/assets/characters/chicks_pair.webp"
+              class="chicks"
+              alt=""
+              decoding="async"
+            /><img
+              src="/assets/characters/white_hen_right.webp"
+              class="hen hen-two"
+              alt=""
+              decoding="async"
+            />
+          </div>
+        </div>
+        <div class="quicknav">
+          <button class="quick" onclick="tab('shop')">
+            <span class="nav-art" aria-hidden="true"
+              ><img
+                src="/assets/ui/nav_shop.webp"
+                class="icon"
+                alt=""
+                decoding="async" /></span
+            >Магазин</button
+          ><button class="quick" onclick="tab('storage')">
+            <span class="nav-art" aria-hidden="true"
+              ><img
+                src="/assets/ui/nav_storage.webp"
+                class="icon"
+                alt=""
+                decoding="async" /></span
+            >Склад</button
+          ><button class="quick" onclick="tab('coop')">
+            <span class="nav-art" aria-hidden="true"
+              ><img
+                src="/assets/ui/nav_coop.webp"
+                class="icon"
+                alt=""
+                decoding="async" /></span
+            >Курятник</button
+          ><button class="quick" onclick="tab('tasks')">
+            <span class="nav-art" aria-hidden="true"
+              ><span class="nav-art" aria-hidden="true"
+                ><img src="/assets/ui/nav_tasks.webp" alt="" /></span></span
+            >Задания
+          </button>
+        </div>
+        <h2 class="section-title">
+          Моё хозяйство <span title="Ресурсы на складе">?</span>
+        </h2>
+        <div class="three">
+          <div class="resource">
+            <img
+              src="/assets/characters/white_hen_right.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            /><span>Куры</span><strong data-value="chickens">—</strong>
+          </div>
+          <div class="resource">
+            <img
+              src="/assets/objects/grain_wheat.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            /><span>Зерно</span><strong data-value="grain">—</strong>
+          </div>
+          <div class="resource">
+            <img
+              src="/assets/objects/eggs_pair.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            /><span>Яйца</span><strong data-value="eggs">—</strong>
+          </div>
+        </div>
+        <div class="card herd">
+          <div class="health-line">
+            <img
+              src="/assets/ui/heart_health.webp"
+              class="health-icon"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h2>Состояние стада <strong data-sat>—</strong></h2>
+              <div
+                class="progress"
+                role="progressbar"
+                aria-label="Сытость стада"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <span data-sat-bar></span>
+              </div>
+            </div>
+          </div>
+          <div class="feed-reserve">
+            <span class="clock" aria-hidden="true">◴</span>
+            <p>Запаса корма хватит на<strong id="feedstock">—</strong></p>
+          </div>
+          <p id="warning" class="muted"></p>
+        </div>
+        <div class="card farm-cycle">
+          <h2 class="cardtitle">Производственный цикл</h2>
+          <div class="flow">
+            <div>
+              <img
+                src="/assets/objects/grain_wheat.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              /><span>1 зерно</span>
+            </div>
+            <span class="arrow">→</span>
+            <div>
+              <img
+                src="/assets/characters/white_hen_right.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              /><span>1 курица</span>
+            </div>
+            <span class="arrow">→</span>
+            <div>
+              <img
+                src="/assets/objects/egg_single.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              /><span>1 яйцо</span>
+            </div>
+          </div>
+          <p class="cycle">Цикл: 1 раз в сутки</p>
+          <div class="statsrow">
+            <span>Следующее кормление</span><b data-next-tick>—</b>
+          </div>
+          <div class="buttons">
+            <button class="btn" onclick="tab('shop')">Купить корм</button
+            ><button class="btn alt" onclick="openSell('eggs')">
+              Продать яйца
+            </button>
+          </div>
+        </div>
+        <div class="farm-footer-links">
+          <button class="text-button" onclick="tab('upgrades')">
+            <span class="nav-art" aria-hidden="true"
+              ><img
+                src="/assets/ui/nav_upgrades.webp"
+                class="icon"
+                alt=""
+                decoding="async" /></span
+            >Улучшения</button
+          ><button class="text-button" onclick="tab('wallet')">
+            <span class="nav-art" aria-hidden="true"
+              ><img
+                src="/assets/ui/nav_statistics.webp"
+                class="icon"
+                alt=""
+                decoding="async" /></span
+            >Экономика
+          </button>
+        </div>
+      </section>
+      <section id="coop" class="panel" aria-label="Курятник">
+        <div class="panelhead">
+          <button
+            class="back"
+            onclick="tab('farm')"
+            aria-label="Назад на ферму"
+          >
+            ‹</button
+          ><img
+            src="/assets/buildings/coop_house.webp"
+            class="icon"
+            alt=""
+            decoding="async"
+          />
+          <div>
+            <h1>Курятник</h1>
+            <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
+          </div>
+        </div>
+        <div class="coop-hero">
+          <img
+            src="/assets/backgrounds/chicken_coop_warm.webp"
+            class="scene-image"
+            alt="Курица и яйца в освещённом деревянном курятнике"
+            decoding="async"
+          />
+        </div>
+        <div class="card coop-summary">
+          <h2>Мои несушки <span data-sat>—</span></h2>
+          <div class="coop-stock">
+            <span>Куриц: <b data-value="chickens">—</b></span
+            ><span>Зерна: <b data-value="grain">—</b></span>
+          </div>
+          <div class="progress"><span data-sat-bar></span></div>
+          <button class="btn small" onclick="tab('upgrades')">
+            Развить хозяйство
+          </button>
+        </div>
+        <div class="card">
+          <h2 class="cardtitle">Производственный цикл</h2>
+          <div class="flow">
+            <div>
+              <img
+                src="/assets/objects/grain_wheat.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              /><span>1 зерно</span>
+            </div>
+            <span class="arrow">→</span>
+            <div>
+              <img
+                src="/assets/characters/white_hen_right.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              /><span>1 курица</span>
+            </div>
+            <span class="arrow">→</span>
+            <div>
+              <img
+                src="/assets/objects/egg_single.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              /><span>1 яйцо</span>
+            </div>
+          </div>
+          <p class="cycle">Цикл: 1 раз в сутки</p>
+        </div>
+        <div class="card economics">
+          <h2 class="cardtitle">
+            <img
+              src="/assets/objects/grain_wheat.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />Экономика одной курицы
+          </h2>
+          <div class="statsrow">
+            <span>Расход корма</span><b>2 монеты/сутки</b>
+          </div>
+          <div class="statsrow">
+            <span>Доход от продажи яйца</span><b>5 монет/сутки</b>
+          </div>
+          <div class="statsrow">
+            <span>Прибыль при продаже</span><b>+3 монеты/сутки</b>
+          </div>
+          <p class="muted">
+            Яйца продаются другим игрокам. Доход зависит от спроса.
+          </p>
+        </div>
+        <div class="payback">
+          <span class="calendar">10</span>
+          <div>Окупаемость<strong>≈ 10 дней</strong></div>
+        </div>
+        <div class="card auto-card">
+          <h2 class="cardtitle">
+            <img
+              src="/assets/objects/feed_sack.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />Автозакупка зерна
+          </h2>
+          <p class="muted">
+            Если корма не хватает, купить зерно перед суточным кормлением.
+          </p>
+          <div class="fieldrow">
+            <label for="auto-coop"
+              >Покупать, шт.<input
+                id="auto-coop"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                max="2000"
+                value="20"
+                oninput="autoQuote(this)"
+            /></label>
+            <div class="auto-cost">
+              Стоимость<strong data-auto-cost
+                >40 <span class="coin-symbol">монет</span></strong
+              >
+            </div>
+          </div>
+          <button
+            class="auto-toggle"
+            onclick="toggleAuto('auto-coop')"
+            aria-label="Автозакупка зерна"
+            aria-pressed="false"
+          >
+            <span></span>
+          </button>
+          <p class="muted" data-auto-status>Проверяем настройки…</p>
+        </div>
+      </section>
+      <section id="market" class="panel" aria-label="Рынок">
+        <div class="scene-banner">
+          <img
+            src="/assets/backgrounds/farmers_market.webp"
+            class="scene-image"
+            alt="Рынок"
+            decoding="async"
+          />
+          <div class="scene-caption">
+            <h1>Рынок</h1>
+            <p>Общий рынок фермеров</p>
+          </div>
+        </div>
+        <div class="switch" role="group" aria-label="Режим рынка">
+          <button
+            class="active"
+            onclick="marketTab('buy')"
+            id="mbuy"
+            aria-pressed="true"
+          >
+            ✖ Купить</button
+          ><button
+            class=""
+            onclick="marketTab('sell')"
+            id="msell"
+            aria-pressed="false"
+          >
+            ▱ Продать
+          </button>
+        </div>
+        <div id="buyPane" class="marketpanel active">
+          <div class="pills" role="group" aria-label="Фильтр товаров">
+            <button
+              class="active"
+              onclick="filterMarket('all')"
+              data-filter="all"
+            >
+              Все</button
+            ><button class="" onclick="filterMarket('eggs')" data-filter="eggs">
+              <img
+                src="/assets/objects/egg_single.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              />Яйца</button
+            ><button
+              class=""
+              onclick="filterMarket('grain')"
+              data-filter="grain"
+            >
+              <img
+                src="/assets/objects/grain_wheat.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              />Зерно
+            </button>
+          </div>
+          <div class="card catalog">
+            <h2 class="cardtitle">Товары в общем пуле</h2>
+            <div id="pool"></div>
+          </div>
+          <div class="card market-info">
+            <h2>Как работает рынок?</h2>
+            <p>✓ Все предложения объединяются в общий пул.</p>
+            <p>
+              ✓ В одной ценовой группе выкуп распределяется пропорционально.
+            </p>
+            <p>✓ Комиссия: <b>0%</b>. Монеты получает продавец.</p>
+          </div>
+          <button class="btn alt wide" onclick="refresh()">
+            Обновить предложения ↻
+          </button>
+        </div>
+        <div id="sellPane" class="marketpanel">
+          <div class="card">
+            <h2 class="cardtitle">
+              <img
+                src="/assets/buildings/storage_barn.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              />Выставить товар
+            </h2>
+            <p id="myStock" class="muted"></p>
+            <div class="fieldrow">
+              <label for="sellitem"
+                >Товар<select id="sellitem" onchange="sellType()">
+                  <option value="eggs">Яйца · 5 монет</option>
+                  <option value="grain">Зерно</option>
+                </select></label
+              ><label for="sellnum"
+                >Количество<input
+                  id="sellnum"
+                  type="number"
+                  inputmode="numeric"
+                  value="1"
+                  min="1"
+                  max="10000"
+                  oninput="sellQuote()"
+              /></label>
+            </div>
+            <label id="grainPriceWrap" for="sellprice" hidden
+              >Монет за единицу зерна<input
+                id="sellprice"
+                type="number"
+                inputmode="numeric"
+                value="2"
+                min="1"
+                max="10000"
+                oninput="sellQuote()"
+            /></label>
+            <div class="statsrow">
+              <span>При продаже всего лота</span
+              ><b><span id="sellquote">—</span></b>
+            </div>
+            <button class="btn wide" onclick="sellNow()">
+              Продать в общий пул
+            </button>
+            <p class="muted">
+              Товар резервируется. До продажи остаток можно вернуть на склад.
+            </p>
+          </div>
+          <div class="card">
+            <h2 class="cardtitle">Мои объявления</h2>
+            <div id="mylist"></div>
+          </div>
+        </div>
+      </section>
+      <section id="shop" class="panel" aria-label="Магазин">
+        <div class="scene-banner">
+          <img
+            src="/assets/backgrounds/farm_shop.webp"
+            class="scene-image"
+            alt="Магазин"
+            decoding="async"
+          />
+          <div class="scene-caption">
+            <h1>Магазин</h1>
+            <p>Покупка у системы</p>
+          </div>
+        </div>
+        <div class="card shop-catalog">
+          <div class="product">
+            <img
+              src="/assets/objects/egg_single.webp"
+              class="product-image"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h3>Яйцо</h3>
+              <small>У фермеров на рынке</small>
+            </div>
+            <strong class="price"
+              >5<img
+                src="/assets/currency/gold_coin_star.webp"
+                class="icon"
+                alt=""
+                decoding="async" /></strong
+            ><button class="btn small" onclick="selectBuy('eggs')">
+              На рынок
+            </button>
+          </div>
+          <div class="product">
+            <img
+              src="/assets/objects/grain_wheat.webp"
+              class="product-image"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h3>Зерно</h3>
+              <small>Корм для кур</small>
+            </div>
+            <strong class="price"
+              >2<img
+                src="/assets/currency/gold_coin_star.webp"
+                class="icon"
+                alt=""
+                decoding="async" /></strong
+            ><button class="btn small" onclick="showShop('grain')">
+              Купить
+            </button>
+          </div>
+          <div class="product">
+            <img
+              src="/assets/characters/white_hen_right.webp"
+              class="product-image"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h3>Курица</h3>
+              <small>Производит яйца</small>
+            </div>
+            <strong class="price"
+              >30<img
+                src="/assets/currency/gold_coin_star.webp"
+                class="icon"
+                alt=""
+                decoding="async" /></strong
+            ><button class="btn small" onclick="showShop('chickens')">
+              Купить
+            </button>
+          </div>
+        </div>
+        <div class="bundle">
+          <h2>
+            <img
+              src="/assets/currency/gold_coins_stack.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />
+            Набор фермера
+          </h2>
+          <div class="bundle-inner">
+            <h3>Стартовый набор</h3>
+            <p>3 курицы + 30 зерна</p>
+            <img
+              src="/assets/backgrounds/wallet_treasure.webp"
+              class="bundle-chest"
+              alt="Сундук с золотыми монетами"
+              decoding="async"
+            /><img
+              src="/assets/characters/white_hen_right.webp"
+              class="bundle-hen"
+              alt=""
+              decoding="async"
+            /><button class="btn gold-button" onclick="showBundle()">
+              150
+              <img
+                src="/assets/currency/gold_coin_star.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              />
+            </button>
+          </div>
+        </div>
+        <div class="card auto-card">
+          <h2 class="cardtitle">
+            <img
+              src="/assets/objects/feed_sack.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />Автозакупка зерна
+          </h2>
+          <p class="muted">
+            Если корма не хватает, купить зерно перед суточным кормлением.
+          </p>
+          <div class="fieldrow">
+            <label for="auto-shop"
+              >Покупать, шт.<input
+                id="auto-shop"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                max="2000"
+                value="20"
+                oninput="autoQuote(this)"
+            /></label>
+            <div class="auto-cost">
+              Стоимость<strong data-auto-cost
+                >40 <span class="coin-symbol">монет</span></strong
+              >
+            </div>
+          </div>
+          <button
+            class="auto-toggle"
+            onclick="toggleAuto('auto-shop')"
+            aria-label="Автозакупка зерна"
+            aria-pressed="false"
+          >
+            <span></span>
+          </button>
+          <p class="muted" data-auto-status>Проверяем настройки…</p>
+        </div>
+        <div class="card">
+          <h2 class="cardtitle">
+            <img
+              src="/assets/buildings/farmhouse.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />Развивай хозяйство
+          </h2>
+          <p class="muted">Новые несушки и запас корма — основа твоей фермы.</p>
+          <button class="btn alt wide" onclick="tab('upgrades')">
+            Улучшения
+          </button>
+        </div>
+      </section>
+      <section id="wallet" class="panel" aria-label="Кошелёк">
+        <div class="panelhead">
+          <button
+            class="back"
+            onclick="tab('farm')"
+            aria-label="Назад на ферму"
+          >
+            ‹</button
+          ><img
+            src="/assets/currency/gold_coins_stack.webp"
+            class="icon"
+            alt=""
+            decoding="async"
+          />
+          <div>
+            <h1>Кошелёк</h1>
+            <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
+          </div>
+        </div>
+        <div class="moneyhero">
+          <div class="money-balance">
+            <img
+              src="/assets/currency/gold_coin_star.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />
+            <div><strong data-value="coins">—</strong><span>монет</span></div>
+          </div>
+          <div class="buttons">
+            <button
+              class="btn"
+              onclick=""
+              disabled
+              title="Реальные пополнения пока не подключены"
+            >
+              + Пополнить</button
+            ><button
+              class="btn blue"
+              onclick=""
+              disabled
+              title="Реальный вывод пока не подключён"
+            >
+              → Вывести
+            </button>
+          </div>
+          <p class="muted">Пополнение и вывод пока недоступны.</p>
+        </div>
+        <button
+          class="menu-row"
+          onclick="document.getElementById('history-card').scrollIntoView({behavior:'smooth'})"
+        >
+          <span class="nav-art" aria-hidden="true"
+            ><span class="nav-art" aria-hidden="true"
+              ><img src="/assets/ui/nav_tasks.webp" alt="" /></span></span
+          ><span>История операций</span><b>›</b>
+        </button>
+        <details class="economy-card">
+          <summary>
+            <img src="/assets/buildings/barn.webp" class="icon" alt="" /><span
+              ><strong>Казна и экономика</strong
+              ><small>Общий фонд: 10 000 монет</small></span
+            ><b>›</b>
+          </summary>
+          <div class="economy-details">
+            <div class="statsrow">
+              <span>Начальная эмиссия</span><b>10 000 монет</b>
+            </div>
+            <div class="statsrow">
+              <span>Баланс казны</span><b><span id="treasury">—</span></b>
+            </div>
+            <div class="statsrow"><span>Комиссия рынка</span><b>0%</b></div>
+            <p class="muted">
+              Покупки у системы возвращают монеты в казну. Торговля переводит их
+              между игроками.
+            </p>
+          </div>
+        </details>
+        <div class="treasure-panel">
+          <img
+            src="/assets/backgrounds/wallet_treasure.webp"
+            class="treasure-image"
+            alt="Сундук, монеты и растущий график"
+            decoding="async"
+          />
+          <h2>Развивай хозяйство</h2>
+          <p>
+            Покупай кур, производи яйца,<br />торгуй и зарабатывай вместе<br />с
+            другими игроками!
+          </p>
+        </div>
+        <div id="history-card" class="card">
+          <h2 class="cardtitle">История операций</h2>
+          <div id="history"></div>
+        </div>
+      </section>
+      <section id="profile" class="panel" aria-label="Профиль">
+        <div class="panelhead">
+          <button
+            class="back"
+            onclick="tab('farm')"
+            aria-label="Назад на ферму"
+          >
+            ‹</button
+          ><img
+            src="/assets/characters/farmer_avatar.webp"
+            class="icon"
+            alt=""
+            decoding="async"
+          />
+          <div>
+            <h1>Профиль</h1>
+            <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
+          </div>
+        </div>
+        <div class="card profile-card">
+          <img
+            src="/assets/characters/farmer_avatar.webp"
+            class="profile-avatar"
+            alt=""
+            decoding="async"
+          />
+          <h2 data-value="name">Фермер</h2>
+          <p class="muted">Моя новая жизнь</p>
+          <div class="three">
+            <div class="resource">
+              <img
+                src="/assets/currency/gold_coin_star.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              /><span>Монеты</span><strong data-value="coins">—</strong>
+            </div>
+            <div class="resource">
+              <img
+                src="/assets/characters/white_hen_right.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              /><span>Куры</span><strong data-value="chickens">—</strong>
+            </div>
+            <div class="resource">
+              <img
+                src="/assets/objects/eggs_pair.webp"
+                class="icon"
+                alt=""
+                decoding="async"
+              /><span>Яйца</span><strong data-value="eggs">—</strong>
+            </div>
+          </div>
+        </div>
+        <button class="menu-row" onclick="tab('storage')">
+          <span class="nav-art" aria-hidden="true"
+            ><img
+              src="/assets/ui/nav_storage.webp"
+              class="icon"
+              alt=""
+              decoding="async" /></span
+          ><span>Склад</span><b>›</b></button
+        ><button class="menu-row" onclick="tab('tasks')">
+          <span class="nav-art" aria-hidden="true"
+            ><span class="nav-art" aria-hidden="true"
+              ><img src="/assets/ui/nav_tasks.webp" alt="" /></span></span
+          ><span>Мои цели</span><b>›</b></button
+        ><button class="menu-row" onclick="tab('upgrades')">
+          <span class="nav-art" aria-hidden="true"
+            ><img
+              src="/assets/ui/nav_upgrades.webp"
+              class="icon"
+              alt=""
+              decoding="async" /></span
+          ><span>Улучшения</span><b>›</b></button
+        ><button class="menu-row" onclick="tab('wallet')">
+          <span class="nav-art" aria-hidden="true"
+            ><img
+              src="/assets/ui/nav_wallet.webp"
+              class="icon"
+              alt=""
+              decoding="async" /></span
+          ><span>Кошелёк</span><b>›</b>
+        </button>
+        <div class="card">
+          <h2 class="cardtitle">
+            <span class="nav-art" aria-hidden="true"
+              ><img src="/assets/ui/nav_statistics.webp" alt="" /></span
+            >Рейтинг фермеров
+          </h2>
+          <div id="leaders"></div>
+        </div>
+        <p class="muted">
+          Доступ хранится в этом браузере. Выход удалит локальный ключ доступа;
+          восстановление сервером пока не поддерживается.
+        </p>
+        <button class="btn alt wide" onclick="logout()">
+          Выйти из аккаунта
+        </button>
+      </section>
+      <section id="storage" class="panel" aria-label="Склад">
+        <div class="panelhead">
+          <button
+            class="back"
+            onclick="tab('farm')"
+            aria-label="Назад на ферму"
+          >
+            ‹</button
+          ><img
+            src="/assets/buildings/storage_barn.webp"
+            class="icon"
+            alt=""
+            decoding="async"
+          />
+          <div>
+            <h1>Склад</h1>
+            <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
+          </div>
+        </div>
+        <div class="storage-hero">
+          <img
+            src="/assets/backgrounds/warehouse_scene.webp"
+            class="scene-image"
+            alt="Амбар для хранения ресурсов"
+            decoding="async"
+          />
+        </div>
+        <div class="pills">
+          <button class="active" onclick="storageFilter('all',this)">Все</button
+          ><button onclick="storageFilter('grain',this)">Зерно</button
+          ><button onclick="storageFilter('eggs',this)">Яйца</button
+          ><button onclick="storageFilter('chickens',this)">Куры</button>
+        </div>
+        <div class="card storage-list">
+          <div class="product" data-storage="grain">
+            <img
+              src="/assets/objects/grain_wheat.webp"
+              class="product-image"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h3>Зерно</h3>
+              <small><span data-value="grain">—</span> шт.</small>
+            </div>
+            <button class="btn small" onclick="openSell('grain')">
+              Продать
+            </button>
+          </div>
+          <div class="product" data-storage="eggs">
+            <img
+              src="/assets/objects/eggs_pair.webp"
+              class="product-image"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h3>Яйца</h3>
+              <small><span data-value="eggs">—</span> шт.</small>
+            </div>
+            <button class="btn small" onclick="openSell('eggs')">
+              Продать
+            </button>
+          </div>
+          <div class="product" data-storage="chickens">
+            <img
+              src="/assets/characters/white_hen_right.webp"
+              class="product-image"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h3>Куры</h3>
+              <small><span data-value="chickens">—</span> шт.</small>
+            </div>
+            <small class="stock-note">Живут в курятнике</small>
+          </div>
+        </div>
+        <div class="card">
+          <h2 class="cardtitle">
+            <img
+              src="/assets/objects/feed_sack.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />Кормление без хлопот
+          </h2>
+          <p class="muted">
+            Зерно со склада расходуется автоматически: 1 зерно на курицу в
+            сутки. Ручное кормление не требуется.
+          </p>
+          <button class="btn alt wide" onclick="tab('coop')">В курятник</button>
+        </div>
+      </section>
+      <section id="tasks" class="panel" aria-label="Задания">
+        <div class="panelhead">
+          <button
+            class="back"
+            onclick="tab('farm')"
+            aria-label="Назад на ферму"
+          >
+            ‹</button
+          ><span class="nav-art" aria-hidden="true"
+            ><img src="/assets/ui/nav_tasks.webp" alt=""
+          /></span>
+          <div>
+            <h1>Задания</h1>
+            <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
+          </div>
+        </div>
+        <div class="switch">
+          <button class="active" type="button">Цели хозяйства</button
+          ><button type="button" onclick="tab('profile')">Достижения</button>
+        </div>
+        <p class="muted">
+          Твой путь фермера. Это цели по текущим запасам, без денежных наград.
+        </p>
+        <div class="card tasks-list">
+          <div class="task-row">
+            <img
+              src="/assets/objects/grain_wheat.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h3>Подготовить запас корма</h3>
+              <span data-goal="grain">— / 10</span>
+              <div class="progress"><span data-goal-bar="grain"></span></div>
+            </div>
+            <strong data-goal-status="grain">В процессе</strong>
+          </div>
+          <div class="task-row">
+            <img
+              src="/assets/characters/white_hen_right.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h3>Развить хозяйство</h3>
+              <span data-goal="chickens">— / 3</span>
+              <div class="progress"><span data-goal-bar="chickens"></span></div>
+            </div>
+            <strong data-goal-status="chickens">В процессе</strong>
+          </div>
+          <div class="task-row">
+            <img
+              src="/assets/objects/egg_single.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h3>Запасти яйца</h3>
+              <span data-goal="eggs">— / 10</span>
+              <div class="progress"><span data-goal-bar="eggs"></span></div>
+            </div>
+            <strong data-goal-status="eggs">В процессе</strong>
+          </div>
+        </div>
+        <button class="btn alt wide" onclick="tab('farm')">
+          Вернуться на ферму
+        </button>
+      </section>
+      <section id="upgrades" class="panel" aria-label="Улучшения">
+        <div class="panelhead">
+          <button
+            class="back"
+            onclick="tab('farm')"
+            aria-label="Назад на ферму"
+          >
+            ‹</button
+          ><img
+            src="/assets/buildings/farmhouse.webp"
+            class="icon"
+            alt=""
+            decoding="async"
+          />
+          <div>
+            <h1>Улучшения</h1>
+            <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
+          </div>
+        </div>
+        <div class="card">
+          <div class="upgrade">
+            <img
+              src="/assets/buildings/coop_house.webp"
+              class="upgrade-art"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h2>Курятник</h2>
+              <p>Больше куриц — больше яиц</p>
+              <button class="btn small" onclick="showShop('chickens')">
+                Купить курицу · 30 монет
+              </button>
+            </div>
+          </div>
+          <p class="muted">
+            Текущее поголовье: <b data-value="chickens">—</b>. Вместимость
+            сервером не ограничена.
+          </p>
+        </div>
+        <div class="card">
+          <div class="upgrade">
+            <img
+              src="/assets/buildings/storage_barn.webp"
+              class="upgrade-art"
+              alt=""
+              decoding="async"
+            />
+            <div>
+              <h2>Склад</h2>
+              <p>Все твои запасы</p>
+              <button class="btn alt small" onclick="tab('storage')">
+                Открыть склад
+              </button>
+            </div>
+          </div>
+          <p class="muted">
+            Платное увеличение вместимости пока не поддерживается.
+          </p>
+        </div>
+        <div class="card auto-card">
+          <h2 class="cardtitle">
+            <img
+              src="/assets/objects/feed_sack.webp"
+              class="icon"
+              alt=""
+              decoding="async"
+            />Автозакупка зерна
+          </h2>
+          <p class="muted">
+            Если корма не хватает, купить зерно перед суточным кормлением.
+          </p>
+          <div class="fieldrow">
+            <label for="auto-upgrades"
+              >Покупать, шт.<input
+                id="auto-upgrades"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                max="2000"
+                value="20"
+                oninput="autoQuote(this)"
+            /></label>
+            <div class="auto-cost">
+              Стоимость<strong data-auto-cost
+                >40 <span class="coin-symbol">монет</span></strong
+              >
+            </div>
+          </div>
+          <button
+            class="auto-toggle"
+            onclick="toggleAuto('auto-upgrades')"
+            aria-label="Автозакупка зерна"
+            aria-pressed="false"
+          >
+            <span></span>
+          </button>
+          <p class="muted" data-auto-status>Проверяем настройки…</p>
+        </div>
+        <div class="card unavailable-feature">
+          <img
+            src="/assets/buildings/incubator.webp"
+            class="upgrade-art"
+            alt=""
+            decoding="async"
+          />
+          <div>
+            <h2>Инкубатор</h2>
+            <p class="muted">
+              Выведение цыплят пока не поддерживается сервером.
+            </p>
+            <button class="btn alt" disabled>Пока недоступен</button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <nav id="nav" class="bottom" aria-label="Основная навигация" hidden>
+      <button class="nav-button" onclick="tab('farm')" data-tab="farm">
+        <span class="nav-art" aria-hidden="true"
+          ><img
+            src="/assets/ui/nav_farm.webp"
+            class="icon"
+            alt=""
+            decoding="async" /></span
+        ><span>Ферма</span></button
+      ><button class="nav-button" onclick="tab('market')" data-tab="market">
+        <span class="nav-art" aria-hidden="true"
+          ><img
+            src="/assets/ui/nav_market.webp"
+            class="icon"
+            alt=""
+            decoding="async" /></span
+        ><span>Рынок</span></button
+      ><button class="nav-button" onclick="tab('shop')" data-tab="shop">
+        <span class="nav-art" aria-hidden="true"
+          ><img
+            src="/assets/ui/nav_shop.webp"
+            class="icon"
+            alt=""
+            decoding="async" /></span
+        ><span>Магазин</span></button
+      ><button class="nav-button" onclick="tab('wallet')" data-tab="wallet">
+        <span class="nav-art" aria-hidden="true"
+          ><img
+            src="/assets/ui/nav_wallet.webp"
+            class="icon"
+            alt=""
+            decoding="async" /></span
+        ><span>Кошелёк</span></button
+      ><button class="nav-button" onclick="tab('profile')" data-tab="profile">
+        <span class="nav-art" aria-hidden="true"
+          ><img
+            src="/assets/ui/nav_profile.webp"
+            class="icon"
+            alt=""
+            decoding="async" /></span
+        ><span>Профиль</span>
+      </button>
+    </nav>
+    <dialog id="purchase-dialog" aria-labelledby="purchase-title">
+      <form method="dialog">
+        <button class="dialog-close" aria-label="Закрыть">×</button>
+      </form>
+      <h2 id="purchase-title">Покупка товара</h2>
+      <div class="purchase-product">
+        <img
+          src="/assets/characters/white_hen_right.webp"
+          class="purchase-art"
+          alt=""
+          decoding="async"
+        />
+        <div>
+          <h3 id="purchase-name"></h3>
+          <p id="purchase-price"></p>
+        </div>
+      </div>
+      <div class="stepper">
+        <button onclick="stepAmount(-1)" aria-label="Уменьшить количество">
+          −</button
+        ><input
+          id="purchase-amount"
+          aria-label="Количество покупки"
+          type="number"
+          inputmode="numeric"
+          min="1"
+          max="10000"
+          value="1"
+          oninput="purchaseQuote()"
+        /><button onclick="stepAmount(1)" aria-label="Увеличить количество">
+          +
+        </button>
+      </div>
+      <p class="purchase-total">
+        Итого: <strong id="purchase-total">—</strong>
+        <img
+          src="/assets/currency/gold_coin_star.webp"
+          class="icon"
+          alt=""
+          decoding="async"
+        />
+      </p>
+      <p id="purchase-availability" class="muted"></p>
+      <div class="buttons">
+        <button class="btn" id="purchase-confirm" onclick="confirmPurchase()">
+          Купить</button
+        ><button
+          class="btn alt"
+          onclick="document.getElementById('purchase-dialog').close()"
+        >
+          Отмена
+        </button>
+      </div>
+    </dialog>
+  </body>
+</html>
