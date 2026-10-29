@@ -99,6 +99,15 @@ async function claimDaily(key) {
   const completed = await perform("/api/claim", {item:key});
   if (completed) toast("🎁 Награда получена! Монеты начислены.");
 }
+async function upgradeBuilding(kind) {
+  if (pending || !state || !["coop","storage"].includes(kind)) return;
+  const values = state.buildings || {};
+  const price = values[kind + "_next_cost"];
+  if (price == null) return;
+  const name = kind === "coop" ? "курятник" : "склад";
+  if (!confirm("Улучшить " + name + " за " + number(price) + " монет?")) return;
+  await perform("/api/upgrade", {item:kind});
+}
 function showLogin() {
   token = null;
   localStorage.removeItem("farm_token");
@@ -372,6 +381,18 @@ async function loadHistory() {
 }
 function render() {
   const p = state.me;
+  const buildings = state.buildings || {};
+  document.querySelectorAll("[data-building]").forEach((node) => {
+    const value = buildings[node.dataset.building];
+    node.textContent = typeof value === "number" ? number(value) : "—";
+  });
+  for (const kind of ["coop","storage"]) {
+    const button = el("upgrade-"+kind);
+    if (!button) continue;
+    const price = buildings[kind+"_next_cost"];
+    button.disabled = price == null || price > p.coins || pending;
+    button.textContent = price == null ? "Максимальный уровень" : "Улучшить · "+number(price)+" монет";
+  }
   const last = state.last_farm_event;
   if (last && last.kind === "eggs_produced") {
     const seenKey = "farm_seen_event_" + p.id;

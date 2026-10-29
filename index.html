@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=2" />
-    <script src="/assets/game.js?v=10" defer></script>
+    <script src="/assets/game.js?v=11" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div>
@@ -292,7 +292,7 @@
             decoding="async"
           />
         </div>
-        <p class="feature-note">Уровни и ограничение вместимости пока не предусмотрены.</p>
+        <p class="feature-note">Вместимость курятника зависит от уровня. Повысить его можно в разделе «Улучшения».</p>
         <div class="card coop-summary">
           <h2>Мои несушки <span data-sat>—</span></h2>
           <div class="coop-stock">
@@ -1019,44 +1019,23 @@
         </div>
         <div class="card">
           <div class="upgrade">
-            <img
-              src="/assets/redesign/coop-icon.webp"
-              class="upgrade-art"
-              alt=""
-              decoding="async"
-            />
-            <div>
-              <h2>Курятник</h2>
-              <p>Больше куриц — больше яиц</p>
-              <button class="btn small" onclick="showShop('chickens')">
-                Купить курицу · 30 монет
-              </button>
+            <img src="/assets/redesign/coop-icon.webp" class="upgrade-art" alt="">
+            <div><h2>Курятник · уровень <span data-building="coop_level">—</span></h2>
+              <p>Место для <strong data-building="coop_capacity">—</strong> кур. Сейчас: <strong data-value="chickens">—</strong>.</p>
+              <button id="upgrade-coop" class="btn small" onclick="upgradeBuilding('coop')">Улучшить</button>
             </div>
           </div>
-          <p class="muted">
-            Текущее поголовье: <b data-value="chickens">—</b>. Вместимость
-            сервером не ограничена.
-          </p>
+          <p class="muted">Следующий уровень добавляет 10 мест. Уже имеющиеся курицы сохраняются.</p>
         </div>
         <div class="card">
           <div class="upgrade">
-            <img
-              src="/assets/redesign/storage.webp"
-              class="upgrade-art"
-              alt=""
-              decoding="async"
-            />
-            <div>
-              <h2>Склад</h2>
-              <p>Все твои запасы</p>
-              <button class="btn alt small" onclick="tab('storage')">
-                Открыть склад
-              </button>
+            <img src="/assets/redesign/storage.webp" class="upgrade-art" alt="">
+            <div><h2>Склад · уровень <span data-building="storage_level">—</span></h2>
+              <p><strong data-building="storage_used">—</strong> / <strong data-building="storage_capacity">—</strong> мест занято яйцами и зерном.</p>
+              <button id="upgrade-storage" class="btn small" onclick="upgradeBuilding('storage')">Улучшить</button>
             </div>
           </div>
-          <p class="muted">
-            Платное увеличение вместимости пока не поддерживается.
-          </p>
+          <p class="muted">Следующий уровень добавляет 100 мест. Уже имеющиеся ресурсы сохраняются.</p>
         </div>
         <div class="card auto-card">
           <h2 class="cardtitle">
