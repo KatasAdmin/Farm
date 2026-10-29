@@ -551,6 +551,25 @@ const logNames = { grain: "Зерно", chickens: "Курицы", eggs: "Яйц�
 function details(text) {
   return text.replace(/grain|chickens|eggs/g, (x) => logNames[x]);
 }
+async function redeemPromoCode(event) {
+  event.preventDefault();
+  if(pending || !token)return;
+  const input=el("promo-code-input"),status=el("promo-code-status");
+  const code=input.value.trim().toUpperCase();
+  if(!code)return;
+  try{
+    busy(true);
+    const result=await api("/api/promo/redeem",{code});
+    input.value="";
+    status.textContent="✓ Начислено "+number(result.awarded)+" монет!";
+    toast("Бонус активирован: +"+number(result.awarded)+" монет");
+    await refresh();
+    await loadHistory();
+  }catch(error){
+    status.textContent=error.message;
+    toast(error.message);
+  }finally{busy(false);}
+}
 async function loadHistory() {
   try {
     const value = await api("/api/finance");

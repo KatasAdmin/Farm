@@ -65,6 +65,8 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS farm_events(id text primary key,player_id text NOT NULL,kind text NOT NULL,amount int NOT NULL,created double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS daily_claims(player_id text NOT NULL,day text NOT NULL,claim text NOT NULL,amount int NOT NULL,PRIMARY KEY(player_id,day,claim))")
   c.execute("CREATE TABLE IF NOT EXISTS player_achievements(player_id text NOT NULL,achievement text NOT NULL,unlocked_at double precision NOT NULL,PRIMARY KEY(player_id,achievement))")
+  c.execute("CREATE TABLE IF NOT EXISTS promo_codes(code_hash text PRIMARY KEY,amount integer NOT NULL CHECK(amount>0),redeemed_by text,redeemed_at double precision)")
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("1cd3835191d5f622563ac4dbb45c7a568a16b6d5cd471eb21f76e98479126598",))
   c.execute("CREATE TABLE IF NOT EXISTS reward_emission(id int PRIMARY KEY,total_minted bigint NOT NULL DEFAULT 0)")
   c.execute("INSERT INTO reward_emission(id,total_minted) VALUES(1,0) ON CONFLICT(id) DO NOTHING")
   c.execute("UPDATE players SET last_tick=%s WHERE last_tick IS NULL",(time.time(),))
@@ -457,6 +459,24 @@ def withdrawal_status(authorization:str=Header(default="")):
   p=person(c,authorization)
   last=c.execute("SELECT id,amount,status,created FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
  return {"minimum":100,"request":last,"payouts_enabled":False}
+
+@app.post("/api/promo/redeem")
+def redeem_promo(q:Request,authorization:str=Header(default="")):
+ # Code is never stored as plaintext. The initial code has 20 random characters.
+ code=q.code.strip().upper()
+ if len(code)>64 or not code.startswith("FARM-") or len(code)!=28:
+  raise HTTPException(400,"Неверный формат бонусного кода")
+ digest=hashlib.sha256(code.encode("utf-8")).hexdigest()
+ with db() as c:
+  p=person(c,authorization,True)
+  row=c.execute("UPDATE promo_codes SET redeemed_by=%s,redeemed_at=%s WHERE code_hash=%s AND redeemed_by IS NULL RETURNING amount",(p["id"],time.time(),digest)).fetchone()
+  if row is None:
+   raise HTTPException(409,"Код неверный или уже использован")
+  amount=row["amount"]
+  c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(amount,p["id"]))
+  c.execute("UPDATE reward_emission SET total_minted=total_minted+%s WHERE id=1",(amount,))
+  c.execute("INSERT INTO money_log(id,player_id,kind,delta,details,created) VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"promo_reward",amount,"Одноразовый бонусный код",time.time()))
+ return {"ok":True,"awarded":amount}
 
 @app.get("/api/finance")
 def finance(authorization:str=Header(default="")):

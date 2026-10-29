@@ -48,3 +48,14 @@
 dialog{max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain}
 input{scroll-margin-block:80px}
 @media(max-width:359px){#farm .farm-hero{height:162px}.forecast-output{gap:8px}.forecast-output>.icon{width:37px;height:45px}.forecast-output p{font-size:12px}.forecast-output #next-harvest{font-size:26px}.forecast-timers strong{font-size:20px}#storage .storage-hero{height:128px}}
+
+/* v30 — wallet promo code */
+#wallet .promo-wallet-card{margin:12px 9px;padding:16px 14px;border:1px solid rgba(119,205,255,.8);border-radius:16px;background:linear-gradient(140deg,rgba(10,98,177,.9),rgba(4,39,98,.97))}
+#wallet .promo-wallet-card h2{margin:0 0 7px;font-size:19px}
+#wallet .promo-wallet-card p{font-size:12px;line-height:1.45;margin:7px 0 12px}
+#wallet .promo-wallet-card label{display:block;margin:10px 0 7px;font-size:13px;font-weight:700}
+#wallet .promo-wallet-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+#wallet .promo-wallet-controls input{min-width:0;width:100%;box-sizing:border-box;border:1px solid #7ccaff;border-radius:11px;background:#062d65;color:#fff;padding:11px;font-size:13px;letter-spacing:.2px}
+#wallet .promo-wallet-controls button{min-width:105px;min-height:44px;padding:10px}
+#wallet #promo-code-status:not(:empty){margin:9px 0 0;font-weight:700}
+@media(max-width:380px){#wallet .promo-wallet-controls{grid-template-columns:1fr}#wallet .promo-wallet-controls button{width:100%}}
