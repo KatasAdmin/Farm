@@ -130,7 +130,7 @@ function tab(id) {
     .querySelectorAll(".panel")
     .forEach((x) => x.classList.toggle("active", x.id === id));
   document.querySelectorAll("[data-tab]").forEach((x) => {
-    const active = x.dataset.tab === id;
+    const active = x.dataset.tab === (id === "market" ? "shop" : id);
     x.classList.toggle("active", active);
     if (active) x.setAttribute("aria-current", "page");
     else x.removeAttribute("aria-current");
@@ -213,7 +213,7 @@ function openPurchase(data) {
   purchase = data;
   el("purchase-title").textContent =
     data.kind === "market"
-      ? "Покупка у фермеров"
+      ? "Покупка яиц"
       : data.kind === "bundle"
         ? "Набор фермера"
         : "Покупка товара";
@@ -370,7 +370,7 @@ function render() {
   const dailyMissions = [
     ["grain", "🌾 Купить 5 зерна", daily.grain_bought || 0, 5],
     ["eggs", "🥚 Получить яйцо от кур", daily.eggs_produced || 0, 1],
-    ["listing", "📦 Выставить яйцо на рынок", daily.eggs_listed || 0, 1]
+    ["listing", "📦 Выставить яйцо на продажу", daily.eggs_listed || 0, 1]
   ];
   const dailyBox = el("daily-tasks");
   if (dailyBox) {
@@ -386,7 +386,7 @@ function render() {
   const listed = {grain:0,eggs:0};
   for (const item of state.my_listings || []) if (item.item in listed) listed[item.item] += item.quantity;
   const summary = el("storage-summary");
-  if (summary) summary.textContent = "Свободно: " + p.eggs + " яиц, " + p.grain + " зерна. На рынке: " + listed.eggs + " яиц, " + listed.grain + " зерна. Выставленный товар хранится отдельно, пока его не купят или ты не снимешь объявление.";
+  if (summary) summary.textContent = "Свободно: " + p.eggs + " яиц, " + p.grain + " зерна. На продаже: " + listed.eggs + " яиц, " + listed.grain + " зерна. Выставленный товар хранится отдельно, пока его не купят или ты не снимешь объявление.";
   const nextEggs = Math.min(p.grain,p.chickens);
   const harvestText = p.chickens <= 0 ? "Нет кур — купи несушку в магазине." : (nextEggs ? "Следующий сбор: +" + number(nextEggs) + " яиц · −" + number(nextEggs) + " зерна." : "Зерна не хватает: без корма новые яйца не появятся.");
   const farmHarvest = el("next-harvest"), coopHarvest = el("coop-harvest");
