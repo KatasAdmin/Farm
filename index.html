@@ -12,9 +12,9 @@
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
-    <link rel="stylesheet" href="/assets/update29.css?v=29" />
+    <link rel="stylesheet" href="/assets/update29.css?v=30" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=29" defer></script>
+    <script src="/assets/game.js?v=30" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -596,6 +596,16 @@
           </div>
           <p class="muted">1 монета = 1 грн. Пополнение пока не подключено. Заявки на вывод от 100 монет принимаются только на ручную проверку; реальные выплаты пока отключены.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p>
         </div>
+        <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
+          <h2 class="cardtitle">🎁 Бонусный код</h2>
+          <p class="muted">Есть бонусный код? Введи его здесь и получи награду на баланс. Каждый код можно использовать только один раз.</p>
+          <label for="promo-code-input">Бонусный код</label>
+          <div class="promo-wallet-controls">
+            <input id="promo-code-input" type="text" placeholder="FARM-XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="64" required aria-label="Бонусный код">
+            <button class="btn" id="promo-redeem-button" type="submit">Активировать</button>
+          </div>
+          <p class="muted" id="promo-code-status" role="status" aria-live="polite"></p>
+        </form>
         <dialog id="withdrawal-dialog" class="recovery-dialog">
           <h2>Заявка на вывод</h2>
           <p>Минимум 100 монет. Нужна привязка Telegram в профиле. Заявку проверит администрация. Отправка не означает одобрение или перечисление денег: выплаты пока не подключены.</p>
