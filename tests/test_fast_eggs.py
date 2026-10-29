@@ -22,7 +22,7 @@ def player(**overrides):
 
 class ProductionTests(unittest.TestCase):
     def test_prices_and_cycle(self):
-        self.assertEqual((CYCLE, HEN_PRICE, GRAIN_PRICE, EGG_PRICE), (7200, 40, 2, 1))
+        self.assertEqual((CYCLE, HEN_PRICE, GRAIN_PRICE, EGG_PRICE), (21600, 40, 2, 1))
 
     def test_first_egg_after_two_hours(self):
         p = advance(Database(), player(), CYCLE)
