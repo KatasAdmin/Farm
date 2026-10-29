@@ -164,6 +164,11 @@ async function saveProfile() {
     if (ok) {el("profile-editor").hidden = true;el("profile-image-file").value = "";}
   } catch(error) {toast(error.message);}
 }
+async function shopIncubatorAction() {
+  if (!state || pending) return;
+  if (state.incubator?.owned) return tab("upgrades");
+  await perform("/api/incubator",{item:"buy"});
+}
 async function incubatorAction() {
   if (!state || pending) return;
   const i = state.incubator || {};
@@ -477,12 +482,17 @@ function render() {
     button.disabled = price == null || price > p.coins || pending;
     button.textContent = price == null ? "Максимальный уровень" : "Улучшить · "+number(price)+" монет";
   }
+  const shopIncubator = el("incubator-shop-button");
+  if (shopIncubator) {
+    shopIncubator.textContent = inc.owned ? "Открыть инкубатор" : "Купить · 120";
+    shopIncubator.disabled = !inc.owned && p.coins < 120;
+  }
   const last = state.last_farm_event;
-  if (last && last.kind === "eggs_produced") {
+  if (last && (last.kind === "eggs_produced" || last.kind === "chick_matured")) {
     const seenKey = "farm_seen_event_" + p.id;
     if (localStorage.getItem(seenKey) !== last.id) {
       localStorage.setItem(seenKey, last.id);
-      toast("🥚 Кури снесли " + number(last.amount) + " яиц! Они уже на складе.");
+      toast(last.kind === "chick_matured" ? "🐣 Цыплёнок вырос! +1 курица." : "🥚 Куры снесли " + number(last.amount) + " яиц! Они уже на складе.");
     }
   }
   const progression = state.progression || {};
