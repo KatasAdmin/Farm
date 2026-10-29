@@ -202,3 +202,56 @@ dialog,.dialog-card{background:linear-gradient(#0c65bd,#031d51);border:1px solid
   .coin-balance{padding-inline:3px}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}
+
+/* Sapphire art edition: independent high-resolution scenes and clean sprites. */
+:root { font-family:"Farm Condensed",system-ui,sans-serif; }
+.shell { background:radial-gradient(ellipse at 50% 0,#1289ee55,transparent 60%),linear-gradient(#0757ac,#05367e 45%,#041c4b); }
+.panelhead h1 { font-size:28px;letter-spacing:.2px;text-shadow:0 2px #012a67,0 0 15px #54caff70; }
+.scene-banner,#coop .coop-hero,.wallet-landscape,.profile-landscape { position:relative; height:200px; margin:0 -9px; overflow:hidden; border-block:1px solid #72cfff80; background:#105c9e; }
+.scene-image,.wallet-landscape img,.profile-landscape img { display:block;width:100%;height:100%;object-fit:cover; }
+.scene-banner:after,.coop-hero:after,.wallet-landscape:after,.profile-landscape:after { content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 65%,#063b83); }
+.scene-caption { bottom:15px;left:18px; }
+.scene-caption h2 { font-size:26px;text-shadow:0 2px 5px #002354; }
+.card,.shop-catalog,.market-info,.menu-row,.economy-card,.moneyhero,.payback,.bundle { border:1px solid #38b6ff; background:linear-gradient(145deg,#1265b8,#07448e 48%,#062b67);box-shadow:inset 0 1px #c7f4ff66,inset 0 -2px #001e5c88,0 5px 12px #00184566; }
+.cardtitle { color:#fff; }
+.menu-row { min-height:61px;border-radius:13px; }
+.menu-row > b { color:#99e3ff; }
+.statsrow { border-color:#5fbaff30; }
+.payback { margin-top:8px;border-color:#eec85c;background:linear-gradient(110deg,#135aab,#083777);border-radius:13px; }
+.payback strong { color:#ffdf68;text-shadow:0 2px #633c15; }
+.calendar { background:linear-gradient(#fff0a4,#e4aa35);border-color:#ffec88;color:#6b420a; }
+.bundle { border-color:#f2cd65;background:radial-gradient(ellipse at top right,#2c86bc,#0a4e9c 45%,#062b68); }
+.bundle h2,.gold { color:#ffe68a; }
+.product { border-color:#62c9ff30; }
+.product > .icon { width:62px;height:62px; }
+.product h3 { font-size:19px; }
+.gold-button { background:linear-gradient(#fff2aa,#ffd64c 45%,#e7a621);color:#583809;border-color:#fff1a0;box-shadow:inset 0 2px #fff9,0 3px #976014; }
+.auto-toggle { background:#103775;border-color:#63baff; }
+.moneyhero { position:relative;margin-top:-18px;z-index:1;padding-top:18px;border-color:#80d7ff;background:linear-gradient(145deg,#126dc7f5,#052a6cf5); }
+.money-balance strong { font-size:48px;color:#fff5bd;text-shadow:0 2px #8b601d,0 0 18px #ffc94850; }
+.money-balance > .icon { width:66px;height:66px; }
+.treasure-panel { background:linear-gradient(#0954a1,#052959);border-color:#eac363; }
+.treasure-panel h2 { color:#fff0a5;font-size:23px; }
+.treasure-panel p { font-size:15px;color:#dcefff; }
+.profile-landscape { height:174px; }
+.profile-card { position:relative;margin-top:-29px;padding-top:12px;border-color:#7fdaff;background:linear-gradient(#0b62b9ee,#073575); }
+.profile-avatar { width:100px;height:100px;border-radius:50%;border:3px solid #ffdf79;background:linear-gradient(#85e2ff,#1672bb);box-shadow:0 0 0 4px #06418b,0 5px 18px #00194199; }
+.profile-card h2 { font-size:27px;overflow-wrap:anywhere; }
+.feature-note { color:#cee8ff;font-size:11px;line-height:1.4;padding:7px 5px; }
+.identity-line { background:linear-gradient(#55a4dc,#2260a5);box-shadow:inset 0 1px 2px #002b60; }
+.nav-art { overflow:visible; }
+.nav-art img,.quick .nav-art img { position:static;width:100%;height:100%;object-fit:contain; }
+.nav-button .nav-art { width:33px;height:31px; }
+button { transition:transform .14s,filter .14s,box-shadow .14s; }
+button:active:not(:disabled) { transform:translateY(2px) scale(.98);filter:brightness(1.12); }
+.panel.active { animation:screen-in .22s ease-out; }
+@keyframes screen-in { from { opacity:.35;transform:translateY(5px); } to { opacity:1;transform:translateY(0); } }
+@media(max-width:359px) { .scene-banner,#coop .coop-hero,.wallet-landscape { height:177px;margin-inline:-6px; } .profile-landscape {margin-inline:-6px;height:155px} .product > .icon {width:48px;height:48px} .product h3 {font-size:17px} }
+@media(prefers-reduced-motion:reduce) { .panel.active {animation:none} html {scroll-behavior:auto} }
+/* Preserve the complete painted scene at every mobile width. */
+.scene-banner,#coop .coop-hero,.wallet-landscape,.profile-landscape {height:auto;aspect-ratio:3/2;}
+.scene-banner .scene-image,.coop-hero .scene-image,.wallet-landscape img,.profile-landscape img {position:absolute;inset:0;object-fit:contain;}
+.profile-card .resource {background:linear-gradient(145deg,#127ac9,#064b99 55%,#06326a);border-color:#5ecfff;}
+.bundle-inner {background:linear-gradient(120deg,#175eac,#073776);}
+.bundle-chest {display:block;width:110px;height:110px;right:20px;bottom:10px;object-fit:contain;opacity:1;}
+.bundle-hen {display:none;}

@@ -12,7 +12,9 @@ BASE_URL = 'http://127.0.0.1:8085'
 def main():
     paths = sorted('/' + p.relative_to(ROOT).as_posix()
                    for p in (ROOT / 'assets').rglob('*') if p.suffix in {'.png', '.webp'})
-    assert len(paths) == 158, f'Expected all 79 PNG/WebP pairs, found {len(paths)}'
+    assert len(paths) >= 158, f'Original asset pack is incomplete: {len(paths)}'
+    for name in ('coop', 'market', 'shop', 'wallet', 'profile'):
+        assert '/assets/redesign/' + name + '.webp' in paths
     with httpx.Client(base_url=BASE_URL) as client:
         for path in paths:
             response = client.get(path)
