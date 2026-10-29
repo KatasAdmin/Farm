@@ -701,7 +701,8 @@ function countdown() {
   const seconds = Math.max(0,state.farm.seconds_to_next - elapsed);
   document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = formatDuration(seconds));
   // Reconcile completed timers with the server; the browser never grants resources.
-  const expired = seconds <= 0 || (remaining != null && remaining <= 0 && !(inc.chick_ready_at != null && full));
+  const completedJobs = jobs.some(j => now >= j.mature_at) && !full;
+  const expired = seconds <= 0 || completedJobs;
   if (expired && !pending && !refreshPromise && elapsed >= 2 && document.visibilityState === "visible") refresh();
   if (el("purchase-dialog").open) purchaseQuote();
 }
