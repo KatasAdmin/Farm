@@ -614,8 +614,11 @@ async function cancelWithdrawalRequest(){
 function openWithdrawalRequest() {
   if(!state)return toast("Сначала войдите в игру");
   if(!state.me.telegram_id){
-    toast("Для заявки на вывод привяжите Telegram в настройках профиля");
-    return tab("profile");
+    tab("profile");
+    const settings=document.querySelector("#profile details.profile-settings");
+    if(settings){settings.open=true;setTimeout(()=>settings.scrollIntoView({behavior:"smooth",block:"start"}),100);}
+    toast("Откройте настройки ниже: там показано, как привязать Telegram. Реальные выплаты пока отключены.");
+    return;
   }
   if(state.me.coins<100)return toast("Для заявки нужно минимум 100 монет");
   el("withdrawal-amount").value=100;
@@ -645,6 +648,7 @@ function render() {
   if(el("set-password-button"))el("set-password-button").textContent=hasPassword?"Изменить пароль":"Установить пароль";
   if(el("link-telegram-button"))el("link-telegram-button").hidden=isLinked||!Boolean(tgInitData());
   if(el("telegram-link-help"))el("telegram-link-help").hidden=isLinked;
+  if(el("telegram-browser-warning"))el("telegram-browser-warning").hidden=isLinked||Boolean(tgInitData());
   if(el("nickname-settings"))el("nickname-settings").hidden=!p.name.startsWith("tg_");
 
   const farmDailyStats=state.day_stats||{};
