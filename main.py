@@ -57,12 +57,17 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS telegram_processed_updates(update_id bigint PRIMARY KEY,received_at double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS telegram_processed_messages(chat_id bigint NOT NULL,message_id bigint NOT NULL,received_at double precision NOT NULL,PRIMARY KEY(chat_id,message_id))")
   c.execute("CREATE TABLE IF NOT EXISTS star_orders(id text PRIMARY KEY,player_id text NOT NULL,telegram_id bigint NOT NULL,coins integer NOT NULL CHECK(coins>0),stars integer NOT NULL CHECK(stars>0),status text NOT NULL DEFAULT 'created',created double precision NOT NULL,charge_id text UNIQUE)")
+  c.execute("CREATE TABLE IF NOT EXISTS farm_launch_resets(run_id text PRIMARY KEY,reset_at timestamptz NOT NULL DEFAULT now(),prior_player_count integer NOT NULL,preserved_payment_count integer NOT NULL)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS purchased_coins bigint NOT NULL DEFAULT 0")
   c.execute("CREATE INDEX IF NOT EXISTS star_orders_player ON star_orders(player_id,created)")
   c.execute("CREATE TABLE IF NOT EXISTS farm_admin_identity(slot integer PRIMARY KEY CHECK(slot=1),telegram_id bigint NOT NULL UNIQUE,claimed_at double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS telegram_link_codes(code_hash text PRIMARY KEY, player_id text NOT NULL, expires double precision NOT NULL)")
   c.execute("CREATE INDEX IF NOT EXISTS telegram_link_player ON telegram_link_codes(player_id)")
   c.execute("CREATE TABLE IF NOT EXISTS login_failures(name text PRIMARY KEY,attempts int NOT NULL DEFAULT 0,locked_until double precision NOT NULL DEFAULT 0)")
+  c.execute("CREATE TABLE IF NOT EXISTS support_tickets(id text PRIMARY KEY,telegram_id bigint NOT NULL,nickname text NOT NULL,message text NOT NULL,status text NOT NULL DEFAULT 'open',created double precision NOT NULL,answered_at double precision)")
+  c.execute("CREATE INDEX IF NOT EXISTS support_tickets_sender ON support_tickets(telegram_id,created)")
+  c.execute("CREATE TABLE IF NOT EXISTS registration_limits(slot text PRIMARY KEY,count integer NOT NULL,updated double precision NOT NULL)")
+
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS tutorial_rewarded boolean NOT NULL DEFAULT false")
   c.execute("CREATE TABLE IF NOT EXISTS incubation_jobs(id text PRIMARY KEY,player_id text NOT NULL,started double precision NOT NULL,hatch_at double precision NOT NULL,mature_at double precision NOT NULL)")
   c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) SELECT 'legacy-'||id,id,COALESCE(incubation_started,chick_ready_at-86400),COALESCE(incubation_started+43200,chick_ready_at-43200),COALESCE(chick_ready_at,incubation_started+86400) FROM players WHERE incubation_started IS NOT NULL OR chick_ready_at IS NOT NULL ON CONFLICT(id) DO NOTHING")
@@ -85,9 +90,21 @@ async def lifespan(app):
    WHERE p.xp_legacy_eggs IS NULL""")
   c.execute("CREATE TABLE IF NOT EXISTS farm_events(id text primary key,player_id text NOT NULL,kind text NOT NULL,amount int NOT NULL,created double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS daily_claims(player_id text NOT NULL,day text NOT NULL,claim text NOT NULL,amount int NOT NULL,PRIMARY KEY(player_id,day,claim))")
+  c.execute("CREATE TABLE IF NOT EXISTS weekly_claims(player_id text NOT NULL,week text NOT NULL,claimed_at double precision NOT NULL,amount integer NOT NULL,PRIMARY KEY(player_id,week))")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS referral_organic_eggs bigint NOT NULL DEFAULT 0")
+  c.execute("CREATE TABLE IF NOT EXISTS referral_codes(player_id text PRIMARY KEY,code text NOT NULL UNIQUE)")
+  c.execute("CREATE TABLE IF NOT EXISTS referrals(child_id text PRIMARY KEY,parent_id text NOT NULL,created double precision NOT NULL,qualified boolean NOT NULL DEFAULT false)")
+  c.execute("CREATE INDEX IF NOT EXISTS referrals_parent_idx ON referrals(parent_id)")
+  c.execute("CREATE TABLE IF NOT EXISTS referral_rewards(player_id text PRIMARY KEY,earned_units bigint NOT NULL DEFAULT 0,claimed_eggs bigint NOT NULL DEFAULT 0)")
+  c.execute("ALTER TABLE referral_rewards ADD COLUMN IF NOT EXISTS earned_grain_units bigint NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE referral_rewards ADD COLUMN IF NOT EXISTS claimed_grain bigint NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE referral_rewards ADD COLUMN IF NOT EXISTS earned_chickens_units bigint NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE referral_rewards ADD COLUMN IF NOT EXISTS claimed_chickens bigint NOT NULL DEFAULT 0")
+
+
   c.execute("CREATE TABLE IF NOT EXISTS player_achievements(player_id text NOT NULL,achievement text NOT NULL,unlocked_at double precision NOT NULL,PRIMARY KEY(player_id,achievement))")
   c.execute("CREATE TABLE IF NOT EXISTS promo_codes(code_hash text PRIMARY KEY,amount integer NOT NULL CHECK(amount>0),redeemed_by text,redeemed_at double precision)")
-  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("1cd3835191d5f622563ac4dbb45c7a568a16b6d5cd471eb21f76e98479126598",))
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("2fd7af1234b12ab6eea8f3317fedea22d7d579ec4ca6a88ec021c6a985374ca8",))
   c.execute("CREATE TABLE IF NOT EXISTS reward_emission(id int PRIMARY KEY,total_minted bigint NOT NULL DEFAULT 0)")
   c.execute("INSERT INTO reward_emission(id,total_minted) VALUES(1,0) ON CONFLICT(id) DO NOTHING")
   c.execute("UPDATE players SET last_tick=%s WHERE last_tick IS NULL",(time.time(),))
@@ -130,6 +147,7 @@ class Request(BaseModel):
  password:str=""
  current_password:str=""
  telegram_data:str=""
+ referral:str=""
 def password_hash(password):
  if not 8<=len(password)<=128:raise HTTPException(400,"Пароль должен содержать от 8 до 128 символов")
  salt=secrets.token_bytes(16)
@@ -189,6 +207,8 @@ def person(c,h,lock=False):
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
 HEN_PRICE=40
+SYSTEM_GRAIN_BUYBACK=1
+SYSTEM_HEN_BUYBACK=20
 EGG_PRICE=1
 MAX_BUILDING_LEVEL=10
 PROMO_SECONDS=3*86400
@@ -212,6 +232,7 @@ def update_incubation(c,p,now):
   for row in jobs[:matured]:c.execute("DELETE FROM incubation_jobs WHERE id=%s",(row["id"],))
   c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(matured,matured,p["id"]))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"chick_matured",matured,now))
+  award_referral_resource(c,p,"chickens",matured)
   p={**p,"chickens":p["chickens"]+matured,"fed_hens":p["fed_hens"]+matured}
  return p
 def upgrade_production(c,p,now):
@@ -219,6 +240,98 @@ def upgrade_production(c,p,now):
  old_progress=min(.999999, max(0,(now-p["last_tick"])/CYCLE)*min(p["fed_hens"],p["chickens"]))
  c.execute("UPDATE players SET production_model=4,egg_at=%s,egg_progress=%s WHERE id=%s",(now,old_progress,p["id"]))
  return {**p,"production_model":4,"egg_at":now,"egg_progress":old_progress}
+
+# Rewards are exact 1/10000ths of eggs from actual chicken production.
+REFERRAL_RATES=(1000,500,300,200,100,50,25)
+def referral_units(produced,level):return max(0,int(produced))*REFERRAL_RATES[level]
+
+def register_referral(c,child_id,code,now):
+ if not isinstance(code,str) or len(code)!=16 or any(ch not in "0123456789abcdef" for ch in code):return False
+ parent=c.execute("SELECT player_id FROM referral_codes WHERE code=%s",(code,)).fetchone()
+ if not parent or parent["player_id"]==child_id:return False
+ c.execute("INSERT INTO referrals(child_id,parent_id,created) VALUES(%s,%s,%s) ON CONFLICT(child_id) DO NOTHING",(child_id,parent["player_id"],now))
+ return True
+
+def award_referral_resource(c,child,item,amount):
+ """Exact fractional bonuses from legitimate own resource acquisition only.
+ Never invoked for awarded referral resources or coins.
+ """
+ if item not in ("grain","eggs","chickens") or amount<=0 or not child.get("telegram_id"):return
+ field={"eggs":"earned_units","grain":"earned_grain_units","chickens":"earned_chickens_units"}[item]
+ ancestor=child["id"]
+ for rate in REFERRAL_RATES:
+  row=c.execute("SELECT parent_id FROM referrals WHERE child_id=%s",(ancestor,)).fetchone()
+  if not row:break
+  c.execute("INSERT INTO referral_rewards(player_id,"+field+") VALUES(%s,%s) ON CONFLICT(player_id) DO UPDATE SET "+field+"=referral_rewards."+field+"+EXCLUDED."+field,(row["parent_id"],int(amount)*rate))
+  ancestor=row["parent_id"]
+
+def award_referrals(c,child,produced,now):
+ # Only verified Telegram farms earn commission; anonymous web accounts cannot farm referrals.
+ if produced<=0 or not child.get("telegram_id"):return
+ c.execute("UPDATE players SET referral_organic_eggs=referral_organic_eggs+%s WHERE id=%s",(produced,child["id"]))
+ award_referral_resource(c,child,"eggs",produced)
+ ancestor=child["id"]
+ for level,rate in enumerate(REFERRAL_RATES):
+  link=c.execute("SELECT parent_id FROM referrals WHERE child_id=%s",(ancestor,)).fetchone()
+  if not link:break
+  parent_id=link["parent_id"]
+  if level==0 and now-child["created_at"]>=86400 and child.get("telegram_id"):
+   qualified=c.execute("""UPDATE referrals SET qualified=true WHERE child_id=%s AND qualified=false
+      AND (SELECT referral_organic_eggs FROM players WHERE id=%s)>=6 RETURNING parent_id""",(child["id"],child["id"])).fetchone()
+   if qualified:
+    c.execute("UPDATE players SET coins=coins+5 WHERE id=%s",(parent_id,))
+    c.execute("INSERT INTO money_log(id,player_id,kind,delta,details,created) VALUES(%s,%s,'referral_bonus',5,%s,%s)",(uuid.uuid4().hex,parent_id,"Друг начал играть",now))
+    c.execute("UPDATE reward_emission SET total_minted=total_minted+5 WHERE id=1")
+  ancestor=parent_id
+
+@app.get("/api/referrals")
+def referral_info(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization)
+  code=c.execute("SELECT code FROM referral_codes WHERE player_id=%s",(p["id"],)).fetchone()
+  if not code:
+   c.execute("INSERT INTO referral_codes(player_id,code) VALUES(%s,%s) ON CONFLICT(player_id) DO NOTHING",(p["id"],secrets.token_hex(8)))
+   code=c.execute("SELECT code FROM referral_codes WHERE player_id=%s",(p["id"],)).fetchone()
+  counts=c.execute("""WITH RECURSIVE network(child_id,level,path) AS
+      (SELECT child_id,1,ARRAY[child_id] FROM referrals WHERE parent_id=%s
+       UNION ALL SELECT r.child_id,n.level+1,n.path||r.child_id
+       FROM referrals r JOIN network n ON r.parent_id=n.child_id
+       WHERE n.level<7 AND NOT r.child_id=ANY(n.path))
+      SELECT level,COUNT(*)::int AS n FROM network GROUP BY level""",(p["id"],)).fetchall()
+  earned=c.execute("SELECT * FROM referral_rewards WHERE player_id=%s",(p["id"],)).fetchone() or {"earned_units":0,"claimed_eggs":0,"earned_grain_units":0,"claimed_grain":0,"earned_chickens_units":0,"claimed_chickens":0}
+  qualified=c.execute("SELECT COUNT(*)::int AS n FROM referrals WHERE parent_id=%s AND qualified=true",(p["id"],)).fetchone()["n"]
+ return {"code":code["code"],"rates":list(REFERRAL_RATES),"counts":{str(x["level"]):x["n"] for x in counts},
+    "qualified_direct":qualified,"available_eggs":max(0,earned["earned_units"]//10000-earned["claimed_eggs"]),
+    "fraction_units":earned["earned_units"]%10000,"total_eggs":earned["earned_units"]//10000,
+    "resources":{
+      "eggs":{"available":max(0,earned["earned_units"]//10000-earned["claimed_eggs"]),"fraction":earned["earned_units"]%10000,"total":earned["earned_units"]//10000},
+      "grain":{"available":max(0,earned["earned_grain_units"]//10000-earned["claimed_grain"]),"fraction":earned["earned_grain_units"]%10000,"total":earned["earned_grain_units"]//10000},
+      "chickens":{"available":max(0,earned["earned_chickens_units"]//10000-earned["claimed_chickens"]),"fraction":earned["earned_chickens_units"]%10000,"total":earned["earned_chickens_units"]//10000}
+    }}
+
+@app.post("/api/referrals/claim")
+def referral_claim(q:Request,authorization:str=Header(default="")):
+ item=q.item or "eggs"
+ if item not in ("eggs","grain","chickens"):raise HTTPException(400,"Неизвестный бонусный ресурс")
+ fields={"eggs":("earned_units","claimed_eggs"),"grain":("earned_grain_units","claimed_grain"),"chickens":("earned_chickens_units","claimed_chickens")}
+ earned_field,claimed_field=fields[item]
+ with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  p=person(c,authorization,True)
+  reward=c.execute("SELECT * FROM referral_rewards WHERE player_id=%s FOR UPDATE",(p["id"],)).fetchone()
+  if not reward:raise HTTPException(409,"Пока нет заработанных ресурсов")
+  available=max(0,reward[earned_field]//10000-reward[claimed_field])
+  if not available:raise HTTPException(409,"Целых бонусных ресурсов пока нет")
+  free=max(0,coop_limit(p)-p["chickens"]) if item=="chickens" else max(0,storage_limit(p)-p["grain"]-p["eggs"])
+  quantity=min(available,free)
+  if not quantity:raise HTTPException(409,"Освободи место на складе или в курятнике")
+  c.execute("UPDATE referral_rewards SET "+claimed_field+"="+claimed_field+"+%s WHERE player_id=%s",(quantity,p["id"]))
+  if item=="chickens":
+   c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(quantity,quantity,p["id"]))
+  else:
+   c.execute("UPDATE players SET "+item+"="+item+"+%s WHERE id=%s",(quantity,p["id"]))
+  c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"referral_"+item,quantity,time.time()))
+ return {"ok":True,"item":item,"amount":quantity,"eggs":quantity if item=="eggs" else 0}
 
 def advance(c,p,now=None):
  """Process 6h egg ticks and 18h feeding ticks server-side without retroactive production."""
@@ -232,6 +345,7 @@ def advance(c,p,now=None):
    day=time.strftime("%Y-%m-%d",time.gmtime(now))
    c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,produced))
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
+   award_referrals(c,p,produced,now)
   keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress")
   c.execute("UPDATE players SET "+",".join(k+"=%s" for k in keys)+" WHERE id=%s",tuple(result[k] for k in keys)+(p["id"],))
   return update_incubation(c,result,now)
@@ -246,12 +360,20 @@ def advance(c,p,now=None):
   day=time.strftime("%Y-%m-%d",time.gmtime(now))
   c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,produced))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
+  award_referrals(c,p,produced,now)
  c.execute("UPDATE players SET coins=%s,grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,fed_hens=%s,feed_phase=%s,last_tick=%s WHERE id=%s",tuple(result[k] for k in ("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick"))+(p["id"],))
  return upgrade_production(c,update_incubation(c,result,now),now)
 @app.get("/",response_class=HTMLResponse)
 def index():return open("index.html",encoding="utf8").read()
 @app.get("/health")
 def health():return {"ok":True}
+def limit_public_registration(c,now):
+ """Prevent rapid anonymous signup floods with transactional global time buckets."""
+ for slot,capacity in (("web:minute:"+str(int(now//60)),12),("web:day:"+str(int(now//86400)),300)):
+  row=c.execute("INSERT INTO registration_limits(slot,count,updated) VALUES(%s,1,%s) ON CONFLICT(slot) DO UPDATE SET count=registration_limits.count+1,updated=EXCLUDED.updated WHERE registration_limits.count<%s RETURNING count",(slot,now,capacity)).fetchone()
+  if row is None:raise HTTPException(429,"Слишком много регистраций. Попробуйте позже.")
+ c.execute("DELETE FROM registration_limits WHERE updated<%s",(now-3*86400,))
+
 @app.post("/api/join")
 def join(q:Request):
  name=q.name.strip()[:22]
@@ -263,11 +385,14 @@ def join(q:Request):
   with db() as c:
    # Serialize sign-ups to avoid duplicate nicknames differing only by case.
    c.execute("SELECT pg_advisory_xact_lock(1984532)")
+   limit_public_registration(c,time.time())
    if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s)",(name,)).fetchone():
     raise HTTPException(409,"Ник уже занят")
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
    if treasury<10:raise HTTPException(409,"Стартовый фонд исчерпан")
-   c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,gender,password_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,%s,3,1,0,0,0,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,stored))
+   pid=uuid.uuid4().hex
+   c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,gender,password_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,%s,3,1,0,0,0,0)",(pid,name,token,time.time(),time.time(),q.gender,stored))
+   if q.referral:register_referral(c,pid,q.referral,time.time())
    c.execute("UPDATE economy SET treasury=treasury-10 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-10,"Начальный баланс: "+name,time.time()))
  except psycopg.errors.UniqueViolation:raise HTTPException(409,"Ник уже занят")
@@ -375,7 +500,7 @@ def stars_orders(authorization:str=Header(default="")):
 
 def farm_admin_star_orders(chat_id):
  with db() as c:
-  orders=c.execute("SELECT o.id,o.coins,o.stars,o.status,p.name FROM star_orders o JOIN players p ON p.id=o.player_id ORDER BY o.created DESC LIMIT 10").fetchall()
+  orders=c.execute("SELECT o.id,o.coins,o.stars,o.status,COALESCE(p.name,'Архивный игрок') AS name FROM star_orders o LEFT JOIN players p ON p.id=o.player_id ORDER BY o.created DESC LIMIT 10").fetchall()
  lines=["⭐ Последние покупки Stars:"]
  for o in orders:
   lines.append(o["id"][:8]+" · "+o["name"]+" · "+str(o["coins"])+" 🪙 / "+str(o["stars"])+" ⭐ · "+o["status"])
@@ -391,7 +516,13 @@ def stars_refund_order(order_id,admin_id):
   if order["status"]=="refunded":return "Заказ уже возвращён."
   if order["status"]!="paid" or not order["charge_id"]:return "Заказ не оплачен."
   player=c.execute("SELECT coins,purchased_coins FROM players WHERE id=%s FOR UPDATE",(order["player_id"],)).fetchone()
-  if not player or player["coins"]<order["coins"] or player["purchased_coins"]<order["coins"]:
+  archived=False
+  if player is None:
+   reset=c.execute("SELECT EXTRACT(EPOCH FROM reset_at) AS ts FROM farm_launch_resets WHERE run_id=%s",("prelaunch-2026-10-30-final",)).fetchone()
+   archived=bool(reset and order["created"]<=reset["ts"])
+   if not archived:
+    return "Игрок не найден. Автовозврат заблокирован, требуется ручная проверка."
+  elif player["coins"]<order["coins"] or player["purchased_coins"]<order["coins"]:
    return "Автовозврат заблокирован: монеты уже потрачены или переданы. Нужна ручная проверка."
   # Hold the order/player row locks while contacting Telegram; reject concurrent purchases
   # and inventory changes until the result is recorded.
@@ -401,9 +532,10 @@ def stars_refund_order(order_id,admin_id):
    logger.exception("telegram_stars_refund_failed")
    return "Telegram не подтвердил возврат. Баланс игры не менялся; проверьте транзакцию."
   c.execute("UPDATE star_orders SET status='refunded' WHERE id=%s AND status='paid'",(order_id,))
-  c.execute("UPDATE players SET coins=coins-%s,purchased_coins=purchased_coins-%s WHERE id=%s",(order["coins"],order["coins"],order["player_id"]))
-  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,order["player_id"],"stars_refund",-order["coins"],"Возврат покупки — "+str(order["stars"])+" ⭐",time.time()))
- return "✅ Telegram подтвердил возврат "+str(order["stars"])+" ⭐; списано "+str(order["coins"])+" игровых монет."
+  if not archived:
+   c.execute("UPDATE players SET coins=coins-%s,purchased_coins=purchased_coins-%s WHERE id=%s",(order["coins"],order["coins"],order["player_id"]))
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,order["player_id"],"stars_refund",-order["coins"],"Возврат покупки — "+str(order["stars"])+" ⭐",time.time()))
+ return "✅ Возврат "+str(order["stars"])+" ⭐ подтверждён; архивный аккаунт ранее удалён." if archived else "✅ Telegram подтвердил возврат "+str(order["stars"])+" ⭐; списано "+str(order["coins"])+" игровых монет."
 
 def farm_admin_refund_prompt(chat_id,order_id):
  with db() as c:
@@ -499,15 +631,71 @@ def farm_admin_telegram(uid,chat_id):
   row=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
   return bool(row and str(row["telegram_id"])==str(uid))
 
+def support_admin_chat():
+ configured=os.environ.get("FARM_ADMIN_TELEGRAM_ID","").strip()
+ if configured.isdecimal():return int(configured)
+ with db() as c:
+  row=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
+ return row["telegram_id"] if row else None
+
+def create_support_ticket(uid,command):
+ if not isinstance(uid,int) or uid<=0:return "Открой поддержку в личном чате бота."
+ parts=command.split(maxsplit=2)
+ if len(parts)<3 or not 2<=len(parts[1])<=22 or len(parts[2].strip())<10:
+  return "Напиши: /support ТвойНик Опиши проблему (не менее 10 символов). Не отправляй пароли или коды."
+ name,details=parts[1],parts[2].strip()
+ if len(details)>700:return "Описание должно быть короче 700 символов."
+ now=time.time()
+ with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
+  limits=c.execute("SELECT COUNT(*)::int AS n,MAX(created) AS last FROM support_tickets WHERE telegram_id=%s AND created>%s",(uid,now-86400)).fetchone()
+  if limits["n"]>=4 or (limits["last"] and now-limits["last"]<900):
+   return "Обращение уже отправлено. Следующее — через 15 минут (не больше 4 за день)."
+  ticket=secrets.token_hex(6)
+  c.execute("INSERT INTO support_tickets(id,telegram_id,nickname,message,created) VALUES(%s,%s,%s,%s,%s)",(ticket,uid,name,details,now))
+ admin=support_admin_chat()
+ if admin:
+  try:
+   telegram_api("sendMessage",{"chat_id":admin,"text":"🆘 Обращение #"+ticket+"\nНик: "+name+"\nTG ID: "+str(uid)+"\n"+details+"\nОтвет: /reply "+ticket+" текст"})
+  except Exception:logger.exception("support_admin_notification_failed")
+ return "✅ Обращение #"+ticket+" принято. Администратор ответит здесь. Не сообщай пароль или коды подтверждения."
+
+def reply_support_ticket(command):
+ parts=command.split(maxsplit=2)
+ if len(parts)<3 or not 1<=len(parts[2].strip())<=1400:return "Используй: /reply НОМЕР текст ответа."
+ ticket=parts[1].lower()
+ if len(ticket)!=12 or any(ch not in "0123456789abcdef" for ch in ticket):return "Неверный номер обращения."
+ with db() as c:
+  row=c.execute("SELECT telegram_id FROM support_tickets WHERE id=%s",(ticket,)).fetchone()
+ if not row:return "Обращение не найдено."
+ try:
+  telegram_api("sendMessage",{"chat_id":row["telegram_id"],"text":"💬 Ответ поддержки по обращению #"+ticket+":\n"+parts[2].strip()})
+ except Exception:
+  logger.exception("support_reply_failed")
+  return "Не удалось доставить ответ. Попробуй ещё раз."
+ with db() as c:
+  c.execute("UPDATE support_tickets SET status='answered',answered_at=%s WHERE id=%s",(time.time(),ticket))
+ return "✅ Ответ отправлен по обращению #"+ticket
+
 def farm_admin_panel(chat_id):
  return {"method":"sendMessage","chat_id":chat_id,
          "text":"🛡 Админ-панель фермы\nВыберите раздел:",
          "reply_markup":{"inline_keyboard":[
+          [{"text":"🆘 Обращения игроков","callback_data":"adm:tickets"}],
           [{"text":"📋 Заявки на вывод","callback_data":"adm:requests"}],
           [{"text":"📊 Статистика","callback_data":"adm:stats"}],
           [{"text":"⭐ Баланс Stars","callback_data":"adm:stars"}],
           [{"text":"🧾 История оплат","callback_data":"adm:starorders"}],
           [{"text":"🔄 Обновить","callback_data":"adm:panel"}]]}}
+
+def farm_admin_support_tickets(chat_id):
+ with db() as c:
+  rows=c.execute("SELECT id,nickname,message,created FROM support_tickets WHERE status='open' ORDER BY created DESC LIMIT 8").fetchall()
+ if not rows:return {"method":"sendMessage","chat_id":chat_id,"text":"✅ Новых обращений нет."}
+ messages=["🆘 Последние обращения:"]
+ for x in rows:
+  messages.append("#"+x["id"]+" · "+x["nickname"]+"\n"+x["message"][:250]+"\nОтвет: /reply "+x["id"]+" текст")
+ return {"method":"sendMessage","chat_id":chat_id,"text":"\n\n".join(messages)[:3800]}
 
 def farm_admin_requests(chat_id):
  with db() as c:
@@ -543,6 +731,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   action=callback.get("data")
   if action=="adm:panel":return farm_admin_panel(chat.get("id"))
   if action=="adm:requests":return farm_admin_requests(chat.get("id"))
+  if action=="adm:tickets":return farm_admin_support_tickets(chat.get("id"))
   if action=="adm:stats":return farm_admin_stats(chat.get("id"))
   if action=="adm:stars":return bot_star_balance(chat.get("id"))
   if action=="adm:starorders":return farm_admin_star_orders(chat.get("id"))
@@ -567,15 +756,26 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
  chat=message.get("chat") or {}
  sender=message.get("from") or {}
  command=message.get("text") or ""
+ if isinstance(command,str) and command.strip():
+  normalized=command.strip().split(maxsplit=1)[0].split("@",1)[0]
+  if normalized=="/start" and command.strip().endswith("support"):
+   return {"method":"sendMessage","chat_id":chat.get("id"),"text":"🆘 Чтобы восстановить доступ, отправь: /support ТвойНик Опиши проблему. Не сообщай пароль или код Telegram."}
+  if normalized=="/support":
+   if str(chat.get("id"))!=str(sender.get("id")):return {"ok":True}
+   return {"method":"sendMessage","chat_id":chat.get("id"),"text":create_support_ticket(sender.get("id"),command.replace("@Farmlife2026bot","",1))}
+  if normalized=="/reply":
+   if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
+   return {"method":"sendMessage","chat_id":chat.get("id"),"text":reply_support_ticket(command.replace("@Farmlife2026bot","",1))}
  if isinstance(command,str) and command.split("@",1)[0].strip()=="/paysupport":
-  return {"method":"sendMessage","chat_id":chat.get("id"),"text":"Поддержка по оплатам: отправьте номер заказа, дату и описание проблемы владельцу бота. До запуска реальных платежей покупки отключены."}
+  return {"method":"sendMessage","chat_id":chat.get("id"),"text":"Поддержка по оплатам Stars: отправьте /support ВашНик Описание проблемы. Не сообщайте пароль и коды. Возвраты проверяются администрацией."}
  if isinstance(command,str) and command.split("@",1)[0].strip()=="/stars" and farm_admin_telegram(sender.get("id"),chat.get("id")):
   return bot_star_balance(chat.get("id"))
  if isinstance(command,str) and command.strip() in ("/start","/help"):
   return {"method":"sendMessage","chat_id":chat.get("id"),"text":"🐔 Ферма. Для привязки Telegram нажмите кнопку «Привязать Telegram» в профиле игры."}
- if isinstance(command,str) and command.split("@",1)[0].strip() in ("/admin","/requests","/zayavki"):
+ if isinstance(command,str) and command.split("@",1)[0].strip() in ("/admin","/requests","/zayavki","/tickets"):
   if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
   if command.startswith("/admin"):return farm_admin_panel(chat.get("id"))
+  if command.startswith("/tickets"):return farm_admin_support_tickets(chat.get("id"))
   return farm_admin_requests(chat.get("id"))
  if not (isinstance(command,str) and command.startswith("/start link_")):return {"ok":True}
  try:
@@ -614,6 +814,10 @@ def login_telegram(q:Request):
     name="tg_"+secrets.token_hex(6)
    pid=uuid.uuid4().hex
    c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,telegram_id,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,3,1,0,0,0,0)",(pid,name,secrets.token_hex(24),time.time(),time.time(),uid))
+   signed_param=dict(parse_qsl(q.telegram_data,keep_blank_values=True)).get("start_param","")
+   signed_code=signed_param[4:] if signed_param.startswith("ref_") else ""
+   # Signed Telegram start_param takes precedence over a client-provided code.
+   if signed_code or q.referral:register_referral(c,pid,signed_code or q.referral,time.time())
    c.execute("UPDATE economy SET treasury=treasury-10 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-10,"Начальный баланс: "+name,time.time()))
    p={"id":pid}
@@ -623,16 +827,22 @@ def login_telegram(q:Request):
 
 @app.post("/api/nickname/set")
 def set_nickname(q:Request,authorization:str=Header(default="")):
- name=q.name.strip()[:22]
- if len(name)<2:raise HTTPException(400,"Ник должен содержать от 2 до 22 символов")
+ name=q.name.strip()
+ if not 2<=len(name)<=22 or any(ord(ch)<32 or ord(ch)==127 for ch in name):
+  raise HTTPException(400,"Ник должен содержать от 2 до 22 символов без управляющих символов")
  with db() as c:
+  # Use the same lock as registration to prevent case-insensitive duplicate names.
   c.execute("SELECT pg_advisory_xact_lock(1984532)")
   p=person(c,authorization,True)
-  if not p["name"].startswith("tg_"):raise HTTPException(409,"Ник уже установлен")
+  if name==p["name"]:return {"ok":True,"name":name,"unchanged":True}
   if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s) AND id<>%s",(name,p["id"])).fetchone():
-   raise HTTPException(409,"Ник уже занят")
-  c.execute("UPDATE players SET name=%s WHERE id=%s",(name,p["id"]))
- return {"ok":True}
+   raise HTTPException(409,"Этот ник уже занят. Выбери другой.")
+  try:
+   c.execute("UPDATE players SET name=%s WHERE id=%s",(name,p["id"]))
+  except psycopg.errors.UniqueViolation:
+   raise HTTPException(409,"Этот ник уже занят. Выбери другой.")
+ return {"ok":True,"name":name}
+
 
 @app.get("/api/state")
 def state(authorization:str=Header(default="")):
@@ -657,6 +867,15 @@ def state(authorization:str=Header(default="")):
   day_stats={"eggs":activity["eggs_produced"],"grain_bought":activity["grain_bought"],"eggs_listed":activity["eggs_listed"],"sales_coins":cash["sales"],"feed_spent_coins":cash["feed_spent"],"feed_margin_coins":cash["sales"]-cash["feed_spent"]}
 
   claims=[x["claim"] for x in c.execute("SELECT claim FROM daily_claims WHERE player_id=%s AND day=%s",(p["id"],day)).fetchall()]
+  # Weekly reset is Monday 00:00 UTC; rewards are unique per player and week.
+  week_start=int((time.time()+3*86400)//604800)*604800-3*86400
+  if week_start>time.time():week_start-=604800
+  week=time.strftime("%Y-%m-%d",time.gmtime(week_start))
+  weekly_stats=c.execute("""SELECT COALESCE(SUM(grain_bought),0)::int AS grain,
+      COALESCE(SUM(eggs_produced),0)::int AS eggs,
+      COALESCE(SUM(eggs_listed),0)::int AS listed
+      FROM daily_activity WHERE player_id=%s AND day>=%s""",(p["id"],week)).fetchone()
+  weekly_claimed=bool(c.execute("SELECT 1 FROM weekly_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
   totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
   sold=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS amount FROM money_log WHERE player_id=%s AND kind='market_sale' AND details ~ '^eggs x[0-9]+$'",(p["id"],)).fetchone()["amount"]
@@ -695,7 +914,7 @@ def state(authorization:str=Header(default="")):
   prediction=forecast_v4(p,observed_at,jobs) if p.get('production_model',3)>=4 else forecast(p,observed_at,jobs)
   expected_eggs=min(p["fed_hens"],max(0,storage_limit(p)-p["grain"]-p["eggs"]))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
+  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"],"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -716,7 +935,32 @@ def shop(q:Request,authorization:str=Header(default="")):
    c.execute("INSERT INTO daily_activity(player_id,day,grain_bought) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET grain_bought=daily_activity.grain_bought+EXCLUDED.grain_bought",(p["id"],day,q.amount))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"shop",-cost,q.item+" x"+str(q.amount),time.time()))
+  award_referral_resource(c,p,q.item,q.amount)
  return {"ok":True}
+@app.post("/api/shop/sell")
+def sell_to_system(q:Request,authorization:str=Header(default="")):
+ check(q.amount)
+ if q.item not in ("grain","chickens"):
+  raise HTTPException(400,"Этот товар нельзя продать системе")
+ unit_price=SYSTEM_GRAIN_BUYBACK if q.item=="grain" else SYSTEM_HEN_BUYBACK
+ payout=q.amount*unit_price
+ with db() as c:
+  # Synchronize system buybacks with market operations and resource updates.
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  p=advance(c,person(c,authorization,True))
+  if p[q.item]<q.amount:raise HTTPException(400,"Недостаточно товара для продажи")
+  funds=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()
+  if not funds or funds["treasury"]<payout:
+   raise HTTPException(409,"В системе временно не хватает монет для выкупа")
+  if q.item=="chickens":
+   remaining=p["chickens"]-q.amount
+   c.execute("UPDATE players SET chickens=%s,fed_hens=LEAST(fed_hens,%s),coins=coins+%s WHERE id=%s",(remaining,remaining,payout,p["id"]))
+  else:
+   c.execute("UPDATE players SET grain=grain-%s,coins=coins+%s WHERE id=%s",(q.amount,payout,p["id"]))
+  c.execute("UPDATE economy SET treasury=treasury-%s WHERE id=1",(payout,))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"system_sale",payout,"Продажа системе: "+q.item+" x"+str(q.amount),time.time()))
+ return {"ok":True,"received":payout,"unit_price":unit_price}
+
 @app.post("/api/bundle")
 def buy_bundle(authorization:str=Header(default="")):
  now=time.time()
@@ -732,6 +976,8 @@ def buy_bundle(authorization:str=Header(default="")):
   c.execute("UPDATE players SET coins=coins-%s,chickens=%s,fed_hens=fed_hens+10,grain=grain+100,coop_level=%s,storage_level=%s,bundle_uses=bundle_uses+1 WHERE id=%s",(PROMO_PRICE,hens,coop,storage,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(PROMO_PRICE,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"bundle",-PROMO_PRICE,"Акция: 10 кур + 100 зерна (стоимость товаров 600)",now))
+  award_referral_resource(c,p,"chickens",10)
+  award_referral_resource(c,p,"grain",100)
  return {"ok":True,"spent":PROMO_PRICE}
 
 @app.post("/api/feed")
@@ -906,6 +1152,28 @@ def autobuy(q:Request,authorization:str=Header(default="")):
 
 # Small fixed daily grants. Minted rewards are recorded separately from the original 10,000-coin treasury.
 REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1}
+@app.post("/api/weekly/claim")
+def claim_weekly(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization,True)
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  now=time.time()
+  week_start=int((now+3*86400)//604800)*604800-3*86400
+  if week_start>now:week_start-=604800
+  week=time.strftime("%Y-%m-%d",time.gmtime(week_start))
+  total=c.execute("""SELECT COALESCE(SUM(grain_bought),0)::int AS grain,
+      COALESCE(SUM(eggs_produced),0)::int AS eggs,
+      COALESCE(SUM(eggs_listed),0)::int AS listed
+      FROM daily_activity WHERE player_id=%s AND day>=%s""",(p["id"],week)).fetchone()
+  if total["grain"]<10 or total["eggs"]<10 or total["listed"]<3:
+   raise HTTPException(409,"Сначала выполни все задания недели")
+  inserted=c.execute("INSERT INTO weekly_claims(player_id,week,claimed_at,amount) VALUES(%s,%s,%s,30) ON CONFLICT DO NOTHING RETURNING amount",(p["id"],week,now)).fetchone()
+  if not inserted:raise HTTPException(409,"Награда за эту неделю уже получена")
+  c.execute("UPDATE players SET coins=coins+30 WHERE id=%s",(p["id"],))
+  c.execute("UPDATE reward_emission SET total_minted=total_minted+30 WHERE id=1")
+  c.execute("INSERT INTO money_log(id,player_id,kind,delta,details,created) VALUES(%s,%s,%s,30,%s,%s)",(uuid.uuid4().hex,p["id"],"weekly_reward","Еженедельная награда",now))
+ return {"ok":True,"awarded":30}
+
 @app.post("/api/claim")
 def claim_reward(q:Request,authorization:str=Header(default="")):
  key=q.item

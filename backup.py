@@ -1,5 +1,5 @@
 """One-shot, read-only PostgreSQL backup to Railway S3 storage.
-Never restores or modifies the live DB. Exits nonzero if verification fails.
+Restores only into a disposable Unix-socket-only database for validation.\nNever restores or modifies the live DB. Exits nonzero if verification fails.
 """
 import datetime as dt
 import hashlib
@@ -8,6 +8,7 @@ import os
 import pathlib
 import subprocess
 import tempfile
+from validate_database import validate_archive
 
 import boto3
 from botocore.config import Config
@@ -60,6 +61,7 @@ def main():
         if sha256(downloaded)!=digest:
             raise RuntimeError("Downloaded backup SHA256 mismatch")
         check_archive(downloaded)
+        validate_archive(downloaded)
         log.info("BACKUP_OK key=%s size=%d sha256=%s",key,size,digest)
     # Keep a 30-day rolling history only after verified new backup.
     cutoff=now-dt.timedelta(days=30)
