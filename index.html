@@ -620,7 +620,8 @@
 <p class="muted">Введите количество монет. 1 монета = 2 ⭐. Например, 25 монет = 50 ⭐. Банковские карты пока не подключены.</p>
 <label for="topup-amount">Сколько монет хотите пополнить?</label>
 <input id="topup-amount" type="number" inputmode="numeric" min="1" max="5000" value="25">
-<button class="btn wide" onclick="submitTopup()">Получить счёт в Telegram</button>
+<p id="topup-total" class="muted" aria-live="polite">К оплате: 50 ⭐</p>
+<button class="btn wide" onclick="submitTopup()">Оплатить Stars</button>
 <button class="btn alt wide" onclick="document.getElementById('topup-dialog').close()">Отмена</button>
 </dialog>
 <dialog id="withdrawal-dialog" class="recovery-dialog">
