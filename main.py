@@ -375,7 +375,37 @@ def farm_admin_star_orders(chat_id):
  lines=["⭐ Последние покупки Stars:"]
  for o in orders:
   lines.append(o["id"][:8]+" · "+o["name"]+" · "+str(o["coins"])+" 🪙 / "+str(o["stars"])+" ⭐ · "+o["status"])
- return {"method":"sendMessage","chat_id":chat_id,"text":"\\n".join(lines) if orders else "Покупок ещё нет."}
+ keyboard=[[{"text":"↩️ Возврат "+o["id"][:8],"callback_data":"adm:refund:"+o["id"]}] for o in orders if o["status"]=="paid"]
+ return {"method":"sendMessage","chat_id":chat_id,"text":"\n".join(lines) if orders else "Покупок ещё нет.","reply_markup":{"inline_keyboard":keyboard} if orders and keyboard else None}
+
+def stars_refund_order(order_id,admin_id):
+ if not isinstance(order_id,str) or len(order_id)!=32 or any(ch not in "0123456789abcdef" for ch in order_id):
+  return "Неверный номер заказа."
+ with db() as c:
+  order=c.execute("SELECT * FROM star_orders WHERE id=%s FOR UPDATE",(order_id,)).fetchone()
+  if not order:return "Заказ не найден."
+  if order["status"]=="refunded":return "Заказ уже возвращён."
+  if order["status"]!="paid" or not order["charge_id"]:return "Заказ не оплачен."
+  player=c.execute("SELECT coins,purchased_coins FROM players WHERE id=%s FOR UPDATE",(order["player_id"],)).fetchone()
+  if not player or player["coins"]<order["coins"] or player["purchased_coins"]<order["coins"]:
+   return "Автовозврат заблокирован: монеты уже потрачены или переданы. Нужна ручная проверка."
+  # Hold the order/player row locks while contacting Telegram; reject concurrent purchases
+  # and inventory changes until the result is recorded.
+  try:
+   telegram_api("refundStarPayment",{"user_id":order["telegram_id"],"telegram_payment_charge_id":order["charge_id"]})
+  except Exception:
+   logger.exception("telegram_stars_refund_failed")
+   return "Telegram не подтвердил возврат. Баланс игры не менялся; проверьте транзакцию."
+  c.execute("UPDATE star_orders SET status='refunded' WHERE id=%s AND status='paid'",(order_id,))
+  c.execute("UPDATE players SET coins=coins-%s,purchased_coins=purchased_coins-%s WHERE id=%s",(order["coins"],order["coins"],order["player_id"]))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,order["player_id"],"stars_refund",-order["coins"],"Возврат "+str(order["stars"])+" Stars администратором "+str(admin_id),time.time()))
+ return "✅ Telegram подтвердил возврат "+str(order["stars"])+" ⭐; списано "+str(order["coins"])+" игровых монет."
+
+def farm_admin_refund_prompt(chat_id,order_id):
+ with db() as c:
+  order=c.execute("SELECT id,coins,stars,status FROM star_orders WHERE id=%s",(order_id,)).fetchone()
+ if not order:return {"method":"sendMessage","chat_id":chat_id,"text":"Заказ не найден"}
+ return {"method":"sendMessage","chat_id":chat_id,"text":"Возвратить "+str(order["stars"])+" ⭐ за "+str(order["coins"])+" монет? Статус: "+order["status"]+". Действие необратимо.","reply_markup":{"inline_keyboard":[[{"text":"Подтвердить возврат","callback_data":"adm:refundyes:"+order_id}],[{"text":"Отмена","callback_data":"adm:starorders"}]]}}
 
 def stars_payment_enabled():
  return os.environ.get("FARM_STARS_PAYMENTS_ENABLED","").lower() in ("1","true","yes")
@@ -383,7 +413,8 @@ def stars_payment_enabled():
 @app.post("/api/stars/invoice")
 def create_stars_invoice(q:Request,authorization:str=Header(default="")):
  if not stars_payment_enabled():raise HTTPException(503,"Пополнение пока не включено")
- if not 1<=q.amount<=5000:raise HTTPException(400,"Укажите от 1 до 5000 монет")
+ limit=min(5000,max(1,int(os.environ.get("FARM_STARS_MAX_COINS","5000"))))
+ if not 1<=q.amount<=limit:raise HTTPException(400,"Укажите от 1 до "+str(limit)+" монет")
  with db() as c:
   p=person(c,authorization,True)
   if not p["telegram_id"]:raise HTTPException(403,"Сначала привяжите Telegram")
@@ -511,6 +542,10 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   if action=="adm:stats":return farm_admin_stats(chat.get("id"))
   if action=="adm:stars":return bot_star_balance(chat.get("id"))
   if action=="adm:starorders":return farm_admin_star_orders(chat.get("id"))
+  if isinstance(action,str) and action.startswith("adm:refund:"):return farm_admin_refund_prompt(chat.get("id"),action[len("adm:refund:"):])
+  if isinstance(action,str) and action.startswith("adm:refundyes:"):
+   result=stars_refund_order(action[len("adm:refundyes:"):],sender.get("id"))
+   return {"method":"sendMessage","chat_id":chat.get("id"),"text":result}
   return {"ok":True}
  if payload.get("pre_checkout_query"):
   return stars_precheckout(payload["pre_checkout_query"])
