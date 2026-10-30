@@ -39,12 +39,12 @@ def main():
         config=Config(s3={"addressing_style":"virtual"},retries={"max_attempts":3,"mode":"standard"}))
     now=dt.datetime.now(dt.timezone.utc)
     key="postgres/daily/"+now.strftime("%Y/%m/%d/farm-%Y%m%dT%H%M%SZ.dump")
-    env=dict(os.environ,PGDATABASE=uri)
+    env=dict(os.environ)
     with tempfile.TemporaryDirectory(prefix="farm-db-backup-") as directory:
         path=pathlib.Path(directory)/"database.dump"
         log.info("Starting read-only pg_dump to local temporary file")
         subprocess.run(["pg_dump","--no-password","--format=custom","--compress=6",
-            "--file="+str(path)],env=env,check=True,timeout=600)
+            "--file="+str(path),"--dbname="+uri],env=env,check=True,timeout=600)
         tables=check_archive(path)
         size=path.stat().st_size
         digest=sha256(path)
