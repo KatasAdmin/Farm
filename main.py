@@ -241,7 +241,8 @@ def register_referral(c,child_id,code,now):
  return True
 
 def award_referrals(c,child,produced,now):
- if produced<=0:return
+ # Only verified Telegram farms earn commission; anonymous web accounts cannot farm referrals.
+ if produced<=0 or not child.get("telegram_id"):return
  c.execute("UPDATE players SET referral_organic_eggs=referral_organic_eggs+%s WHERE id=%s",(produced,child["id"]))
  ancestor=child["id"]
  for level,rate in enumerate(REFERRAL_RATES):
