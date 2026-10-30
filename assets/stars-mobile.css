@@ -126,3 +126,8 @@ html, body {max-width:100%;overflow-x:clip;}
 .weekly-tasks #weekly-claim {margin-top:16px;}
 .feed-reserve p {margin:0;line-height:1.4;}
 .feed-reserve strong {display:inline;font-size:inherit;margin-left:6px;}
+
+/* Keep the farm dashboard focused on the single useful feed estimate. */
+#farm .herd .health-line {display:none!important;}
+#farm .feed-reserve {padding:12px 13px;}
+#farm #warning[hidden],#wallet .economy-card[hidden],#wallet #withdrawal-status[hidden] {display:none!important;}
