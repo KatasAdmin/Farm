@@ -646,10 +646,17 @@ function openWithdrawalRequest() {
   el("withdrawal-amount").value=100;
   el("withdrawal-dialog").showModal();
 }
+function updateTopupTotal(){
+ const n=Number(el("topup-amount")?.value);
+ const total=el("topup-total");
+ if(total)total.textContent=Number.isInteger(n)&&n>=1&&n<=5000?"К оплате: "+(n*2).toLocaleString("ru-RU")+" ⭐":"Введите от 1 до 5000 монет";
+}
 async function openTopup(){
  const dialog=el("topup-dialog");
  if(dialog)dialog.showModal();
+ updateTopupTotal();
 }
+document.addEventListener("input",event=>{if(event.target?.id==="topup-amount")updateTopupTotal();});
 async function submitTopup(){
  if(pending)return;
  const n=Number(el("topup-amount")?.value);
