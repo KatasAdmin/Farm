@@ -52,6 +52,34 @@ class StarsSafety(unittest.TestCase):
   self.assertFalse(any("UPDATE players" in q for q,a in db.calls))
  def test_payment_is_disabled_by_default(self):
   with patch.dict(main.os.environ,{},clear=True):self.assertFalse(main.stars_payment_enabled())
+ def test_refund_rejects_spent_coins_without_calling_telegram(self):
+  order={**self.order(status="paid"),"charge_id":"charge-1"}
+  class RefundDB(DB):
+   def execute(self,sql,args=None):
+    if "SELECT coins,purchased_coins FROM players" in sql:
+     self.calls.append((sql,args))
+     return Cursor({"coins":0,"purchased_coins":25})
+    return super().execute(sql,args)
+  db=RefundDB(order)
+  with patch.object(main,"db",return_value=db),patch.object(main,"telegram_api") as api:
+   result=main.stars_refund_order("a"*32,77)
+  self.assertIn("заблокирован",result)
+  api.assert_not_called()
+  self.assertFalse(any("UPDATE players SET coins=coins-" in q for q,a in db.calls))
+ def test_refund_paid_order_calls_telegram_once_and_debits_coins(self):
+  order={**self.order(status="paid"),"charge_id":"charge-1"}
+  class RefundDB(DB):
+   def execute(self,sql,args=None):
+    if "SELECT coins,purchased_coins FROM players" in sql:
+     self.calls.append((sql,args))
+     return Cursor({"coins":25,"purchased_coins":25})
+    return super().execute(sql,args)
+  db=RefundDB(order)
+  with patch.object(main,"db",return_value=db),patch.object(main,"telegram_api",return_value=True) as api:
+   result=main.stars_refund_order("a"*32,77)
+  self.assertIn("подтвердил возврат",result)
+  api.assert_called_once_with("refundStarPayment",{"user_id":77,"telegram_payment_charge_id":"charge-1"})
+  self.assertEqual(sum("UPDATE players SET coins=coins-" in q for q,a in db.calls),1)
  def test_withdrawal_is_disabled(self):
   from fastapi import HTTPException
   with self.assertRaises(HTTPException) as ex:main.request_withdrawal(main.Request(amount=100))
