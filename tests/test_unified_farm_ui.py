@@ -32,7 +32,7 @@ class UnifiedFarmScreens(unittest.TestCase):
  def test_canonical_production_copy(self):
   self.assertIn("≈ 30 дней",self.page)
   self.assertIn("4 монеты/сутки",self.page)
-  self.assertIn("Каждая сытая курица несёт яйцо каждые 6 часов",self.page)
+  self.assertIn("Каждая сытая курица производит одно яйцо за 6 часов",self.page)
   self.assertNotIn("≈ 10 дней",self.page)
  def test_single_dom_ids(self):
   parser=CheckTags();parser.feed(self.page)

@@ -12,7 +12,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("const farmDailyStats=",fragment)
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
-  self.assertIn("/assets/game.js?v=47",html)
+  self.assertIn("/assets/game.js?v=48",html)
  def test_launch_help_and_placeholder_polish(self):
   root=Path(__file__).resolve().parents[1]
   html=(root/"index.html").read_text(encoding="utf-8")
@@ -22,7 +22,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('class="gems" hidden',html)
   self.assertIn('Задания недели',html)
   self.assertIn('id="weekly-claim"',html)
-  self.assertIn('/assets/stars-mobile.css?v=8',html)
+  self.assertIn('/assets/stars-mobile.css?v=9',html)
   self.assertIn('.gems[hidden] {display:none!important;}',css)
  def test_nickname_editor_enabled_for_every_farmer(self):
   root=Path(__file__).resolve().parents[1]
@@ -39,6 +39,22 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("function loadReferrals()",js)
   self.assertIn("/api/referrals/claim",js)
   self.assertIn("incomingReferralCode()",js)
+ def test_clickable_resources_and_symmetric_trading(self):
+  root=Path(__file__).resolve().parents[1]
+  html=(root/"index.html").read_text(encoding="utf-8")
+  js=(root/"assets"/"game.js").read_text(encoding="utf-8")
+  for resource in ("grain","chickens","eggs"):
+   self.assertIn("openResourceActions('"+resource+"')",html)
+  self.assertIn('id="system-sell-dialog"',html)
+  self.assertIn('id="egg-sale-form" hidden',html)
+  self.assertIn('onclick="openSystemSell(\'chickens\')"',html)
+  self.assertIn('onclick="openSystemSell(\'grain\')"',html)
+  self.assertIn('id="incubator-shop-button"',html)
+  self.assertIn("function confirmSystemSell()",js)
+  self.assertIn("Зерна хватит на",html)
+  self.assertIn("Следующее яйцо",html)
+  self.assertIn("Как рассчитывается прогноз?",html)
+  self.assertNotIn("Купить корм</button>",html)
  def test_entrypoints_and_app_present(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   for value in ['id="app"','id="login"','id="nav"','id="farm"']:
