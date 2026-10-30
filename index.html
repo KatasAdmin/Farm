@@ -13,9 +13,9 @@
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
-    <link rel="stylesheet" href="/assets/stars-mobile.css?v=3" />
+    <link rel="stylesheet" href="/assets/stars-mobile.css?v=4" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=42" defer></script>
+    <script src="/assets/game.js?v=43" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -604,7 +604,7 @@
               + Пополнить</button
             ><button class="btn blue" disabled title="Денежный вывод отключён">→ Вывод отключён</button>
           </div>
-          <p class="muted">Игровые монеты используются только внутри фермы и не имеют фиксированной денежной стоимости. Денежный вывод отключён. Пополнение Stars будет доступно после проверки платёжных настроек.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
+          <p class="muted">Игровые монеты используются только внутри фермы и не имеют фиксированной денежной стоимости. Денежный вывод отключён. Пополнение за Telegram Stars доступно в кошельке. Деньги из игры вывести нельзя.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
         </div>
         <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
           <h2 class="cardtitle">🎁 Бонусный код</h2>
@@ -620,8 +620,9 @@
 <h2>⭐ Пополнить монеты</h2>
 <p class="muted">Введите количество монет. 1 монета = 2 ⭐. Например, 25 монет = 50 ⭐. Банковские карты пока не подключены.</p>
 <label for="topup-amount">Сколько монет хотите пополнить?</label>
-<input id="topup-amount" type="number" inputmode="numeric" min="1" max="5000" value="25">
-<p id="topup-total" class="muted" aria-live="polite">К оплате: 50 ⭐</p>
+<input id="topup-amount" type="number" inputmode="numeric" min="1" max="1" value="1">
+<p id="topup-total" class="muted" aria-live="polite">К оплате: 2 ⭐</p>
+<p id="topup-limit" class="muted">Актуальный лимит загрузится при открытии.</p>
 <button class="btn wide" onclick="submitTopup()">Оплатить Stars</button>
 <button class="btn alt wide" onclick="document.getElementById('topup-dialog').close()">Отмена</button>
 </dialog>
@@ -677,7 +678,11 @@
           </p>
         </div>
         <p class="feature-note">Курс к реальной валюте не установлен.</p>
-        <div id="history-card" class="card" hidden>
+        <details class="card stars-orders-card" ontoggle="if(this.open)loadStarsOrders()">
+ <summary>⭐ История покупок Stars</summary>
+ <div id="stars-order-list"><p class="muted">Откройте раздел для просмотра истории.</p></div>
+ </details>
+ <div id="history-card" class="card" hidden>
           <h2 class="cardtitle">История операций</h2>
           <div id="history"></div>
           <button id="history-more" class="btn blue wide" onclick="loadOlderHistory()" hidden>Показать более ранние операции ↓</button>
