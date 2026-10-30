@@ -78,3 +78,16 @@ html body textarea {
 html body #topup-dialog #topup-amount {font-size:18px !important;}
 /* Prevent horizontal overflow that can mimic a zoomed interface. */
 html, body {max-width:100%;overflow-x:clip;}
+
+/* Wallet promo form must never force the page wider than the iPhone viewport. */
+#wallet,#wallet .promo-wallet-card,#wallet .promo-wallet-controls {box-sizing:border-box;max-width:100%;min-width:0;}
+#wallet .promo-wallet-card {overflow-wrap:anywhere;}
+#wallet .promo-wallet-controls input {width:100%;min-width:0;max-width:100%;font-size:16px!important;}
+#wallet .promo-wallet-controls button {min-width:0;max-width:100%;width:100%;font-size:16px;}
+@media(max-width:650px){
+ #wallet .promo-wallet-controls {display:grid;grid-template-columns:minmax(0,1fr);gap:12px;}
+ #wallet .promo-wallet-card {margin-left:8px;margin-right:8px;padding:16px 14px;}
+ #wallet .promo-wallet-controls input {display:block;box-sizing:border-box;letter-spacing:normal;}
+}
+#history-card[hidden],#history-more[hidden] {display:none!important;}
+#history-more {margin-top:14px;}
