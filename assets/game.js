@@ -1164,3 +1164,10 @@ document.addEventListener("DOMContentLoaded",async ()=>{
   }
   document.querySelectorAll(".telegram-entry").forEach(x=>x.hidden=!(init&&enabled));
 });
+
+function openBotWallet(){
+ const url="https://t.me/Farmlife2026bot?start=wallet";
+ const tg=window.Telegram?.WebApp;
+ if(tg?.openTelegramLink)tg.openTelegramLink(url);
+ else window.open(url,"_blank","noopener,noreferrer");
+}

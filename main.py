@@ -1,4 +1,5 @@
 import os,time,uuid,secrets,hashlib,hmac,json,logging,base64
+import task_bot
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.exceptions import InvalidSignature
 logger=logging.getLogger("farm.security")
@@ -111,6 +112,7 @@ async def lifespan(app):
   c.execute("UPDATE market SET price=1 WHERE item='eggs' AND price<>1")
   # Preserve resources and balances; reset only the clock on the new production schedule.
   c.execute("UPDATE players SET production_model=3,last_tick=%s WHERE production_model<3",(time.time(),))
+  task_bot.initialize(c)
  # Register this dedicated farm bot's webhook without blocking game startup on Telegram outages.
  try:
   token=os.environ.get("TELEGRAM_BOT_TOKEN","")
@@ -681,6 +683,7 @@ def farm_admin_panel(chat_id):
  return {"method":"sendMessage","chat_id":chat_id,
          "text":"🛡 Админ-панель фермы\nВыберите раздел:",
          "reply_markup":{"inline_keyboard":[
+          [{"text":"🚀 Управление заданиями и балансами","callback_data":"bot:admin"}],
           [{"text":"🆘 Обращения игроков","callback_data":"adm:tickets"}],
           [{"text":"📋 Заявки на вывод","callback_data":"adm:requests"}],
           [{"text":"📊 Статистика","callback_data":"adm:stats"}],
@@ -714,6 +717,8 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
  secret=telegram_webhook_secret()
  if not secret or not hmac.compare_digest(x_telegram_bot_api_secret_token,secret):
   raise HTTPException(403,"Unauthorized")
+ result=task_bot.handle(payload,db,telegram_api,farm_admin_telegram)
+ if result is not None:return result
  # Telegram may redeliver the same update; process ordinary messages/callbacks only once.
  # Payment events retain their own idempotency rules.
  if not payload.get("pre_checkout_query") and not (payload.get("message") or {}).get("successful_payment"):

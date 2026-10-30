@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <link rel="stylesheet" href="/assets/stars-mobile.css?v=12" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=52" defer></script>
+    <script src="/assets/game.js?v=53" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -564,9 +564,9 @@
               title="Пополнение через Telegram Stars"
             >
               + Пополнить</button
-            ><button class="btn blue" disabled title="Денежный вывод отключён">→ Вывод отключён</button>
+            ><button class="btn blue" onclick="openBotWallet()">→ В кабинет бота</button>
           </div>
-          <p class="muted">Пополнение: 1 монета = 2 ⭐ · вывод пока отключён.</p><p id="withdrawal-status" class="muted" aria-live="polite" hidden></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
+          <p class="muted">Покупка: 1 монета = 2 ⭐ · переводы с балансом бота: 1 монета = 1 грн. Выплаты — через кабинет бота.</p><p id="withdrawal-status" class="muted" aria-live="polite" hidden></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
         </div>
         <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
           <h2 class="cardtitle">🎁 Бонусный код</h2>
@@ -586,6 +586,7 @@
 <p id="topup-total" class="muted" aria-live="polite">К оплате: 2 ⭐</p>
 <p id="topup-limit" class="muted">Актуальный лимит загрузится при открытии.</p>
 <button class="btn wide" onclick="submitTopup()">Оплатить Stars</button>
+<button class="btn blue wide" onclick="openBotWallet()">Пополнить с баланса бота</button>
 <button class="btn alt wide" onclick="document.getElementById('topup-dialog').close()">Отмена</button>
 </dialog>
 <dialog id="withdrawal-dialog" class="recovery-dialog">
