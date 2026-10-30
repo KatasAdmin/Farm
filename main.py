@@ -87,6 +87,12 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS farm_events(id text primary key,player_id text NOT NULL,kind text NOT NULL,amount int NOT NULL,created double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS daily_claims(player_id text NOT NULL,day text NOT NULL,claim text NOT NULL,amount int NOT NULL,PRIMARY KEY(player_id,day,claim))")
   c.execute("CREATE TABLE IF NOT EXISTS weekly_claims(player_id text NOT NULL,week text NOT NULL,claimed_at double precision NOT NULL,amount integer NOT NULL,PRIMARY KEY(player_id,week))")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS referral_organic_eggs bigint NOT NULL DEFAULT 0")
+  c.execute("CREATE TABLE IF NOT EXISTS referral_codes(player_id text PRIMARY KEY,code text NOT NULL UNIQUE)")
+  c.execute("CREATE TABLE IF NOT EXISTS referrals(child_id text PRIMARY KEY,parent_id text NOT NULL,created double precision NOT NULL,qualified boolean NOT NULL DEFAULT false)")
+  c.execute("CREATE INDEX IF NOT EXISTS referrals_parent_idx ON referrals(parent_id)")
+  c.execute("CREATE TABLE IF NOT EXISTS referral_rewards(player_id text PRIMARY KEY,earned_units bigint NOT NULL DEFAULT 0,claimed_eggs bigint NOT NULL DEFAULT 0)")
+
   c.execute("CREATE TABLE IF NOT EXISTS player_achievements(player_id text NOT NULL,achievement text NOT NULL,unlocked_at double precision NOT NULL,PRIMARY KEY(player_id,achievement))")
   c.execute("CREATE TABLE IF NOT EXISTS promo_codes(code_hash text PRIMARY KEY,amount integer NOT NULL CHECK(amount>0),redeemed_by text,redeemed_at double precision)")
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("2fd7af1234b12ab6eea8f3317fedea22d7d579ec4ca6a88ec021c6a985374ca8",))
@@ -132,6 +138,7 @@ class Request(BaseModel):
  password:str=""
  current_password:str=""
  telegram_data:str=""
+ referral:str=""
 def password_hash(password):
  if not 8<=len(password)<=128:raise HTTPException(400,"Пароль должен содержать от 8 до 128 символов")
  salt=secrets.token_bytes(16)
@@ -222,6 +229,72 @@ def upgrade_production(c,p,now):
  c.execute("UPDATE players SET production_model=4,egg_at=%s,egg_progress=%s WHERE id=%s",(now,old_progress,p["id"]))
  return {**p,"production_model":4,"egg_at":now,"egg_progress":old_progress}
 
+# Rewards are exact 1/10000ths of eggs from actual chicken production.
+REFERRAL_RATES=(1000,500,300,200,100,50,25)
+def referral_units(produced,level):return max(0,int(produced))*REFERRAL_RATES[level]
+
+def register_referral(c,child_id,code,now):
+ if not isinstance(code,str) or len(code)!=16 or any(ch not in "0123456789abcdef" for ch in code):return False
+ parent=c.execute("SELECT player_id FROM referral_codes WHERE code=%s",(code,)).fetchone()
+ if not parent or parent["player_id"]==child_id:return False
+ c.execute("INSERT INTO referrals(child_id,parent_id,created) VALUES(%s,%s,%s) ON CONFLICT(child_id) DO NOTHING",(child_id,parent["player_id"],now))
+ return True
+
+def award_referrals(c,child,produced,now):
+ if produced<=0:return
+ c.execute("UPDATE players SET referral_organic_eggs=referral_organic_eggs+%s WHERE id=%s",(produced,child["id"]))
+ ancestor=child["id"]
+ for level,rate in enumerate(REFERRAL_RATES):
+  link=c.execute("SELECT parent_id FROM referrals WHERE child_id=%s",(ancestor,)).fetchone()
+  if not link:break
+  parent_id=link["parent_id"]
+  c.execute("""INSERT INTO referral_rewards(player_id,earned_units) VALUES(%s,%s)
+      ON CONFLICT(player_id) DO UPDATE SET earned_units=referral_rewards.earned_units+EXCLUDED.earned_units""",(parent_id,produced*rate))
+  if level==0 and now-child["created_at"]>=86400 and child.get("telegram_id"):
+   qualified=c.execute("""UPDATE referrals SET qualified=true WHERE child_id=%s AND qualified=false
+      AND (SELECT referral_organic_eggs FROM players WHERE id=%s)>=6 RETURNING parent_id""",(child["id"],child["id"])).fetchone()
+   if qualified:
+    c.execute("UPDATE players SET coins=coins+5 WHERE id=%s",(parent_id,))
+    c.execute("INSERT INTO money_log(id,player_id,kind,delta,details,created) VALUES(%s,%s,'referral_bonus',5,%s,%s)",(uuid.uuid4().hex,parent_id,"Друг начал играть",now))
+    c.execute("UPDATE reward_emission SET total_minted=total_minted+5 WHERE id=1")
+  ancestor=parent_id
+
+@app.get("/api/referrals")
+def referral_info(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization)
+  code=c.execute("SELECT code FROM referral_codes WHERE player_id=%s",(p["id"],)).fetchone()
+  if not code:
+   c.execute("INSERT INTO referral_codes(player_id,code) VALUES(%s,%s) ON CONFLICT(player_id) DO NOTHING",(p["id"],secrets.token_hex(8)))
+   code=c.execute("SELECT code FROM referral_codes WHERE player_id=%s",(p["id"],)).fetchone()
+  counts=c.execute("""WITH RECURSIVE network(child_id,level,path) AS
+      (SELECT child_id,1,ARRAY[child_id] FROM referrals WHERE parent_id=%s
+       UNION ALL SELECT r.child_id,n.level+1,n.path||r.child_id
+       FROM referrals r JOIN network n ON r.parent_id=n.child_id
+       WHERE n.level<7 AND NOT r.child_id=ANY(n.path))
+      SELECT level,COUNT(*)::int AS n FROM network GROUP BY level""",(p["id"],)).fetchall()
+  earned=c.execute("SELECT earned_units,claimed_eggs FROM referral_rewards WHERE player_id=%s",(p["id"],)).fetchone() or {"earned_units":0,"claimed_eggs":0}
+  qualified=c.execute("SELECT COUNT(*)::int AS n FROM referrals WHERE parent_id=%s AND qualified=true",(p["id"],)).fetchone()["n"]
+ return {"code":code["code"],"rates":list(REFERRAL_RATES),"counts":{str(x["level"]):x["n"] for x in counts},
+    "qualified_direct":qualified,"available_eggs":max(0,earned["earned_units"]//10000-earned["claimed_eggs"]),
+    "fraction_units":earned["earned_units"]%10000,"total_eggs":earned["earned_units"]//10000}
+
+@app.post("/api/referrals/claim")
+def referral_claim(authorization:str=Header(default="")):
+ with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  p=person(c,authorization,True)
+  earned=c.execute("SELECT earned_units,claimed_eggs FROM referral_rewards WHERE player_id=%s FOR UPDATE",(p["id"],)).fetchone()
+  if not earned:raise HTTPException(409,"Пока нет заработанных яиц")
+  available=max(0,earned["earned_units"]//10000-earned["claimed_eggs"])
+  free=max(0,storage_limit(p)-p["grain"]-p["eggs"])
+  quantity=min(available,free)
+  if not quantity:raise HTTPException(409,"Нет целых бонусных яиц или места на складе")
+  c.execute("UPDATE referral_rewards SET claimed_eggs=claimed_eggs+%s WHERE player_id=%s",(quantity,p["id"]))
+  c.execute("UPDATE players SET eggs=eggs+%s WHERE id=%s",(quantity,p["id"]))
+  c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,'referral_eggs',%s,%s)",(uuid.uuid4().hex,p["id"],quantity,time.time()))
+ return {"ok":True,"eggs":quantity}
+
 def advance(c,p,now=None):
  """Process 6h egg ticks and 18h feeding ticks server-side without retroactive production."""
  now=time.time() if now is None else now
@@ -234,6 +307,7 @@ def advance(c,p,now=None):
    day=time.strftime("%Y-%m-%d",time.gmtime(now))
    c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,produced))
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
+   award_referrals(c,p,produced,now)
   keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress")
   c.execute("UPDATE players SET "+",".join(k+"=%s" for k in keys)+" WHERE id=%s",tuple(result[k] for k in keys)+(p["id"],))
   return update_incubation(c,result,now)
@@ -248,6 +322,7 @@ def advance(c,p,now=None):
   day=time.strftime("%Y-%m-%d",time.gmtime(now))
   c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,produced))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
+   award_referrals(c,p,produced,now)
  c.execute("UPDATE players SET coins=%s,grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,fed_hens=%s,feed_phase=%s,last_tick=%s WHERE id=%s",tuple(result[k] for k in ("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick"))+(p["id"],))
  return upgrade_production(c,update_incubation(c,result,now),now)
 @app.get("/",response_class=HTMLResponse)
