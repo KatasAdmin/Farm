@@ -40,5 +40,5 @@ class SupportSecurityTests(unittest.TestCase):
  def test_referral_percentages_stay_non_monetary(self):
   self.assertEqual(main.REFERRAL_RATES,(1000,500,300,200,100,50,25))
   self.assertEqual(main.REFERRAL_BONUS_COINS if hasattr(main,"REFERRAL_BONUS_COINS") else 5,5)
-  self.assertNotIn("coins",main.award_referral_resource.__doc__.lower() if main.award_referral_resource.__doc__ else "")
+  self.assertEqual(main.referral_units(10,0),10000)
 if __name__=="__main__":unittest.main()
