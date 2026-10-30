@@ -92,6 +92,11 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS referrals(child_id text PRIMARY KEY,parent_id text NOT NULL,created double precision NOT NULL,qualified boolean NOT NULL DEFAULT false)")
   c.execute("CREATE INDEX IF NOT EXISTS referrals_parent_idx ON referrals(parent_id)")
   c.execute("CREATE TABLE IF NOT EXISTS referral_rewards(player_id text PRIMARY KEY,earned_units bigint NOT NULL DEFAULT 0,claimed_eggs bigint NOT NULL DEFAULT 0)")
+  c.execute("ALTER TABLE referral_rewards ADD COLUMN IF NOT EXISTS earned_grain_units bigint NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE referral_rewards ADD COLUMN IF NOT EXISTS claimed_grain bigint NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE referral_rewards ADD COLUMN IF NOT EXISTS earned_chickens_units bigint NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE referral_rewards ADD COLUMN IF NOT EXISTS claimed_chickens bigint NOT NULL DEFAULT 0")
+
 
   c.execute("CREATE TABLE IF NOT EXISTS player_achievements(player_id text NOT NULL,achievement text NOT NULL,unlocked_at double precision NOT NULL,PRIMARY KEY(player_id,achievement))")
   c.execute("CREATE TABLE IF NOT EXISTS promo_codes(code_hash text PRIMARY KEY,amount integer NOT NULL CHECK(amount>0),redeemed_by text,redeemed_at double precision)")
@@ -240,17 +245,29 @@ def register_referral(c,child_id,code,now):
  c.execute("INSERT INTO referrals(child_id,parent_id,created) VALUES(%s,%s,%s) ON CONFLICT(child_id) DO NOTHING",(child_id,parent["player_id"],now))
  return True
 
+def award_referral_resource(c,child,item,amount):
+ """Exact fractional bonuses from legitimate own resource acquisition only.
+ Never invoked for awarded referral resources or coins.
+ """
+ if item not in ("grain","eggs","chickens") or amount<=0 or not child.get("telegram_id"):return
+ field={"eggs":"earned_units","grain":"earned_grain_units","chickens":"earned_chickens_units"}[item]
+ ancestor=child["id"]
+ for rate in REFERRAL_RATES:
+  row=c.execute("SELECT parent_id FROM referrals WHERE child_id=%s",(ancestor,)).fetchone()
+  if not row:break
+  c.execute("INSERT INTO referral_rewards(player_id,"+field+") VALUES(%s,%s) ON CONFLICT(player_id) DO UPDATE SET "+field+"=referral_rewards."+field+"+EXCLUDED."+field,(row["parent_id"],int(amount)*rate))
+  ancestor=row["parent_id"]
+
 def award_referrals(c,child,produced,now):
  # Only verified Telegram farms earn commission; anonymous web accounts cannot farm referrals.
  if produced<=0 or not child.get("telegram_id"):return
  c.execute("UPDATE players SET referral_organic_eggs=referral_organic_eggs+%s WHERE id=%s",(produced,child["id"]))
+ award_referral_resource(c,child,"eggs",produced)
  ancestor=child["id"]
  for level,rate in enumerate(REFERRAL_RATES):
   link=c.execute("SELECT parent_id FROM referrals WHERE child_id=%s",(ancestor,)).fetchone()
   if not link:break
   parent_id=link["parent_id"]
-  c.execute("""INSERT INTO referral_rewards(player_id,earned_units) VALUES(%s,%s)
-      ON CONFLICT(player_id) DO UPDATE SET earned_units=referral_rewards.earned_units+EXCLUDED.earned_units""",(parent_id,produced*rate))
   if level==0 and now-child["created_at"]>=86400 and child.get("telegram_id"):
    qualified=c.execute("""UPDATE referrals SET qualified=true WHERE child_id=%s AND qualified=false
       AND (SELECT referral_organic_eggs FROM players WHERE id=%s)>=6 RETURNING parent_id""",(child["id"],child["id"])).fetchone()
@@ -274,27 +291,40 @@ def referral_info(authorization:str=Header(default="")):
        FROM referrals r JOIN network n ON r.parent_id=n.child_id
        WHERE n.level<7 AND NOT r.child_id=ANY(n.path))
       SELECT level,COUNT(*)::int AS n FROM network GROUP BY level""",(p["id"],)).fetchall()
-  earned=c.execute("SELECT earned_units,claimed_eggs FROM referral_rewards WHERE player_id=%s",(p["id"],)).fetchone() or {"earned_units":0,"claimed_eggs":0}
+  earned=c.execute("SELECT * FROM referral_rewards WHERE player_id=%s",(p["id"],)).fetchone() or {"earned_units":0,"claimed_eggs":0,"earned_grain_units":0,"claimed_grain":0,"earned_chickens_units":0,"claimed_chickens":0}
   qualified=c.execute("SELECT COUNT(*)::int AS n FROM referrals WHERE parent_id=%s AND qualified=true",(p["id"],)).fetchone()["n"]
  return {"code":code["code"],"rates":list(REFERRAL_RATES),"counts":{str(x["level"]):x["n"] for x in counts},
     "qualified_direct":qualified,"available_eggs":max(0,earned["earned_units"]//10000-earned["claimed_eggs"]),
-    "fraction_units":earned["earned_units"]%10000,"total_eggs":earned["earned_units"]//10000}
+    "fraction_units":earned["earned_units"]%10000,"total_eggs":earned["earned_units"]//10000,
+    "resources":{
+      "eggs":{"available":max(0,earned["earned_units"]//10000-earned["claimed_eggs"]),"fraction":earned["earned_units"]%10000,"total":earned["earned_units"]//10000},
+      "grain":{"available":max(0,earned["earned_grain_units"]//10000-earned["claimed_grain"]),"fraction":earned["earned_grain_units"]%10000,"total":earned["earned_grain_units"]//10000},
+      "chickens":{"available":max(0,earned["earned_chickens_units"]//10000-earned["claimed_chickens"]),"fraction":earned["earned_chickens_units"]%10000,"total":earned["earned_chickens_units"]//10000}
+    }}
 
 @app.post("/api/referrals/claim")
-def referral_claim(authorization:str=Header(default="")):
+def referral_claim(q:Request,authorization:str=Header(default="")):
+ item=q.item or "eggs"
+ if item not in ("eggs","grain","chickens"):raise HTTPException(400,"Неизвестный бонусный ресурс")
+ fields={"eggs":("earned_units","claimed_eggs"),"grain":("earned_grain_units","claimed_grain"),"chickens":("earned_chickens_units","claimed_chickens")}
+ earned_field,claimed_field=fields[item]
  with db() as c:
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=person(c,authorization,True)
-  earned=c.execute("SELECT earned_units,claimed_eggs FROM referral_rewards WHERE player_id=%s FOR UPDATE",(p["id"],)).fetchone()
-  if not earned:raise HTTPException(409,"Пока нет заработанных яиц")
-  available=max(0,earned["earned_units"]//10000-earned["claimed_eggs"])
-  free=max(0,storage_limit(p)-p["grain"]-p["eggs"])
+  reward=c.execute("SELECT * FROM referral_rewards WHERE player_id=%s FOR UPDATE",(p["id"],)).fetchone()
+  if not reward:raise HTTPException(409,"Пока нет заработанных ресурсов")
+  available=max(0,reward[earned_field]//10000-reward[claimed_field])
+  if not available:raise HTTPException(409,"Целых бонусных ресурсов пока нет")
+  free=max(0,coop_limit(p)-p["chickens"]) if item=="chickens" else max(0,storage_limit(p)-p["grain"]-p["eggs"])
   quantity=min(available,free)
-  if not quantity:raise HTTPException(409,"Нет целых бонусных яиц или места на складе")
-  c.execute("UPDATE referral_rewards SET claimed_eggs=claimed_eggs+%s WHERE player_id=%s",(quantity,p["id"]))
-  c.execute("UPDATE players SET eggs=eggs+%s WHERE id=%s",(quantity,p["id"]))
-  c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,'referral_eggs',%s,%s)",(uuid.uuid4().hex,p["id"],quantity,time.time()))
- return {"ok":True,"eggs":quantity}
+  if not quantity:raise HTTPException(409,"Освободи место на складе или в курятнике")
+  c.execute("UPDATE referral_rewards SET "+claimed_field+"="+claimed_field+"+%s WHERE player_id=%s",(quantity,p["id"]))
+  if item=="chickens":
+   c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(quantity,quantity,p["id"]))
+  else:
+   c.execute("UPDATE players SET "+item+"="+item+"+%s WHERE id=%s",(quantity,p["id"]))
+  c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"referral_"+item,quantity,time.time()))
+ return {"ok":True,"item":item,"amount":quantity,"eggs":quantity if item=="eggs" else 0}
 
 def advance(c,p,now=None):
  """Process 6h egg ticks and 18h feeding ticks server-side without retroactive production."""
