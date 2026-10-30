@@ -362,6 +362,21 @@ def bot_star_balance(chat_id):
   logger.exception("telegram_stars_balance_failed")
   return {"method":"sendMessage","chat_id":chat_id,"text":"Не удалось получить баланс Stars. Проверьте подключение Telegram."}
 
+@app.get("/api/stars/orders")
+def stars_orders(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization)
+  orders=c.execute("SELECT id,coins,stars,status,created FROM star_orders WHERE player_id=%s ORDER BY created DESC LIMIT 20",(p["id"],)).fetchall()
+ return {"orders":orders,"payment_enabled":stars_payment_enabled()}
+
+def farm_admin_star_orders(chat_id):
+ with db() as c:
+  orders=c.execute("SELECT o.id,o.coins,o.stars,o.status,p.name FROM star_orders o JOIN players p ON p.id=o.player_id ORDER BY o.created DESC LIMIT 10").fetchall()
+ lines=["⭐ Последние покупки Stars:"]
+ for o in orders:
+  lines.append(o["id"][:8]+" · "+o["name"]+" · "+str(o["coins"])+" 🪙 / "+str(o["stars"])+" ⭐ · "+o["status"])
+ return {"method":"sendMessage","chat_id":chat_id,"text":"\\n".join(lines) if orders else "Покупок ещё нет."}
+
 def stars_payment_enabled():
  return os.environ.get("FARM_STARS_PAYMENTS_ENABLED","").lower() in ("1","true","yes")
 
@@ -456,6 +471,7 @@ def farm_admin_panel(chat_id):
           [{"text":"📋 Заявки на вывод","callback_data":"adm:requests"}],
           [{"text":"📊 Статистика","callback_data":"adm:stats"}],
           [{"text":"⭐ Баланс Stars","callback_data":"adm:stars"}],
+          [{"text":"🧾 История оплат","callback_data":"adm:starorders"}],
           [{"text":"🔄 Обновить","callback_data":"adm:panel"}]]}}
 
 def farm_admin_requests(chat_id):
@@ -494,6 +510,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   if action=="adm:requests":return farm_admin_requests(chat.get("id"))
   if action=="adm:stats":return farm_admin_stats(chat.get("id"))
   if action=="adm:stars":return bot_star_balance(chat.get("id"))
+  if action=="adm:starorders":return farm_admin_star_orders(chat.get("id"))
   return {"ok":True}
  if payload.get("pre_checkout_query"):
   return stars_precheckout(payload["pre_checkout_query"])
