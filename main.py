@@ -659,7 +659,7 @@ def state(authorization:str=Header(default="")):
 
   claims=[x["claim"] for x in c.execute("SELECT claim FROM daily_claims WHERE player_id=%s AND day=%s",(p["id"],day)).fetchall()]
   # Weekly reset is Monday 00:00 UTC; rewards are unique per player and week.
-  week_start=int(time.time()//604800)*604800-3*86400
+  week_start=int((time.time()+3*86400)//604800)*604800-3*86400
   if week_start>time.time():week_start-=604800
   week=time.strftime("%Y-%m-%d",time.gmtime(week_start))
   weekly_stats=c.execute("""SELECT COALESCE(SUM(grain_bought),0)::int AS grain,
@@ -922,7 +922,7 @@ def claim_weekly(authorization:str=Header(default="")):
   p=person(c,authorization,True)
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   now=time.time()
-  week_start=int(now//604800)*604800-3*86400
+  week_start=int((now+3*86400)//604800)*604800-3*86400
   if week_start>now:week_start-=604800
   week=time.strftime("%Y-%m-%d",time.gmtime(week_start))
   total=c.execute("""SELECT COALESCE(SUM(grain_bought),0)::int AS grain,
