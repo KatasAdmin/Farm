@@ -349,7 +349,7 @@ def farm_admin_telegram(uid,chat_id):
    return False
   c.execute("INSERT INTO farm_admin_identity(slot,telegram_id,claimed_at) VALUES(1,%s,%s) ON CONFLICT(slot) DO NOTHING",(int(uid),time.time()))
   row=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
-  return bool(row and str(row["telegram_id"])==str(uid)
+  return bool(row and str(row["telegram_id"])==str(uid))
 
 def farm_admin_panel(chat_id):
  return {"method":"sendMessage","chat_id":chat_id,
