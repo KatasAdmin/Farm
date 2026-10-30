@@ -154,3 +154,69 @@ html, body {max-width:100%;overflow-x:clip;}
 #referrals-pane .referral-resource>small {grid-column:1;line-height:1.5;color:#d2e9ff;overflow-wrap:anywhere;}
 #referrals-pane .referral-resource>button {grid-column:2;grid-row:2;padding:9px 12px;font-size:14px;min-width:96px;}
 #referrals-pane .referral-resource>button:disabled {opacity:.55;}
+
+/* Resource shortcuts: native buttons visually identical to former resource cards. */
+#farm .resource-actions .resource-link {
+  appearance:none;-webkit-appearance:none;box-sizing:border-box;width:100%;min-width:0;
+  color:inherit;font-family:inherit;cursor:pointer;
+  border:1px solid #64caff;border-radius:16px;
+  text-align:left;
+}
+#farm .resource-actions .resource-link:active {transform:translateY(1px);filter:brightness(1.07);}
+#farm .resource-actions .resource-link:focus-visible {outline:3px solid #e0ff71;outline-offset:2px;}
+#farm .compact-herd {padding:8px 12px;min-height:0;}
+#farm .compact-herd .feed-reserve {
+  margin:0;padding:4px 3px;display:flex;align-items:center;justify-content:center;
+  gap:8px;min-height:42px;white-space:normal;
+}
+#farm .compact-herd .feed-reserve p {margin:0;font-size:15px;line-height:1.3;}
+#farm .compact-herd .feed-reserve .clock {font-size:19px;flex-shrink:0;}
+#farm .compact-herd .feed-reserve strong {font-size:15px;margin-left:2px;}
+#farm .forecast-card .buttons {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+#farm .forecast-card .buttons button {min-width:0;width:100%;box-sizing:border-box;}
+/* Both trade screens share identical row/panel geometry. */
+#shop .shop-catalog,#market .shop-catalog {box-sizing:border-box;max-width:100%;}
+#market .product,#shop .product {min-width:0;align-items:center;}
+#market .product>div,#shop .product>div {flex:1 1 auto;min-width:0;}
+#market .product>.price,#shop .product>.price {flex:0 0 auto;font-size:14px;white-space:nowrap;}
+#market .product>.btn,#shop .product>.btn {flex:0 0 auto;min-width:65px;padding:10px 8px;}
+#market .egg-sale-form[hidden] {display:none!important;}
+#market .egg-sale-form {margin-top:10px;}
+#market .trade-amount-controls {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;}
+#market .trade-amount-controls input {min-width:0;width:100%;box-sizing:border-box;font-size:16px!important;}
+#market .trade-amount-controls .btn {min-width:72px;}
+#market .trade-listings {margin:12px 10px;}
+/* Bottom navigation: stable icon and caption baselines across every button. */
+nav#nav.bottom {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch;gap:3px;}
+nav#nav.bottom[hidden] {display:none!important;}
+nav#nav.bottom .nav-button {
+  min-width:0;width:100%;min-height:74px;box-sizing:border-box;
+  display:grid;grid-template-rows:43px 20px;justify-items:center;align-items:center;
+  align-content:center;gap:1px;padding:5px 1px;
+  font-size:12px;line-height:20px;text-align:center;
+}
+nav#nav.bottom .nav-button .nav-art {
+  width:43px;height:42px;display:flex;align-items:center;justify-content:center;
+  margin:0;position:relative;overflow:visible;
+}
+nav#nav.bottom .nav-button .nav-art img {
+  display:block;position:static;left:auto;top:auto;margin:0;
+  width:43px;height:42px;object-fit:contain;
+}
+nav#nav.bottom .nav-button>span:last-child {
+  display:block;width:100%;font-size:12px;line-height:20px;height:20px;
+  text-align:center;white-space:nowrap;
+}
+.resource-dialog {box-sizing:border-box;max-height:calc(90dvh);overflow:auto;}
+.resource-dialog .resource-action-buttons {display:grid;gap:11px;margin-top:19px;}
+.resource-dialog .resource-action-buttons>.btn {margin:0;width:100%;}
+.resource-dialog .trade-amount-controls {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin:12px 0;}
+.resource-dialog .trade-amount-controls input {width:100%;min-width:0;box-sizing:border-box;font-size:18px!important;}
+.resource-dialog .trade-amount-controls .btn {min-width:72px;}
+.resource-dialog .purchase-total {margin:18px 0 8px;}
+.resource-dialog .buttons {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+.resource-dialog .buttons .btn {width:100%;min-width:0;}
+@media(max-width:360px) {
+ nav#nav.bottom .nav-button>span:last-child {font-size:10px;}
+ #market .product>.btn,#shop .product>.btn {min-width:58px;padding:9px 5px;}
+}
