@@ -267,3 +267,16 @@ nav#nav.bottom .nav-button>span:last-child {
 #egg-sale-dialog .trade-amount-controls button {min-width:70px;}
 #egg-sale-dialog .egg-sale-form>.btn {margin:16px 0 10px;}
 #egg-sale-dialog>.btn.alt {margin-top:8px;width:100%;}
+
+/* One compact Market: buy and sell side by side without a redundant second tab. */
+#shop .compact-trade-scene {
+  height:116px!important;min-height:116px!important;margin-bottom:8px!important;
+}
+#shop .compact-trade-scene .scene-caption {inset:10px 8px auto;}
+#shop .compact-trade-scene .scene-caption h1 {font-size:30px;line-height:1.1;margin:2px 0 4px;}
+#shop .compact-trade-scene .scene-caption p {font-size:13px;margin:0;}
+#shop .shop-catalog {margin-top:8px;padding-top:13px;padding-bottom:8px;}
+#shop .shop-catalog>.cardtitle {margin-bottom:4px;}
+#shop .compact-trade-hint {margin:4px 0 9px;font-size:13px;line-height:1.4;}
+#shop .shop-catalog .product {padding-top:11px;padding-bottom:11px;}
+#shop .trade-listings,#shop .trade-rules {margin:12px 9px;max-width:calc(100% - 18px);box-sizing:border-box;}
