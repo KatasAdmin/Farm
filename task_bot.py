@@ -141,6 +141,7 @@ def cabinet(c, uid):
     return say(uid, f"👤 Мой кабинет\nID: {uid}\nДоступно: {money(a['available'])}\nОжидает выплаты: {money(pending)}\n\n1 монета фермы = 1 грн. Stars учитываются отдельно.", [
         [button("📜 История", "history"), button("💸 Вывести", "withdraw")],
         [button("🌾 В ферму", "tofarm"), button("💰 Из фермы", "fromfarm")],
+        [button("✅ Мои выполнения", "claims")],
         [button("📥 Мои заявки", "payouts"), button("➕ Пополнить", "deposit")]])
 
 
@@ -285,6 +286,11 @@ def route(c, uid, text, action, message, api, admin):
     if action == "history":
         rows = c.execute("SELECT delta,details,created FROM bot_ledger WHERE uid=%s ORDER BY created DESC LIMIT 15", (uid,)).fetchall()
         return say(uid, "📜 Последние операции\n" + ("\n".join(("+" if r["delta"] >= 0 else "−") + money(abs(r["delta"])) + " · " + r["details"] for r in rows) or "Операций пока нет."))
+    if action == "claims":
+        rows = c.execute("""SELECT t.title,x.status FROM bot_claims x JOIN bot_tasks t ON t.id=x.task
+          WHERE x.uid=%s ORDER BY x.created DESC LIMIT 15""", (uid,)).fetchall()
+        labels = {"started": "В работе", "review": "На проверке", "paid": "Оплачено", "rejected": "Отклонено"}
+        return say(uid, "✅ Мои выполнения\n" + ("\n".join(r["title"] + " · " + labels.get(r["status"], r["status"]) for r in rows) or "Пока нет взятых заданий."))
     if action == "payouts":
         rows = c.execute("SELECT id,amount,status FROM bot_payouts WHERE uid=%s ORDER BY created DESC LIMIT 10", (uid,)).fetchall()
         labels = {"pending": "На проверке", "paid": "Выплачено", "rejected": "Отклонено", "cancelled": "Отменено"}
