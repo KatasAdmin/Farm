@@ -10,6 +10,9 @@ class FrontendBootSafety(unittest.TestCase):
   fragment=js[start:end]
   self.assertEqual(len(re.findall(r"\b(?:const|let)\s+daily\b",fragment)),1)
   self.assertIn("const farmDailyStats=",fragment)
+ def test_javascript_does_not_contain_duplicate_async_declaration(self):
+  js=(Path(__file__).resolve().parents[1]/"assets"/"game.js").read_text(encoding="utf-8")
+  self.assertNotRegex(js,r"\\basync\\s+async\\s+function\\b")
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   self.assertIn("/assets/game.js?v=49",html)
