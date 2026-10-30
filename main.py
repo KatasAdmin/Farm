@@ -164,7 +164,7 @@ def telegram_identity(raw):
   try:
    bot_id=bot_token.split(":",1)[0]
    if bot_id.isdecimal() and bot_token.count(":")==1:
-    signed=bot_id+":WebAppData\\n"+check
+    signed=bot_id+":WebAppData\n"+check
     sig=dict(parse_qsl(raw,keep_blank_values=True)).get("signature","")
     if sig and len(sig)<256:
      signature=base64.urlsafe_b64decode(sig+"="*((-len(sig))%4))
