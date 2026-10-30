@@ -30,7 +30,7 @@ class SupportSecurityTests(unittest.TestCase):
    main.limit_public_registration(db,1750000000.0)
   self.assertEqual(error.exception.status_code,429)
  def test_support_requires_private_valid_description(self):
-  self.assertIn("/support",main.create_support_ticket(0,"/support v something"))
+  self.assertIn("личном чате",main.create_support_ticket(0,"/support v something"))
   self.assertIn("/support",main.create_support_ticket(1234,"/support v"))
   self.assertIn("/support",main.create_support_ticket(1234,"/support abc no"))
   self.assertIn("700",main.create_support_ticket(1234,"/support abc "+("A"*701)))
