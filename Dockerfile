@@ -1,8 +1,7 @@
-FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-RUN python -m py_compile main.py && python -m unittest discover -s tests -v
+FROM postgres:18-alpine
+RUN apk add --no-cache python3 py3-pip && python3 -m venv /opt/backup-venv \
+ && /opt/backup-venv/bin/pip install --no-cache-dir "boto3==1.40.76"
+WORKDIR /backup
+COPY backup.py /backup/backup.py
 ENV PYTHONUNBUFFERED=1
-CMD ["sh","-c","uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["/opt/backup-venv/bin/python","/backup/backup.py"]
