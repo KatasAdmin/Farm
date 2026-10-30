@@ -732,6 +732,7 @@ def admin_summary(authorization:str=Header(default="")):
 
 @app.post("/api/withdraw/request")
 def request_withdrawal(q:Request,authorization:str=Header(default="")):
+ raise HTTPException(403,"Денежный вывод временно отключён. Игровые монеты нельзя обменять на деньги.")
  if q.amount<100:raise HTTPException(400,"Минимальная заявка — 100 монет")
  if q.amount>1000000:raise HTTPException(400,"Сумма заявки слишком большая")
  with db() as c:
@@ -763,7 +764,7 @@ def withdrawal_status(authorization:str=Header(default="")):
  with db() as c:
   p=person(c,authorization)
   last=c.execute("SELECT id,amount,status,created,reserved FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
- return {"minimum":100,"request":last,"payouts_enabled":False}
+ return {"minimum":100,"request":last,"payouts_enabled":False,"message":"Денежный вывод отключён"}
 
 @app.post("/api/promo/redeem")
 def redeem_promo(q:Request,authorization:str=Header(default="")):
