@@ -13,9 +13,9 @@
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
-    <link rel="stylesheet" href="/assets/stars-mobile.css?v=5" />
+    <link rel="stylesheet" href="/assets/stars-mobile.css?v=6" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=43" defer></script>
+    <script src="/assets/game.js?v=44" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -131,9 +131,10 @@
             <span>Склад</span>
           </button>
         </div>
-        <details class="card launch-guide" id="launch-guide">
- <summary>🌱 Как начать играть? 4 простых шага</summary>
+        <details class="card launch-guide" id="launch-guide" hidden>
+ <summary>🌱 Как начать играть? · подсказка для новичка</summary>
  <div class="launch-guide-body">
+ <button type="button" class="btn alt small" onclick="dismissLaunchGuide()">Скрыть подсказку навсегда</button>
   <p><b>1. Начни с курицы.</b> Она несёт по одному яйцу каждые 6 часов, когда сыта.</p>
   <p><b>2. Следи за кормом.</b> Каждые 18 часов курицам требуется по одному зерну. Запас виден на главной.</p>
   <p><b>3. Продавай яйца.</b> Выставляй их на рынке и получай монеты, когда другие игроки купят товар.</p>
@@ -193,19 +194,19 @@
           </div>
           <div class="feed-reserve">
             <span class="clock" aria-hidden="true">◴</span>
-            <p>Запаса корма хватит на<strong id="feedstock">—</strong></p>
+            <p>Корма хватит на <strong id="feedstock">—</strong></p>
           </div>
-          <p id="warning" class="muted"></p><p id="storage-warning" class="capacity-warning" role="status" hidden></p>
+          <p id="warning" class="muted" hidden></p><p id="storage-warning" class="capacity-warning" role="status" hidden></p>
         </div>
         <div class="card compact-harvest unified-primary-card forecast-card">
           <h2 class="cardtitle">БЛИЖАЙШИЙ СБОР ЯИЦ</h2>
           <div class="forecast-output"><img src="/assets/redesign/egg.webp" class="icon" alt=""><div>
             <p>Ожидается в ближайшие 6 часов:</p><strong id="next-harvest" data-eggs-6h>—</strong>
-            <p class="forecast-secondary">В ближайшие 12 часов: <b data-eggs-12h>—</b></p>
+            <p class="forecast-secondary" hidden>В ближайшие 12 часов: <b data-eggs-12h>—</b></p>
           </div></div>
           <p id="forecast-brief" class="muted" hidden></p>
           <div class="forecast-timers"><div><span>Следующий сбор</span><strong data-next-tick>—</strong></div><div><span>Следующее кормление</span><strong data-feed-tick>—</strong></div></div>
-          <div class="forecast-feeding"><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><strong>Следующее кормление: −<span data-feed-required>—</span> зерна</strong><p data-feed-status>Проверяем запас…</p></div></div>
+          <div class="forecast-feeding" hidden><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><strong>Следующее кормление: −<span data-feed-required>—</span> зерна</strong><p data-feed-status>Проверяем запас…</p></div></div>
           <div class="buttons"><button class="btn" data-buy-feed onclick="tab('shop');showShop('grain')">Купить корм</button><button class="btn alt" onclick="openSell('eggs')">Продать яйца</button></div>
           <details class="farm-explainer"><summary>От чего зависит прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Каждая сытая курица несёт яйцо каждые 6 часов. Одно зерно на курицу расходуется каждые 18 часов. Яйца можно продать игрокам или использовать в инкубаторе.</p></details>
         </div>
@@ -614,7 +615,7 @@
               + Пополнить</button
             ><button class="btn blue" disabled title="Денежный вывод отключён">→ Вывод отключён</button>
           </div>
-          <p class="muted">Монеты — внутриигровая валюта для куриц, корма, улучшений и торговли. Купить монеты можно за Telegram Stars (1 🪙 = 2 ⭐). Денежный вывод и оплата банковскими картами пока недоступны.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
+          <p class="muted">Пополнение: 1 монета = 2 ⭐ · вывод пока отключён.</p><p id="withdrawal-status" class="muted" aria-live="polite" hidden></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
         </div>
         <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
           <h2 class="cardtitle">🎁 Бонусный код</h2>
@@ -653,7 +654,7 @@
               ><img src="/assets/redesign/achievement.webp" alt="" /></span></span
           ><span>История операций</span><b id="history-toggle-arrow">›</b>
         </button>
-        <details class="economy-card">
+        <details class="economy-card" hidden>
           <summary>
             <img src="/assets/buildings/barn.webp" class="icon" alt="" /><span
               ><strong>Казна и экономика</strong
@@ -687,7 +688,7 @@
             другими игроками!
           </p>
         </div>
-        <p class="feature-note">Курс к реальной валюте не установлен.</p>
+        
         <details class="card stars-orders-card" ontoggle="if(this.open)loadStarsOrders()">
  <summary>⭐ История покупок Stars</summary>
  <div id="stars-order-list"><p class="muted">Откройте раздел для просмотра истории.</p></div>
@@ -923,50 +924,14 @@
           <p class="muted">Обновляются ежедневно по UTC. Получай небольшие монетные награды за выполненные задания. Каждую награду можно забрать только один раз в сутки.</p>
           <div id="daily-tasks" aria-live="polite"></div>
         </div>
-        <h2 class="section-title">Долгосрочные цели</h2>
-        <div class="card tasks-list">
-          <div class="task-row">
-            <img
-              src="/assets/redesign/grain.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            />
-            <div>
-              <h3>Подготовить запас корма</h3>
-              <span data-goal="grain">— / 10</span>
-              <div class="progress"><span data-goal-bar="grain"></span></div>
-            </div>
-            <strong data-goal-status="grain">В процессе</strong>
-          </div>
-          <div class="task-row">
-            <img
-              src="/assets/redesign/hen.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            />
-            <div>
-              <h3>Развить хозяйство</h3>
-              <span data-goal="chickens">— / 3</span>
-              <div class="progress"><span data-goal-bar="chickens"></span></div>
-            </div>
-            <strong data-goal-status="chickens">В процессе</strong>
-          </div>
-          <div class="task-row">
-            <img
-              src="/assets/redesign/egg.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            />
-            <div>
-              <h3>Запасти яйца</h3>
-              <span data-goal="eggs">— / 10</span>
-              <div class="progress"><span data-goal-bar="eggs"></span></div>
-            </div>
-            <strong data-goal-status="eggs">В процессе</strong>
-          </div>
+        <h2 class="section-title">📅 Задания недели</h2>
+        <div class="card tasks-list weekly-tasks">
+          <p class="muted">Новая неделя начинается в понедельник (00:00 UTC). Выполни все три задания и забери особую награду — <b>30 монет</b>!</p>
+          <p class="weekly-deadline" id="weekly-deadline">До конца недели: —</p>
+          <div class="task-row"><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><h3>Купить 10 зерна</h3><span data-weekly="grain">0 / 10</span><div class="progress"><span data-weekly-bar="grain"></span></div></div><strong data-weekly-status="grain">В процессе</strong></div>
+          <div class="task-row"><img src="/assets/redesign/egg.webp" class="icon" alt=""><div><h3>Собрать 10 яиц</h3><span data-weekly="eggs">0 / 10</span><div class="progress"><span data-weekly-bar="eggs"></span></div></div><strong data-weekly-status="eggs">В процессе</strong></div>
+          <div class="task-row"><img src="/assets/redesign/storage.webp" class="icon" alt=""><div><h3>Выставить 3 яйца на рынок</h3><span data-weekly="listed">0 / 3</span><div class="progress"><span data-weekly-bar="listed"></span></div></div><strong data-weekly-status="listed">В процессе</strong></div>
+          <button id="weekly-claim" class="btn wide" disabled onclick="claimWeekly()">🏆 Забрать награду: +30 монет</button>
         </div>
         </div>
         <button class="btn alt wide" onclick="tab('farm')">
