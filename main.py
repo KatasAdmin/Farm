@@ -203,6 +203,8 @@ def person(c,h,lock=False):
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
 HEN_PRICE=40
+SYSTEM_GRAIN_BUYBACK=1
+SYSTEM_HEN_BUYBACK=20
 EGG_PRICE=1
 MAX_BUILDING_LEVEL=10
 PROMO_SECONDS=3*86400
@@ -855,6 +857,30 @@ def shop(q:Request,authorization:str=Header(default="")):
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"shop",-cost,q.item+" x"+str(q.amount),time.time()))
   award_referral_resource(c,p,q.item,q.amount)
  return {"ok":True}
+@app.post("/api/shop/sell")
+def sell_to_system(q:Request,authorization:str=Header(default="")):
+ check(q.amount)
+ if q.item not in ("grain","chickens"):
+  raise HTTPException(400,"Этот товар нельзя продать системе")
+ unit_price=SYSTEM_GRAIN_BUYBACK if q.item=="grain" else SYSTEM_HEN_BUYBACK
+ payout=q.amount*unit_price
+ with db() as c:
+  # Synchronize system buybacks with market operations and resource updates.
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  p=advance(c,person(c,authorization,True))
+  if p[q.item]<q.amount:raise HTTPException(400,"Недостаточно товара для продажи")
+  funds=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()
+  if not funds or funds["treasury"]<payout:
+   raise HTTPException(409,"В системе временно не хватает монет для выкупа")
+  if q.item=="chickens":
+   remaining=p["chickens"]-q.amount
+   c.execute("UPDATE players SET chickens=%s,fed_hens=LEAST(fed_hens,%s),coins=coins+%s WHERE id=%s",(remaining,remaining,payout,p["id"]))
+  else:
+   c.execute("UPDATE players SET grain=grain-%s,coins=coins+%s WHERE id=%s",(q.amount,payout,p["id"]))
+  c.execute("UPDATE economy SET treasury=treasury-%s WHERE id=1",(payout,))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"system_sale",payout,"Продажа системе: "+q.item+" x"+str(q.amount),time.time()))
+ return {"ok":True,"received":payout,"unit_price":unit_price}
+
 @app.post("/api/bundle")
 def buy_bundle(authorization:str=Header(default="")):
  now=time.time()
