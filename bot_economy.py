@@ -259,22 +259,7 @@ def percentage(raw):
 
 
 def partners(c, uid):
-    b = core()
-    cfg = config(c)
-    # Bounded recursion and an explicit path guard, even for malformed legacy cycles.
-    rows = c.execute("""WITH RECURSIVE team(uid,depth,path) AS (
-      SELECT uid,1,',' || CAST(%s AS text) || ',' || CAST(uid AS text) || ','
-        FROM bot_accounts WHERE referrer=%s AND uid<>%s
-      UNION ALL
-      SELECT a.uid,t.depth+1,t.path || CAST(a.uid AS text) || ','
-        FROM bot_accounts a JOIN team t ON a.referrer=t.uid
-        WHERE t.depth<5 AND replace(t.path,',' || CAST(a.uid AS text) || ',','')=t.path)
-      SELECT depth,count(*) AS n FROM team GROUP BY depth""", (uid,uid,uid)).fetchall()
-    by_level = {r['depth']:r['n'] for r in rows}
-    counts = [by_level.get(i,0) for i in range(1,6)]
-    earned = c.execute('SELECT coalesce(sum(units),0) AS n FROM bot_ref_rewards WHERE parent=%s', (uid,)).fetchone()['n']
-    return b.say(uid,'👥 Партнёры\n'+ '\n'.join(f"Уровень {i}: {counts[i-1]} · {pct(cfg['ref'+str(i)])}%" for i in range(1,6))+
-                 f'\n\nНачислено: {b.money(earned//SCALE)}\nДоля меньше копейки: {Decimal(earned%SCALE)/SCALE} коп.\nПроценты от полной цены оплаченных выполнений твоей команды.\n\nhttps://t.me/Farmlife2026bot?start=partner_{uid}')
+    return core().bot_ui.partners(c, uid)
 
 
 def admin(c, uid, text, action):

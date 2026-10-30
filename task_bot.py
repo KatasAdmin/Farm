@@ -11,6 +11,7 @@ import time
 import uuid
 import bot_extras
 import bot_economy
+import bot_ui
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 from psycopg.types.json import Jsonb
@@ -88,6 +89,7 @@ def initialize(c):
         c.execute(sql)
     bot_extras.initialize(c)
     bot_economy.initialize(c)
+    bot_ui.initialize(c)
     c.execute("SELECT pg_advisory_xact_lock(1984533)")
     c.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK,))
     unify_balances(c)
@@ -172,10 +174,19 @@ def cabinet(c, uid):
     spent -= c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind='retention_refund'", (uid,)).fetchone()['n']
     debt = c.execute("SELECT amount FROM bot_debts WHERE uid=%s", (uid,)).fetchone()
     debt = debt["amount"] if debt else 0
-    return say(uid, f"👤 Мой кабинет\nID: {uid}\n\n💰 Пополнений: {money(deposits)}\n📣 Потрачено на рекламу: {money(spent)}\n💵 Заработано на заданиях: {money(earned)}\n🎁 Бонусы и друзья: {money(bonuses)}\n❄️ В бюджете заданий: {money(frozen)}\n⌛ Ожидает выплаты: {money(pending)}\n💳 Выведено всего: {money(paid)}\n\n💰 Доступный баланс: {money(a['available'])}\n⚠️ Долг по штрафам: {money(debt)}\n\nЭти деньги можно вывести или использовать для создания заданий.", [
-        [button("📜 История", "history"), button("💸 Вывести", "withdraw")],
-        [button("✅ Мои выполнения", "claims")],
-        [button("📥 Мои заявки", "payouts"), button("➕ Пополнить", "deposit")]])
+    state(c, uid, 'clear')
+    debt_line = ('\n⚠️ Долг по штрафам: '+money(debt)) if debt else ''
+    text = (f"👤 <b>Мой кабинет</b>\n🆔 ID: <code>{uid}</code>\n\n"
+            f"<b>💰 Доступный баланс: {money(a['available'])}</b>{debt_line}\n\n"
+            "<b>📊 Статистика</b>\n"
+            f"💳 Пополнений: {money(deposits)}\n📣 Потрачено на рекламу: {money(spent)}\n"
+            f"💵 Заработано на заданиях: {money(earned)}\n🎁 Бонусы и рефералы: {money(bonuses)}\n\n"
+            f"❄️ В бюджете заданий: {money(frozen)}\n⌛ Ожидает выплаты: {money(pending)}\n💸 Выведено всего: {money(paid)}")
+    return bot_ui.screen(uid,text,[
+        [button('➕ Пополнить','deposit'),button('💸 Вывести','withdraw')],
+        [button('✅ Мои выполнения','claims')],
+        [button('📥 Мои заявки','payouts'),button('📜 История','history')]])
+
 
 
 def resolve_chat(api, target, kind):
@@ -278,10 +289,12 @@ def handle(payload, db, api, is_admin):
                 raw = text.split("partner_", 1)[1]
                 if raw.isdecimal() and len(raw)<=19 and 0<int(raw)<=9223372036854775807 and int(raw) != uid:
                     ref = c.execute("SELECT uid FROM bot_accounts WHERE uid=%s", (int(raw),)).fetchone()
+            is_new = not c.execute("SELECT 1 FROM bot_accounts WHERE uid=%s", (uid,)).fetchone()
             c.execute("""INSERT INTO bot_accounts(uid,name,referrer,created) VALUES(%s,%s,%s,%s)
               ON CONFLICT(uid) DO UPDATE SET name=EXCLUDED.name""",
                       (uid, str(sender.get("first_name") or "Игрок")[:100], ref["uid"] if ref else None, time.time()))
             unify_balances(c, uid)
+            message = dict(message, _new_referral=bool(is_new and ref and text.startswith("/start partner_")))
             # A savepoint rolls back every partial mutation on a user-facing validation error.
             try:
                 with c.transaction():
@@ -312,6 +325,11 @@ def route(c, uid, text, action, message, api, admin):
     extra = bot_extras.route(c, uid, text, action, message, api)
     if extra is not None:
         return extra
+    presentation = bot_ui.route(c, uid, text, action, message)
+    if presentation is not None:
+        return presentation
+    if action in ('history','claims','payouts','about','games'):
+        state(c,uid,'clear')
     if action == "cancel_input":
         state(c, uid, "clear")
         return say(uid, "Действие отменено. Выбери раздел в меню внизу.")
@@ -320,13 +338,7 @@ def route(c, uid, text, action, message, api, admin):
     if text in sum(MENU, []) or cmd in ("/start", "/help", "/menu", "/cancel"):
         state(c, uid, "clear")
     if text == "🚀 Заработать" or action == "earn":
-        counts = c.execute("""SELECT kind,count(*) AS n FROM bot_tasks t WHERE status='active'
-          AND remaining>=coalesce((SELECT cost FROM bot_task_terms q WHERE q.task=t.id),reward)*(1+(SELECT count(*) FROM bot_claims r WHERE r.task=t.id AND r.status='review'))
-          AND (kind<>'post' OR EXISTS(SELECT 1 FROM bot_post_publications p WHERE p.task=t.id AND p.status='posted')) AND owner<>%s AND NOT EXISTS(
-          SELECT 1 FROM bot_claims x WHERE x.task=t.id AND x.uid=%s AND x.status IN ('paid','rejected','review')) GROUP BY kind""", (uid, uid)).fetchall()
-        numbers = {x["kind"]: x["n"] for x in counts}
-        return say(uid, "🚀 Заработать\nВыбери категорию. Награда начисляется после проверки выполнения.",
-                   [[button(f"{label} · {numbers.get(kind,0)}", "list:" + kind + ":0")] for kind, label in KINDS.items()] + [[button("🎁 Ежедневный бонус", "daily"), button("👥 За друга", "friends")]])
+        return bot_ui.earn(c,uid)
     if text == "🎮 Игры" or action == "games":
         return say(uid, "🎮 Игры\nОткрой свою ферму:", [[{"text": "🌾 Ферма", "web_app": {"url": farm_url()}}]])
     if text in ("👤 Мой кабинет", "/start wallet") or action == "cabinet":
@@ -334,13 +346,7 @@ def route(c, uid, text, action, message, api, admin):
     if text == "📚 О боте" or action == "about":
         return say(uid, "📚 Новая жизнь\nЗадания, продвижение проектов и ферма в одном боте.\n\nНаграды за задания — в гривнах. Выплаты проверяет администратор вручную. Бюджет заданий резервируется заранее. Повторная награда за одно задание не начисляется.\n\nПомощь: /support ТвойНик Описание проблемы\nНе отправляй пароли, CVV, PIN или коды из SMS.\n\n/cancel — отменить ввод.")
     if text == "📣 Продвижение" or action == "promotion":
-        a = account(c, uid)
-        return say(uid, "📣 Что вы хотите продвинуть?\n\nДоступный баланс: " + money(a["available"]) + "\n\nСоздай задание. Полный бюджет списывается с единого баланса при подтверждении создания и резервируется до выполнения. Подписки проверяются автоматически, задания с доказательствами — вручную. Публикация после модерации.", [
-            [button("➕ Канал", "new:channel"), button("➕ Группа", "new:group")],
-            [button("🤖 Бота", "new:bot"), button("👁 Пост", "new:post")],
-            [button("➕ Задание", "new:manual")],
-            [button("📋 Мои задания", "mine:0"), button("📝 Проверить работы", "reviews:0")],
-            [button("➕ Пополнить", "deposit")]])
+        return bot_ui.promotion(c,uid)
     if action in ("convert", "convert_to_ads", "convert_from_ads", "tofarm", "fromfarm"):
         state(c, uid, "clear")
         return cabinet(c, uid)
@@ -392,9 +398,8 @@ def route(c, uid, text, action, message, api, admin):
             buttons = [[button(f"{r['title'][:30]} · {r['status']}", "own:" + r["id"])] for r in rows]
         else:
             kind = parts[1]
-            rows = c.execute("""SELECT * FROM bot_tasks t WHERE status='active' AND kind=%s AND owner<>%s
-              AND remaining>=coalesce((SELECT cost FROM bot_task_terms q WHERE q.task=t.id),reward)*(1+(SELECT count(*) FROM bot_claims r WHERE r.task=t.id AND r.status='review')) AND NOT EXISTS(SELECT 1 FROM bot_claims x WHERE x.task=t.id
-              AND x.uid=%s AND x.status IN ('paid','rejected','review')) ORDER BY created LIMIT 8 OFFSET %s""", (kind, uid, uid, offset)).fetchall()
+            rows = c.execute('SELECT t.* FROM bot_tasks t WHERE '+bot_ui.catalog_filter()+
+                             ' AND t.kind=%s ORDER BY t.created LIMIT 8 OFFSET %s', (uid,uid,uid,kind,offset)).fetchall()
             buttons = [[button(r["title"][:35] + " · " + money(r["reward"]), "task:" + r["id"])] for r in rows]
         if len(rows) == 8:
             buttons.append([button("Далее →", ":".join(parts[:-1]) + ":" + str(offset + 8))])
@@ -488,12 +493,14 @@ def route(c, uid, text, action, message, api, admin):
         return say(uid, "✅ Проверка пройдена. Начислено " + money(t["reward"]))
     current = state(c, uid)
     if current:
+        if current["state"] in ("welcome_edit","welcome_confirm"):
+            return bot_ui.input_text(c,uid,text,message,current)
         if current["state"] == "economy_edit":
             if not admin:
                 raise UserError("Доступ только администратору.")
             return bot_economy.edit(c, uid, text, current["data"])
         return process_input(c, uid, text, message, current, api)
-    return say(uid, "Добро пожаловать в «Новую жизнь»!\nВыполняй задания, продвигай проекты или открывай ферму. Выбери раздел в меню внизу.")
+    return bot_ui.home(c,uid)
 
 
 def process_input(c, uid, text, message, current, api):
