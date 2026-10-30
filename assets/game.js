@@ -594,20 +594,36 @@ async function redeemPromoCode(event) {
     toast(error.message);
   }finally{busy(false);}
 }
-async function loadHistory() {
-  try {
-    const value = await api("/api/finance");
-    el("history").innerHTML = value.entries.length
-      ? value.entries
-          .map(
-            (x) =>
-              `<div class="ledger-row ${x.delta > 0 ? "income" : ""}"><span aria-hidden="true">${x.delta >= 0 ? "↗" : "↙"}</span><div><strong>${safe(details(x.details))}</strong><small>${new Date(x.created * 1000).toLocaleString("ru-RU")}</small></div><b>${x.delta > 0 ? "+" : ""}${number(x.delta)}</b></div>`,
-          )
-          .join("")
-      : '<p class="empty">Пока нет операций. Здесь появятся покупки и продажи.</p>';
-  } catch (error) {
-    el("history").textContent = error.message;
-  }
+let historyOffset=0;
+let historyExpanded=false;
+async function toggleWalletHistory(){
+ historyExpanded=!historyExpanded;
+ const card=el("history-card");
+ if(card)card.hidden=!historyExpanded;
+ const arrow=el("history-toggle-arrow");
+ if(arrow)arrow.textContent=historyExpanded?"⌄":"›";
+ if(historyExpanded){historyOffset=0;await loadHistory();card?.scrollIntoView({behavior:"smooth",block:"nearest"});}
+}
+async function loadOlderHistory(){
+ historyOffset+=10;
+ await loadHistory(true);
+}
+async function loadHistory(append=false) {
+ if(!historyExpanded)return;
+ try {
+  const value=await api("/api/finance?offset="+historyOffset+"&limit=10");
+  const rows=value.entries.map(x=>
+   `<div class="ledger-row ${x.delta>0?"income":""}"><span aria-hidden="true">${x.delta>=0?"↗":"↙"}</span><div><strong>${safe(details(x.details))}</strong><small>${new Date(x.created*1000).toLocaleString("ru-RU")}</small></div><b>${x.delta>0?"+":""}${number(x.delta)}</b></div>`
+  ).join("");
+  const holder=el("history");
+  if(append)holder.insertAdjacentHTML("beforeend",rows);
+  else holder.innerHTML=rows||'<p class="empty">Пока нет операций.</p>';
+  const more=el("history-more");
+  if(more)more.hidden=!value.has_more;
+ }catch(error){
+  if(!append)el("history").textContent=error.message;
+  else toast(error.message);
+ }
 }
 async function loadWithdrawalStatus() {
   const note=el("withdrawal-status");
