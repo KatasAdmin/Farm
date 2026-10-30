@@ -12,7 +12,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("const farmDailyStats=",fragment)
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
-  self.assertIn("/assets/game.js?v=46",html)
+  self.assertIn("/assets/game.js?v=47",html)
  def test_launch_help_and_placeholder_polish(self):
   root=Path(__file__).resolve().parents[1]
   html=(root/"index.html").read_text(encoding="utf-8")
@@ -22,7 +22,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('class="gems" hidden',html)
   self.assertIn('Задания недели',html)
   self.assertIn('id="weekly-claim"',html)
-  self.assertIn('/assets/stars-mobile.css?v=7',html)
+  self.assertIn('/assets/stars-mobile.css?v=8',html)
   self.assertIn('.gems[hidden] {display:none!important;}',css)
  def test_nickname_editor_enabled_for_every_farmer(self):
   root=Path(__file__).resolve().parents[1]
