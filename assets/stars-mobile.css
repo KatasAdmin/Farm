@@ -146,3 +146,11 @@ html, body {max-width:100%;overflow-x:clip;}
 #referrals-pane .referral-level b {color:#ffde83;}
 #referrals-pane .referral-level small {color:#d9edff;text-align:right;}
 #referrals-pane #referral-claim:disabled {opacity:.65;cursor:default;}
+
+#referrals-pane #referral-resources {display:grid;gap:10px;margin:14px 0;}
+#referrals-pane .referral-resource {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;align-items:center;padding:12px 13px;border:1px solid rgba(122,206,252,.5);border-radius:13px;background:rgba(4,48,110,.38);}
+#referrals-pane .referral-resource>span {font-weight:750;}
+#referrals-pane .referral-resource>strong {font-size:21px;color:#ffe190;}
+#referrals-pane .referral-resource>small {grid-column:1;line-height:1.5;color:#d2e9ff;overflow-wrap:anywhere;}
+#referrals-pane .referral-resource>button {grid-column:2;grid-row:2;padding:9px 12px;font-size:14px;min-width:96px;}
+#referrals-pane .referral-resource>button:disabled {opacity:.55;}
