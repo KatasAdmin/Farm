@@ -345,9 +345,9 @@ def join(q:Request):
     raise HTTPException(409,"Ник уже занят")
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
    if treasury<10:raise HTTPException(409,"Стартовый фонд исчерпан")
-   c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,gender,password_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,%s,3,1,0,0,0,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,stored))
-   new_id=c.execute("SELECT id FROM players WHERE token=%s",(token,)).fetchone()["id"]
-   register_referral(c,new_id,q.referral,time.time())
+   pid=uuid.uuid4().hex
+   c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,gender,password_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,%s,3,1,0,0,0,0)",(pid,name,token,time.time(),time.time(),q.gender,stored))
+   if q.referral:register_referral(c,pid,q.referral,time.time())
    c.execute("UPDATE economy SET treasury=treasury-10 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-10,"Начальный баланс: "+name,time.time()))
  except psycopg.errors.UniqueViolation:raise HTTPException(409,"Ник уже занят")
@@ -704,7 +704,7 @@ def login_telegram(q:Request):
    signed_param=dict(parse_qsl(q.telegram_data,keep_blank_values=True)).get("start_param","")
    signed_code=signed_param[4:] if signed_param.startswith("ref_") else ""
    # Signed Telegram start_param takes precedence over a client-provided code.
-   register_referral(c,pid,signed_code or q.referral,time.time())
+   if signed_code or q.referral:register_referral(c,pid,signed_code or q.referral,time.time())
    c.execute("UPDATE economy SET treasury=treasury-10 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-10,"Начальный баланс: "+name,time.time()))
    p={"id":pid}
