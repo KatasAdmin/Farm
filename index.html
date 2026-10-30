@@ -13,9 +13,9 @@
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
-    <link rel="stylesheet" href="/assets/stars-mobile.css?v=11" />
+    <link rel="stylesheet" href="/assets/stars-mobile.css?v=12" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=51" defer></script>
+    <script src="/assets/game.js?v=52" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -57,6 +57,11 @@
         </form>
         <form id="password-login-form" class="password-login"><h3>Уже есть ферма? Войти</h3><label for="login-name">Ник</label><input id="login-name" autocomplete="username" maxlength="22" required><label for="login-password">Пароль</label><input id="login-password" type="password" autocomplete="current-password" required><button class="btn blue wide" type="submit">Войти</button></form>
         <button type="button" class="btn blue wide telegram-entry" onclick="telegramLogin()" hidden>Войти через Telegram</button><p class="muted">Если у тебя уже есть ферма с паролем, сначала войди в неё внутри Telegram и привяжи Telegram в профиле. Иначе будет создана новая ферма.</p>
+        <div class="support-contact">
+ <p>Потерял доступ к ферме? Администратор поможет проверить владение аккаунтом и восстановить вход.</p>
+ <a class="btn blue wide" href="https://t.me/Farmlife2026bot?start=support" target="_blank" rel="noopener noreferrer">🆘 Связаться с администрацией</a>
+ <p class="muted">Напиши боту: <b>/support ТвойНик Описание проблемы</b>. Ответ придёт в личный чат. Никому не сообщай пароль или код Telegram.</p>
+</div>
         <details class="recovery-login" hidden><summary>Старый аккаунт? Восстановить по коду</summary><form id="recover-form"><label for="recover-name">Имя фермера</label><input id="recover-name" autocomplete="username" required maxlength="22"><label for="recover-code">Сохранённый код восстановления</label><input id="recover-code" autocomplete="off" autocapitalize="none" spellcheck="false" required><button class="btn wide" type="submit">Войти в свою ферму</button></form></details><small>Регистрируйся по уникальному нику и паролю. Если уже есть ферма, войди по нику и паролю либо через Telegram.</small>
       </div>
     </section>
@@ -126,9 +131,9 @@
             <span class="nav-art" aria-hidden="true"><img src="/assets/redesign/coop-icon.webp" class="icon" alt="" decoding="async"></span>
             <span>Курятник</span>
           </button>
-          <button type="button" class="quick" onclick="tab('storage')">
+          <button type="button" class="quick" onclick="tab('upgrades')">
             <span class="nav-art" aria-hidden="true"><img src="/assets/redesign/storage.webp" class="icon" alt="" decoding="async"></span>
-            <span>Склад</span>
+            <span>Улучшить склад</span>
           </button>
         </div>
         <details class="card launch-guide" id="launch-guide" hidden>
@@ -604,27 +609,6 @@
               ><img src="/assets/redesign/achievement.webp" alt="" /></span></span
           ><span>История операций</span><b id="history-toggle-arrow">›</b>
         </button>
-        <details class="economy-card" hidden>
-          <summary>
-            <img src="/assets/buildings/barn.webp" class="icon" alt="" /><span
-              ><strong>Казна и экономика</strong
-              ><small>Общий фонд: 10 000 монет</small></span
-            ><b>›</b>
-          </summary>
-          <div class="economy-details">
-            <div class="statsrow">
-              <span>Начальная эмиссия</span><b>10 000 монет</b>
-            </div>
-            <div class="statsrow">
-              <span>Баланс казны</span><b><span id="treasury">—</span></b>
-            </div>
-            <div class="statsrow"><span>Комиссия рынка</span><b>0%</b></div>
-            <p class="muted">
-              Покупки у системы возвращают монеты в казну. Торговля переводит их
-              между игроками.
-            </p>
-          </div>
-        </details>
         <div class="treasure-panel">
           <img
             src="/assets/redesign/wallet.webp"
@@ -671,9 +655,10 @@
         <details class="card support-guide">
  <summary>❓ Вопросы и помощь</summary>
  <div class="support-guide-body">
-  <p><b>Не хватает зерна?</b> Купи его в разделе «Торговля» либо настрой автозакупку.</p>
+  <p><a class="btn blue wide" href="https://t.me/Farmlife2026bot?start=support" target="_blank" rel="noopener noreferrer">🆘 Написать в поддержку</a></p>
+  <p><b>Не хватает зерна?</b> Купи его в разделе «Рынок» либо настрой автозакупку.</p>
   <p><b>Яйца не появляются?</b> Проверь корм, следующий сбор и свободное место на складе.</p>
-  <p><b>Не получается войти?</b> Используй привязанный Telegram или свой ник и пароль. Не создавай новую ферму, если хочешь восстановить существующую.</p>
+  <p><b>Не получается войти?</b> Используй привязанный Telegram или ник и пароль. Если не получается — обратись в поддержку через кнопку выше.</p>
   <p><b>Вопрос об оплате Stars?</b> Открой «Кошелёк → История покупок Stars» и сохрани время операции. Возвраты проверяет администратор.</p>
   <p class="muted">Не сообщай никому пароль, код подтверждения Telegram или токен бота.</p>
  </div>
@@ -739,101 +724,6 @@
         <button class="btn alt wide" onclick="logout()">
           Выйти из аккаунта
         </button>
-      </section>
-      <section id="storage" class="panel unified-farm-panel" aria-label="Склад">
-        <div class="panelhead">
-          <button
-            class="back"
-            onclick="tab('farm')"
-            aria-label="Назад на ферму"
-          >
-            ‹</button
-          ><img
-            src="/assets/redesign/storage.webp"
-            class="icon"
-            alt=""
-            decoding="async"
-          />
-          <div>
-            <h1>Склад</h1>
-            <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
-          </div>
-        </div>
-        <div class="storage-hero">
-          <img
-            src="/assets/redesign/storage.webp"
-            class="scene-image"
-            alt="Амбар для хранения ресурсов"
-            decoding="async"
-          />
-        </div>
-        <div class="pills">
-          <button class="active" onclick="storageFilter('all',this)">Все</button
-          ><button onclick="storageFilter('grain',this)">Зерно</button
-          ><button onclick="storageFilter('eggs',this)">Яйца</button
-          ><button onclick="storageFilter('chickens',this)">Куры</button>
-        </div>
-        <div class="card storage-overview"><h2 class="cardtitle">Мой запас</h2><div id="storage-summary" class="stock-summary"><span>Свободное зерно <b data-value="grain">—</b></span><span>Свободные яйца <b data-value="eggs">—</b></span><span>На продаже <b id="storage-listed">—</b></span></div></div>
-        <div class="card storage-list unified-primary-card">
-          <div class="product" data-storage="grain">
-            <img
-              src="/assets/redesign/grain.webp"
-              class="product-image"
-              alt=""
-              decoding="async"
-            />
-            <div>
-              <h3>Зерно</h3>
-              <small><span data-value="grain">—</span> шт.</small>
-            </div>
-            <button class="btn small" onclick="showShop('grain')">
-              Купить
-            </button>
-          </div>
-          <div class="product" data-storage="eggs">
-            <img
-              src="/assets/redesign/egg.webp"
-              class="product-image"
-              alt=""
-              decoding="async"
-            />
-            <div>
-              <h3>Яйца</h3>
-              <small><span data-value="eggs">—</span> шт.</small>
-            </div>
-            <button class="btn small" onclick="openSell('eggs')">
-              Продать
-            </button>
-          </div>
-          <div class="product" data-storage="chickens">
-            <img
-              src="/assets/redesign/hen.webp"
-              class="product-image"
-              alt=""
-              decoding="async"
-            />
-            <div>
-              <h3>Куры</h3>
-              <small><span data-value="chickens">—</span> шт.</small>
-            </div>
-            <small class="stock-note">Живут в курятнике</small>
-          </div>
-        </div>
-        <div class="card">
-          <h2 class="cardtitle">
-            <img
-              src="/assets/objects/feed_sack.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            />Кормление без хлопот
-          </h2>
-          <p class="muted">
-            Зерно со склада расходуется автоматически: 1 зерно на курицу каждые
-            18 часов. Ручное кормление не требуется.
-          </p>
-          <button class="btn alt wide" onclick="tab('coop')">В курятник</button>
-        </div>
       </section>
       <section id="tasks" class="panel" aria-label="Задания">
         <div class="panelhead">
