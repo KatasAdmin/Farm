@@ -264,8 +264,9 @@ async function setAccountPassword(){
 }
 async function setAccountNickname(){
   const input=el("settings-nickname");
-  if(!input.value.trim())return toast("Введите ник");
-  try{busy(true);await api("/api/nickname/set",{name:input.value.trim()});input.value="";await refresh();toast("Ник сохранён");}
+  const name=input.value.trim();
+  if(name.length<2||name.length>22)return toast("Ник должен быть от 2 до 22 символов");
+  try{busy(true);await api("/api/nickname/set",{name});await refresh();toast("Ник изменён ✓");}
   catch(e){toast(e.message);}finally{busy(false);}
 }
 function showLogin() {
@@ -757,7 +758,8 @@ function render() {
   if(el("link-telegram-button"))el("link-telegram-button").hidden=isLinked;
   if(el("telegram-link-help"))el("telegram-link-help").hidden=isLinked;
   if(el("telegram-browser-warning"))el("telegram-browser-warning").hidden=isLinked||Boolean(tgInitData());
-  if(el("nickname-settings"))el("nickname-settings").hidden=!p.name.startsWith("tg_");
+  if(el("nickname-settings"))el("nickname-settings").hidden=false;
+  if(el("settings-nickname") && document.activeElement!==el("settings-nickname"))el("settings-nickname").value=p.name;
 
   const farmDailyStats=state.day_stats||{};
   const assignStat=(id,value)=>{const node=el(id);if(node)node.textContent=number(value||0);};
