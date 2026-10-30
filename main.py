@@ -52,6 +52,7 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS recovery_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS password_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS telegram_id bigint UNIQUE")
+  c.execute("CREATE TABLE IF NOT EXISTS farm_admin_identity(slot integer PRIMARY KEY CHECK(slot=1),telegram_id bigint NOT NULL UNIQUE,claimed_at double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS telegram_link_codes(code_hash text PRIMARY KEY, player_id text NOT NULL, expires double precision NOT NULL)")
   c.execute("CREATE INDEX IF NOT EXISTS telegram_link_player ON telegram_link_codes(player_id)")
   c.execute("CREATE TABLE IF NOT EXISTS login_failures(name text PRIMARY KEY,attempts int NOT NULL DEFAULT 0,locked_until double precision NOT NULL DEFAULT 0)")
@@ -313,6 +314,12 @@ def start_telegram_link(authorization:str=Header(default="")):
 def notify_farm_admin(request_id,player_name,telegram_id,amount):
  bot=os.environ.get("TELEGRAM_BOT_TOKEN","")
  recipient=os.environ.get("FARM_ADMIN_TELEGRAM_ID","")
+ if not recipient:
+  try:
+   with db() as c:
+    admin=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
+   recipient=str(admin["telegram_id"]) if admin else ""
+  except Exception:logger.exception("admin_identity_lookup_failed")
  if not bot or not recipient:return
  message=("🐔 Новая заявка на вывод\\n"
           "Заявка: "+request_id[:12]+"\\n"
@@ -328,9 +335,21 @@ def notify_farm_admin(request_id,player_name,telegram_id,amount):
  except Exception:
   logger.exception("admin_notification_failed")
 
+# Initial administrator is approved by the repository owner. Keep the raw Telegram ID out of the source.
+FARM_OWNER_ID_SHA256="f3d199702967cf54be043ca9dd56dcb35e52f5740874ccff554d121b99ae6cd7"
 def farm_admin_telegram(uid,chat_id):
- configured=os.environ.get("FARM_ADMIN_TELEGRAM_ID","").strip()
- return bool(configured) and str(uid)==configured and str(chat_id)==configured
+ if str(uid)!=str(chat_id) or not uid:return False
+ with db() as c:
+  row=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
+  if row:return str(row["telegram_id"])==str(uid)
+  # First use: claim only by the pre-approved owner's Telegram identity, not arbitrary first caller.
+  configured=os.environ.get("FARM_ADMIN_TELEGRAM_ID","").strip()
+  digest=hashlib.sha256(str(uid).encode()).hexdigest()
+  if not ((configured and str(uid)==configured) or hmac.compare_digest(digest,FARM_OWNER_ID_SHA256)):
+   return False
+  c.execute("INSERT INTO farm_admin_identity(slot,telegram_id,claimed_at) VALUES(1,%s,%s) ON CONFLICT(slot) DO NOTHING",(int(uid),time.time()))
+  row=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
+  return bool(row and str(row["telegram_id"])==str(uid)
 
 def farm_admin_panel(chat_id):
  return {"method":"sendMessage","chat_id":chat_id,
