@@ -553,9 +553,9 @@ def login_telegram(q:Request):
   if not p:
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
    if treasury<10:raise HTTPException(409,"Новые регистрации временно закрыты")
-   name="tg_"+str(uid)
-   if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s)",(name,)).fetchone():
-    raise HTTPException(409,"Выберите другой способ входа")
+   name="tg_"+secrets.token_hex(6)
+   while c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s)",(name,)).fetchone():
+    name="tg_"+secrets.token_hex(6)
    pid=uuid.uuid4().hex
    c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,telegram_id,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,3,1,0,0,0,0)",(pid,name,secrets.token_hex(24),time.time(),time.time(),uid))
    c.execute("UPDATE economy SET treasury=treasury-10 WHERE id=1")
