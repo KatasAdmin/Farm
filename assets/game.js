@@ -343,6 +343,21 @@ function tab(id) {
   window.scrollTo({ top: 0, behavior: "instant" });
   if (id === "wallet") { loadHistory(); loadWithdrawalStatus(); }
 }
+function dismissLaunchGuide(){
+ if(!state?.me?.id)return;
+ localStorage.setItem("farm_guide_dismissed_"+state.me.id,"1");
+ const guide=el("launch-guide");
+ if(guide)guide.hidden=true;
+}
+async function claimWeekly(){
+ if(pending)return;
+ try{
+  busy(true);
+  const result=await api("/api/weekly/claim",{});
+  await refresh();
+  toast("🏆 Недельное испытание пройдено! +"+number(result.awarded)+" монет");
+ }catch(error){toast(error.message);}finally{busy(false);}
+}
 function taskSection(which) {
   const achievements = which === "achievements";
   const achievementsPane = el("achievement-pane");
@@ -776,6 +791,8 @@ function render() {
   if(button){const full=jobs.length>=(inc.capacity||1);
     button.textContent=!inc.owned?"Купить · "+number(inc.incubator_price)+" монет":"Заложить 12 яиц + 15 монет";
     button.disabled=pending||(!inc.owned?p.coins<inc.incubator_price:full||p.eggs<12||p.coins<15||p.chickens+jobs.length>=state.buildings.coop_capacity);}
+  const guide=el("launch-guide");
+  if(guide)guide.hidden=!(Date.now()/1000<(p.created_at||0)+3600 && !localStorage.getItem("farm_guide_dismissed_"+p.id));
   const tutorial=state.tutorial||{};
   const step=Math.min(3,tutorial.step||0), card=el("tutorial-card");
   if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить в Торговле. Куры едят автоматически раз в 18 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
@@ -888,10 +905,11 @@ function render() {
     x.style.background = sat < 35 ? "linear-gradient(#ffb65d,#db3b29)" : "";
   });
   el("feedstock").textContent = p.chickens
-    ? `${number(p.grain)} зерна · ~${Math.floor(state.farm.feed_stock_seconds/3600)} ч без автозакупки`
-    : `${number(p.grain)} зерна · пока нет кур`;
+    ? "~"+Math.max(0,Math.floor(state.farm.feed_stock_seconds/3600))+" часов"
+    : "— (нет кур)";
   el("warning").textContent = state.farm.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления." : "Кормление раз в 18 часов · 1 зерно на курицу.";
   el("warning").dataset.alert = String(state.farm.effective_grain_shortage > 0);
+  el("warning").hidden=state.farm.effective_grain_shortage<=0;
   el("treasury").textContent = number(state.economy.treasury) + " монет";
   document.querySelectorAll(".auto-card").forEach((card) => {
     const input = card.querySelector("input");
@@ -905,19 +923,23 @@ function render() {
       ? `Включена · ${p.autobuy_amount} зерна при нехватке корма`
       : "Автозакупка выключена";
   });
-  for (const [key, target] of Object.entries({
-    grain: 10,
-    chickens: 3,
-    eggs: 10,
-  })) {
-    const progress = Math.min(target, p[key]);
-    document.querySelector(`[data-goal="${key}"]`).textContent =
-      `${progress} / ${target}`;
-    document.querySelector(`[data-goal-bar="${key}"]`).style.width =
-      Math.min(100, (100 * progress) / target) + "%";
-    document.querySelector(`[data-goal-status="${key}"]`).textContent =
-      progress >= target ? "Достигнуто" : "В процессе";
+  const weekly=state.weekly||{}, targets=weekly.targets||{};
+  let weeklyDone=true;
+  for (const key of ["grain","eggs","listed"]) {
+    const target=targets[key]||1,value=Math.min(target,weekly[key]||0);
+    weeklyDone=weeklyDone&&value>=target;
+    const count=el("weekly-count-"+key)||document.querySelector(`[data-weekly="${key}"]`);
+    const bar=document.querySelector(`[data-weekly-bar="${key}"]`);
+    const status=document.querySelector(`[data-weekly-status="${key}"]`);
+    if(count)count.textContent=value+" / "+target;
+    if(bar)bar.style.width=(100*value/target)+"%";
+    if(status)status.textContent=value>=target?"Готово":"В процессе";
   }
+  const claim=el("weekly-claim");
+  if(claim){claim.disabled=pending||!weeklyDone||weekly.claimed;claim.textContent=weekly.claimed?"🏆 Награда получена ✓":"🏆 Забрать награду: +"+(weekly.reward||30)+" монет";}
+  const dead=el("weekly-deadline");
+  if(dead&&weekly.ends_at){const hours=Math.max(0,Math.ceil((weekly.ends_at-Date.now()/1000)/3600));dead.textContent="До конца недели: "+Math.floor(hours/24)+" дн. "+hours%24+" ч";}
+
   el("leaders").innerHTML = state.top
     .map(
       (x, i) =>
