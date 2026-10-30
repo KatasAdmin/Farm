@@ -171,7 +171,7 @@ async function saveProfile() {
     if (ok) {el("profile-editor").hidden = true;el("profile-image-file").value = "";}
   } catch(error) {toast(error.message);}
 }
-async function shopIncubatorAction() {
+async async function shopIncubatorAction() {
   if (!state || pending) return;
   if (state.incubator?.owned) {tab("coop");coopSection("incubator");return;}
   await perform("/api/incubator",{item:"buy"});
