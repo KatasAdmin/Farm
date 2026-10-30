@@ -97,6 +97,15 @@ async def lifespan(app):
   token=os.environ.get("TELEGRAM_BOT_TOKEN","")
   domain=os.environ.get("RAILWAY_PUBLIC_DOMAIN","")
   if token and domain:
+   # Log only the bot username, never its token, to diagnose mismatched Mini App owners.
+   try:
+    req_info=URLRequest("https://api.telegram.org/bot"+token+"/getMe")
+    with urlopen(req_info,timeout=6) as info_resp:
+     info=json.load(info_resp)
+    username=((info.get("result") or {}).get("username") or "") if info.get("ok") else ""
+    logger.warning("farm_token_bot_username=%s expected=Farmlife2026bot",username)
+   except Exception:
+    logger.exception("farm_bot_identity_check_failed")
    payload=json.dumps({"url":"https://"+domain+"/api/telegram/webhook","secret_token":telegram_webhook_secret(),"allowed_updates":["message","callback_query","pre_checkout_query"]}).encode()
    req=URLRequest("https://api.telegram.org/bot"+token+"/setWebhook",data=payload,headers={"Content-Type":"application/json"})
    with urlopen(req,timeout=6) as resp:
