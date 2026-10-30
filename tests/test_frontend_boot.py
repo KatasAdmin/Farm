@@ -13,7 +13,16 @@ class FrontendBootSafety(unittest.TestCase):
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   self.assertIn("/assets/game.js?v=43",html)
- def test_entrypoints_and_app_present(self):
+ def test_launch_help_and_placeholder_polish(self):
+  root=Path(__file__).resolve().parents[1]
+  html=(root/"index.html").read_text(encoding="utf-8")
+  css=(root/"assets"/"stars-mobile.css").read_text(encoding="utf-8")
+  self.assertIn('id="launch-guide"',html)
+  self.assertIn('class="card support-guide"',html)
+  self.assertIn('class="gems" hidden',html)
+  self.assertIn('/assets/stars-mobile.css?v=5',html)
+  self.assertIn('.gems[hidden] {display:none!important;}',css)
+  def test_entrypoints_and_app_present(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   for value in ['id="app"','id="login"','id="nav"','id="farm"']:
    self.assertIn(value,html)
