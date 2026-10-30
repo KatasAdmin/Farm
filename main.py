@@ -148,7 +148,7 @@ def telegram_identity(raw):
  calculated=hmac.new(secret,check.encode(),hashlib.sha256).hexdigest()
  if not hmac.compare_digest(calculated,supplied):
   logger.warning("telegram_invalid_signature")
-  raise HTTPException(401,"Не удалось проверить Telegram")
+  raise HTTPException(401,"Ошибка подписи Telegram. Закройте Mini App полностью и откройте заново через @Farmlife2026bot. Если не поможет, проверьте токен именно этого бота в Farm-Web.")
  try:user=json.loads(pairs["user"]);uid=int(user["id"])
  except (KeyError,ValueError,TypeError,json.JSONDecodeError):raise HTTPException(401,"Не найден пользователь Telegram")
  if uid<=0:raise HTTPException(401,"Неверный Telegram ID")
