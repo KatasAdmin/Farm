@@ -29,6 +29,9 @@ class Database:
         self.raw.row_factory = sqlite3.Row
         self.depth = 0
     def execute(self, sql, params=()):
+        if sql.startswith('ALTER TABLE bot_accounts ADD COLUMN IF NOT EXISTS advertising'):
+            columns = {row[1] for row in self.raw.execute('PRAGMA table_info(bot_accounts)')}
+            sql = 'SELECT 1' if 'advertising' in columns else sql.replace(' IF NOT EXISTS', '')
         if 'pg_advisory_xact_lock' in sql:
             sql, params = 'SELECT 1', ()
         params = tuple(json.dumps(p.obj) if isinstance(p, bot.Jsonb) else p for p in params)
@@ -96,8 +99,12 @@ class TaskBotTests(unittest.TestCase):
         return self.c.execute('SELECT available FROM bot_accounts WHERE uid=%s', (uid,)).fetchone()['available']
     def credit(self, uid=2, value='10', ref='payment001'):
         return self.send(1, f'/botcredit {uid} {value} {ref}')
+    def ads_balance(self, uid):
+        return self.c.execute('SELECT advertising FROM bot_accounts WHERE uid=%s', (uid,)).fetchone()['advertising']
     def task(self, kind='channel', count='2'):
         self.credit()
+        self.send(2, action='convert_to_ads')
+        self.send(2, '10')
         self.send(2, action='new:' + kind)
         for text in ('Test task', 'Join the channel please', 'https://t.me/ChannelTest', '1', count):
             self.send(2, text)
@@ -139,7 +146,7 @@ class TaskBotTests(unittest.TestCase):
         self.send(3, action='check:' + tid)
         self.send(3, action='check:' + tid)
         self.assertEqual(self.balance(3), 100)
-        self.assertEqual(self.balance(2), 800)
+        self.assertEqual(self.ads_balance(2), 800)
         self.invariant()
     def test_old_member_cannot_take(self):
         tid = self.task()
@@ -161,14 +168,14 @@ class TaskBotTests(unittest.TestCase):
         self.assertEqual(self.balance(3), 100)
         self.send(2, action='close:' + tid)
         self.send(2, action='close:' + tid)
-        self.assertEqual(self.balance(2), 900)
+        self.assertEqual(self.ads_balance(2), 900)
         self.invariant()
     def test_task_rejected_budget_returned_once(self):
         self.task()
         # Approved tasks cannot be rejected via stale moderation controls.
         tid = self.c.execute('SELECT id FROM bot_tasks').fetchone()['id']
         self.send(1, action='admin:rejecttask:' + tid)
-        self.assertEqual(self.balance(2), 800)
+        self.assertEqual(self.ads_balance(2), 800)
         self.invariant()
     def test_withdrawal_reservation_confirmation_and_cancel(self):
         self.credit()
@@ -228,6 +235,91 @@ class TaskBotTests(unittest.TestCase):
         self.assertIsNone(self.send(3, '/start link_secret'))
         self.assertIsNone(self.send(1, '/admin'))
         self.assertIsNone(self.send(3, '/paysupport'))
+    def test_conversion_preserves_funds_and_cannot_overdraw(self):
+        self.credit()
+        before = bot.liability(self.c)
+        self.send(2, action='convert_to_ads')
+        self.send(2, '3.25')
+        self.assertEqual((self.balance(2), self.ads_balance(2)), (675, 325))
+        self.assertEqual(bot.liability(self.c), before)
+        self.send(2, action='convert_from_ads')
+        self.send(2, '4')
+        self.assertEqual((self.balance(2), self.ads_balance(2)), (675, 325))
+        self.send(2, '3.25')
+        self.assertEqual((self.balance(2), self.ads_balance(2)), (1000, 0))
+        self.invariant()
+    def test_direct_advertising_deposit_and_duplicate(self):
+        self.send(1, '/botcredit 2 10 direct-ads ads')
+        self.send(1, '/botcredit 2 10 direct-ads main')
+        self.assertEqual((self.balance(2), self.ads_balance(2)), (0, 1000))
+        self.assertIn('Пополнений: 10,00 грн', self.send(2, action='cabinet')['text'])
+        self.invariant()
+    def test_pending_creation_deducts_full_budget_once(self):
+        tid = self.task()
+        self.assertEqual(self.balance(2), 0)
+        self.assertEqual(self.ads_balance(2), 800)
+        self.send(2, action='confirm_task')
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_tasks').fetchone()['n'], 1)
+        self.assertEqual(self.ads_balance(2), 800)
+        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'], 200)
+        self.invariant()
+    def test_moderation_rejection_refunds_advertising_once(self):
+        tid = self.task()
+        self.c.execute("UPDATE bot_tasks SET status='pending' WHERE id=%s", (tid,))
+        self.c.raw.commit()
+        self.send(1, action='admin:rejecttask:' + tid)
+        self.send(1, action='admin:rejecttask:' + tid)
+        self.assertEqual((self.balance(2), self.ads_balance(2)), (0, 1000))
+        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'], 0)
+        self.invariant()
+    def test_catalog_only_real_active_other_users_tasks(self):
+        tid = self.task()
+        self.assertIn('Test task', self.send(3, action='list:channel:0')['reply_markup']['inline_keyboard'][0][0]['text'])
+        self.assertNotIn('Test task', str(self.send(2, action='list:channel:0')))
+        self.c.execute("UPDATE bot_tasks SET status='pending'")
+        self.c.raw.commit()
+        self.assertNotIn('Test task', str(self.send(3, action='list:channel:0')))
+    def test_full_manual_review_reserves_last_slot(self):
+        tid = self.task('manual', '1')
+        self.send(3, action='take:' + tid)
+        self.send(3, action='check:' + tid)
+        self.send(3, 'My proof')
+        self.assertNotIn('Test task', str(self.send(1, action='list:manual:0')))
+        self.assertIn('на проверке', self.send(1, action='take:' + tid)['text'])
+        self.send(2, action=f'rejectwork:{tid}:3')
+        self.assertIn('Test task', str(self.send(1, action='list:manual:0')))
+        self.invariant()
+    def test_spent_frozen_earned_statistics_are_real(self):
+        tid = self.task()
+        self.send(3, action='take:' + tid)
+        self.joined = True
+        self.send(3, action='check:' + tid)
+        owner = self.send(2, action='cabinet')['text']
+        worker = self.send(3, action='cabinet')['text']
+        self.assertIn('Потрачено на рекламу: 1,00 грн', owner)
+        self.assertIn('В бюджете заданий: 1,00 грн', owner)
+        self.assertIn('Заработано на заданиях: 1,00 грн', worker)
+        self.send(2, action='close:' + tid)
+        owner = self.send(2, action='cabinet')['text']
+        self.assertIn('В бюджете заданий: 0,00 грн', owner)
+        self.assertEqual(self.ads_balance(2), 900)
+        self.invariant()
+    def test_confirmation_rechecks_balance_and_rolls_back(self):
+        self.task()
+        self.send(2, action='new:manual')
+        for text in ('Second task', 'Description for second task', 'https://example.com/', '1', '2'):
+            self.send(2, text)
+        self.c.execute('UPDATE bot_accounts SET advertising=0 WHERE uid=2')
+        self.c.raw.commit()
+        reply = self.send(2, action='confirm_task')
+        self.assertIn('Недостаточно средств', reply['text'])
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_tasks').fetchone()['n'], 1)
+    def test_existing_accounts_migration_preserves_money(self):
+        self.credit()
+        bot.initialize(self.c)
+        self.c.raw.commit()
+        self.assertEqual((self.balance(2), self.ads_balance(2)), (1000, 0))
+        self.invariant()
     def test_resolve_chat_rejects_external_urls(self):
         for url in ('http://t.me/hello', 'https://evil.test/foo', 'https://t.me/+secret', 'https://t.me/foo/bar'):
             with self.assertRaises(bot.UserError):
