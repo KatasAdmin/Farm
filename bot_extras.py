@@ -1,4 +1,4 @@
-"""Forwarded-bot evidence, paid channel posts and explicitly funded rewards."""
+"""Forwarded-bot evidence, paid channel posts and daily account rewards."""
 import datetime as dt
 import logging
 import time
@@ -93,14 +93,11 @@ def route(c, uid, text, action, message, api):
         cfg = settings(c)
         n = cfg['daily']
         if n <= 0:
-            return b.say(uid, '🎁 Ежедневный бонус ещё не настроен администратором.')
+            return b.say(uid, '🎁 Ежедневная награда сейчас отключена.')
         day = dt.datetime.now(ZoneInfo('Europe/Kyiv')).date().isoformat()
         if c.execute('SELECT 1 FROM bot_daily_claims WHERE uid=%s AND day=%s', (uid, day)).fetchone():
             raise b.UserError('Сегодня бонус уже получен. Следующий день считается по времени Киева.')
-        if cfg['budget'] < n:
-            raise b.UserError('Бюджет бонусов пока закончился. С баланса ничего не списано.')
         c.execute('INSERT INTO bot_daily_claims VALUES(%s,%s,%s)', (uid, day, n))
-        c.execute('UPDATE bot_settings SET budget=budget-%s WHERE id=1', (n,))
         b.change(c, uid, n, 'daily_bonus', 'Ежедневный бонус ' + day)
         return b.say(uid, '🎁 Начислен ежедневный бонус: ' + b.money(n))
     if action == 'friends' or text == '👥 Партнёры':
@@ -134,16 +131,13 @@ def administration(c, uid, text, action, api):
     parts = text.split()
     cmd = parts[0].split('@')[0] if parts else ''
     if cmd == '/botbonus':
-        if len(parts) != 3:
-            raise b.UserError('Формат: /botbonus БонусЗаДень ДобавитьБюджет\nПример: /botbonus 0.50 10. Бюджет выделяется только из свободного фактически учтённого резерва.')
-        daily, extra = (0 if p in ('0', '0.00', '0,00') else b.amount(p) for p in parts[1:])
-        pool = c.execute('SELECT amount FROM bot_cash_pool WHERE id=1 FOR UPDATE').fetchone()['amount']
-        if pool - b.liability(c) < extra:
-            raise b.UserError('Свободного резерва недостаточно. Сначала учти фактически выделенные деньги через /botfund.')
-        c.execute('UPDATE bot_settings SET daily=%s,referral=0,budget=budget+%s WHERE id=1', (daily, extra))
+        if len(parts) != 2:
+            raise b.UserError('Формат: /botbonus СуммаЗаДень\nНапример: /botbonus 0.50. Сумма 0 отключает награду.')
+        daily = 0 if parts[1] in ('0','0.00','0,00') else b.amount(parts[1])
+        c.execute('UPDATE bot_settings SET daily=%s WHERE id=1', (daily,))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'bonus_config',%s,%s)",
-                  (uuid.uuid4().hex, uid, f'За день {b.money(daily)}, добавлено в бюджет {b.money(extra)}', time.time()))
-        return b.say(uid, f'Настройки сохранены. За день: {b.money(daily)}. Добавлено в бюджет: {b.money(extra)}.')
+                  (uuid.uuid4().hex, uid, 'Ежедневная награда: '+b.money(daily), time.time()))
+        return b.say(uid, 'Ежедневная награда сохранена: '+b.money(daily)+'. Зачисляется на баланс один раз в день.')
     if cmd == '/botchannel':
         if len(parts) != 2:
             raise b.UserError('Формат: /botchannel @ИмяКанала\nСначала добавь нашего бота администратором с правом публикации сообщений.')
@@ -156,7 +150,7 @@ def administration(c, uid, text, action, api):
         return b.say(uid, 'Канал рекламных постов подключён: ' + url)
     if action == 'admin:bonus':
         cfg = settings(c)
-        return b.say(uid, f"🎁 Ежедневный бонус: {b.money(cfg['daily'])}\nБюджет: {b.money(cfg['budget'])}\n\nНастроить: /botbonus БонусЗаДень ДобавитьБюджет\nНапример: /botbonus 0.50 10\nБюджет можно пополнить только из свободного реального резерва.\n\nРекламный канал: {cfg['channel_url'] or 'не подключён'}\nПодключить: /botchannel @ИмяКанала", [[b.button('Изменить бонус / бюджет','admin:ecoedit:bonus')]])
+        return b.say(uid, f"🎁 Ежедневная награда: {b.money(cfg['daily'])}\nЗачисляется на баланс один раз в день.\n\nИзменить сумму: /botbonus 0.50\n\nРекламный канал: {cfg['channel_url'] or 'не подключён'}\nПодключить: /botchannel @ИмяКанала", [[b.button('Изменить ежедневную награду','admin:ecoedit:bonus')]])
     if action.startswith('admin:bindpost:'):
         tid = action.split(':')[-1]
         pub = c.execute("SELECT * FROM bot_post_publications WHERE task=%s AND status IN ('sending','uncertain')", (tid,)).fetchone()

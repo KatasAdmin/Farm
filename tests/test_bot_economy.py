@@ -288,18 +288,17 @@ class EconomyTests(unittest.TestCase):
         self.assertEqual(self.row('bot_tasks')['remaining'],140)
         self.assertIsNone(self.row('bot_retention'))
 
-    def test_bonus_settings_funding_and_bonus_pays_debt_first(self):
+    def test_bonus_settings_without_funding_and_bonus_pays_debt_first(self):
         tid=self.paid_membership()
         self.leave(tid)
-        self.send(1,'/botfund 10 actual-owner-funds')
         self.send(1,action='admin:ecoedit:bonus')
-        self.send(1,'0.50 5')
+        self.send(1,'0.50')
         self.assertEqual(self.row('bot_settings')['daily'],50)
         self.send(3,action='daily')
         self.send(3,action='daily')
         self.assertEqual(self.balance(3),0)
         self.assertEqual(self.row('bot_debts')['amount'],6)
-        self.assertEqual(self.row('bot_settings')['budget'],450)
+        self.assertEqual(self.row('bot_cash_pool')['amount'],1000)
         self.invariant()
 
     def test_ambiguous_case_confirmed_once_by_owner(self):

@@ -151,7 +151,6 @@ def liability(c):
       (SELECT coalesce(sum(available+advertising),0) FROM bot_accounts) +
       (SELECT coalesce(sum(remaining),0) FROM bot_tasks WHERE status IN ('pending','active')) +
       (SELECT coalesce(sum(amount),0) FROM bot_payouts WHERE status='pending') +
-      (SELECT budget FROM bot_settings WHERE id=1) +
       (CAST((SELECT coalesce(sum(units),0) FROM bot_ref_accruals) AS bigint)+9999)/10000 AS n""").fetchone()["n"]
 
 

@@ -1,4 +1,5 @@
 import time
+import datetime as dt
 import unittest
 from unittest.mock import patch
 import task_bot as bot
@@ -64,9 +65,8 @@ class ExtendedBotTests(unittest.TestCase):
                    'data': 'bot:postclaim:' + tid,
                    'message': {'message_id': mid, 'chat': {'id': chat, 'type': 'channel'}}}}
         return bot.handle(payload, lambda: self.c, self.api, lambda u, c: u == 1)
-    def fund_bonus(self, daily='0.10', referral='0.75', budget='5'):
-        self.send(1, '/botfund 10 fund-bonus')
-        return self.send(1, f'/botbonus {daily} {budget}')
+    def configure_bonus(self, daily='0.10'):
+        return self.send(1, f'/botbonus {daily}')
     def test_channel_admin_rights_checked_before_accepting_link(self):
         self.send(2, action='new:channel')
         self.send(2, 'A channel')
@@ -176,29 +176,64 @@ class ExtendedBotTests(unittest.TestCase):
         self.assertEqual(len(self.sent), 1)
         reply = self.send(2, action='close:' + tid)
         self.assertIn('проверить результат', reply['text'])
-    def test_daily_bonus_is_funded_and_once_per_kyiv_day(self):
-        self.fund_bonus()
+    def test_daily_bonus_is_unconditional_and_once_per_kyiv_day(self):
         self.send(3, action='daily')
         self.send(3, action='daily')
-        self.assertEqual(self.balance(3), 10)
-        self.assertEqual(self.c.execute('SELECT budget FROM bot_settings').fetchone()['budget'], 490)
-        self.invariant()
-    def test_bonus_budget_cannot_use_customer_liabilities(self):
+        self.assertEqual(self.balance(3), 50)
+        self.assertEqual(self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount'], 0)
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_daily_claims').fetchone()['n'], 1)
+        self.assertEqual(bot.liability(self.c), 50)
+    def test_bonus_does_not_debit_advertiser_or_cash_pool(self):
         self.credit()
-        result = self.send(1, '/botbonus 0.10 1')
-        self.assertIn('недостаточно', result['text'])
-        self.assertEqual(self.c.execute('SELECT budget FROM bot_settings').fetchone()['budget'], 0)
+        self.configure_bonus('0.10')
+        self.send(3, action='daily')
         self.assertEqual(self.balance(2), 1000)
-        self.invariant()
-    def test_disabled_or_exhausted_bonus_does_not_mint(self):
+        self.assertEqual(self.balance(3), 10)
+        self.assertEqual(self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount'], 1000)
+        self.assertEqual(bot.liability(self.c), 1010)
+    def test_admin_can_disable_or_change_daily_without_funding(self):
+        self.configure_bonus('0')
         self.send(3, action='daily')
         self.assertEqual(self.balance(3), 0)
-        self.fund_bonus(daily='1', budget='0.10')
+        self.configure_bonus('1')
         self.send(3, action='daily')
-        self.assertEqual(self.balance(3), 0)
-        self.invariant()
+        self.assertEqual(self.balance(3), 100)
+    def test_daily_replay_and_next_day_by_kyiv_calendar(self):
+        first = dt.datetime(2026,10,31,23,59,tzinfo=extra.ZoneInfo('Europe/Kyiv'))
+        with patch('bot_extras.dt.datetime', wraps=dt.datetime) as clock:
+            clock.now.return_value = first
+            self.send(3, action='daily', event='daily-replay')
+            self.send(3, action='daily', event='daily-replay')
+            self.send(3, action='daily')
+            self.assertEqual(self.balance(3),50)
+            clock.now.return_value = first + dt.timedelta(minutes=2)
+            self.send(3, action='daily')
+            self.send(3, action='daily')
+        self.assertEqual(self.balance(3),100)
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_daily_claims').fetchone()['n'],2)
+    def test_old_bonus_budget_is_ignored_and_removed_from_admin_screen(self):
+        self.c.execute('UPDATE bot_settings SET budget=12345')
+        self.c.raw.commit()
+        self.send(3, action='daily')
+        self.assertEqual(self.balance(3),50)
+        self.assertEqual(bot.liability(self.c),50)
+        self.assertEqual(self.c.execute('SELECT budget FROM bot_settings').fetchone()['budget'],12345)
+        self.assertNotIn('бюджет',self.send(1,action='admin:bonus')['text'].lower())
+        before=self.c.execute('SELECT daily FROM bot_settings').fetchone()['daily']
+        self.send(1,'/botbonus 10 100')
+        self.assertEqual(self.c.execute('SELECT daily FROM bot_settings').fetchone()['daily'],before)
+    def test_daily_reward_can_be_reserved_for_manual_withdrawal(self):
+        self.send(3,action='daily')
+        self.send(3,action='withdraw')
+        self.send(3,'0.50')
+        self.send(3,'UA123456789 Daily recipient')
+        self.send(3,action='confirm_payout')
+        self.assertEqual(self.balance(3),0)
+        payout=self.c.execute('SELECT amount,status FROM bot_payouts WHERE uid=3').fetchone()
+        self.assertEqual((payout['amount'],payout['status']),(50,'pending'))
+        self.assertEqual(bot.liability(self.c),50)
     def test_referral_after_paid_task_and_no_duplicate_claim(self):
-        self.fund_bonus()
+        self.configure_bonus()
         self.send(4, '/start partner_1')
         self.assertEqual(self.balance(1), 0)
         tid = self.task()
@@ -212,11 +247,11 @@ class ExtendedBotTests(unittest.TestCase):
         self.assertEqual(self.balance(1), 3)
         self.invariant()
     def test_bonus_commands_are_admin_only(self):
-        self.send(3, '/botbonus 100 100 100')
+        self.send(3, '/botbonus 100')
         self.send(3, '/botchannel @ChannelTest')
         cfg = extra.settings(self.c)
         self.c.raw.commit()
-        self.assertEqual(cfg['budget'], 0)
+        self.assertEqual(cfg['daily'], 50)
         self.assertIsNone(cfg['channel_id'])
 
 if __name__ == '__main__':

@@ -287,13 +287,13 @@ def admin(c, uid, text, action):
                      f"\n\nКомиссия: {pct(cfg['fee'])}% (для постов задаётся цена и награда отдельно).\nРефералы: "+' / '.join(pct(cfg['ref'+str(i)])+'%' for i in range(1,6))+
                      f"\nБонус: {b.money(daily)}\nПодписка: {cfg['days']} суток; штраф ×{cfg['multiplier']}.\nИзменения действуют для новых заказов.",
                      [[b.button('Изменить тарифы','admin:ecoedit:prices'),b.button('Комиссия / рефералы','admin:ecoedit:rates')],
-                      [b.button('Срок / штраф','admin:ecoedit:retention'),b.button('Бонус / бюджет','admin:bonus')],
+                      [b.button('Срок / штраф','admin:ecoedit:retention'),b.button('Ежедневная награда','admin:bonus')],
                       [b.button('Спорные отписки','admin:retention')]])
     if action.startswith('admin:ecoedit:'):
         field=action.split(':')[-1]
         prompts={'prices':'Введи: канал бот группа пост наградаЗаПост задание. Все суммы в гривнах.\nПример: 0.70 0.40 0.60 0.04 0.03 1.00',
                  'rates':'Введи комиссию и 5 реферальных процентов.\nПример: 20 5 2.5 1.5 0.75 0.25',
-                 'bonus':'Введи ежедневный бонус и сумму добавления в бюджет, в гривнах.\nПример: 0.50 10.00',
+                 'bonus':'Введи сумму ежедневной награды в гривнах.\nПример: 0.50. Сумма 0 отключает награду.',
                  'retention':'Введи срок подписки в сутках и множитель штрафа.\nПример: 7 2'}
         if field not in prompts:
             raise b.UserError('Неизвестная настройка.')
@@ -353,13 +353,10 @@ def edit(c,uid,text,data):
             raise b.UserError('При такой комиссии один из тарифов даёт нулевую награду.')
         c.execute('UPDATE bot_economics SET fee=%s,ref1=%s,ref2=%s,ref3=%s,ref4=%s,ref5=%s WHERE id=1',(fee,*refs))
     elif field=='bonus':
-        if len(p)!=2:
-            raise b.UserError('Нужны бонус и сумма добавления в бюджет.')
-        daily, extra = (0 if x in ('0','0.00','0,00') else b.amount(x) for x in p)
-        pool = c.execute('SELECT amount FROM bot_cash_pool WHERE id=1 FOR UPDATE').fetchone()['amount']
-        if pool-b.liability(c)<extra:
-            raise b.UserError('Свободного реального резерва недостаточно. Сначала /botfund Сумма НомерВзноса.')
-        c.execute('UPDATE bot_settings SET daily=%s,referral=0,budget=budget+%s WHERE id=1',(daily,extra))
+        if len(p)!=1:
+            raise b.UserError('Введи только сумму ежедневной награды. Например: 0.50.')
+        daily = 0 if p[0] in ('0','0.00','0,00') else b.amount(p[0])
+        c.execute('UPDATE bot_settings SET daily=%s WHERE id=1',(daily,))
     elif field=='retention':
         if len(p)!=2 or not all(x.isdecimal() for x in p) or not 1<=int(p[0])<=365 or not 1<=int(p[1])<=10:
             raise b.UserError('Срок: 1–365 суток; множитель: 1–10.')
