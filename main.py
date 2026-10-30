@@ -632,16 +632,22 @@ def login_telegram(q:Request):
 
 @app.post("/api/nickname/set")
 def set_nickname(q:Request,authorization:str=Header(default="")):
- name=q.name.strip()[:22]
- if len(name)<2:raise HTTPException(400,"Ник должен содержать от 2 до 22 символов")
+ name=q.name.strip()
+ if not 2<=len(name)<=22 or any(ord(ch)<32 or ord(ch)==127 for ch in name):
+  raise HTTPException(400,"Ник должен содержать от 2 до 22 символов без управляющих символов")
  with db() as c:
+  # Use the same lock as registration to prevent case-insensitive duplicate names.
   c.execute("SELECT pg_advisory_xact_lock(1984532)")
   p=person(c,authorization,True)
-  if not p["name"].startswith("tg_"):raise HTTPException(409,"Ник уже установлен")
+  if name==p["name"]:return {"ok":True,"name":name,"unchanged":True}
   if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s) AND id<>%s",(name,p["id"])).fetchone():
-   raise HTTPException(409,"Ник уже занят")
-  c.execute("UPDATE players SET name=%s WHERE id=%s",(name,p["id"]))
- return {"ok":True}
+   raise HTTPException(409,"Этот ник уже занят. Выбери другой.")
+  try:
+   c.execute("UPDATE players SET name=%s WHERE id=%s",(name,p["id"]))
+  except psycopg.errors.UniqueViolation:
+   raise HTTPException(409,"Этот ник уже занят. Выбери другой.")
+ return {"ok":True,"name":name}
+
 
 @app.get("/api/state")
 def state(authorization:str=Header(default="")):
