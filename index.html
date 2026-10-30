@@ -13,9 +13,9 @@
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
-    <link rel="stylesheet" href="/assets/stars-mobile.css?v=8" />
+    <link rel="stylesheet" href="/assets/stars-mobile.css?v=9" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=47" defer></script>
+    <script src="/assets/game.js?v=48" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -145,31 +145,16 @@
         <h2 class="section-title">
           Моё хозяйство
         </h2>
-        <div class="three">
-          <div class="resource">
-            <img
-              src="/assets/redesign/hen.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            /><span>Куры</span><strong data-value="chickens">—</strong>
-          </div>
-          <div class="resource">
-            <img
-              src="/assets/redesign/grain.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            /><span>Зерно</span><strong data-value="grain">—</strong>
-          </div>
-          <div class="resource">
-            <img
-              src="/assets/redesign/egg.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            /><span>Яйца</span><strong data-value="eggs">—</strong>
-          </div>
+        <div class="three resource-actions">
+          <button type="button" class="resource resource-link" onclick="openResourceActions('chickens')" aria-label="Куры: купить или продать">
+            <img src="/assets/redesign/hen.webp" class="icon" alt="" decoding="async"/><span>Куры</span><strong data-value="chickens">—</strong>
+          </button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('grain')" aria-label="Зерно: купить или продать">
+            <img src="/assets/redesign/grain.webp" class="icon" alt="" decoding="async"/><span>Зерно</span><strong data-value="grain">—</strong>
+          </button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('eggs')" aria-label="Яйца: купить или выставить на продажу">
+            <img src="/assets/redesign/egg.webp" class="icon" alt="" decoding="async"/><span>Яйца</span><strong data-value="eggs">—</strong>
+          </button>
         </div>
         <div class="card herd compact-herd">
           <div class="health-line">
@@ -194,7 +179,7 @@
           </div>
           <div class="feed-reserve">
             <span class="clock" aria-hidden="true">◴</span>
-            <p>Корма хватит на <strong id="feedstock">—</strong></p>
+            <p>Зерна хватит на <strong id="feedstock">—</strong></p>
           </div>
           <p id="warning" class="muted" hidden></p><p id="storage-warning" class="capacity-warning" role="status" hidden></p>
         </div>
@@ -205,10 +190,10 @@
             <p class="forecast-secondary" hidden>В ближайшие 12 часов: <b data-eggs-12h>—</b></p>
           </div></div>
           <p id="forecast-brief" class="muted" hidden></p>
-          <div class="forecast-timers"><div><span>Следующий сбор</span><strong data-next-tick>—</strong></div><div><span>Следующее кормление</span><strong data-feed-tick>—</strong></div></div>
+          <div class="forecast-timers"><div><span>Следующее яйцо</span><strong data-next-tick>—</strong></div><div><span>Следующее кормление</span><strong data-feed-tick>—</strong></div></div>
           <div class="forecast-feeding" hidden><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><strong>Следующее кормление: −<span data-feed-required>—</span> зерна</strong><p data-feed-status>Проверяем запас…</p></div></div>
-          <div class="buttons"><button class="btn" data-buy-feed onclick="tab('shop');showShop('grain')">Купить корм</button><button class="btn alt" onclick="openSell('eggs')">Продать яйца</button></div>
-          <details class="farm-explainer"><summary>От чего зависит прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Каждая сытая курица несёт яйцо каждые 6 часов. Одно зерно на курицу расходуется каждые 18 часов. Яйца можно продать игрокам или использовать в инкубаторе.</p></details>
+          <div class="buttons"><button class="btn" onclick="openSell('eggs')">Продать яйца</button><button class="btn alt" data-buy-feed onclick="tab('shop');showShop('grain')">Купить зерно</button></div>
+          <details class="farm-explainer"><summary>Как рассчитывается прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Каждая сытая курица производит одно яйцо за 6 часов. Все куры кормятся одновременно раз в 18 часов: на каждую нужно 1 зерно. Прогноз зависит от числа сытых кур, запаса зерна и времени до кормления. Если кур станет больше, зерно закончится или изменится состояние стада, расчёт обновится. Яйца сразу поступают на склад, если там есть место.</p></details>
         </div>
         <details class="card farm-day-statistics">
           <summary>📊 Статистика хозяйства за сегодня</summary>
@@ -388,39 +373,35 @@
         </div>
       </section>
       <section id="market" class="panel" aria-label="Продажа товаров">
-        <div class="panelhead"><button class="back" onclick="tab('shop')" aria-label="К покупкам">‹</button><img src="/assets/redesign/egg.webp" class="icon" alt=""><div><h1>Торговля</h1><small>ТОРГОВЛЯ · МОИ ОБЪЯВЛЕНИЯ</small></div></div>
-        <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button type="button" aria-pressed="false" onclick="tab('shop')">Купить</button><button type="button" class="active" aria-pressed="true">Продать</button></div><p class="compact-trade-hint">Продажа не мгновенная: монеты поступят, когда кто-то купит твои яйца.</p>
-        <div id="sellPane" class="marketpanel active">
-          <div class="card">
-            <h2 class="cardtitle">
-              <img
-                src="/assets/redesign/storage.webp"
-                class="icon"
-                alt=""
-                decoding="async"
-              />Выставить товар
-            </h2>
-            <p id="myStock" class="muted"></p>
-            <input type="hidden" id="sellitem" value="eggs"><input type="hidden" id="sellprice" value="1">
-            <div class="trade-amount-line"><span class="trade-egg-label">🥚 Яйца · 1 монета / шт.</span><label for="sellnum">Количество</label><div class="trade-amount-controls"><input id="sellnum" type="number" inputmode="numeric" min="1" max="10000" value="1" oninput="sellQuote()"><button type="button" class="btn small" onclick="sellMaximum()">Все</button></div></div>
-            <div id="grainPriceWrap" hidden></div>
-            <div class="statsrow">
-              <span>Получишь после покупки игроком</span
-              ><b><span id="sellquote">—</span></b>
-            </div>
-            <button class="btn wide" onclick="sellNow()">
-              Выставить на продажу
-            </button>
-            <p class="muted">
-              Монеты поступят после покупки товара другим игроком. Непроданное можно вернуть на склад.
-            </p>
-          </div>
-          <div class="card">
-            <details class="trade-listings" open><summary>Мои объявления</summary><div id="mylist"></div></details>
-          </div>
+        <div class="scene-banner compact-trade-scene">
+          <img src="/assets/redesign/shop.webp" class="scene-image" alt="Рынок" decoding="async"/>
+          <div class="scene-caption"><h1>Торговля</h1><p>Купить или продать товары</p></div>
         </div>
-
-      <details class="card trade-rules"><summary>Как работает торговля?</summary><p>Зерно и кур продаёт система. Яйца поступают от других игроков. Свои объявления купить нельзя.</p><p>Покупки распределяются между продавцами пропорционально их количеству товара при одинаковой цене. Монеты приходят после покупки, а непроданный остаток можно вернуть, если на складе есть место.</p></details>
+        <div class="switch unified-switch" role="group" aria-label="Купить или продать">
+          <button type="button" onclick="tab('shop')" aria-pressed="false">Купить</button>
+          <button type="button" class="active" aria-pressed="true">Продать</button>
+        </div>
+        <div class="card shop-catalog">
+          <h2 class="cardtitle">Продать товары</h2>
+          <p class="compact-trade-hint">Выбери товар, укажи количество и подтверди продажу.</p>
+          <div class="product"><img src="/assets/redesign/egg.webp" class="product-image" alt=""/><div><h3>Яйца</h3><small>Другим игрокам · 1 монета / шт.</small><small>Монеты после покупки</small></div><strong class="price">1 🪙</strong><button class="btn small" onclick="openSell('eggs')">Продать</button></div>
+          <div class="product"><img src="/assets/redesign/grain.webp" class="product-image" alt=""/><div><h3>Зерно</h3><small>Сразу системе · 1 монета / шт.</small><small data-system-stock="grain">На складе: —</small></div><strong class="price">1 🪙</strong><button class="btn small" onclick="openSystemSell('grain')">Продать</button></div>
+          <div class="product"><img src="/assets/redesign/hen.webp" class="product-image" alt=""/><div><h3>Курица</h3><small>Сразу системе · 20 монет / шт.</small><small data-system-stock="chickens">В курятнике: —</small></div><strong class="price">20 🪙</strong><button class="btn small" onclick="openSystemSell('chickens')">Продать</button></div>
+        </div>
+        <div id="sellPane" class="marketpanel active">
+          <div class="card egg-sale-form" id="egg-sale-form" hidden>
+            <h2 class="cardtitle">🥚 Выставить яйца</h2>
+            <p id="myStock" class="muted"></p>
+            <input type="hidden" id="sellitem" value="eggs"/><input type="hidden" id="sellprice" value="1"/>
+            <label for="sellnum">Количество яиц</label>
+            <div class="trade-amount-controls"><input id="sellnum" type="number" inputmode="numeric" min="1" max="10000" value="1" oninput="sellQuote()"/><button type="button" class="btn small" onclick="sellMaximum()">Все</button></div>
+            <div class="statsrow"><span>Когда яйца купят</span><b id="sellquote">—</b></div>
+            <button class="btn wide" onclick="sellNow()">Выставить на продажу</button>
+            <p class="muted">Яйца попадут на рынок. Монеты придут, когда другой игрок их купит.</p>
+          </div>
+          <details class="card trade-listings"><summary>Мои объявления</summary><div id="mylist"></div></details>
+        </div>
+        <details class="card trade-rules"><summary>Как работает торговля?</summary><p>Куриц и зерно система выкупает сразу по указанной цене. Яйца выставляются на общий рынок: их оплачивают другие игроки.</p><p>Непроданные яйца можно вернуть на склад при наличии свободного места.</p></details>
       </section>
       <section id="shop" class="panel" aria-label="Торговля">
         <div class="scene-banner compact-trade-scene">
@@ -481,9 +462,9 @@
               Купить
             </button>
           </div>
+          <div class="product incubator-shop"><img src="/assets/redesign/incubator.webp" class="product-image" alt=""/><div><h3>Инкубатор</h3><small data-incubator-summary>Выводи куриц из яиц</small><small>Цена: <span data-incubator-price>—</span> монет</small></div><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить</button></div>
         </div>
-        <details class="trade-extras"><summary>Ещё возможности: инкубатор, акция и автозакупка</summary>
-        <div class="card incubator-shop"><img src="/assets/redesign/incubator.webp" class="product-image" alt=""><div><h2 class="cardtitle">Инкубатор</h2><p data-incubator-summary>Загружаем состояние…</p><small>Вместимость: <span data-incubator-capacity>—</span> яйцо · <span data-incubator-price>—</span> монет</small></div><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить · 120</button></div>
+        <details class="trade-extras"><summary>Ещё возможности: акция и автозакупка</summary>
         <div class="bundle">
           <h2>
             <img
@@ -1075,6 +1056,28 @@
         ><span>Профиль</span>
       </button>
     </nav>
+    <dialog id="resource-actions-dialog" class="resource-dialog" aria-labelledby="resource-action-title">
+  <form method="dialog"><button class="dialog-close" aria-label="Закрыть">×</button></form>
+  <h2 id="resource-action-title">Товар</h2>
+  <p id="resource-action-description" class="muted"></p>
+  <div class="resource-action-buttons">
+    <button type="button" class="btn wide" id="resource-action-buy" onclick="resourceAction('buy')">Купить</button>
+    <button type="button" class="btn alt wide" id="resource-action-sell" onclick="resourceAction('sell')">Продать</button>
+  </div>
+</dialog>
+<dialog id="system-sell-dialog" class="resource-dialog" aria-labelledby="system-sell-title">
+  <form method="dialog"><button class="dialog-close" aria-label="Закрыть">×</button></form>
+  <h2 id="system-sell-title">Продажа системе</h2>
+  <p id="system-sell-stock" class="muted"></p>
+  <label for="system-sell-amount">Количество</label>
+  <div class="trade-amount-controls">
+    <input id="system-sell-amount" type="number" inputmode="numeric" min="1" max="10000" value="1" oninput="systemSellQuote()"/>
+    <button type="button" class="btn small" onclick="systemSellAll()">Все</button>
+  </div>
+  <p class="purchase-total">Получишь сразу: <strong id="system-sell-total">—</strong> 🪙</p>
+  <p id="system-sell-feedback" class="muted"></p>
+  <div class="buttons"><button id="system-sell-confirm" class="btn" onclick="confirmSystemSell()">Продать системе</button><button class="btn alt" onclick="document.getElementById('system-sell-dialog').close()">Отмена</button></div>
+</dialog>
     <dialog id="purchase-dialog" aria-labelledby="purchase-title">
       <form method="dialog">
         <button class="dialog-close" aria-label="Закрыть">×</button>
