@@ -42,8 +42,7 @@ class ExtendedBotTests(unittest.TestCase):
         self.send(2, action='new:bot')
         for text in ('Target bot', 'Start and forward a new response', 'https://t.me/TargetBot'):
             self.send(2, text)
-        self.assertEqual(bot.state(self.c, 2)['state'], 'task_reward')
-        self.send(2, '1')
+        self.assertEqual(bot.state(self.c, 2)['state'], 'task_count')
         self.send(2, '2')
         self.send(2, action='confirm_task')
         tid = self.c.execute("SELECT id FROM bot_tasks WHERE kind='bot'").fetchone()['id']
@@ -53,7 +52,7 @@ class ExtendedBotTests(unittest.TestCase):
         self.send(1, '/botchannel @ChannelTest')
         self.credit()
         self.send(2, action='new:post')
-        for text in ('Test advertisement', 'This is the content of the paid post', '-', '0.20', '2'):
+        for text in ('Test advertisement', 'This is the content of the paid post', '-', '2'):
             self.send(2, text)
         self.send(2, action='confirm_task')
         tid = self.c.execute("SELECT id FROM bot_tasks WHERE kind='post'").fetchone()['id']
@@ -67,7 +66,7 @@ class ExtendedBotTests(unittest.TestCase):
         return bot.handle(payload, lambda: self.c, self.api, lambda u, c: u == 1)
     def fund_bonus(self, daily='0.10', referral='0.75', budget='5'):
         self.send(1, '/botfund 10 fund-bonus')
-        return self.send(1, f'/botbonus {daily} {referral} {budget}')
+        return self.send(1, f'/botbonus {daily} {budget}')
     def test_channel_admin_rights_checked_before_accepting_link(self):
         self.send(2, action='new:channel')
         self.send(2, 'A channel')
@@ -84,7 +83,7 @@ class ExtendedBotTests(unittest.TestCase):
         self.assertEqual(self.balance(3), 0)
         self.joined = True
         self.send(3, action='check:' + tid)
-        self.assertEqual(self.balance(3), 100)
+        self.assertEqual(self.balance(3), 48)
         self.invariant()
     def test_bot_creation_needs_only_link_and_does_not_request_admin_or_token(self):
         self.credit()
@@ -94,7 +93,7 @@ class ExtendedBotTests(unittest.TestCase):
         self.send(2, 'https://evil.test/TargetBot')
         self.assertEqual(bot.state(self.c, 2)['state'], 'task_url')
         reply = self.send(2, 'https://t.me/TargetBot')
-        self.assertEqual(bot.state(self.c, 2)['state'], 'task_reward')
+        self.assertEqual(bot.state(self.c, 2)['state'], 'task_count')
         self.assertNotIn('токен', reply['text'])
         with self.assertRaises(bot.UserError):
             extra.forwarded_bot({'forward_origin': {'type': 'hidden_user'}})
@@ -107,7 +106,7 @@ class ExtendedBotTests(unittest.TestCase):
         self.forward(3)
         self.forward(3)
         self.send(3, action='take:' + tid)
-        self.assertEqual(self.balance(3), 100)
+        self.assertEqual(self.balance(3), 32)
         self.invariant()
     def test_bot_id_binding_rejects_changed_bot_with_same_name(self):
         tid = self.create_bot_task()
@@ -117,7 +116,7 @@ class ExtendedBotTests(unittest.TestCase):
         reply = self.forward(1, bid=998)
         self.assertIn('Источник пересылки', reply['text'])
         self.assertEqual(self.balance(1), 0)
-        self.assertEqual(self.balance(3), 100)
+        self.assertEqual(self.balance(3), 32)
         self.invariant()
     def test_same_bot_not_paid_twice_across_campaigns(self):
         tid = self.create_bot_task()
@@ -129,7 +128,7 @@ class ExtendedBotTests(unittest.TestCase):
         self.send(3, action='take:anothercampaign')
         reply = self.forward(3)
         self.assertIn('уже получал', reply['text'])
-        self.assertEqual(self.balance(3), 100)
+        self.assertEqual(self.balance(3), 32)
         self.assertEqual(self.c.execute("SELECT remaining FROM bot_tasks WHERE id='anothercampaign'").fetchone()['remaining'], 100)
         self.invariant()
     def test_forwarded_admin_command_is_evidence_not_execution(self):
@@ -154,19 +153,19 @@ class ExtendedBotTests(unittest.TestCase):
         self.assertIn('Начислено', result['text'])
         self.channel_claim(3, tid, event='replay')
         self.channel_claim(3, tid)
-        self.assertEqual(self.balance(3), 20)
+        self.assertEqual(self.balance(3), 3)
         self.channel_claim(1, tid)
         self.send(4, '/start')
         self.channel_claim(4, tid)
         self.assertEqual(self.balance(4), 0)
-        self.assertEqual(self.balance(1), 20)
+        self.assertEqual(self.balance(1), 3)
         self.invariant()
     def test_post_claim_requires_account_and_owner_cannot_claim(self):
         tid = self.create_post_task()
         reply = self.channel_claim(4000, tid)
         self.assertIn('/start', reply['text'])
         self.channel_claim(2, tid)
-        self.assertEqual(self.balance(2), 960)
+        self.assertEqual(self.balance(2), 992)
         self.invariant()
     def test_uncertain_post_never_automatically_resent(self):
         self.send_failure = True
@@ -186,7 +185,7 @@ class ExtendedBotTests(unittest.TestCase):
         self.invariant()
     def test_bonus_budget_cannot_use_customer_liabilities(self):
         self.credit()
-        result = self.send(1, '/botbonus 0.10 0.75 1')
+        result = self.send(1, '/botbonus 0.10 1')
         self.assertIn('недостаточно', result['text'])
         self.assertEqual(self.c.execute('SELECT budget FROM bot_settings').fetchone()['budget'], 0)
         self.assertEqual(self.balance(2), 1000)
@@ -198,7 +197,7 @@ class ExtendedBotTests(unittest.TestCase):
         self.send(3, action='daily')
         self.assertEqual(self.balance(3), 0)
         self.invariant()
-    def test_referral_only_after_first_paid_task_and_never_twice(self):
+    def test_referral_after_paid_task_and_no_duplicate_claim(self):
         self.fund_bonus()
         self.send(4, '/start partner_1')
         self.assertEqual(self.balance(1), 0)
@@ -206,11 +205,11 @@ class ExtendedBotTests(unittest.TestCase):
         self.send(4, action='take:' + tid)
         self.joined = True
         self.send(4, action='check:' + tid)
-        self.assertEqual(self.balance(1), 75)
-        self.assertEqual(self.balance(4), 100)
+        self.assertEqual(self.balance(1), 3)
+        self.assertEqual(self.balance(4), 56)
         self.send(1, action='friends')
         self.send(1, action='friends')
-        self.assertEqual(self.balance(1), 75)
+        self.assertEqual(self.balance(1), 3)
         self.invariant()
     def test_bonus_commands_are_admin_only(self):
         self.send(3, '/botbonus 100 100 100')

@@ -104,7 +104,7 @@ class TaskBotTests(unittest.TestCase):
     def task(self, kind='channel', count='2'):
         self.credit()
         self.send(2, action='new:' + kind)
-        for text in ('Test task', 'Join the channel please', 'https://t.me/ChannelTest', '1', count):
+        for text in ['Test task', 'Join the channel please', 'https://t.me/ChannelTest'] + (['1'] if kind=='manual' else []) + [count]:
             self.send(2, text)
         result = self.send(2, action='confirm_task')
         self.assertIn('ожидает модерации', result['text'])
@@ -143,8 +143,8 @@ class TaskBotTests(unittest.TestCase):
         self.joined = True
         self.send(3, action='check:' + tid)
         self.send(3, action='check:' + tid)
-        self.assertEqual(self.balance(3), 100)
-        self.assertEqual(self.balance(2), 800)
+        self.assertEqual(self.balance(3), 56)
+        self.assertEqual(self.balance(2), 860)
         self.invariant()
     def test_old_member_cannot_take(self):
         tid = self.task()
@@ -163,7 +163,7 @@ class TaskBotTests(unittest.TestCase):
         self.assertIn('другого', result['text'])
         self.assertEqual(self.balance(3), 0)
         self.send(2, action=f'accept:{tid}:3')
-        self.assertEqual(self.balance(3), 100)
+        self.assertEqual(self.balance(3), 80)
         self.send(2, action='close:' + tid)
         self.send(2, action='close:' + tid)
         self.assertEqual(self.balance(2), 900)
@@ -173,7 +173,7 @@ class TaskBotTests(unittest.TestCase):
         # Approved tasks cannot be rejected via stale moderation controls.
         tid = self.c.execute('SELECT id FROM bot_tasks').fetchone()['id']
         self.send(1, action='admin:rejecttask:' + tid)
-        self.assertEqual(self.balance(2), 800)
+        self.assertEqual(self.balance(2), 860)
         self.invariant()
     def test_withdrawal_reservation_confirmation_and_cancel(self):
         self.credit()
@@ -248,11 +248,11 @@ class TaskBotTests(unittest.TestCase):
     def test_pending_creation_deducts_full_budget_once(self):
         tid = self.task()
         self.assertEqual(self.ads_balance(2), 0)
-        self.assertEqual(self.balance(2), 800)
+        self.assertEqual(self.balance(2), 860)
         self.send(2, action='confirm_task')
         self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_tasks').fetchone()['n'], 1)
-        self.assertEqual(self.balance(2), 800)
-        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'], 200)
+        self.assertEqual(self.balance(2), 860)
+        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'], 140)
         self.invariant()
     def test_moderation_rejection_refunds_advertising_once(self):
         tid = self.task()
@@ -287,13 +287,13 @@ class TaskBotTests(unittest.TestCase):
         self.send(3, action='check:' + tid)
         owner = self.send(2, action='cabinet')['text']
         worker = self.send(3, action='cabinet')['text']
-        self.assertIn('Потрачено на рекламу: 1,00 грн', owner)
-        self.assertIn('В бюджете заданий: 1,00 грн', owner)
-        self.assertIn('Заработано на заданиях: 1,00 грн', worker)
+        self.assertIn('Потрачено на рекламу: 0,70 грн', owner)
+        self.assertIn('В бюджете заданий: 0,70 грн', owner)
+        self.assertIn('Заработано на заданиях: 0,56 грн', worker)
         self.send(2, action='close:' + tid)
         owner = self.send(2, action='cabinet')['text']
         self.assertIn('В бюджете заданий: 0,00 грн', owner)
-        self.assertEqual(self.balance(2), 900)
+        self.assertEqual(self.balance(2), 930)
         self.invariant()
     def test_confirmation_rechecks_balance_and_rolls_back(self):
         self.task()
@@ -331,11 +331,11 @@ class TaskBotTests(unittest.TestCase):
         self.joined = True
         self.send(3, action='check:' + tid)
         self.send(3, action='new:manual')
-        for text in ('My own task', 'Read and send proof please', 'https://example.com/', '0.50', '2'):
+        for text in ('My own task', 'Read and send proof please', 'https://example.com/', '0.28', '2'):
             self.send(3, text)
         self.send(3, action='confirm_task')
         self.assertEqual(self.balance(3), 0)
-        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks WHERE owner=3').fetchone()['remaining'], 100)
+        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks WHERE owner=3').fetchone()['remaining'], 56)
         self.invariant()
     def test_unification_preserves_task_and_payout_reservations(self):
         self.task()
@@ -343,13 +343,13 @@ class TaskBotTests(unittest.TestCase):
         self.send(2, '1')
         self.send(2, 'UA123456789 User')
         self.send(2, action='confirm_payout')
-        self.c.execute('UPDATE bot_accounts SET available=400,advertising=300 WHERE uid=2')
+        self.c.execute('UPDATE bot_accounts SET available=460,advertising=300 WHERE uid=2')
         self.c.raw.commit()
         before = bot.liability(self.c)
         bot.initialize(self.c)
         self.c.raw.commit()
-        self.assertEqual(self.balance(2), 700)
-        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'], 200)
+        self.assertEqual(self.balance(2), 760)
+        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'], 140)
         self.assertEqual(self.c.execute('SELECT amount FROM bot_payouts').fetchone()['amount'], 100)
         self.assertEqual(bot.liability(self.c), before)
         self.invariant()

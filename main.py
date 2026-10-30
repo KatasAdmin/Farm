@@ -1,5 +1,6 @@
 import os,time,uuid,secrets,hashlib,hmac,json,logging,base64
 import task_bot
+import threading
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.exceptions import InvalidSignature
 logger=logging.getLogger("farm.security")
@@ -127,13 +128,19 @@ async def lifespan(app):
     logger.warning("farm_token_bot_username=%s expected=Farmlife2026bot",username)
    except Exception:
     logger.exception("farm_bot_identity_check_failed")
-   payload=json.dumps({"url":"https://"+domain+"/api/telegram/webhook","secret_token":telegram_webhook_secret(),"allowed_updates":["message","callback_query","pre_checkout_query"]}).encode()
+   payload=json.dumps({"url":"https://"+domain+"/api/telegram/webhook","secret_token":telegram_webhook_secret(),"allowed_updates":["message","callback_query","pre_checkout_query","chat_member","my_chat_member"]}).encode()
    req=URLRequest("https://api.telegram.org/bot"+token+"/setWebhook",data=payload,headers={"Content-Type":"application/json"})
    with urlopen(req,timeout=6) as resp:
     if not json.load(resp).get("ok"):logger.error("telegram_webhook_setup_rejected")
  except Exception:
   logger.exception("telegram_webhook_setup_failed")
- yield
+ stop_retention=threading.Event()
+ retention_thread=threading.Thread(target=task_bot.bot_economy.worker,args=(db,telegram_api,stop_retention),daemon=True)
+ retention_thread.start()
+ try:
+  yield
+ finally:
+  stop_retention.set()
 app=FastAPI(lifespan=lifespan)
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 class Request(BaseModel):

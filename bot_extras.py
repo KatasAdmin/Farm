@@ -80,23 +80,6 @@ def bot_completion(c, uid, message, data):
     return b.say(uid, '✅ Источник пересылки проверен. Начислено ' + b.money(t['reward']), [[b.button('Следующие задания', 'list:bot:0')]])
 
 
-def reward_friend(c, child):
-    b = core()
-    a = c.execute('SELECT referrer FROM bot_accounts WHERE uid=%s', (child,)).fetchone()
-    if not a or not a['referrer'] or a['referrer'] == child:
-        return 0
-    if not c.execute("SELECT 1 FROM bot_claims WHERE uid=%s AND status='paid'", (child,)).fetchone():
-        return 0
-    cfg = settings(c)
-    n = cfg['referral']
-    if n <= 0 or cfg['budget'] < n:
-        return 0
-    row = c.execute('INSERT INTO bot_friend_claims VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING child', (child, a['referrer'], n, time.time())).fetchone()
-    if not row:
-        return 0
-    c.execute('UPDATE bot_settings SET budget=budget-%s WHERE id=1', (n,))
-    b.change(c, a['referrer'], n, 'friend_reward', 'Первое выполненное задание друга ' + str(child))
-    return n
 
 
 def route(c, uid, text, action, message, api):
@@ -121,14 +104,7 @@ def route(c, uid, text, action, message, api):
         b.change(c, uid, n, 'daily_bonus', 'Ежедневный бонус ' + day)
         return b.say(uid, '🎁 Начислен ежедневный бонус: ' + b.money(n))
     if action == 'friends' or text == '👥 Партнёры':
-        rows = c.execute('SELECT uid FROM bot_accounts WHERE referrer=%s ORDER BY created LIMIT 100', (uid,)).fetchall()
-        paid_now = sum(reward_friend(c, r['uid']) for r in rows)
-        count = c.execute('SELECT count(*) AS n FROM bot_accounts WHERE referrer=%s', (uid,)).fetchone()['n']
-        qualified = c.execute("""SELECT count(*) AS n FROM bot_accounts a WHERE referrer=%s AND EXISTS(
-          SELECT 1 FROM bot_claims x WHERE x.uid=a.uid AND x.status='paid')""", (uid,)).fetchone()['n']
-        earned = c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_friend_claims WHERE parent=%s', (uid,)).fetchone()['n']
-        cfg = settings(c)
-        return b.say(uid, f"👥 Партнёры\nПриглашено: {count}\nВыполнили задание: {qualified}\nНачислено за друзей: {b.money(earned)}\nСейчас начислено: {b.money(paid_now)}\n\nНаграда за нового друга после первого оплаченного задания: {b.money(cfg['referral'])}\nПри нулевой сумме программа пока не активирована. Бонус выплачивается из отдельного бюджета.\n\nhttps://t.me/Farmlife2026bot?start=partner_{uid}", [[b.button('Обновить и получить бонусы', 'friends')]])
+        return b.bot_economy.partners(c, uid)
     if action.startswith('list:post:'):
         cfg = settings(c)
         if not cfg['channel_url']:
@@ -158,16 +134,16 @@ def administration(c, uid, text, action, api):
     parts = text.split()
     cmd = parts[0].split('@')[0] if parts else ''
     if cmd == '/botbonus':
-        if len(parts) != 4:
-            raise b.UserError('Формат: /botbonus БонусЗаДень БонусЗаДруга ДобавитьБюджет\nСуммы в гривнах; 0 отключает награду. Бюджет выделяется только из свободного фактически учтённого резерва. Пример формата: /botbonus 0 0 0')
-        daily, referral, extra = (0 if p in ('0', '0.00', '0,00') else b.amount(p) for p in parts[1:])
+        if len(parts) != 3:
+            raise b.UserError('Формат: /botbonus БонусЗаДень ДобавитьБюджет\nПример: /botbonus 0.50 10. Бюджет выделяется только из свободного фактически учтённого резерва.')
+        daily, extra = (0 if p in ('0', '0.00', '0,00') else b.amount(p) for p in parts[1:])
         pool = c.execute('SELECT amount FROM bot_cash_pool WHERE id=1 FOR UPDATE').fetchone()['amount']
         if pool - b.liability(c) < extra:
             raise b.UserError('Свободного резерва недостаточно. Сначала учти фактически выделенные деньги через /botfund.')
-        c.execute('UPDATE bot_settings SET daily=%s,referral=%s,budget=budget+%s WHERE id=1', (daily, referral, extra))
+        c.execute('UPDATE bot_settings SET daily=%s,referral=0,budget=budget+%s WHERE id=1', (daily, extra))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'bonus_config',%s,%s)",
-                  (uuid.uuid4().hex, uid, f'За день {b.money(daily)}, за друга {b.money(referral)}, добавлено в бюджет {b.money(extra)}', time.time()))
-        return b.say(uid, f'Настройки сохранены. За день: {b.money(daily)}. За друга: {b.money(referral)}. Добавлено в бюджет: {b.money(extra)}. Деньги пользователей и рекламодателей не расходуются на бонусы.')
+                  (uuid.uuid4().hex, uid, f'За день {b.money(daily)}, добавлено в бюджет {b.money(extra)}', time.time()))
+        return b.say(uid, f'Настройки сохранены. За день: {b.money(daily)}. Добавлено в бюджет: {b.money(extra)}.')
     if cmd == '/botchannel':
         if len(parts) != 2:
             raise b.UserError('Формат: /botchannel @ИмяКанала\nСначала добавь нашего бота администратором с правом публикации сообщений.')
@@ -180,7 +156,7 @@ def administration(c, uid, text, action, api):
         return b.say(uid, 'Канал рекламных постов подключён: ' + url)
     if action == 'admin:bonus':
         cfg = settings(c)
-        return b.say(uid, f"🎁 Бонусы\nЗа день: {b.money(cfg['daily'])}\nЗа друга: {b.money(cfg['referral'])}\nБюджет: {b.money(cfg['budget'])}\n\nНастроить: /botbonus БонусЗаДень БонусЗаДруга ДобавитьБюджет\nПри 0 награда отключена. За друга — один раз после первого оплаченного задания.\n\nРекламный канал: {cfg['channel_url'] or 'не подключён'}\nПодключить: /botchannel @ИмяКанала")
+        return b.say(uid, f"🎁 Ежедневный бонус: {b.money(cfg['daily'])}\nБюджет: {b.money(cfg['budget'])}\n\nНастроить: /botbonus БонусЗаДень ДобавитьБюджет\nНапример: /botbonus 0.50 10\nБюджет можно пополнить только из свободного реального резерва.\n\nРекламный канал: {cfg['channel_url'] or 'не подключён'}\nПодключить: /botchannel @ИмяКанала", [[b.button('Изменить бонус / бюджет','admin:ecoedit:bonus')]])
     if action.startswith('admin:bindpost:'):
         tid = action.split(':')[-1]
         pub = c.execute("SELECT * FROM bot_post_publications WHERE task=%s AND status IN ('sending','uncertain')", (tid,)).fetchone()

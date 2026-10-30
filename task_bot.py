@@ -10,6 +10,7 @@ import re
 import time
 import uuid
 import bot_extras
+import bot_economy
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 from psycopg.types.json import Jsonb
@@ -86,6 +87,7 @@ def initialize(c):
     for sql in statements:
         c.execute(sql)
     bot_extras.initialize(c)
+    bot_economy.initialize(c)
     c.execute("SELECT pg_advisory_xact_lock(1984533)")
     c.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK,))
     unify_balances(c)
@@ -128,6 +130,7 @@ def button(text, action):
 
 def account(c, uid):
     unify_balances(c, uid)
+    bot_economy.collect_debt(c, uid)
     return c.execute("SELECT * FROM bot_accounts WHERE uid=%s FOR UPDATE", (uid,)).fetchone()
 
 
@@ -138,7 +141,9 @@ def change(c, uid, delta, kind, details):
         raise UserError("Недостаточно средств на балансе.")
     c.execute("INSERT INTO bot_ledger VALUES(%s,%s,%s,%s,%s,%s)",
               (uuid.uuid4().hex, uid, delta, kind, details, time.time()))
-    return row["available"]
+    if delta > 0:
+        bot_economy.collect_debt(c, uid)
+    return c.execute("SELECT available FROM bot_accounts WHERE uid=%s", (uid,)).fetchone()["available"]
 
 
 def liability(c):
@@ -146,7 +151,8 @@ def liability(c):
       (SELECT coalesce(sum(available+advertising),0) FROM bot_accounts) +
       (SELECT coalesce(sum(remaining),0) FROM bot_tasks WHERE status IN ('pending','active')) +
       (SELECT coalesce(sum(amount),0) FROM bot_payouts WHERE status='pending') +
-      (SELECT budget FROM bot_settings WHERE id=1) AS n""").fetchone()["n"]
+      (SELECT budget FROM bot_settings WHERE id=1) +
+      (CAST((SELECT coalesce(sum(units),0) FROM bot_ref_accruals) AS bigint)+9999)/10000 AS n""").fetchone()["n"]
 
 
 def farm_url():
@@ -159,12 +165,15 @@ def cabinet(c, uid):
     pending = c.execute("SELECT coalesce(sum(amount),0) AS n FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone()["n"]
     frozen = c.execute("SELECT coalesce(sum(remaining),0) AS n FROM bot_tasks WHERE owner=%s AND status IN ('pending','active')", (uid,)).fetchone()["n"]
     earned = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind='task_reward'", (uid,)).fetchone()["n"]
-    bonuses = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('daily_bonus','friend_reward')", (uid,)).fetchone()["n"]
+    bonuses = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('daily_bonus','friend_reward','referral_reward')", (uid,)).fetchone()["n"]
     deposits = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('manual_deposit','ads_manual_deposit')", (uid,)).fetchone()["n"]
     paid = c.execute("SELECT coalesce(sum(amount),0) AS n FROM bot_payouts WHERE uid=%s AND status='paid'", (uid,)).fetchone()["n"]
-    spent = c.execute("""SELECT coalesce(sum(t.reward),0) AS n FROM bot_tasks t JOIN bot_claims x
+    spent = c.execute("""SELECT coalesce(sum(coalesce(q.cost,t.reward)),0) AS n FROM bot_tasks t LEFT JOIN bot_task_terms q ON q.task=t.id JOIN bot_claims x
       ON x.task=t.id AND x.status='paid' WHERE t.owner=%s""", (uid,)).fetchone()["n"]
-    return say(uid, f"👤 Мой кабинет\nID: {uid}\n\n💰 Пополнений: {money(deposits)}\n📣 Потрачено на рекламу: {money(spent)}\n💵 Заработано на заданиях: {money(earned)}\n🎁 Бонусы и друзья: {money(bonuses)}\n❄️ В бюджете заданий: {money(frozen)}\n⌛ Ожидает выплаты: {money(pending)}\n💳 Выведено всего: {money(paid)}\n\n💰 Доступный баланс: {money(a['available'])}\n\nЭти деньги можно вывести или использовать для создания заданий.", [
+    spent -= c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind='retention_refund'", (uid,)).fetchone()['n']
+    debt = c.execute("SELECT amount FROM bot_debts WHERE uid=%s", (uid,)).fetchone()
+    debt = debt["amount"] if debt else 0
+    return say(uid, f"👤 Мой кабинет\nID: {uid}\n\n💰 Пополнений: {money(deposits)}\n📣 Потрачено на рекламу: {money(spent)}\n💵 Заработано на заданиях: {money(earned)}\n🎁 Бонусы и друзья: {money(bonuses)}\n❄️ В бюджете заданий: {money(frozen)}\n⌛ Ожидает выплаты: {money(pending)}\n💳 Выведено всего: {money(paid)}\n\n💰 Доступный баланс: {money(a['available'])}\n⚠️ Долг по штрафам: {money(debt)}\n\nЭти деньги можно вывести или использовать для создания заданий.", [
         [button("📜 История", "history"), button("💸 Вывести", "withdraw")],
         [button("✅ Мои выполнения", "claims")],
         [button("📥 Мои заявки", "payouts"), button("➕ Пополнить", "deposit")]])
@@ -192,13 +201,13 @@ def resolve_chat(api, target, kind):
     return info["id"], link
 
 
-def task_card(t, uid):
+def task_card(t, uid, c):
     if t['kind'] == 'bot':
         return say(uid, f"🤖 {t['title']}\n\n{t['description']}\n\nНаграда: {money(t['reward'])}\nВозьми задание, запусти бота и перешли сюда свежий ответ от него. Это проверка источника пересылки, не гарантия первого запуска. Не пересылай пароли и коды.", [
             [{"text": "Перейти к боту", "url": t['url']}],
             [button("Взять / отправить пересылку", "take:" + t['id'])],
             [button("Пропустить", "skip_bot")]])
-    return say(uid, f"{t['title']}\n\n{t['description']}\n\nНаграда: {money(t['reward'])}", [
+    return say(uid, f"{t['title']}\n\n{t['description']}\n\nНаграда: {money(t['reward'])}" + bot_economy.rule_text(c, t), [
         [{"text": "Открыть", "url": t["url"]}],
         [button("Взять задание", "take:" + t["id"]), button("Проверить", "check:" + t["id"])],
         [button("⬅️ Задания", "earn")]])
@@ -208,16 +217,26 @@ def award(c, t, uid):
     claim = c.execute("SELECT * FROM bot_claims WHERE task=%s AND uid=%s FOR UPDATE", (t["id"], uid)).fetchone()
     if not claim or claim["status"] not in ("started", "review"):
         raise UserError("Заявка уже обработана или задание не взято.")
-    if t["status"] != "active" or t["remaining"] < t["reward"]:
+    gross = bot_economy.cost(c, t)
+    if t["status"] != "active" or t["remaining"] < gross:
         raise UserError("Бюджет задания закончился. Награда не списана.")
-    c.execute("UPDATE bot_tasks SET remaining=remaining-%s WHERE id=%s", (t["reward"], t["id"]))
+    c.execute("UPDATE bot_tasks SET remaining=remaining-%s WHERE id=%s", (gross, t["id"]))
     c.execute("UPDATE bot_claims SET status='paid' WHERE task=%s AND uid=%s", (t["id"], uid))
     change(c, uid, t["reward"], "task_reward", "Задание " + t["id"])
-    bot_extras.reward_friend(c, uid)
+    bot_economy.settle(c, t, uid, time.time())
+
+
+def _admin_input(db, uid):
+    with db() as c:
+        row = state(c, uid)
+        return bool(row and row['state'] == 'economy_edit')
 
 
 def handle(payload, db, api, is_admin):
     """Return None for legacy farm/payment/support messages, else webhook response."""
+    retained = bot_economy.member_update(payload, db)
+    if retained is not None:
+        return retained
     callback = payload.get("callback_query") or {}
     message = callback.get("message") or payload.get("message") or {}
     if payload.get("pre_checkout_query") or message.get("successful_payment"):
@@ -244,7 +263,7 @@ def handle(payload, db, api, is_admin):
     event = ("callback:" + str(callback["id"])) if callback.get("id") else ("message:" + str(uid) + ":" + str(message.get("message_id")))
     if not callback and not isinstance(message.get("message_id"), int):
         return None
-    admin = is_admin(uid, uid) if (action.startswith("bot:admin") or cmd.startswith("/bot")) else False
+    admin = is_admin(uid, uid) if (action.startswith("bot:admin") or cmd.startswith("/bot") or (text and _admin_input(db, uid))) else False
     try:
         with db() as c:
             # Farm trade lock first, then wallet lock: consistent order across transfers.
@@ -303,7 +322,7 @@ def route(c, uid, text, action, message, api, admin):
         state(c, uid, "clear")
     if text == "🚀 Заработать" or action == "earn":
         counts = c.execute("""SELECT kind,count(*) AS n FROM bot_tasks t WHERE status='active'
-          AND remaining>=reward*(1+(SELECT count(*) FROM bot_claims r WHERE r.task=t.id AND r.status='review'))
+          AND remaining>=coalesce((SELECT cost FROM bot_task_terms q WHERE q.task=t.id),reward)*(1+(SELECT count(*) FROM bot_claims r WHERE r.task=t.id AND r.status='review'))
           AND (kind<>'post' OR EXISTS(SELECT 1 FROM bot_post_publications p WHERE p.task=t.id AND p.status='posted')) AND owner<>%s AND NOT EXISTS(
           SELECT 1 FROM bot_claims x WHERE x.task=t.id AND x.uid=%s AND x.status IN ('paid','rejected','review')) GROUP BY kind""", (uid, uid)).fetchall()
         numbers = {x["kind"]: x["n"] for x in counts}
@@ -313,11 +332,6 @@ def route(c, uid, text, action, message, api, admin):
         return say(uid, "🎮 Игры\nОткрой свою ферму:", [[{"text": "🌾 Ферма", "web_app": {"url": farm_url()}}]])
     if text in ("👤 Мой кабинет", "/start wallet") or action == "cabinet":
         return cabinet(c, uid)
-    if text == "👥 Партнёры":
-        count = c.execute("SELECT count(*) AS n FROM bot_accounts WHERE referrer=%s", (uid,)).fetchone()["n"]
-        active = c.execute("""SELECT count(DISTINCT a.uid) AS n FROM bot_accounts a JOIN bot_claims x
-          ON x.uid=a.uid AND x.status='paid' WHERE a.referrer=%s""", (uid,)).fetchone()["n"]
-        return say(uid, f"👥 Партнёры\nПриглашено: {count}\nВыполнили задание: {active}\n\nТвоя ссылка:\nhttps://t.me/Farmlife2026bot?start=partner_{uid}\n\nДенежные партнёрские бонусы пока не установлены. Реферальная программа фермы действует отдельно.")
     if text == "📚 О боте" or action == "about":
         return say(uid, "📚 Новая жизнь\nЗадания, продвижение проектов и ферма в одном боте.\n\nНаграды за задания — в гривнах. Выплаты проверяет администратор вручную. Бюджет заданий резервируется заранее. Повторная награда за одно задание не начисляется.\n\nПомощь: /support ТвойНик Описание проблемы\nНе отправляй пароли, CVV, PIN или коды из SMS.\n\n/cancel — отменить ввод.")
     if text == "📣 Продвижение" or action == "promotion":
@@ -380,7 +394,7 @@ def route(c, uid, text, action, message, api, admin):
         else:
             kind = parts[1]
             rows = c.execute("""SELECT * FROM bot_tasks t WHERE status='active' AND kind=%s AND owner<>%s
-              AND remaining>=reward*(1+(SELECT count(*) FROM bot_claims r WHERE r.task=t.id AND r.status='review')) AND NOT EXISTS(SELECT 1 FROM bot_claims x WHERE x.task=t.id
+              AND remaining>=coalesce((SELECT cost FROM bot_task_terms q WHERE q.task=t.id),reward)*(1+(SELECT count(*) FROM bot_claims r WHERE r.task=t.id AND r.status='review')) AND NOT EXISTS(SELECT 1 FROM bot_claims x WHERE x.task=t.id
               AND x.uid=%s AND x.status IN ('paid','rejected','review')) ORDER BY created LIMIT 8 OFFSET %s""", (kind, uid, uid, offset)).fetchall()
             buttons = [[button(r["title"][:35] + " · " + money(r["reward"]), "task:" + r["id"])] for r in rows]
         if len(rows) == 8:
@@ -431,21 +445,27 @@ def route(c, uid, text, action, message, api, admin):
                 return say(uid, "Работа принята, награда начислена игроку.")
             c.execute("UPDATE bot_claims SET status='rejected' WHERE task=%s AND uid=%s", (t["id"], worker))
             return say(uid, "Работа отклонена. Начисления нет.")
-        if t["status"] != "active" or t["remaining"] < t["reward"] or t["owner"] == uid:
+        if t["status"] != "active" or t["remaining"] < bot_economy.cost(c, t) or t["owner"] == uid:
             raise UserError("Задание недоступно или бюджет исчерпан.")
         reserved = c.execute("SELECT count(*) AS n FROM bot_claims WHERE task=%s AND status='review'", (t["id"],)).fetchone()["n"]
-        if t["remaining"] < (reserved + 1) * t["reward"]:
+        if t["remaining"] < (reserved + 1) * bot_economy.cost(c, t):
             raise UserError("Все места этого задания сейчас на проверке. Выбери другое задание.")
         if t['kind'] == 'post':
             publication = c.execute("SELECT url FROM bot_post_publications WHERE task=%s AND status='posted'", (t['id'],)).fetchone()
             return say(uid, 'Получить награду можно только кнопкой под исходным постом в нашем канале.',
                        [[{'text': 'Открыть пост', 'url': publication['url']}]] if publication else None)
         if op == "task":
-            return task_card(t, uid)
+            return task_card(t, uid, c)
         claim = c.execute("SELECT * FROM bot_claims WHERE task=%s AND uid=%s", (t["id"], uid)).fetchone()
         if claim and claim["status"] in ("paid", "rejected", "review"):
             raise UserError({"paid": "Награда уже получена.", "rejected": "Работа отклонена.", "review": "Работа ожидает ручной проверки."}[claim["status"]])
+        if op in ('take','check') and t['kind'] in ('channel','group'):
+            own = api('getMe', {})
+            if api('getChatMember', {'chat_id':t['chat_id'],'user_id':own['id']}).get('status') not in ('administrator','creator'):
+                raise UserError('Проверка временно недоступна: нашему боту нужны права администратора этого чата.')
         if op == "take":
+            if t['kind'] in ('channel','group') and bot_economy.terms(c,t['id']):
+                c.execute('INSERT INTO bot_membership_accept VALUES(%s,%s,%s) ON CONFLICT DO NOTHING', (t['id'],uid,time.time()))
             if not claim:
                 if t["kind"] in ("channel", "group") and member(api("getChatMember", {"chat_id": t["chat_id"], "user_id": uid})):
                     raise UserError("Ты уже состоишь в этом канале/группе. Это задание для новых участников.")
@@ -454,12 +474,12 @@ def route(c, uid, text, action, message, api, admin):
                 if c.execute('SELECT 1 FROM bot_bot_completions WHERE uid=%s AND bot_id=%s', (uid, t['chat_id'])).fetchone():
                     raise UserError('Ты уже получал награду за этого бота.')
                 state(c, uid, 'bot_forward', {'task': t['id']})
-            return task_card(t, uid)
+            return task_card(t, uid, c)
         if not claim:
             raise UserError("Сначала нажми «Взять задание», затем выполни его и нажми «Проверить».")
         if t['kind'] == 'bot':
             state(c, uid, 'bot_forward', {'task': t['id']})
-            return task_card(t, uid)
+            return task_card(t, uid, c)
         if t["kind"] == "manual":
             state(c, uid, "proof", {"task": t["id"]})
             return say(uid, "Отправь доказательство выполнения: текст или одно фото с подписью. Проверит рекламодатель. /cancel — отмена.")
@@ -469,6 +489,10 @@ def route(c, uid, text, action, message, api, admin):
         return say(uid, "✅ Проверка пройдена. Начислено " + money(t["reward"]))
     current = state(c, uid)
     if current:
+        if current["state"] == "economy_edit":
+            if not admin:
+                raise UserError("Доступ только администратору.")
+            return bot_economy.edit(c, uid, text, current["data"])
         return process_input(c, uid, text, message, current, api)
     return say(uid, "Добро пожаловать в «Новую жизнь»!\nВыполняй задания, продвигай проекты или открывай ферму. Выбери раздел в меню внизу.")
 
@@ -524,7 +548,7 @@ def process_input(c, uid, text, message, current, api):
             raise UserError("Сократи описание до 1500 символов.")
         t = c.execute("SELECT * FROM bot_tasks WHERE id=%s FOR UPDATE", (data["task"],)).fetchone()
         reviews = c.execute("SELECT count(*) AS n FROM bot_claims WHERE task=%s AND status='review'", (t["id"],)).fetchone()["n"] if t else 0
-        if not t or t["status"] != "active" or t["remaining"] < (reviews + 1) * t["reward"]:
+        if not t or t["status"] != "active" or t["remaining"] < (reviews + 1) * bot_economy.cost(c, t):
             raise UserError("Свободный бюджет задания закончился. Можно выбрать другое задание.")
         row = c.execute("""UPDATE bot_claims SET status='review',proof=%s,photo=%s
           WHERE task=%s AND uid=%s AND status='started' RETURNING uid""",
@@ -553,9 +577,7 @@ def process_input(c, uid, text, message, current, api):
                     raise UserError('Нужна ссылка https://t.me/ИмяБота, при необходимости с параметром start.')
                 data['url'], data['bot_username'] = text, username
                 data['chat_id'] = None
-                state(c, uid, 'task_reward', data)
-                return say(uid, 'Ссылка сохранена. Убедись, что ответы этого бота можно пересылать. Укажи награду за подходящую пересылку в гривнах. Источник ответа исполнителя будет проверен по данным Telegram. Первый запуск и последующую блокировку бота пересылка не подтверждает.')
-            if data['kind'] == 'post' and text == '-':
+            elif data['kind'] == 'post' and text == '-':
                 data['url'], data['chat_id'] = '', None
             elif data["kind"] in ("manual", "post"):
                 parsed = urlsplit(text)
@@ -569,20 +591,27 @@ def process_input(c, uid, text, message, current, api):
                     raise
                 except Exception:
                     raise UserError("Telegram не подтвердил доступ к чату. Проверь ссылку и права нашего бота.")
-            next_stage, prompt = "task_reward", "Сколько гривен получает один исполнитель? Например: 0,20."
+            if data['kind'] == 'manual':
+                default = bot_economy.quote(c, 'manual')
+                next_stage, prompt = 'task_reward', 'Укажи полную цену одного выполнения, включая комиссию. Например: ' + money(default['cost'])
+            else:
+                q = bot_economy.quote(c,data['kind'])
+                data['terms'], data['reward'] = q, q['reward']
+                next_stage, prompt = 'task_count', 'Цена выполнения: ' + money(q['cost']) + '. Награда исполнителю: ' + money(q['reward']) + '.\nНа сколько выполнений выделить бюджет? От 1 до 10000.' 
         elif stage == "task_reward":
-            data["reward"] = amount(text)
+            q = bot_economy.quote(c, data["kind"], amount(text))
+            data["terms"], data["reward"] = q, q["reward"]
             next_stage, prompt = "task_count", "На сколько выполнений выделить бюджет? От 1 до 10000."
         elif stage == "task_count":
             if not text.isdecimal() or not 1 <= int(text) <= 10000:
                 raise UserError("Укажи целое число от 1 до 10000.")
-            total = data["reward"] * int(text)
+            total = data.get("terms", {}).get("cost", data["reward"]) * int(text)
             if total > account(c, uid)["available"]:
                 raise UserError("На балансе не хватает средств. Пополни баланс либо укажи меньше выполнений.")
             data["budget"] = total
             data["nonce"] = uuid.uuid4().hex[:12]
             state(c, uid, "task_confirm", data)
-            return say(uid, f"{data['title']}\nНаграда: {money(data['reward'])}\nВыполнений: {text}\nБюджет: {money(total)}\nКомиссия: 0 грн\n\nПосле подтверждения бюджет резервируется, задание отправляется на модерацию.", [[button("✅ Создать", "confirm_task:" + data["nonce"]), button("Отмена", "cancel_input")]])
+            return say(uid, f"{data['title']}\nНаграда: {money(data['reward'])}\nВыполнений: {text}\nПолная цена выполнения: {money(data.get('terms',{}).get('cost',data['reward']))}\nБюджет: {money(total)}\nКомиссия уже включена в цену\n\nПосле подтверждения бюджет резервируется, задание отправляется на модерацию.", [[button("✅ Создать", "confirm_task:" + data["nonce"]), button("Отмена", "cancel_input")]])
         else:
             return say(uid, "Подтверди действие кнопкой выше или отправь /cancel.")
         state(c, uid, next_stage, data)
@@ -601,8 +630,9 @@ def confirmation(c, uid, action):
     if action == "confirm_task" and current["state"] == "task_confirm":
         tid = uuid.uuid4().hex[:16]
         change(c, uid, -data["budget"], "task_budget", "Бюджет задания " + tid)
-        c.execute("INSERT INTO bot_tasks VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending',%s)",
+        c.execute("INSERT INTO bot_tasks(id,owner,kind,title,description,url,chat_id,reward,remaining,status,created) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending',%s)",
                   (tid, uid, data["kind"], data["title"], data["description"], data["url"], data.get("chat_id"), data["reward"], data["budget"], time.time()))
+        bot_economy.save_terms(c, tid, data)
         result = say(uid, "Задание " + tid + " создано и ожидает модерации. Бюджет зарезервирован.")
     elif action == "confirm_payout" and current["state"] == "payout_confirm":
         if c.execute("SELECT 1 FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone():
@@ -619,6 +649,9 @@ def confirmation(c, uid, action):
 
 
 def administration(c, uid, text, action, api):
+    economy = bot_economy.admin(c, uid, text, action)
+    if economy is not None:
+        return economy
     extra = bot_extras.administration(c, uid, text, action, api)
     if extra is not None:
         return extra
@@ -722,4 +755,4 @@ def administration(c, uid, text, action, api):
         p = rows[0]
         return say(uid, f"Выплата {p['id']}\nID игрока: {p['uid']}\n{money(p['amount'])}\n{p['destination']}\n\nПосле реального перевода:\n/botpaid {p['id']} НомерБанковскойОперации", [[button("Отклонить и вернуть деньги", "admin:rejectpayout:" + p["id"])]])
     pool = c.execute("SELECT amount FROM bot_cash_pool WHERE id=1").fetchone()["amount"]
-    return say(uid, f"🛡 Управление ботом\nУчтённый резерв: {money(pool)}\nОбязательства: {money(liability(c))}\nСвободный резерв: {money(max(0,pool-liability(c)))}\n\n/botcredit TelegramID Сумма НомерПлатежа — подтвердить фактически полученное пополнение\n/botfund Сумма НомерВзноса — учесть собственный резерв\n/botpaid НомерЗаявки НомерОперации — подтвердить фактически выполненную выплату\n\nРеквизиты для пополнений согласовываются через обращения: /tickets.\nОбзор администратора: /admin.", [[button("📝 Модерация заданий", "admin:tasks"), button("💸 Выплаты", "admin:payouts")], [button("🎁 Бонусы и канал постов", "admin:bonus"), button("Проверить публикации", "admin:postissues")]])
+    return say(uid, f"🛡 Управление ботом\nУчтённый резерв: {money(pool)}\nОбязательства: {money(liability(c))}\nСвободный резерв: {money(max(0,pool-liability(c)))}\nНехватка покрытия: {money(max(0,liability(c)-pool))}\nДолги исполнителей: {money(c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n'])}\n\n/botcredit TelegramID Сумма НомерПлатежа — подтвердить фактически полученное пополнение\n/botfund Сумма НомерВзноса — учесть собственный резерв\n/botpaid НомерЗаявки НомерОперации — подтвердить фактически выполненную выплату\n\nРеквизиты для пополнений согласовываются через обращения: /tickets.\nОбзор администратора: /admin.", [[button("⚙️ Тарифы и правила", "admin:economy")], [button("📝 Модерация заданий", "admin:tasks"), button("💸 Выплаты", "admin:payouts")], [button("🎁 Бонусы и канал постов", "admin:bonus"), button("Проверить публикации", "admin:postissues")]])
