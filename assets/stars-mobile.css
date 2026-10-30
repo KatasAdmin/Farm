@@ -1,0 +1,67 @@
+/* Stars purchase dialog: mobile-friendly spacing and iOS keyboard focus. */
+#topup-dialog {
+  box-sizing:border-box;
+  width:min(440px, calc(100vw - 24px));
+  max-width:calc(100vw - 24px);
+  max-height:min(85dvh, calc(100dvh - 24px));
+  margin:auto;
+  padding:clamp(20px,5vw,28px);
+  border-radius:22px;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+#topup-dialog h2 {
+  margin:0 0 18px;
+  font-size:clamp(24px,6vw,30px);
+  line-height:1.2;
+}
+#topup-dialog p.muted {
+  margin:0 0 20px;
+  font-size:15px;
+  line-height:1.55;
+}
+#topup-dialog label {
+  display:block;
+  margin:0 0 10px;
+  font-size:15px;
+  line-height:1.4;
+  color:#d7eeff;
+}
+#topup-dialog #topup-amount {
+  box-sizing:border-box;
+  display:block;
+  width:100%;
+  min-height:58px;
+  padding:12px 16px;
+  margin:0;
+  border-radius:14px;
+  font-size:18px !important; /* prevents automatic Safari/iOS input-focus zoom */
+  line-height:1.4;
+  font-variant-numeric:tabular-nums;
+}
+#topup-dialog #topup-total {
+  display:block;
+  margin:12px 0 23px;
+  min-height:25px;
+  font-size:17px;
+  font-weight:750;
+  line-height:1.45;
+  color:#fff0ac;
+}
+#topup-dialog .btn.wide {
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  min-height:54px;
+  margin:0 0 13px;
+  padding:12px 15px;
+  font-size:17px;
+  line-height:1.25;
+}
+#topup-dialog .btn.wide:last-child {margin-bottom:0;}
+@media (max-height:650px) {
+  #topup-dialog {max-height:calc(100dvh - 14px);padding:18px;}
+  #topup-dialog h2 {margin-bottom:12px;}
+  #topup-dialog p.muted {margin-bottom:12px;}
+}
