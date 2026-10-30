@@ -18,6 +18,8 @@ class FakeDB:
         return False
     def execute(self, sql, args=None):
         self.calls.append((sql, args))
+        if "RETURNING count" in sql:
+            return Cursor({"count":1})
         if "SELECT treasury FROM economy" in sql:
             return Cursor({"treasury": 100})
         return Cursor(None)

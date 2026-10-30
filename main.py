@@ -64,6 +64,10 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS telegram_link_codes(code_hash text PRIMARY KEY, player_id text NOT NULL, expires double precision NOT NULL)")
   c.execute("CREATE INDEX IF NOT EXISTS telegram_link_player ON telegram_link_codes(player_id)")
   c.execute("CREATE TABLE IF NOT EXISTS login_failures(name text PRIMARY KEY,attempts int NOT NULL DEFAULT 0,locked_until double precision NOT NULL DEFAULT 0)")
+  c.execute("CREATE TABLE IF NOT EXISTS support_tickets(id text PRIMARY KEY,telegram_id bigint NOT NULL,nickname text NOT NULL,message text NOT NULL,status text NOT NULL DEFAULT 'open',created double precision NOT NULL,answered_at double precision)")
+  c.execute("CREATE INDEX IF NOT EXISTS support_tickets_sender ON support_tickets(telegram_id,created)")
+  c.execute("CREATE TABLE IF NOT EXISTS registration_limits(slot text PRIMARY KEY,count integer NOT NULL,updated double precision NOT NULL)")
+
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS tutorial_rewarded boolean NOT NULL DEFAULT false")
   c.execute("CREATE TABLE IF NOT EXISTS incubation_jobs(id text PRIMARY KEY,player_id text NOT NULL,started double precision NOT NULL,hatch_at double precision NOT NULL,mature_at double precision NOT NULL)")
   c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) SELECT 'legacy-'||id,id,COALESCE(incubation_started,chick_ready_at-86400),COALESCE(incubation_started+43200,chick_ready_at-43200),COALESCE(chick_ready_at,incubation_started+86400) FROM players WHERE incubation_started IS NOT NULL OR chick_ready_at IS NOT NULL ON CONFLICT(id) DO NOTHING")
@@ -363,6 +367,13 @@ def advance(c,p,now=None):
 def index():return open("index.html",encoding="utf8").read()
 @app.get("/health")
 def health():return {"ok":True}
+def limit_public_registration(c,now):
+ """Prevent rapid anonymous signup floods with transactional global time buckets."""
+ for slot,capacity in (("web:minute:"+str(int(now//60)),12),("web:day:"+str(int(now//86400)),300)):
+  row=c.execute("INSERT INTO registration_limits(slot,count,updated) VALUES(%s,1,%s) ON CONFLICT(slot) DO UPDATE SET count=registration_limits.count+1,updated=EXCLUDED.updated WHERE registration_limits.count<%s RETURNING count",(slot,now,capacity)).fetchone()
+  if row is None:raise HTTPException(429,"Слишком много регистраций. Попробуйте позже.")
+ c.execute("DELETE FROM registration_limits WHERE updated<%s",(now-3*86400,))
+
 @app.post("/api/join")
 def join(q:Request):
  name=q.name.strip()[:22]
@@ -374,6 +385,7 @@ def join(q:Request):
   with db() as c:
    # Serialize sign-ups to avoid duplicate nicknames differing only by case.
    c.execute("SELECT pg_advisory_xact_lock(1984532)")
+   limit_public_registration(c,time.time())
    if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s)",(name,)).fetchone():
     raise HTTPException(409,"Ник уже занят")
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
@@ -619,15 +631,71 @@ def farm_admin_telegram(uid,chat_id):
   row=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
   return bool(row and str(row["telegram_id"])==str(uid))
 
+def support_admin_chat():
+ configured=os.environ.get("FARM_ADMIN_TELEGRAM_ID","").strip()
+ if configured.isdecimal():return int(configured)
+ with db() as c:
+  row=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
+ return row["telegram_id"] if row else None
+
+def create_support_ticket(uid,command):
+ if not isinstance(uid,int) or uid<=0:return "Открой поддержку в личном чате бота."
+ parts=command.split(maxsplit=2)
+ if len(parts)<3 or not 2<=len(parts[1])<=22 or len(parts[2].strip())<10:
+  return "Напиши: /support ТвойНик Опиши проблему (не менее 10 символов). Не отправляй пароли или коды."
+ name,details=parts[1],parts[2].strip()
+ if len(details)>700:return "Описание должно быть короче 700 символов."
+ now=time.time()
+ with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
+  limits=c.execute("SELECT COUNT(*)::int AS n,MAX(created) AS last FROM support_tickets WHERE telegram_id=%s AND created>%s",(uid,now-86400)).fetchone()
+  if limits["n"]>=4 or (limits["last"] and now-limits["last"]<900):
+   return "Обращение уже отправлено. Следующее — через 15 минут (не больше 4 за день)."
+  ticket=secrets.token_hex(6)
+  c.execute("INSERT INTO support_tickets(id,telegram_id,nickname,message,created) VALUES(%s,%s,%s,%s,%s)",(ticket,uid,name,details,now))
+ admin=support_admin_chat()
+ if admin:
+  try:
+   telegram_api("sendMessage",{"chat_id":admin,"text":"🆘 Обращение #"+ticket+"\nНик: "+name+"\nTG ID: "+str(uid)+"\n"+details+"\nОтвет: /reply "+ticket+" текст"})
+  except Exception:logger.exception("support_admin_notification_failed")
+ return "✅ Обращение #"+ticket+" принято. Администратор ответит здесь. Не сообщай пароль или коды подтверждения."
+
+def reply_support_ticket(command):
+ parts=command.split(maxsplit=2)
+ if len(parts)<3 or not 1<=len(parts[2].strip())<=1400:return "Используй: /reply НОМЕР текст ответа."
+ ticket=parts[1].lower()
+ if len(ticket)!=12 or any(ch not in "0123456789abcdef" for ch in ticket):return "Неверный номер обращения."
+ with db() as c:
+  row=c.execute("SELECT telegram_id FROM support_tickets WHERE id=%s",(ticket,)).fetchone()
+ if not row:return "Обращение не найдено."
+ try:
+  telegram_api("sendMessage",{"chat_id":row["telegram_id"],"text":"💬 Ответ поддержки по обращению #"+ticket+":\n"+parts[2].strip()})
+ except Exception:
+  logger.exception("support_reply_failed")
+  return "Не удалось доставить ответ. Попробуй ещё раз."
+ with db() as c:
+  c.execute("UPDATE support_tickets SET status='answered',answered_at=%s WHERE id=%s",(time.time(),ticket))
+ return "✅ Ответ отправлен по обращению #"+ticket
+
 def farm_admin_panel(chat_id):
  return {"method":"sendMessage","chat_id":chat_id,
          "text":"🛡 Админ-панель фермы\nВыберите раздел:",
          "reply_markup":{"inline_keyboard":[
+          [{"text":"🆘 Обращения игроков","callback_data":"adm:tickets"}],
           [{"text":"📋 Заявки на вывод","callback_data":"adm:requests"}],
           [{"text":"📊 Статистика","callback_data":"adm:stats"}],
           [{"text":"⭐ Баланс Stars","callback_data":"adm:stars"}],
           [{"text":"🧾 История оплат","callback_data":"adm:starorders"}],
           [{"text":"🔄 Обновить","callback_data":"adm:panel"}]]}}
+
+def farm_admin_support_tickets(chat_id):
+ with db() as c:
+  rows=c.execute("SELECT id,nickname,message,created FROM support_tickets WHERE status='open' ORDER BY created DESC LIMIT 8").fetchall()
+ if not rows:return {"method":"sendMessage","chat_id":chat_id,"text":"✅ Новых обращений нет."}
+ messages=["🆘 Последние обращения:"]
+ for x in rows:
+  messages.append("#"+x["id"]+" · "+x["nickname"]+"\n"+x["message"][:250]+"\nОтвет: /reply "+x["id"]+" текст")
+ return {"method":"sendMessage","chat_id":chat_id,"text":"\n\n".join(messages)[:3800]}
 
 def farm_admin_requests(chat_id):
  with db() as c:
@@ -663,6 +731,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   action=callback.get("data")
   if action=="adm:panel":return farm_admin_panel(chat.get("id"))
   if action=="adm:requests":return farm_admin_requests(chat.get("id"))
+  if action=="adm:tickets":return farm_admin_support_tickets(chat.get("id"))
   if action=="adm:stats":return farm_admin_stats(chat.get("id"))
   if action=="adm:stars":return bot_star_balance(chat.get("id"))
   if action=="adm:starorders":return farm_admin_star_orders(chat.get("id"))
@@ -687,15 +756,26 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
  chat=message.get("chat") or {}
  sender=message.get("from") or {}
  command=message.get("text") or ""
+ if isinstance(command,str) and command.strip():
+  normalized=command.strip().split(maxsplit=1)[0].split("@",1)[0]
+  if normalized=="/start" and command.strip().endswith("support"):
+   return {"method":"sendMessage","chat_id":chat.get("id"),"text":"🆘 Чтобы восстановить доступ, отправь: /support ТвойНик Опиши проблему. Не сообщай пароль или код Telegram."}
+  if normalized=="/support":
+   if str(chat.get("id"))!=str(sender.get("id")):return {"ok":True}
+   return {"method":"sendMessage","chat_id":chat.get("id"),"text":create_support_ticket(sender.get("id"),command.replace("@Farmlife2026bot","",1))}
+  if normalized=="/reply":
+   if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
+   return {"method":"sendMessage","chat_id":chat.get("id"),"text":reply_support_ticket(command.replace("@Farmlife2026bot","",1))}
  if isinstance(command,str) and command.split("@",1)[0].strip()=="/paysupport":
-  return {"method":"sendMessage","chat_id":chat.get("id"),"text":"Поддержка по оплатам: отправьте номер заказа, дату и описание проблемы владельцу бота. До запуска реальных платежей покупки отключены."}
+  return {"method":"sendMessage","chat_id":chat.get("id"),"text":"Поддержка по оплатам Stars: отправьте /support ВашНик Описание проблемы. Не сообщайте пароль и коды. Возвраты проверяются администрацией."}
  if isinstance(command,str) and command.split("@",1)[0].strip()=="/stars" and farm_admin_telegram(sender.get("id"),chat.get("id")):
   return bot_star_balance(chat.get("id"))
  if isinstance(command,str) and command.strip() in ("/start","/help"):
   return {"method":"sendMessage","chat_id":chat.get("id"),"text":"🐔 Ферма. Для привязки Telegram нажмите кнопку «Привязать Telegram» в профиле игры."}
- if isinstance(command,str) and command.split("@",1)[0].strip() in ("/admin","/requests","/zayavki"):
+ if isinstance(command,str) and command.split("@",1)[0].strip() in ("/admin","/requests","/zayavki","/tickets"):
   if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
   if command.startswith("/admin"):return farm_admin_panel(chat.get("id"))
+  if command.startswith("/tickets"):return farm_admin_support_tickets(chat.get("id"))
   return farm_admin_requests(chat.get("id"))
  if not (isinstance(command,str) and command.startswith("/start link_")):return {"ok":True}
  try:
