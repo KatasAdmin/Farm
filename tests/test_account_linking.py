@@ -42,4 +42,31 @@ class LinkingTests(unittest.TestCase):
   self.assertTrue(any("UPDATE players SET telegram_id" in sql for sql,_ in d.queries))
   self.assertFalse(any("INSERT INTO players" in sql for sql,_ in d.queries))
 
+ def test_duplicate_telegram_owner_is_rejected(self):
+  player={"id":"p","telegram_id":None}
+  class Existing(DB):
+   def execute(self,sql,args=None):
+    self.queries.append((sql,args))
+    if "SELECT id FROM players WHERE telegram_id" in sql:return Cursor({"id":"different_player"})
+    return Cursor()
+  d=Existing(player)
+  with patch.object(main,"db",return_value=d),patch.object(main,"person",return_value=player),patch.object(main,"telegram_identity",return_value=12345):
+   with self.assertRaises(HTTPException) as ex:
+    main.link_telegram(main.Request(telegram_data="signed"),authorization="Bearer test")
+  self.assertEqual(ex.exception.status_code,409)
+  self.assertFalse(any("UPDATE players SET telegram_id" in q for q,_ in d.queries))
+
+ def test_existing_telegram_login_does_not_create_new_player(self):
+  class Linked(DB):
+   def execute(self,sql,args=None):
+    self.queries.append((sql,args))
+    if "SELECT id FROM players WHERE telegram_id" in sql:return Cursor({"id":"existing_player"})
+    return Cursor()
+  d=Linked(None)
+  with patch.object(main,"db",return_value=d),patch.object(main,"telegram_identity",return_value=12345):
+   result=main.login_telegram(main.Request(telegram_data="signed"))
+  self.assertTrue(result["token"])
+  self.assertTrue(any("UPDATE players SET token=" in q for q,_ in d.queries))
+  self.assertFalse(any("INSERT INTO players" in q for q,_ in d.queries))
+
 if __name__=="__main__": unittest.main()
