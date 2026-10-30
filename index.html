@@ -88,7 +88,7 @@
             alt=""
             decoding="async"
           /><b data-value="coins">—</b></button
-        ><span class="gems" title="Кристаллы пока не используются"
+        ><span class="gems" hidden title="Кристаллы пока не используются"
           ><img
             src="/assets/redesign/crystal.webp"
             class="icon"
@@ -131,6 +131,16 @@
             <span>Склад</span>
           </button>
         </div>
+        <details class="card launch-guide" id="launch-guide">
+ <summary>🌱 Как начать играть? 4 простых шага</summary>
+ <div class="launch-guide-body">
+  <p><b>1. Начни с курицы.</b> Она несёт по одному яйцу каждые 6 часов, когда сыта.</p>
+  <p><b>2. Следи за кормом.</b> Каждые 18 часов курицам требуется по одному зерну. Запас виден на главной.</p>
+  <p><b>3. Продавай яйца.</b> Выставляй их на рынке и получай монеты, когда другие игроки купят товар.</p>
+  <p><b>4. Развивай хозяйство.</b> Покупай куриц, увеличивай склад, выполняй задания и улучшай ферму.</p>
+  <p class="muted">Игра развивается вместе с игроками. Деньги из фермы не выводятся; реальные покупки за Stars необязательны.</p>
+ </div>
+</details>
         <h2 class="section-title">
           Моё хозяйство
         </h2>
@@ -604,7 +614,7 @@
               + Пополнить</button
             ><button class="btn blue" disabled title="Денежный вывод отключён">→ Вывод отключён</button>
           </div>
-          <p class="muted">Игровые монеты используются только внутри фермы и не имеют фиксированной денежной стоимости. Денежный вывод отключён. Пополнение за Telegram Stars доступно в кошельке. Деньги из игры вывести нельзя.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
+          <p class="muted">Монеты — внутриигровая валюта для куриц, корма, улучшений и торговли. Купить монеты можно за Telegram Stars (1 🪙 = 2 ⭐). Денежный вывод и оплата банковскими картами пока недоступны.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
         </div>
         <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
           <h2 class="cardtitle">🎁 Бонусный код</h2>
@@ -707,6 +717,16 @@
             <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
           </div>
         </div>
+        <details class="card support-guide">
+ <summary>❓ Вопросы и помощь</summary>
+ <div class="support-guide-body">
+  <p><b>Не хватает зерна?</b> Купи его в разделе «Торговля» либо настрой автозакупку.</p>
+  <p><b>Яйца не появляются?</b> Проверь корм, следующий сбор и свободное место на складе.</p>
+  <p><b>Не получается войти?</b> Используй привязанный Telegram или свой ник и пароль. Не создавай новую ферму, если хочешь восстановить существующую.</p>
+  <p><b>Вопрос об оплате Stars?</b> Открой «Кошелёк → История покупок Stars» и сохрани время операции. Возвраты проверяет администратор.</p>
+  <p class="muted">Не сообщай никому пароль, код подтверждения Telegram или токен бота.</p>
+ </div>
+</details>
         <div class="profile-landscape"><img src="/assets/redesign/profile.webp" alt="Ферма с амбаром"></div>
         <div class="card profile-card">
           <img
