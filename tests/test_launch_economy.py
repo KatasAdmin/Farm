@@ -53,7 +53,7 @@ class LaunchEconomyTests(unittest.TestCase):
     def test_withdrawal_minimum(self):
         with self.assertRaises(HTTPException) as e:
             main.request_withdrawal(main.Request(amount=99))
-        self.assertEqual(e.exception.status_code, 400)
+        self.assertEqual(e.exception.status_code, 403)
 
     def test_withdrawal_requires_linked_telegram(self):
         database = FakeDB()
@@ -63,14 +63,13 @@ class LaunchEconomyTests(unittest.TestCase):
                 main.request_withdrawal(main.Request(amount=100), authorization="Bearer fake")
         self.assertEqual(e.exception.status_code, 403)
 
-    def test_withdrawal_pending_reserves_balance(self):
+    def test_withdrawal_disabled_before_any_balance_change(self):
         database = FakeDB()
-        p = {"id": "id", "coins": 200, "telegram_id": 123}
-        with patch.object(main, "db", return_value=database), patch.object(main, "person", return_value=p), patch.object(main, "advance", return_value=p):
-            result = main.request_withdrawal(main.Request(amount=100), authorization="Bearer fake")
-        self.assertEqual(result["status"], "pending")
-        self.assertTrue(any("INSERT INTO withdrawal_requests" in s for s, _ in database.calls))
-        self.assertTrue(any("UPDATE players SET coins=coins-%s" in s for s, _ in database.calls))
+        with patch.object(main, "db", return_value=database):
+            with self.assertRaises(HTTPException) as e:
+                main.request_withdrawal(main.Request(amount=100), authorization="Bearer fake")
+        self.assertEqual(e.exception.status_code, 403)
+        self.assertFalse(database.calls)
 
 if __name__ == "__main__":
     unittest.main()
