@@ -884,11 +884,12 @@ def redeem_promo(q:Request,authorization:str=Header(default="")):
  return {"ok":True,"awarded":amount}
 
 @app.get("/api/finance")
-def finance(authorization:str=Header(default="")):
+def finance(authorization:str=Header(default=""),offset:int=0,limit:int=10):
+ if offset<0 or offset>100000 or limit<1 or limit>50:raise HTTPException(400,"Некорректная страница истории")
  with db() as c:
   p=person(c,authorization)
-  logs=c.execute("SELECT kind,delta,details,created FROM money_log WHERE player_id=%s ORDER BY created DESC LIMIT 25",(p["id"],)).fetchall()
-  return {"entries":logs}
+  logs=c.execute("SELECT kind,delta,details,created FROM money_log WHERE player_id=%s ORDER BY created DESC,id DESC LIMIT %s OFFSET %s",(p["id"],limit+1,offset)).fetchall()
+ return {"entries":logs[:limit],"has_more":len(logs)>limit,"next_offset":offset+limit}
 @app.post("/api/autobuy")
 def autobuy(q:Request,authorization:str=Header(default="")):
  if q.item not in ("on","off"):raise HTTPException(400,"Неверное действие")
