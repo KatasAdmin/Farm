@@ -13,9 +13,9 @@
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
-    <link rel="stylesheet" href="/assets/stars-mobile.css?v=7" />
+    <link rel="stylesheet" href="/assets/stars-mobile.css?v=8" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=46" defer></script>
+    <script src="/assets/game.js?v=47" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -909,24 +909,27 @@
         <div id="referrals-pane" hidden>
   <div class="card referral-card">
     <h2 class="cardtitle">🐣 Пригласи друга</h2>
-    <p>Приглашай друзей и получай дополнительные яйца от их производства. У друга ничего не отнимается — это бонус к твоей ферме.</p>
+    <p>Приглашай друзей и получай дополнительные яйца, зерно и куриц от их настоящего производства и приобретений. У друга ничего не отнимается.</p>
     <p class="muted">Когда друг подтвердит Telegram, поиграет не меньше суток и самостоятельно произведёт 6 яиц, ты получишь ещё <strong>5 монет</strong> один раз.</p>
     <label for="referral-link">Твоя ссылка для приглашения</label>
     <input id="referral-link" readonly value="Загружаем…" autocomplete="off">
     <button class="btn blue wide" onclick="copyReferralLink()">📨 Скопировать приглашение</button>
     <div class="referral-summary">
-      <div><span>Приглашено напрямую</span><strong id="referral-direct">0</strong></div>
-      <div><span>Яиц к получению</span><strong id="referral-available">0</strong></div>
-      <div><span>Заработано всего</span><strong id="referral-total">0</strong></div>
+      <div><span>Друзей напрямую</span><strong id="referral-direct">0</strong></div>
+      <div><span>Бонус за друзей</span><strong>5 🪙</strong></div>
+      <div><span>Уровней</span><strong>7</strong></div>
     </div>
-    <p id="referral-fraction" class="muted">Дробные бонусы складываются, пока не получится целое яйцо.</p>
-    <button class="btn wide" id="referral-claim" onclick="claimReferralEggs()" disabled>🥚 Забрать яйца на склад</button>
-    <p class="muted">Если склад заполнен, бонусные яйца останутся здесь до освобождения места.</p>
+    <p class="muted">Бонусные ресурсы копятся дробями. Забрать целые можно, когда есть место на складе или в курятнике.</p>
+    <div id="referral-resources" aria-live="polite">
+      <div class="referral-resource"><span>🥚 Яйца</span><strong id="referral-eggs-available">0</strong><small id="referral-eggs-fraction">0 / 1</small><button class="btn blue" id="referral-eggs-claim" onclick="claimReferralResource('eggs')" disabled>Забрать</button></div>
+      <div class="referral-resource"><span>🌾 Зерно</span><strong id="referral-grain-available">0</strong><small id="referral-grain-fraction">0 / 1</small><button class="btn blue" id="referral-grain-claim" onclick="claimReferralResource('grain')" disabled>Забрать</button></div>
+      <div class="referral-resource"><span>🐔 Курицы</span><strong id="referral-chickens-available">0</strong><small id="referral-chickens-fraction">0 / 1</small><button class="btn blue" id="referral-chickens-claim" onclick="claimReferralResource('chickens')" disabled>Забрать</button></div>
+    </div>
   </div>
   <div class="card referral-card">
     <h2 class="cardtitle">🌿 7 уровней приглашений</h2>
     <div id="referral-levels"></div>
-    <p class="muted">Например, друг 1-го уровня произвёл 5 яиц — тебе начислится 0,5 яйца в накопление. Бонусы следующих уровней учитывают только яйца, произведённые курицами, без повторного начисления от бонусов.</p>
+    <p class="muted">Например, друг 1-го уровня купил 5 куриц — тебе начислится 0,5 курицы в накопление. С 10 яиц — 1 яйцо. Монеты, реферальные бонусы и повторные перепродажи не дают процентов.</p>
   </div>
 </div>
 <div id="achievement-pane" hidden>
