@@ -226,6 +226,7 @@ def update_incubation(c,p,now):
   for row in jobs[:matured]:c.execute("DELETE FROM incubation_jobs WHERE id=%s",(row["id"],))
   c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(matured,matured,p["id"]))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"chick_matured",matured,now))
+  award_referral_resource(c,p,"chickens",matured)
   p={**p,"chickens":p["chickens"]+matured,"fed_hens":p["fed_hens"]+matured}
  return p
 def upgrade_production(c,p,now):
@@ -852,6 +853,7 @@ def shop(q:Request,authorization:str=Header(default="")):
    c.execute("INSERT INTO daily_activity(player_id,day,grain_bought) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET grain_bought=daily_activity.grain_bought+EXCLUDED.grain_bought",(p["id"],day,q.amount))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"shop",-cost,q.item+" x"+str(q.amount),time.time()))
+  award_referral_resource(c,p,q.item,q.amount)
  return {"ok":True}
 @app.post("/api/bundle")
 def buy_bundle(authorization:str=Header(default="")):
@@ -868,6 +870,8 @@ def buy_bundle(authorization:str=Header(default="")):
   c.execute("UPDATE players SET coins=coins-%s,chickens=%s,fed_hens=fed_hens+10,grain=grain+100,coop_level=%s,storage_level=%s,bundle_uses=bundle_uses+1 WHERE id=%s",(PROMO_PRICE,hens,coop,storage,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(PROMO_PRICE,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"bundle",-PROMO_PRICE,"Акция: 10 кур + 100 зерна (стоимость товаров 600)",now))
+  award_referral_resource(c,p,"chickens",10)
+  award_referral_resource(c,p,"grain",100)
  return {"ok":True,"spent":PROMO_PRICE}
 
 @app.post("/api/feed")
