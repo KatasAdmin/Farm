@@ -323,6 +323,15 @@ def telegram_api(method,payload):
  if not result.get("ok"):raise RuntimeError("Telegram rejected payment operation")
  return result.get("result")
 
+def bot_star_balance(chat_id):
+ try:
+  balance=telegram_api("getMyStarBalance",{})
+  amount=balance.get("amount","?") if isinstance(balance,dict) else "?"
+  return {"method":"sendMessage","chat_id":chat_id,"text":"⭐ Баланс бота: "+str(amount)+" Stars. Вывод и доступ к наградам — через владельца бота в Telegram."}
+ except Exception:
+  logger.exception("telegram_stars_balance_failed")
+  return {"method":"sendMessage","chat_id":chat_id,"text":"Не удалось получить баланс Stars. Проверьте подключение Telegram."}
+
 def stars_payment_enabled():
  return os.environ.get("FARM_STARS_PAYMENTS_ENABLED","").lower() in ("1","true","yes")
 
@@ -416,6 +425,7 @@ def farm_admin_panel(chat_id):
          "reply_markup":{"inline_keyboard":[
           [{"text":"📋 Заявки на вывод","callback_data":"adm:requests"}],
           [{"text":"📊 Статистика","callback_data":"adm:stats"}],
+          [{"text":"⭐ Баланс Stars","callback_data":"adm:stars"}],
           [{"text":"🔄 Обновить","callback_data":"adm:panel"}]]}}
 
 def farm_admin_requests(chat_id):
@@ -445,6 +455,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   if action=="adm:panel":return farm_admin_panel(chat.get("id"))
   if action=="adm:requests":return farm_admin_requests(chat.get("id"))
   if action=="adm:stats":return farm_admin_stats(chat.get("id"))
+  if action=="adm:stars":return bot_star_balance(chat.get("id"))
   return {"ok":True}
  if payload.get("pre_checkout_query"):
   return stars_precheckout(payload["pre_checkout_query"])
@@ -453,6 +464,10 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
  chat=message.get("chat") or {}
  sender=message.get("from") or {}
  command=message.get("text") or ""
+ if isinstance(command,str) and command.split("@",1)[0].strip()=="/paysupport":
+  return {"method":"sendMessage","chat_id":chat.get("id"),"text":"Поддержка по оплатам: отправьте номер заказа, дату и описание проблемы владельцу бота. До запуска реальных платежей покупки отключены."}
+ if isinstance(command,str) and command.split("@",1)[0].strip()=="/stars" and farm_admin_telegram(sender.get("id"),chat.get("id")):
+  return bot_star_balance(chat.get("id"))
  if isinstance(command,str) and command.strip() in ("/start","/help"):
   return {"method":"sendMessage","chat_id":chat.get("id"),"text":"🐔 Ферма. Для привязки Telegram нажмите кнопку «Привязать Telegram» в профиле игры."}
  if isinstance(command,str) and command.split("@",1)[0].strip() in ("/admin","/requests","/zayavki"):
