@@ -91,7 +91,7 @@ async def lifespan(app):
   token=os.environ.get("TELEGRAM_BOT_TOKEN","")
   domain=os.environ.get("RAILWAY_PUBLIC_DOMAIN","")
   if token and domain:
-   payload=json.dumps({"url":"https://"+domain+"/api/telegram/webhook","secret_token":telegram_webhook_secret(),"allowed_updates":["message"]}).encode()
+   payload=json.dumps({"url":"https://"+domain+"/api/telegram/webhook","secret_token":telegram_webhook_secret(),"allowed_updates":["message","callback_query"]}).encode()
    req=URLRequest("https://api.telegram.org/bot"+token+"/setWebhook",data=payload,headers={"Content-Type":"application/json"})
    with urlopen(req,timeout=6) as resp:
     if not json.load(resp).get("ok"):logger.error("telegram_webhook_setup_rejected")
@@ -328,24 +328,56 @@ def notify_farm_admin(request_id,player_name,telegram_id,amount):
  except Exception:
   logger.exception("admin_notification_failed")
 
+def farm_admin_telegram(uid,chat_id):
+ configured=os.environ.get("FARM_ADMIN_TELEGRAM_ID","").strip()
+ return bool(configured) and str(uid)==configured and str(chat_id)==configured
+
+def farm_admin_panel(chat_id):
+ return {"method":"sendMessage","chat_id":chat_id,
+         "text":"🛡 Админ-панель фермы\\nВыберите раздел:",
+         "reply_markup":{"inline_keyboard":[
+          [{"text":"📋 Заявки на вывод","callback_data":"adm:requests"}],
+          [{"text":"📊 Статистика","callback_data":"adm:stats"}],
+          [{"text":"🔄 Обновить","callback_data":"adm:panel"}]]}}
+
+def farm_admin_requests(chat_id):
+ with db() as c:
+  rows=c.execute("SELECT w.id,w.amount,p.name FROM withdrawal_requests w JOIN players p ON p.id=w.player_id WHERE w.status='pending' ORDER BY w.created ASC LIMIT 20").fetchall()
+ lines=["📋 Актуальные заявки:"]+[x["id"][:12]+" · "+x["name"]+" · "+str(x["amount"])+" монет" for x in rows]
+ return {"method":"sendMessage","chat_id":chat_id,"text":"\\n".join(lines) if rows else "✅ Активных заявок нет."}
+
+def farm_admin_stats(chat_id):
+ with db() as c:
+  players=c.execute("SELECT COUNT(*)::int AS n FROM players").fetchone()["n"]
+  pending=c.execute("SELECT COUNT(*)::int AS n,COALESCE(SUM(amount),0)::bigint AS total FROM withdrawal_requests WHERE status='pending'").fetchone()
+ return {"method":"sendMessage","chat_id":chat_id,"text":f"📊 Игроков: {players}\\nЗаявок на проверке: {pending['n']}\\nМонет в резерве: {pending['total']}"}
+
 @app.post("/api/telegram/webhook")
 def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(default="")):
  secret=telegram_webhook_secret()
  if not secret or not hmac.compare_digest(x_telegram_bot_api_secret_token,secret):
   raise HTTPException(403,"Unauthorized")
+ callback=payload.get("callback_query") or {}
+ if callback:
+  sender=callback.get("from") or {}
+  msg=callback.get("message") or {}
+  chat=(msg.get("chat") or {})
+  if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
+  action=callback.get("data")
+  if action=="adm:panel":return farm_admin_panel(chat.get("id"))
+  if action=="adm:requests":return farm_admin_requests(chat.get("id"))
+  if action=="adm:stats":return farm_admin_stats(chat.get("id"))
+  return {"ok":True}
  message=payload.get("message") or {}
  chat=message.get("chat") or {}
  sender=message.get("from") or {}
  command=message.get("text") or ""
  if isinstance(command,str) and command.strip() in ("/start","/help"):
   return {"method":"sendMessage","chat_id":chat.get("id"),"text":"🐔 Ферма. Для привязки Telegram нажмите кнопку «Привязать Telegram» в профиле игры."}
- if isinstance(command,str) and command.strip() in ("/requests","/zayavki"):
-  if str(sender.get("id"))!=os.environ.get("FARM_ADMIN_TELEGRAM_ID","") or chat.get("id")!=sender.get("id"):
-   return {"ok":True}
-  with db() as c:
-   pending=c.execute("SELECT w.id,w.amount,p.name FROM withdrawal_requests w JOIN players p ON p.id=w.player_id WHERE w.status='pending' ORDER BY w.created ASC LIMIT 20").fetchall()
-  lines=["🐔 Актуальные заявки:"]+[x["id"][:12]+" · "+x["name"]+" · "+str(x["amount"])+" монет" for x in pending]
-  return {"method":"sendMessage","chat_id":chat.get("id"),"text":"\\n".join(lines) if pending else "Активных заявок нет."}
+ if isinstance(command,str) and command.split("@",1)[0].strip() in ("/admin","/requests","/zayavki"):
+  if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
+  if command.startswith("/admin"):return farm_admin_panel(chat.get("id"))
+  return farm_admin_requests(chat.get("id"))
  if not (isinstance(command,str) and command.startswith("/start link_")):return {"ok":True}
  try:
   uid=int(sender.get("id",0))
