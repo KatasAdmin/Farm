@@ -321,11 +321,11 @@ def notify_farm_admin(request_id,player_name,telegram_id,amount):
    recipient=str(admin["telegram_id"]) if admin else ""
   except Exception:logger.exception("admin_identity_lookup_failed")
  if not bot or not recipient:return
- message=("🐔 Новая заявка на вывод\\n"
-          "Заявка: "+request_id[:12]+"\\n"
-          "Игрок: "+player_name+"\\n"
-          "Telegram ID: "+str(telegram_id)+"\\n"
-          "Монет: "+str(amount)+"\\n"
+ message=("🐔 Новая заявка на вывод\n"
+          "Заявка: "+request_id[:12]+"\n"
+          "Игрок: "+player_name+"\n"
+          "Telegram ID: "+str(telegram_id)+"\n"
+          "Монет: "+str(amount)+"\n"
           "Статус: ожидает проверки. Реальные выплаты отключены.")
  data=json.dumps({"chat_id":recipient,"text":message}).encode()
  try:
@@ -353,7 +353,7 @@ def farm_admin_telegram(uid,chat_id):
 
 def farm_admin_panel(chat_id):
  return {"method":"sendMessage","chat_id":chat_id,
-         "text":"🛡 Админ-панель фермы\\nВыберите раздел:",
+         "text":"🛡 Админ-панель фермы\nВыберите раздел:",
          "reply_markup":{"inline_keyboard":[
           [{"text":"📋 Заявки на вывод","callback_data":"adm:requests"}],
           [{"text":"📊 Статистика","callback_data":"adm:stats"}],
@@ -363,13 +363,13 @@ def farm_admin_requests(chat_id):
  with db() as c:
   rows=c.execute("SELECT w.id,w.amount,p.name FROM withdrawal_requests w JOIN players p ON p.id=w.player_id WHERE w.status='pending' ORDER BY w.created ASC LIMIT 20").fetchall()
  lines=["📋 Актуальные заявки:"]+[x["id"][:12]+" · "+x["name"]+" · "+str(x["amount"])+" монет" for x in rows]
- return {"method":"sendMessage","chat_id":chat_id,"text":"\\n".join(lines) if rows else "✅ Активных заявок нет."}
+ return {"method":"sendMessage","chat_id":chat_id,"text":"\n".join(lines) if rows else "✅ Активных заявок нет."}
 
 def farm_admin_stats(chat_id):
  with db() as c:
   players=c.execute("SELECT COUNT(*)::int AS n FROM players").fetchone()["n"]
   pending=c.execute("SELECT COUNT(*)::int AS n,COALESCE(SUM(amount),0)::bigint AS total FROM withdrawal_requests WHERE status='pending'").fetchone()
- return {"method":"sendMessage","chat_id":chat_id,"text":f"📊 Игроков: {players}\\nЗаявок на проверке: {pending['n']}\\nМонет в резерве: {pending['total']}"}
+ return {"method":"sendMessage","chat_id":chat_id,"text":f"📊 Игроков: {players}\nЗаявок на проверке: {pending['n']}\nМонет в резерве: {pending['total']}"}
 
 @app.post("/api/telegram/webhook")
 def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(default="")):
