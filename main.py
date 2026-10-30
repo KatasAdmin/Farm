@@ -52,6 +52,7 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS recovery_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS password_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS telegram_id bigint UNIQUE")
+  c.execute("CREATE TABLE IF NOT EXISTS telegram_processed_updates(update_id bigint PRIMARY KEY,received_at double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS star_orders(id text PRIMARY KEY,player_id text NOT NULL,telegram_id bigint NOT NULL,coins integer NOT NULL CHECK(coins>0),stars integer NOT NULL CHECK(stars>0),status text NOT NULL DEFAULT 'created',created double precision NOT NULL,charge_id text UNIQUE)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS purchased_coins bigint NOT NULL DEFAULT 0")
   c.execute("CREATE INDEX IF NOT EXISTS star_orders_player ON star_orders(player_id,created)")
@@ -445,6 +446,14 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
  secret=telegram_webhook_secret()
  if not secret or not hmac.compare_digest(x_telegram_bot_api_secret_token,secret):
   raise HTTPException(403,"Unauthorized")
+ # Telegram may redeliver the same update; process ordinary messages/callbacks only once.
+ # Payment events retain their own idempotency rules.
+ if not payload.get("pre_checkout_query") and not (payload.get("message") or {}).get("successful_payment"):
+  update_id=payload.get("update_id")
+  if isinstance(update_id,int) and not isinstance(update_id,bool):
+   with db() as c:
+    fresh=c.execute("INSERT INTO telegram_processed_updates(update_id,received_at) VALUES(%s,%s) ON CONFLICT DO NOTHING RETURNING update_id",(update_id,time.time())).fetchone()
+    if not fresh:return {"ok":True}
  callback=payload.get("callback_query") or {}
  if callback:
   sender=callback.get("from") or {}
