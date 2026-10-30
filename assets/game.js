@@ -415,10 +415,76 @@ function marketTab(mode) {
   if (mode === "buy") tab("shop");
   else tab("market");
 }
+let selectedResource="eggs";
+let sellingResource=null;
+const systemBuyback={grain:1,chickens:20};
+function openResourceActions(item) {
+  if (!state || !["grain","chickens","eggs"].includes(item)) return;
+  selectedResource=item;
+  const title={grain:"🌾 Зерно",chickens:"🐔 Куры",eggs:"🥚 Яйца"}[item];
+  el("resource-action-title").textContent=title;
+  el("resource-action-description").textContent=item==="eggs"
+    ? "Купи яйца у других фермеров или выставь свои на рынок."
+    : "Купи ресурс в магазине или продай его системе с мгновенным начислением монет.";
+  el("resource-action-buy").textContent="Купить";
+  el("resource-action-sell").textContent=item==="eggs"?"Выставить на продажу":"Продать системе";
+  el("resource-actions-dialog").showModal();
+}
+function resourceAction(action){
+ const item=selectedResource;
+ el("resource-actions-dialog").close();
+ if(action==="buy"){
+  tab("shop");
+  if(item==="eggs")selectBuy("eggs");
+  else showShop(item);
+ }else if(action==="sell"){
+  if(item==="eggs")openSell("eggs");
+  else{tab("market");openSystemSell(item);}
+ }
+}
+function openSystemSell(item){
+ if(!state||!["grain","chickens"].includes(item)||pending)return;
+ sellingResource=item;
+ el("system-sell-title").textContent=item==="grain"?"🌾 Продать зерно":"🐔 Продать курицу";
+ el("system-sell-amount").value="1";
+ el("system-sell-amount").max=String(Math.min(10000,state.me[item]));
+ systemSellQuote();
+ el("system-sell-dialog").showModal();
+}
+function systemSellAll(){
+ if(!state||!sellingResource)return;
+ el("system-sell-amount").value=String(Math.min(10000,state.me[sellingResource]));
+ systemSellQuote();
+}
+function systemSellQuote(){
+ if(!state||!sellingResource)return;
+ const stock=state.me[sellingResource];
+ const qty=Number(el("system-sell-amount").value);
+ const valid=Number.isSafeInteger(qty)&&qty>=1&&qty<=Math.min(10000,stock);
+ const price=systemBuyback[sellingResource];
+ el("system-sell-stock").textContent="У тебя: "+number(stock)+" шт. · выкуп: "+price+" монет / шт.";
+ el("system-sell-total").textContent=valid?number(qty*price):"—";
+ el("system-sell-feedback").textContent=valid?"Монеты поступят сразу после продажи.":"Укажи целое количество в пределах своего запаса.";
+ el("system-sell-confirm").disabled=pending||!valid;
+}
+async function confirmSystemSell(){
+ if(!state||!sellingResource||pending)return;
+ const item=sellingResource;
+ const qty=Number(el("system-sell-amount").value);
+ if(!Number.isSafeInteger(qty)||qty<1||qty>Math.min(10000,state.me[item]))return systemSellQuote();
+ const success=await perform("/api/shop/sell",{item,amount:qty});
+ if(success){
+  el("system-sell-dialog").close();
+  toast("Продано системе: "+qty+" шт. · +"+number(qty*systemBuyback[item])+" монет");
+ }
+}
 function openSell(item) {
-  tab("market");
-  el("sellitem").value = item;
-  sellType();
+ if(item!=="eggs"){tab("market");return openSystemSell(item);}
+ tab("market");
+ el("egg-sale-form").hidden=false;
+ el("sellitem").value="eggs";
+ sellType();
+ el("egg-sale-form").scrollIntoView({behavior:"smooth",block:"center"});
 }
 function filterMarket(filter) {
   chosenFilter = filter;
@@ -786,6 +852,11 @@ async function submitWithdrawalRequest() {
 }
 function render() {
   const p = state.me;
+  for(const node of document.querySelectorAll("[data-system-stock]")){
+    const resource=node.dataset.systemStock;
+    node.textContent=(resource==="chickens"?"В курятнике: ":"На складе: ")+number(p[resource]||0);
+  }
+  if(el("system-sell-dialog")?.open)systemSellQuote();
   const isLinked = Boolean(p.telegram_id);
   const hasPassword = Boolean(state.has_password);
   if(el("telegram-link-status"))el("telegram-link-status").textContent=isLinked?"Telegram привязан ✓ — вход в эту же ферму доступен из бота":"Telegram не привязан";
