@@ -13,9 +13,9 @@
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
-    <link rel="stylesheet" href="/assets/stars-mobile.css?v=10" />
+    <link rel="stylesheet" href="/assets/stars-mobile.css?v=11" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=50" defer></script>
+    <script src="/assets/game.js?v=51" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -374,28 +374,7 @@
         </div></details>
         </div>
       </section>
-      <section id="market" class="panel" aria-label="Продажа товаров">
-        <div class="scene-banner compact-trade-scene">
-          <img src="/assets/redesign/shop.webp" class="scene-image" alt="Рынок" decoding="async"/>
-          <div class="scene-caption"><h1>Торговля</h1><p>Купить или продать товары</p></div>
-        </div>
-        <div class="switch unified-switch" role="group" aria-label="Купить или продать">
-          <button type="button" onclick="tab('shop')" aria-pressed="false">Купить</button>
-          <button type="button" class="active" aria-pressed="true">Продать</button>
-        </div>
-        <div class="card shop-catalog">
-          <h2 class="cardtitle">Продать товары</h2>
-          <p class="compact-trade-hint">Выбери товар, укажи количество и подтверди продажу.</p>
-          <div class="product"><img src="/assets/redesign/egg.webp" class="product-image" alt=""/><div><h3>Яйца</h3><small>Другим игрокам · 1 монета / шт.</small><small>Монеты после покупки</small></div><strong class="price">1 🪙</strong><button class="btn small" onclick="openSell('eggs')">Продать</button></div>
-          <div class="product"><img src="/assets/redesign/grain.webp" class="product-image" alt=""/><div><h3>Зерно</h3><small>Сразу системе · 1 монета / шт.</small><small data-system-stock="grain">На складе: —</small></div><strong class="price">1 🪙</strong><button class="btn small" onclick="openSystemSell('grain')">Продать</button></div>
-          <div class="product"><img src="/assets/redesign/hen.webp" class="product-image" alt=""/><div><h3>Курица</h3><small>Сразу системе · 20 монет / шт.</small><small data-system-stock="chickens">В курятнике: —</small></div><strong class="price">20 🪙</strong><button class="btn small" onclick="openSystemSell('chickens')">Продать</button></div>
-        </div>
-        <div id="sellPane" class="marketpanel active">
-          <details class="card trade-listings"><summary>Мои объявления</summary><div id="mylist"></div></details>
-        </div>
-        <details class="card trade-rules"><summary>Как работает торговля?</summary><p>Куриц и зерно система выкупает сразу по указанной цене. Яйца выставляются на общий рынок: их оплачивают другие игроки.</p><p>Непроданные яйца можно вернуть на склад при наличии свободного места.</p></details>
-      </section>
-      <section id="shop" class="panel" aria-label="Торговля">
+      <section id="shop" class="panel" aria-label="Рынок">
         <div class="scene-banner compact-trade-scene">
           <img
             src="/assets/redesign/shop.webp"
@@ -404,13 +383,13 @@
             decoding="async"
           />
           <div class="scene-caption">
-            <h1>Торговля</h1>
-            <p>Купить или продать товары</p>
+            <h1>Рынок</h1>
+            <p>Всё для твоей фермы</p>
           </div>
         </div>
-        <div class="switch unified-switch" role="group" aria-label="Купить или продать"><button class="active" type="button" aria-pressed="true">Купить</button><button type="button" onclick="tab('market')" aria-pressed="false">Продать</button></div>
+        
         <div class="card shop-catalog">
-          <h2 class="cardtitle">Купить товары</h2><p class="compact-trade-hint">Выбери товар, укажи количество и подтверди покупку.</p>
+          <h2 class="cardtitle">Товары</h2><p class="compact-trade-hint">Купить или продать — выбери действие возле товара.</p>
           <div class="product" id="trade-eggs-row"><img src="/assets/redesign/egg.webp" class="product-image" alt=""><div><h3>Яйца</h3><small id="eggs-available">Доступно: — шт.</small><small>У других игроков · 1 монета / шт.</small></div><div class="trade-dual-actions"><button id="eggs-buy-button" class="btn small" onclick="selectBuy('eggs')">Купить</button><button class="btn alt small" onclick="openSell('eggs')">Продать</button></div></div>
           <div class="product">
             <img
@@ -544,6 +523,8 @@
         </div>
 
         </details>
+        <details class="card trade-listings"><summary>Мои объявления</summary><div id="mylist"></div></details>
+        <details class="card trade-rules"><summary>Как работает торговля?</summary><p>Куриц и зерно система выкупает сразу по указанной цене. Яйца выставляются на общий рынок: их оплачивают другие игроки.</p><p>Непроданные яйца можно вернуть на склад при наличии свободного места.</p></details>
       </section>
       <section id="wallet" class="panel" aria-label="Кошелёк">
         <div class="panelhead">
@@ -1024,7 +1005,7 @@
             alt=""
             decoding="async" /></span
         ><span>Ферма</span></button
-      ><button class="nav-button" onclick="tab('shop')" data-tab="shop"><span class="nav-art" aria-hidden="true"><img src="/assets/redesign/shop-icon.webp" class="icon" alt=""></span><span>Торговля</span></button>
+      ><button class="nav-button" onclick="tab('shop')" data-tab="shop"><span class="nav-art" aria-hidden="true"><img src="/assets/redesign/shop-icon.webp" class="icon" alt=""></span><span>Рынок</span></button>
       <button class="nav-button" onclick="tab('tasks')" data-tab="tasks"><span class="nav-art" aria-hidden="true"><img src="/assets/redesign/achievement.webp" class="icon" alt=""></span><span>Задания</span></button>
       <button class="nav-button" onclick="tab('wallet')" data-tab="wallet">
         <span class="nav-art" aria-hidden="true"
