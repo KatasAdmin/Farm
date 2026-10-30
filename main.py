@@ -52,6 +52,9 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS recovery_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS password_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS telegram_id bigint UNIQUE")
+  c.execute("CREATE TABLE IF NOT EXISTS star_orders(id text PRIMARY KEY,player_id text NOT NULL,telegram_id bigint NOT NULL,coins integer NOT NULL CHECK(coins>0),stars integer NOT NULL CHECK(stars>0),status text NOT NULL DEFAULT 'created',created double precision NOT NULL,charge_id text UNIQUE)")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS purchased_coins bigint NOT NULL DEFAULT 0")
+  c.execute("CREATE INDEX IF NOT EXISTS star_orders_player ON star_orders(player_id,created)")
   c.execute("CREATE TABLE IF NOT EXISTS farm_admin_identity(slot integer PRIMARY KEY CHECK(slot=1),telegram_id bigint NOT NULL UNIQUE,claimed_at double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS telegram_link_codes(code_hash text PRIMARY KEY, player_id text NOT NULL, expires double precision NOT NULL)")
   c.execute("CREATE INDEX IF NOT EXISTS telegram_link_player ON telegram_link_codes(player_id)")
@@ -92,7 +95,7 @@ async def lifespan(app):
   token=os.environ.get("TELEGRAM_BOT_TOKEN","")
   domain=os.environ.get("RAILWAY_PUBLIC_DOMAIN","")
   if token and domain:
-   payload=json.dumps({"url":"https://"+domain+"/api/telegram/webhook","secret_token":telegram_webhook_secret(),"allowed_updates":["message","callback_query"]}).encode()
+   payload=json.dumps({"url":"https://"+domain+"/api/telegram/webhook","secret_token":telegram_webhook_secret(),"allowed_updates":["message","callback_query","pre_checkout_query"]}).encode()
    req=URLRequest("https://api.telegram.org/bot"+token+"/setWebhook",data=payload,headers={"Content-Type":"application/json"})
    with urlopen(req,timeout=6) as resp:
     if not json.load(resp).get("ok"):logger.error("telegram_webhook_setup_rejected")
@@ -311,6 +314,62 @@ def start_telegram_link(authorization:str=Header(default="")):
   c.execute("INSERT INTO telegram_link_codes(code_hash,player_id,expires) VALUES(%s,%s,%s)",(digest,p["id"],time.time()+300))
  return {"linked":False,"url":"https://t.me/Farmlife2026bot?start=link_"+code,"expires_seconds":300}
 
+def telegram_api(method,payload):
+ bot=os.environ.get("TELEGRAM_BOT_TOKEN","")
+ if not bot:raise RuntimeError("Telegram bot token is missing")
+ req=URLRequest("https://api.telegram.org/bot"+bot+"/"+method,data=json.dumps(payload).encode(),headers={"Content-Type":"application/json"})
+ with urlopen(req,timeout=7) as response:
+  result=json.load(response)
+ if not result.get("ok"):raise RuntimeError("Telegram rejected payment operation")
+ return result.get("result")
+
+def stars_payment_enabled():
+ return os.environ.get("FARM_STARS_PAYMENTS_ENABLED","").lower() in ("1","true","yes")
+
+@app.post("/api/stars/invoice")
+def create_stars_invoice(q:Request,authorization:str=Header(default="")):
+ if not stars_payment_enabled():raise HTTPException(503,"Пополнение пока не включено")
+ if not 1<=q.amount<=5000:raise HTTPException(400,"Укажите от 1 до 5000 монет")
+ with db() as c:
+  p=person(c,authorization,True)
+  if not p["telegram_id"]:raise HTTPException(403,"Сначала привяжите Telegram")
+  order=uuid.uuid4().hex
+  stars=q.amount*2
+  c.execute("INSERT INTO star_orders(id,player_id,telegram_id,coins,stars,status,created) VALUES(%s,%s,%s,%s,%s,'created',%s)",(order,p["id"],p["telegram_id"],q.amount,stars,time.time()))
+ try:
+  result=telegram_api("createInvoiceLink",{"title":"Монеты фермы","description":str(q.amount)+" игровых монет (не для денежного вывода)","payload":order,"currency":"XTR","prices":[{"label":str(q.amount)+" монет", "amount":stars}]})
+ except Exception:
+  logger.exception("stars_invoice_creation_failed")
+  raise HTTPException(503,"Не удалось создать счёт Telegram")
+ return {"url":result,"coins":q.amount,"stars":stars}
+
+def stars_precheckout(query):
+ order_id=query.get("invoice_payload","")
+ valid=False
+ if isinstance(order_id,str) and len(order_id)==32:
+  with db() as c:
+   x=c.execute("SELECT telegram_id,stars,status,created FROM star_orders WHERE id=%s",(order_id,)).fetchone()
+   valid=bool(x and x["status"]=="created" and x["telegram_id"]==query.get("from",{}).get("id") and query.get("currency")=="XTR" and query.get("total_amount")==x["stars"] and time.time()-x["created"]<86400)
+ telegram_api("answerPreCheckoutQuery",{"pre_checkout_query_id":query["id"],"ok":valid,**({} if valid else {"error_message":"Счёт не найден или устарел. Создайте новый."})})
+ return {"ok":True}
+
+def stars_payment_received(message):
+ paid=message.get("successful_payment") or {}
+ order_id=paid.get("invoice_payload","")
+ charge=paid.get("telegram_payment_charge_id","")
+ if not isinstance(order_id,str) or len(order_id)!=32 or not isinstance(charge,str) or not charge:return {"ok":True}
+ with db() as c:
+  x=c.execute("SELECT * FROM star_orders WHERE id=%s FOR UPDATE",(order_id,)).fetchone()
+  if not x or x["status"]=="paid":return {"ok":True}
+  if (x["status"]!="created" or x["telegram_id"]!=message.get("from",{}).get("id") or paid.get("currency")!="XTR" or paid.get("total_amount")!=x["stars"]):
+   logger.error("stars_payment_mismatch_order")
+   return {"ok":True}
+  if c.execute("SELECT 1 FROM star_orders WHERE charge_id=%s",(charge,)).fetchone():return {"ok":True}
+  c.execute("UPDATE star_orders SET status='paid',charge_id=%s WHERE id=%s",(charge,order_id))
+  c.execute("UPDATE players SET coins=coins+%s,purchased_coins=purchased_coins+%s WHERE id=%s",(x["coins"],x["coins"],x["player_id"]))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,x["player_id"],"stars_purchase",x["coins"],"Покупка за "+str(x["stars"])+" Stars",time.time()))
+ return {"method":"sendMessage","chat_id":message.get("chat",{}).get("id"),"text":"✅ Оплата получена! Начислено "+str(x["coins"])+" игровых монет."}
+
 def notify_farm_admin(request_id,player_name,telegram_id,amount):
  bot=os.environ.get("TELEGRAM_BOT_TOKEN","")
  recipient=os.environ.get("FARM_ADMIN_TELEGRAM_ID","")
@@ -387,7 +446,10 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   if action=="adm:requests":return farm_admin_requests(chat.get("id"))
   if action=="adm:stats":return farm_admin_stats(chat.get("id"))
   return {"ok":True}
+ if payload.get("pre_checkout_query"):
+  return stars_precheckout(payload["pre_checkout_query"])
  message=payload.get("message") or {}
+ if message.get("successful_payment"):return stars_payment_received(message)
  chat=message.get("chat") or {}
  sender=message.get("from") or {}
  command=message.get("text") or ""
