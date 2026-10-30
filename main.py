@@ -1,4 +1,6 @@
-import os,time,uuid,secrets,hashlib,hmac,json,logging
+import os,time,uuid,secrets,hashlib,hmac,json,logging,base64
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.exceptions import InvalidSignature
 logger=logging.getLogger("farm.security")
 from urllib.parse import parse_qsl
 from urllib.request import Request as URLRequest, urlopen
@@ -156,8 +158,25 @@ def telegram_identity(raw):
  secret=hmac.new(b"WebAppData",bot_token.encode(),hashlib.sha256).digest()
  calculated=hmac.new(secret,check.encode(),hashlib.sha256).hexdigest()
  if not hmac.compare_digest(calculated,supplied):
-  logger.warning("telegram_invalid_signature fields=%s hash_len=%s signature_present=%s",",".join(sorted(pairs.keys())),len(supplied),bool("signature=" in raw))
-  raise HTTPException(401,"Ошибка подписи Telegram. Закройте Mini App полностью и откройте заново через @Farmlife2026bot. Если не поможет, проверьте токен именно этого бота в Farm-Web.")
+  # Official Telegram third-party signature verification. Bind the signature to
+  # the bot ID from the configured token: a signature for another bot is invalid.
+  valid_public_signature=False
+  try:
+   bot_id=bot_token.split(":",1)[0]
+   if bot_id.isdecimal() and bot_token.count(":")==1:
+    signed=bot_id+":WebAppData\\n"+check
+    sig=dict(parse_qsl(raw,keep_blank_values=True)).get("signature","")
+    if sig and len(sig)<256:
+     signature=base64.urlsafe_b64decode(sig+"="*((-len(sig))%4))
+     key=Ed25519PublicKey.from_public_bytes(bytes.fromhex("e7bf03a2fa4602af4580703d88dda5bb59f32ed8b02a56c187fe7d34caed242d"))
+     key.verify(signature,signed.encode())
+     valid_public_signature=True
+  except (ValueError,InvalidSignature,TypeError):
+   pass
+  if not valid_public_signature:
+   logger.warning("telegram_invalid_signature fields=%s hash_len=%s signature_present=%s",",".join(sorted(pairs.keys())),len(supplied),bool("signature=" in raw))
+   raise HTTPException(401,"Не удалось подтвердить подпись Telegram. Проверьте Mini App именно бота @Farmlife2026bot.")
+  logger.info("telegram_ed25519_signature_valid")
  try:user=json.loads(pairs["user"]);uid=int(user["id"])
  except (KeyError,ValueError,TypeError,json.JSONDecodeError):raise HTTPException(401,"Не найден пользователь Telegram")
  if uid<=0:raise HTTPException(401,"Неверный Telegram ID")
