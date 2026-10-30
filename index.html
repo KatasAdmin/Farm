@@ -13,9 +13,9 @@
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
-    <link rel="stylesheet" href="/assets/stars-mobile.css?v=2" />
+    <link rel="stylesheet" href="/assets/stars-mobile.css?v=3" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=41" defer></script>
+    <script src="/assets/game.js?v=42" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -635,12 +635,12 @@
         </dialog>
         <button
           class="menu-row"
-          onclick="document.getElementById('history-card').scrollIntoView({behavior:'smooth'})"
+          onclick="toggleWalletHistory()"
         >
           <span class="nav-art" aria-hidden="true"
             ><span class="nav-art" aria-hidden="true"
               ><img src="/assets/redesign/achievement.webp" alt="" /></span></span
-          ><span>История операций</span><b>›</b>
+          ><span>История операций</span><b id="history-toggle-arrow">›</b>
         </button>
         <details class="economy-card">
           <summary>
@@ -677,9 +677,10 @@
           </p>
         </div>
         <p class="feature-note">Курс к реальной валюте не установлен.</p>
-        <div id="history-card" class="card">
+        <div id="history-card" class="card" hidden>
           <h2 class="cardtitle">История операций</h2>
           <div id="history"></div>
+          <button id="history-more" class="btn blue wide" onclick="loadOlderHistory()" hidden>Показать более ранние операции ↓</button>
         </div>
       </section>
       <section id="profile" class="panel" aria-label="Профиль">
