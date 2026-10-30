@@ -646,6 +646,24 @@ function openWithdrawalRequest() {
   el("withdrawal-amount").value=100;
   el("withdrawal-dialog").showModal();
 }
+async function openTopup(){
+ const dialog=el("topup-dialog");
+ if(dialog)dialog.showModal();
+}
+async function submitTopup(){
+ if(pending)return;
+ const n=Number(el("topup-amount")?.value);
+ if(!Number.isInteger(n)||n<1||n>5000)return toast("Укажи от 1 до 5000 монет");
+ try{
+  busy(true);
+  const order=await api("/api/stars/invoice",{amount:n});
+  if(!order.url||!order.url.startsWith("https://"))throw Error("Telegram не вернул ссылку на счёт");
+  const tg=window.Telegram?.WebApp;
+  if(tg?.openInvoice)tg.openInvoice(order.url,async status=>{if(status==="paid"){await refresh();await loadHistory();toast("Оплата подтверждена!");}});
+  else window.open(order.url,"_blank");
+  el("topup-dialog").close();
+ }catch(e){toast(e.message);}finally{busy(false);}
+}
 async function submitWithdrawalRequest() {
   if(pending)return;
   try{
