@@ -307,7 +307,7 @@ def advance(c,p,now=None):
    day=time.strftime("%Y-%m-%d",time.gmtime(now))
    c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,produced))
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
-   award_referrals(c,p,produced,now)
+  award_referrals(c,p,produced,now)
   keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress")
   c.execute("UPDATE players SET "+",".join(k+"=%s" for k in keys)+" WHERE id=%s",tuple(result[k] for k in keys)+(p["id"],))
   return update_incubation(c,result,now)
@@ -345,6 +345,8 @@ def join(q:Request):
    treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
    if treasury<10:raise HTTPException(409,"Стартовый фонд исчерпан")
    c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,gender,password_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,%s,3,1,0,0,0,0)",(uuid.uuid4().hex,name,token,time.time(),time.time(),q.gender,stored))
+   new_id=c.execute("SELECT id FROM players WHERE token=%s",(token,)).fetchone()["id"]
+   register_referral(c,new_id,q.referral,time.time())
    c.execute("UPDATE economy SET treasury=treasury-10 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-10,"Начальный баланс: "+name,time.time()))
  except psycopg.errors.UniqueViolation:raise HTTPException(409,"Ник уже занят")
@@ -698,6 +700,10 @@ def login_telegram(q:Request):
     name="tg_"+secrets.token_hex(6)
    pid=uuid.uuid4().hex
    c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,telegram_id,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,3,1,0,0,0,0)",(pid,name,secrets.token_hex(24),time.time(),time.time(),uid))
+   signed_param=dict(parse_qsl(q.telegram_data,keep_blank_values=True)).get("start_param","")
+   signed_code=signed_param[4:] if signed_param.startswith("ref_") else ""
+   # Signed Telegram start_param takes precedence over a client-provided code.
+   register_referral(c,pid,signed_code or q.referral,time.time())
    c.execute("UPDATE economy SET treasury=treasury-10 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-10,"Начальный баланс: "+name,time.time()))
    p={"id":pid}
