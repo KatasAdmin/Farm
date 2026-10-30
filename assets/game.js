@@ -231,8 +231,10 @@ async function linkTelegram() {
     busy(true);
     const result=await api("/api/telegram/link/start",{});
     if(result.linked){await refresh();return;}
-    window.open(result.url,"_blank");
-    toast("Открой Telegram, нажми Start у бота, затем вернись в ферму.");
+    const tg=window.Telegram?.WebApp;
+    if(tg?.openTelegramLink)tg.openTelegramLink(result.url);
+    else window.location.href=result.url;
+    toast("Подтверди привязку в боте командой Start, затем вернись в ферму.");
     if(window.farmLinkPoll)clearInterval(window.farmLinkPoll);
     let attempts=0;
     window.farmLinkPoll=setInterval(async()=>{
@@ -669,7 +671,11 @@ async function submitTopup(){
   if(tg?.openInvoice)tg.openInvoice(order.url,async status=>{if(status==="paid"){await refresh();await loadHistory();toast("Оплата подтверждена!");}});
   else window.open(order.url,"_blank");
   el("topup-dialog").close();
- }catch(e){toast(e.message);}finally{busy(false);}
+ }catch(e){
+  if(e.status===503)toast("Покупки Stars пока не активированы. Монеты не списаны.");
+  else if(e.status===403)toast("Сначала привяжите Telegram в профиле фермы.");
+  else toast(e.message);
+ }finally{busy(false);}
 }
 async function submitWithdrawalRequest() {
   if(pending)return;
