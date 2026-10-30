@@ -91,3 +91,12 @@ html, body {max-width:100%;overflow-x:clip;}
 }
 #history-card[hidden],#history-more[hidden] {display:none!important;}
 #history-more {margin-top:14px;}
+
+/* Purchase history, compact and legible on phones. */
+#wallet .stars-orders-card {margin:14px 9px;padding:14px 16px;min-width:0;overflow-wrap:anywhere;}
+#wallet .stars-orders-card summary {cursor:pointer;font-size:17px;font-weight:750;color:#f4faff;list-style-position:inside;}
+#wallet .stars-order-row {padding:12px 4px;border-top:1px solid rgba(126,207,255,.32);}
+#wallet .stars-order-row:first-child {margin-top:12px;}
+#wallet .stars-order-row strong,#wallet .stars-order-row small {display:block;line-height:1.45;}
+#wallet .stars-order-row small {color:#d0e8ff;font-size:12px;margin-top:3px;}
+#topup-dialog #topup-limit {font-size:13px;margin:-9px 0 15px;line-height:1.4;}
