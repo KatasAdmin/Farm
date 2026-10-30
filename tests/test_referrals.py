@@ -31,6 +31,21 @@ class ReferralsSafety(unittest.TestCase):
   main.award_referrals(db,self.child(),5,0)
   credits=[args[1] for sql,args in db.calls if "INSERT INTO referral_rewards" in sql]
   self.assertEqual(credits,[5000,2500,1500,1000,500,250,125])
+ def test_chicken_and_grain_bonuses_are_independent(self):
+  db=ReferralDB({"child":"parent1"})
+  main.award_referral_resource(db,self.child(),"chickens",5)
+  main.award_referral_resource(db,self.child(),"grain",10)
+  result=[(sql,args) for sql,args in db.calls if "INSERT INTO referral_rewards" in sql]
+  self.assertEqual(len(result),2)
+  self.assertIn("earned_chickens_units",result[0][0])
+  self.assertEqual(result[0][1][1],5000)
+  self.assertIn("earned_grain_units",result[1][0])
+  self.assertEqual(result[1][1][1],10000)
+ def test_coins_and_invalid_items_cannot_generate_referral_rewards(self):
+  db=ReferralDB({"child":"parent1"})
+  for item in ["coins","bonus","gift"]:
+   main.award_referral_resource(db,self.child(),item,100)
+  self.assertEqual(db.calls,[])
  def test_unverified_friend_earns_no_commissions(self):
   db=ReferralDB({"child":"parent1"})
   main.award_referrals(db,self.child(linked=None),100,100000)
@@ -39,7 +54,7 @@ class ReferralsSafety(unittest.TestCase):
   # Eggs credited in a claim have a separate farm event kind.
   import inspect
   source=inspect.getsource(main.referral_claim)
-  self.assertIn("'referral_eggs'",source)
+  self.assertIn('"referral_"+item',source)
   self.assertNotIn("award_referrals",source)
  def test_invite_cannot_be_assigned_to_self(self):
   db=ReferralDB({})
