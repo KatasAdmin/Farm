@@ -22,7 +22,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('class="gems" hidden',html)
   self.assertIn('/assets/stars-mobile.css?v=5',html)
   self.assertIn('.gems[hidden] {display:none!important;}',css)
-  def test_entrypoints_and_app_present(self):
+ def test_entrypoints_and_app_present(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   for value in ['id="app"','id="login"','id="nav"','id="farm"']:
    self.assertIn(value,html)
