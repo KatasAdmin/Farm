@@ -329,7 +329,8 @@ async function generateRecoveryCode(){
   catch(error){toast(error.message);} finally{busy(false);}
 }
 function tab(id) {
-  if(id==="market")id="shop"; // old links open the single Market page
+  if(id==="market")id="shop"; // old links
+  if(id==="storage")id="upgrades"; // legacy storage links open storage upgrades
   if (!el(id)?.classList.contains("panel")) return;
   currentTab = id;
   document.body.dataset.screen = id;
@@ -906,7 +907,7 @@ function render() {
   if(guide)guide.hidden=!(Date.now()/1000<(p.created_at||0)+3600 && !localStorage.getItem("farm_guide_dismissed_"+p.id));
   const tutorial=state.tutorial||{};
   const step=Math.min(3,tutorial.step||0), card=el("tutorial-card");
-  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить в Торговле. Куры едят автоматически раз в 18 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
+  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить на Рынке. Куры едят автоматически раз в 18 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
   const history = el("production-history");
   if (history) history.innerHTML = state.production_history?.length
     ? state.production_history.map(event => `<div class="ledger-row income">${image("redesign/egg")}<div><strong>+${number(event.amount)} яиц</strong><small>${new Date(event.created * 1000).toLocaleString("ru-RU")}</small></div></div>`).join("")
@@ -980,10 +981,6 @@ function render() {
         return '<div class="daily-task"><div><strong>' + name + '</strong><small>' + number(n) + ' / ' + target + ' · +' + number(rewards[key]) + ' монет</small></div><div class="progress"><span style="width:' + (100*n/target) + '%"></span></div><button class="btn small" ' + (!done || isClaimed ? 'disabled' : '') + ' onclick="claimDaily(\'' + key + '\')">' + (isClaimed ? 'Получено ✓' : done ? 'Забрать +' + number(rewards[key]) : 'Выполни задание') + '</button></div>';
       }).join("");
   }
-  const listed = {grain:0,eggs:0};
-  for (const item of state.my_listings || []) if (item.item in listed) listed[item.item] += item.quantity;
-  const summary = el("storage-summary");
-  el("storage-listed").textContent = `${number(listed.eggs)} яиц · ${number(listed.grain)} зерна`;
   const f = state.farm;
   const approx = f.forecast_approximate ? "~" : "";
   document.querySelectorAll("[data-eggs-6h]").forEach(x => x.textContent = `${approx}+${eggQuantity(f.eggs_next_6h)}`);
@@ -1021,7 +1018,7 @@ function render() {
   el("warning").textContent = state.farm.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления." : "Кормление раз в 18 часов · 1 зерно на курицу.";
   el("warning").dataset.alert = String(state.farm.effective_grain_shortage > 0);
   el("warning").hidden=state.farm.effective_grain_shortage<=0;
-  el("treasury").textContent = number(state.economy.treasury) + " монет";
+
   document.querySelectorAll(".auto-card").forEach((card) => {
     const input = card.querySelector("input");
     if (document.activeElement !== input) input.value = p.autobuy_amount;
