@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=38" defer></script>
+    <script src="/assets/game.js?v=39" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -597,9 +597,8 @@
           <div class="buttons">
             <button
               class="btn"
-              onclick=""
-              disabled
-              title="Реальные пополнения пока не подключены"
+              onclick="openTopup()"
+              title="Пополнение через Telegram Stars"
             >
               + Пополнить</button
             ><button class="btn blue" onclick="openWithdrawalRequest()">→ Заявка на вывод</button>
@@ -616,7 +615,15 @@
           </div>
           <p class="muted" id="promo-code-status" role="status" aria-live="polite"></p>
         </form>
-        <dialog id="withdrawal-dialog" class="recovery-dialog">
+        <dialog id="topup-dialog" class="recovery-dialog">
+<h2>⭐ Пополнить монеты</h2>
+<p class="muted">Введите количество монет. 1 монета = 2 ⭐. Например, 25 монет = 50 ⭐. Банковские карты пока не подключены.</p>
+<label for="topup-amount">Сколько монет хотите пополнить?</label>
+<input id="topup-amount" type="number" inputmode="numeric" min="1" max="5000" value="25">
+<button class="btn wide" onclick="submitTopup()">Получить счёт в Telegram</button>
+<button class="btn alt wide" onclick="document.getElementById('topup-dialog').close()">Отмена</button>
+</dialog>
+<dialog id="withdrawal-dialog" class="recovery-dialog">
           <h2>Заявка на вывод</h2>
           <p>Минимум 100 монет. Нужна привязка Telegram в профиле. Заявку проверит администрация. Отправка не означает одобрение или перечисление денег: выплаты пока не подключены.</p>
           <label for="withdrawal-amount">Сумма в монетах</label>
