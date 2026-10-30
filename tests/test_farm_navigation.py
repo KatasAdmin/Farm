@@ -10,7 +10,7 @@ class FarmNavigationTests(unittest.TestCase):
         shortcuts = farm.split('class="quicknav farm-quicknav"', 1)[1].split("</div>", 1)[0]
         self.assertEqual(shortcuts.count('class="quick"'), 2)
         self.assertIn("tab('coop')", shortcuts)
-        self.assertIn("tab('storage')", shortcuts)
+        self.assertIn("tab('upgrades')", shortcuts)
         self.assertNotIn("tab('shop')", shortcuts)
         self.assertNotIn("tab('tasks')", shortcuts)
 
