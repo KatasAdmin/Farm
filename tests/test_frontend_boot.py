@@ -12,7 +12,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("const farmDailyStats=",fragment)
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
-  self.assertIn("/assets/game.js?v=45",html)
+  self.assertIn("/assets/game.js?v=46",html)
  def test_launch_help_and_placeholder_polish(self):
   root=Path(__file__).resolve().parents[1]
   html=(root/"index.html").read_text(encoding="utf-8")
@@ -22,7 +22,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('class="gems" hidden',html)
   self.assertIn('Задания недели',html)
   self.assertIn('id="weekly-claim"',html)
-  self.assertIn('/assets/stars-mobile.css?v=6',html)
+  self.assertIn('/assets/stars-mobile.css?v=7',html)
   self.assertIn('.gems[hidden] {display:none!important;}',css)
  def test_nickname_editor_enabled_for_every_farmer(self):
   root=Path(__file__).resolve().parents[1]
@@ -31,6 +31,14 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('<div id="nickname-settings">',html)
   self.assertIn('el("nickname-settings").hidden=false',js)
   self.assertIn('Сохранить новый ник',html)
+ def test_referral_tab_visible(self):
+  root=Path(__file__).resolve().parents[1]
+  html=(root/"index.html").read_text(encoding="utf-8")
+  js=(root/"assets"/"game.js").read_text(encoding="utf-8")
+  self.assertIn('id="referrals-pane"',html)
+  self.assertIn("function loadReferrals()",js)
+  self.assertIn("/api/referrals/claim",js)
+  self.assertIn("incomingReferralCode()",js)
  def test_entrypoints_and_app_present(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   for value in ['id="app"','id="login"','id="nav"','id="farm"']:
