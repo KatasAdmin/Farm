@@ -383,10 +383,13 @@ async function loadReferrals(){
     const link="https://t.me/Farmlife2026bot?startapp=ref_"+r.code;
     el("referral-link").value=link;
     el("referral-direct").textContent=number(r.counts["1"]||0);
-    el("referral-available").textContent=number(r.available_eggs);
-    el("referral-total").textContent=number(r.total_eggs);
-    el("referral-fraction").textContent="В накоплении: "+(r.fraction_units/10000).toLocaleString("ru-RU",{maximumFractionDigits:4})+" 🥚 сверх целых яиц";
-    el("referral-claim").disabled=!r.available_eggs;
+    const resources=r.resources||{};
+    for(const item of ["eggs","grain","chickens"]){
+      const data=resources[item]||{available:0,fraction:0,total:0};
+      el("referral-"+item+"-available").textContent=number(data.available);
+      el("referral-"+item+"-fraction").textContent="В накоплении "+(data.fraction/10000).toLocaleString("ru-RU",{maximumFractionDigits:4})+" до следующего целого";
+      el("referral-"+item+"-claim").disabled=!data.available;
+    }
     el("referral-levels").innerHTML=r.rates.map((rate,i)=>`<div class="referral-level"><span>${i+1}-й уровень</span><b>${(rate/100).toLocaleString("ru-RU")}%</b><small>${number(r.counts[String(i+1)]||0)} друзей</small></div>`).join("");
   }catch(e){toast("Не удалось загрузить приглашения: "+e.message);}
 }
@@ -396,10 +399,17 @@ function copyReferralLink(){
  if(navigator.clipboard?.writeText)navigator.clipboard.writeText(value).then(()=>toast("Приглашение скопировано ✓")).catch(()=>toast("Не удалось скопировать ссылку"));
  else{el("referral-link").select();document.execCommand("copy");toast("Приглашение скопировано ✓");}
 }
-async function claimReferralEggs(){
+async function claimReferralResource(item){
  if(pending)return;
- try{busy(true);const result=await api("/api/referrals/claim",{});await refresh();await loadReferrals();toast("На склад добавлено "+number(result.eggs)+" яиц");}
- catch(e){toast(e.message);}finally{busy(false);}
+ if(!["eggs","grain","chickens"].includes(item))return;
+ try{
+  busy(true);
+  const result=await api("/api/referrals/claim",{item});
+  await refresh();
+  await loadReferrals();
+  const labels={eggs:"яиц",grain:"зерна",chickens:"куриц"};
+  toast("Получено "+number(result.amount)+" "+labels[item]+" ✓");
+ }catch(e){toast(e.message);}finally{busy(false);}
 }
 function marketTab(mode) {
   if (mode === "buy") tab("shop");
