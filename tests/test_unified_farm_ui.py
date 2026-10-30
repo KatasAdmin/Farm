@@ -20,14 +20,14 @@ class UnifiedFarmScreens(unittest.TestCase):
  def setUpClass(cls):
   cls.page=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
  def test_panel_markup_balanced(self):
-  for name in ("farm","coop","storage"):
+  for name in ("farm","coop","shop"):
    block=self.page.split('<section id="'+name+'"',1)[1].split("</section>",1)[0]
    # Browser HTML may include void tags; check layout containers and details.
    start=block.count("<details");end=block.count("</details>")
    self.assertEqual(start,end,(name,"details"))
    self.assertEqual(block.count("<div"),block.count("</div>"),(name,"divs"))
  def test_controls_and_bindings_preserved(self):
-  for key in ('id="coop-birds-pane"','id="coop-incubator-pane"','id="storage-summary"','id="auto-coop"','id="coop-harvest"','id="next-harvest"'):
+  for key in ('id="coop-birds-pane"','id="coop-incubator-pane"','id="nickname-settings"','id="auto-coop"','id="coop-harvest"','id="next-harvest"'):
    self.assertIn(key,self.page)
  def test_canonical_production_copy(self):
   self.assertIn("≈ 30 дней",self.page)
