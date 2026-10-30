@@ -564,9 +564,9 @@
               title="Пополнение через Telegram Stars"
             >
               + Пополнить</button
-            ><button class="btn blue" onclick="openBotWallet()">→ В кабинет бота</button>
+            ><button class="btn blue" disabled title="Переводы с ботом подключим позже">→ Вывод позже</button>
           </div>
-          <p class="muted">Покупка: 1 монета = 2 ⭐ · переводы с балансом бота: 1 монета = 1 грн. Выплаты — через кабинет бота.</p><p id="withdrawal-status" class="muted" aria-live="polite" hidden></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
+          <p class="muted">Покупка: 1 монета = 2 ⭐ · переводы с балансом бота подключим позже.</p><p id="withdrawal-status" class="muted" aria-live="polite" hidden></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
         </div>
         <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
           <h2 class="cardtitle">🎁 Бонусный код</h2>
@@ -586,7 +586,6 @@
 <p id="topup-total" class="muted" aria-live="polite">К оплате: 2 ⭐</p>
 <p id="topup-limit" class="muted">Актуальный лимит загрузится при открытии.</p>
 <button class="btn wide" onclick="submitTopup()">Оплатить Stars</button>
-<button class="btn blue wide" onclick="openBotWallet()">Пополнить с баланса бота</button>
 <button class="btn alt wide" onclick="document.getElementById('topup-dialog').close()">Отмена</button>
 </dialog>
 <dialog id="withdrawal-dialog" class="recovery-dialog">

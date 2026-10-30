@@ -84,6 +84,20 @@ def initialize(c):
     ]
     for sql in statements:
         c.execute(sql)
+    c.execute("SELECT pg_advisory_xact_lock(1984533)")
+    c.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK,))
+    unify_balances(c)
+
+
+def unify_balances(c, uid=None):
+    # Preserve every kopeck, including balances written by a retiring old instance.
+    sql = "SELECT uid,advertising FROM bot_accounts WHERE advertising>0"
+    rows = c.execute(sql + (" AND uid=%s" if uid is not None else "") + " FOR UPDATE",
+                     (uid,) if uid is not None else ()).fetchall()
+    for row in rows:
+        c.execute("UPDATE bot_accounts SET available=available+advertising,advertising=0 WHERE uid=%s", (row["uid"],))
+        c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'wallet_unified',%s,%s)",
+                  (uuid.uuid4().hex, row["uid"], "Объединение балансов: " + money(row["advertising"]), time.time()))
 
 
 def state(c, uid, stage=None, data=None):
@@ -111,6 +125,7 @@ def button(text, action):
 
 
 def account(c, uid):
+    unify_balances(c, uid)
     return c.execute("SELECT * FROM bot_accounts WHERE uid=%s FOR UPDATE", (uid,)).fetchone()
 
 
@@ -122,16 +137,6 @@ def change(c, uid, delta, kind, details):
     c.execute("INSERT INTO bot_ledger VALUES(%s,%s,%s,%s,%s,%s)",
               (uuid.uuid4().hex, uid, delta, kind, details, time.time()))
     return row["available"]
-
-
-def change_advertising(c, uid, delta, kind, details):
-    row = c.execute("""UPDATE bot_accounts SET advertising=advertising+%s
-      WHERE uid=%s AND advertising+%s>=0 RETURNING advertising""", (delta, uid, delta)).fetchone()
-    if not row:
-        raise UserError("Недостаточно средств на рекламном балансе. Открой «Мой кабинет → Конвертировать» или пополни рекламный баланс.")
-    c.execute("INSERT INTO bot_ledger VALUES(%s,%s,%s,%s,%s,%s)",
-              (uuid.uuid4().hex, uid, delta, "ads_" + kind, details, time.time()))
-    return row["advertising"]
 
 
 def liability(c):
@@ -155,11 +160,9 @@ def cabinet(c, uid):
     paid = c.execute("SELECT coalesce(sum(amount),0) AS n FROM bot_payouts WHERE uid=%s AND status='paid'", (uid,)).fetchone()["n"]
     spent = c.execute("""SELECT coalesce(sum(t.reward),0) AS n FROM bot_tasks t JOIN bot_claims x
       ON x.task=t.id AND x.status='paid' WHERE t.owner=%s""", (uid,)).fetchone()["n"]
-    return say(uid, f"👤 Мой кабинет\nID: {uid}\n\n💰 Пополнений: {money(deposits)}\n📣 Потрачено на рекламу: {money(spent)}\n💵 Заработано на заданиях: {money(earned)}\n❄️ В бюджете заданий: {money(frozen)}\n⌛ Ожидает выплаты: {money(pending)}\n💳 Выведено всего: {money(paid)}\n\n💰 Основной баланс: {money(a['available'])}\n📣 Рекламный баланс: {money(a['advertising'])}\n\n1 монета фермы = 1 грн. Stars учитываются отдельно.", [
+    return say(uid, f"👤 Мой кабинет\nID: {uid}\n\n💰 Пополнений: {money(deposits)}\n📣 Потрачено на рекламу: {money(spent)}\n💵 Заработано на заданиях: {money(earned)}\n❄️ В бюджете заданий: {money(frozen)}\n⌛ Ожидает выплаты: {money(pending)}\n💳 Выведено всего: {money(paid)}\n\n💰 Доступный баланс: {money(a['available'])}\n\nЭти деньги можно вывести или использовать для создания заданий.", [
         [button("📜 История", "history"), button("💸 Вывести", "withdraw")],
-        [button("🌾 В ферму", "tofarm"), button("💰 Из фермы", "fromfarm")],
         [button("✅ Мои выполнения", "claims")],
-        [button("♻️ Конвертировать", "convert")],
         [button("📥 Мои заявки", "payouts"), button("➕ Пополнить", "deposit")]])
 
 
@@ -242,6 +245,7 @@ def handle(payload, db, api, is_admin):
             c.execute("""INSERT INTO bot_accounts(uid,name,referrer,created) VALUES(%s,%s,%s,%s)
               ON CONFLICT(uid) DO UPDATE SET name=EXCLUDED.name""",
                       (uid, str(sender.get("first_name") or "Игрок")[:100], ref["uid"] if ref else None, time.time()))
+            unify_balances(c, uid)
             # A savepoint rolls back every partial mutation on a user-facing validation error.
             try:
                 with c.transaction():
@@ -294,24 +298,20 @@ def route(c, uid, text, action, message, api, admin):
         return say(uid, "📚 Новая жизнь\nЗадания, продвижение проектов и ферма в одном боте.\n\nНаграды за задания — в гривнах. Выплаты проверяет администратор вручную. Бюджет заданий резервируется заранее. Повторная награда за одно задание не начисляется.\n\nПомощь: /support ТвойНик Описание проблемы\nНе отправляй пароли, CVV, PIN или коды из SMS.\n\n/cancel — отменить ввод.")
     if text == "📣 Продвижение" or action == "promotion":
         a = account(c, uid)
-        return say(uid, "📣 Что вы хотите продвинуть?\n\nРекламный баланс: " + money(a["advertising"]) + "\n\nСоздай задание. Полный бюджет списывается с рекламного баланса при подтверждении создания и резервируется до выполнения. Подписки проверяются автоматически, задания с доказательствами — вручную. Публикация после модерации.", [
+        return say(uid, "📣 Что вы хотите продвинуть?\n\nДоступный баланс: " + money(a["available"]) + "\n\nСоздай задание. Полный бюджет списывается с единого баланса при подтверждении создания и резервируется до выполнения. Подписки проверяются автоматически, задания с доказательствами — вручную. Публикация после модерации.", [
             [button("➕ Канал", "new:channel"), button("➕ Группа", "new:group")],
             [button("➕ Задание", "new:manual")],
             [button("📋 Мои задания", "mine:0"), button("📝 Проверить работы", "reviews:0")],
-            [button("♻️ С основного баланса", "convert"), button("➕ Пополнить", "deposit")]])
-    if action == "convert":
-        return say(uid, "♻️ Перевод между балансами\nКурс 1:1, без комиссии. Рекламный баланс используется только для создания заданий. Свободные деньги можно вернуть на основной баланс.", [
-            [button("Основной → рекламный", "convert_to_ads")],
-            [button("Рекламный → основной", "convert_from_ads")]])
-    if action in ("convert_to_ads", "convert_from_ads"):
-        state(c, uid, action)
-        return say(uid, "Введи сумму перевода в гривнах. /cancel — отмена.")
+            [button("➕ Пополнить", "deposit")]])
+    if action in ("convert", "convert_to_ads", "convert_from_ads", "tofarm", "fromfarm"):
+        state(c, uid, "clear")
+        return cabinet(c, uid)
     if action == "deposit":
         state(c, uid, "deposit")
         return say(uid, "Укажи сумму пополнения в гривнах. Администратор получит обращение и согласует реквизиты. Автоматическая оплата картой пока не подключена.\nНе переводи деньги до согласования. /cancel — отмена.")
     if action == "history":
         rows = c.execute("SELECT delta,kind,details,created FROM bot_ledger WHERE uid=%s ORDER BY created DESC LIMIT 15", (uid,)).fetchall()
-        return say(uid, "📜 Последние операции\n" + ("\n".join(("+" if r["delta"] >= 0 else "−") + money(abs(r["delta"])) + (" · рекламный" if r["kind"].startswith("ads_") else " · основной") + " · " + r["details"] for r in rows) or "Операций пока нет."))
+        return say(uid, "📜 Последние операции\n" + ("\n".join(("+" if r["delta"] >= 0 else "−") + money(abs(r["delta"])) + " · " + r["details"] for r in rows) or "Операций пока нет."))
     if action == "claims":
         rows = c.execute("""SELECT t.title,x.status FROM bot_claims x JOIN bot_tasks t ON t.id=x.task
           WHERE x.uid=%s ORDER BY x.created DESC LIMIT 15""", (uid,)).fetchall()
@@ -328,9 +328,9 @@ def route(c, uid, text, action, message, api, admin):
             raise UserError("Нет ожидающей заявки.")
         change(c, uid, row["amount"], "payout_cancel", "Отмена " + row["id"][:8])
         return cabinet(c, uid)
-    if action in ("withdraw", "tofarm", "fromfarm"):
+    if action == "withdraw":
         state(c, uid, action)
-        return say(uid, "Введи сумму в гривнах." + (" Для перевода в ферму или из неё — целое число монет, курс 1:1." if action != "withdraw" else " Затем укажешь реквизиты для ручной выплаты.") + "\n/cancel — отмена.")
+        return say(uid, "Введи сумму в гривнах. Затем укажешь реквизиты для ручной выплаты.\n/cancel — отмена.")
     if action.startswith("new:"):
         kind = action.split(":")[1]
         if kind not in KINDS:
@@ -378,7 +378,7 @@ def route(c, uid, text, action, message, api, admin):
                 refund = t["remaining"]
                 c.execute("UPDATE bot_tasks SET status='closed',remaining=0 WHERE id=%s", (t["id"],))
                 if refund:
-                    change_advertising(c, uid, refund, "task_close", "Закрытие задания " + t["id"])
+                    change(c, uid, refund, "task_close", "Закрытие задания " + t["id"])
                 return say(uid, "Задание закрыто. Возвращено: " + money(refund))
             try:
                 worker = int(parts[2])
@@ -430,14 +430,7 @@ def route(c, uid, text, action, message, api, admin):
 
 def process_input(c, uid, text, message, current, api):
     stage, data = current["state"], current["data"]
-    if stage in ("convert_to_ads", "convert_from_ads"):
-        n = amount(text)
-        if stage == "convert_to_ads":
-            change(c, uid, -n, "convert_to_ads", "На рекламный баланс")
-            change_advertising(c, uid, n, "conversion_in", "С основного баланса")
-        else:
-            change_advertising(c, uid, -n, "conversion_out", "На основной баланс")
-            change(c, uid, n, "convert_from_ads", "С рекламного баланса")
+    if stage in ("convert_to_ads", "convert_from_ads", "tofarm", "fromfarm"):
         state(c, uid, "clear")
         return cabinet(c, uid)
     if stage == "deposit":
@@ -447,28 +440,6 @@ def process_input(c, uid, text, message, current, api):
                   (uuid.uuid4().hex[:12], uid, str(uid), "Пополнение баланса бота: " + money(n) + ". Согласовать реквизиты и подтвердить фактическое поступление.", time.time()))
         state(c, uid, "clear")
         return say(uid, "Запрос на пополнение передан администратору. Начисление будет только после проверки фактического платежа. Ответ придёт в этот чат.")
-    if stage in ("tofarm", "fromfarm"):
-        n = amount(text)
-        if n % 100:
-            raise UserError("Для перевода укажи целое число монет.")
-        p = c.execute("SELECT id,coins FROM players WHERE telegram_id=%s FOR UPDATE", (uid,)).fetchone()
-        if not p:
-            raise UserError("Сначала привяжи Telegram к своей ферме в профиле игры.")
-        if stage == "tofarm":
-            change(c, uid, -n, "to_farm", f"В ферму: {n//100} монет")
-            c.execute("UPDATE players SET coins=coins+%s WHERE id=%s", (n // 100, p["id"]))
-        else:
-            if p["coins"] < n // 100:
-                raise UserError("На ферме недостаточно монет.")
-            pool = c.execute("SELECT amount FROM bot_cash_pool WHERE id=1 FOR UPDATE").fetchone()["amount"]
-            if pool - liability(c) < n:
-                raise UserError("Сейчас недостаточно свободного резерва для перевода из фермы. Монеты не списаны. Обратись в поддержку.")
-            c.execute("UPDATE players SET coins=coins-%s WHERE id=%s", (n // 100, p["id"]))
-            change(c, uid, n, "from_farm", f"Из фермы: {n//100} монет")
-        c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",
-                  (uuid.uuid4().hex, p["id"], "bot_transfer", n // 100 if stage == "tofarm" else -n // 100, "Перевод с балансом бота 1:1", time.time()))
-        state(c, uid, "clear")
-        return cabinet(c, uid)
     if stage == "withdraw":
         n = amount(text)
         if n > account(c, uid)["available"]:
@@ -536,8 +507,8 @@ def process_input(c, uid, text, message, current, api):
             if not text.isdecimal() or not 1 <= int(text) <= 10000:
                 raise UserError("Укажи целое число от 1 до 10000.")
             total = data["reward"] * int(text)
-            if total > account(c, uid)["advertising"]:
-                raise UserError("На рекламном балансе не хватает средств. Переведи деньги с основного в кабинете либо укажи меньше выполнений.")
+            if total > account(c, uid)["available"]:
+                raise UserError("На балансе не хватает средств. Пополни баланс либо укажи меньше выполнений.")
             data["budget"] = total
             data["nonce"] = uuid.uuid4().hex[:12]
             state(c, uid, "task_confirm", data)
@@ -559,7 +530,7 @@ def confirmation(c, uid, action):
         raise UserError("Эта кнопка относится к другой заявке. Используй последнее подтверждение.")
     if action == "confirm_task" and current["state"] == "task_confirm":
         tid = uuid.uuid4().hex[:16]
-        change_advertising(c, uid, -data["budget"], "task_budget", "Бюджет задания " + tid)
+        change(c, uid, -data["budget"], "task_budget", "Бюджет задания " + tid)
         c.execute("INSERT INTO bot_tasks VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending',%s)",
                   (tid, uid, data["kind"], data["title"], data["description"], data["url"], data.get("chat_id"), data["reward"], data["budget"], time.time()))
         result = say(uid, "Задание " + tid + " создано и ожидает модерации. Бюджет зарезервирован.")
@@ -584,7 +555,7 @@ def administration(c, uid, text, action, api):
         try:
             if command == "/botcredit":
                 if len(parts) not in (4,5) or not parts[1].isdecimal() or not 3 <= len(parts[3]) <= 80 or (len(parts)==5 and parts[4] not in ('main','ads')):
-                    raise UserError("Формат: /botcredit TelegramID Сумма УникальныйНомерПлатежа [main|ads]\nmain — основной, ads — рекламный баланс. Только после фактического получения денег. Игрок должен открыть бота хотя бы раз.")
+                    raise UserError("Формат: /botcredit TelegramID Сумма УникальныйНомерПлатежа Только после фактического получения денег. Игрок должен открыть бота хотя бы раз.")
                 target, n, ref = int(parts[1]), amount(parts[2]), parts[3]
                 if not account(c, target):
                     raise UserError("Игрок ещё не зарегистрирован в боте.")
@@ -592,12 +563,12 @@ def administration(c, uid, text, action, api):
                 if not inserted:
                     raise UserError("Такой платёж уже учтён. Повторного начисления нет.")
                 c.execute("UPDATE bot_cash_pool SET amount=amount+%s WHERE id=1", (n,))
-                pocket = parts[4] if len(parts)==5 else 'main'
-                (change_advertising if pocket=='ads' else change)(c, target, n, "manual_deposit", "Подтверждённый платёж " + ref)
-                return say(uid, f"Зачислено {money(n)} пользователю {target}: " + ('рекламный' if pocket=='ads' else 'основной') + " баланс.")
+                # Legacy 'ads' argument is accepted but always credits the unified wallet.
+                change(c, target, n, "manual_deposit", "Подтверждённый платёж " + ref)
+                return say(uid, f"Зачислено {money(n)} пользователю {target} на единый баланс.")
             if command == "/botfund":
                 if len(parts) != 3 or not 3 <= len(parts[2]) <= 80:
-                    raise UserError("Формат: /botfund Сумма УникальныйНомерВзноса\nУчёт собственных денег, фактически выделенных на выплаты из фермы.")
+                    raise UserError("Формат: /botfund Сумма УникальныйНомерВзноса\nУчёт собственных денег, фактически выделенных на выплаты.")
                 n, ref = amount(parts[1]), parts[2]
                 if not c.execute("INSERT INTO bot_deposits VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING reference", (ref, uid, n, time.time())).fetchone():
                     raise UserError("Этот взнос уже учтён.")
@@ -650,7 +621,7 @@ def administration(c, uid, text, action, api):
             c.execute("UPDATE bot_tasks SET status='active' WHERE id=%s", (tid,))
             return say(uid, "Задание опубликовано.")
         c.execute("UPDATE bot_tasks SET status='rejected',remaining=0 WHERE id=%s", (tid,))
-        change_advertising(c, t["owner"], t["remaining"], "task_rejected", "Отклонено модерацией " + tid)
+        change(c, t["owner"], t["remaining"], "task_rejected", "Отклонено модерацией " + tid)
         return say(uid, "Задание отклонено, бюджет возвращён.")
     if action.startswith("admin:rejectpayout:"):
         pid = action.split(":")[-1]
@@ -672,4 +643,4 @@ def administration(c, uid, text, action, api):
         p = rows[0]
         return say(uid, f"Выплата {p['id']}\nID игрока: {p['uid']}\n{money(p['amount'])}\n{p['destination']}\n\nПосле реального перевода:\n/botpaid {p['id']} НомерБанковскойОперации", [[button("Отклонить и вернуть деньги", "admin:rejectpayout:" + p["id"])]])
     pool = c.execute("SELECT amount FROM bot_cash_pool WHERE id=1").fetchone()["amount"]
-    return say(uid, f"🛡 Управление ботом\nУчтённый резерв: {money(pool)}\nОбязательства: {money(liability(c))}\nСвободно для переводов из фермы: {money(max(0,pool-liability(c)))}\n\n/botcredit TelegramID Сумма НомерПлатежа [main|ads] — подтвердить фактически полученное пополнение (основной или рекламный баланс)\n/botfund Сумма НомерВзноса — учесть собственный резерв\n/botpaid НомерЗаявки НомерОперации — подтвердить фактически выполненную выплату\n\nРеквизиты для пополнений согласовываются через обращения: /tickets.\nОбзор администратора: /admin.", [[button("📝 Модерация заданий", "admin:tasks"), button("💸 Выплаты", "admin:payouts")]])
+    return say(uid, f"🛡 Управление ботом\nУчтённый резерв: {money(pool)}\nОбязательства: {money(liability(c))}\nСвободный резерв: {money(max(0,pool-liability(c)))}\n\n/botcredit TelegramID Сумма НомерПлатежа — подтвердить фактически полученное пополнение\n/botfund Сумма НомерВзноса — учесть собственный резерв\n/botpaid НомерЗаявки НомерОперации — подтвердить фактически выполненную выплату\n\nРеквизиты для пополнений согласовываются через обращения: /tickets.\nОбзор администратора: /admin.", [[button("📝 Модерация заданий", "admin:tasks"), button("💸 Выплаты", "admin:payouts")]])
