@@ -329,6 +329,7 @@ async function generateRecoveryCode(){
   catch(error){toast(error.message);} finally{busy(false);}
 }
 function tab(id) {
+  if(id==="market")id="shop"; // old links open the single Market page
   if (!el(id)?.classList.contains("panel")) return;
   currentTab = id;
   document.body.dataset.screen = id;
@@ -336,7 +337,7 @@ function tab(id) {
     .querySelectorAll(".panel")
     .forEach((x) => x.classList.toggle("active", x.id === id));
   document.querySelectorAll("[data-tab]").forEach((x) => {
-    const active = x.dataset.tab === (id === "market" ? "shop" : id);
+    const active = x.dataset.tab === id;
     x.classList.toggle("active", active);
     if (active) x.setAttribute("aria-current", "page");
     else x.removeAttribute("aria-current");
@@ -412,8 +413,7 @@ async function claimReferralResource(item){
  }catch(e){toast(e.message);}finally{busy(false);}
 }
 function marketTab(mode) {
-  if (mode === "buy") tab("shop");
-  else tab("market");
+  tab("shop");
 }
 let selectedResource="eggs";
 let sellingResource=null;
