@@ -601,9 +601,9 @@
               title="Пополнение через Telegram Stars"
             >
               + Пополнить</button
-            ><button class="btn blue" onclick="openWithdrawalRequest()">→ Заявка на вывод</button>
+            ><button class="btn blue" disabled title="Денежный вывод отключён">→ Вывод отключён</button>
           </div>
-          <p class="muted">Игровой ориентир: 1 монета = 1 грн. Реальные пополнения и выплаты отключены. Для новых заявок от 100 монет сумма резервируется до отмены или ручного решения. Это не обещание денежной выплаты.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
+          <p class="muted">Игровые монеты используются только внутри фермы и не имеют фиксированной денежной стоимости. Денежный вывод отключён. Пополнение Stars будет доступно после проверки платёжных настроек.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
         </div>
         <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
           <h2 class="cardtitle">🎁 Бонусный код</h2>
