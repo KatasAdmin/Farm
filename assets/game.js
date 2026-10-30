@@ -215,7 +215,7 @@ async function useLoginResult(result) {
 }
 async function telegramLogin() {
   if(pending)return;
-  try{busy(true);await useLoginResult(await api("/api/telegram/login",{telegram_data:tgInitData()}));}
+  try{busy(true);await useLoginResult(await api("/api/telegram/login",{telegram_data:tgInitData(),referral:incomingReferralCode()}));}
   catch(e){toast(e.message);}finally{busy(false);}
 }
 async function linkTelegram() {
@@ -282,7 +282,7 @@ el("join-form").addEventListener("submit", async (event) => {
   if (pending) return;
   busy(true);
   try {
-    const result = await api("/api/join", { name: el("name").value.trim(), gender: el("join-gender").value, password: el("register-password").value });
+    const result = await api("/api/join", { name: el("name").value.trim(), gender: el("join-gender").value, password: el("register-password").value, referral: incomingReferralCode() });
     token = result.token;
     localStorage.setItem("farm_token", token);
     await refresh();
@@ -360,19 +360,46 @@ async function claimWeekly(){
  }catch(error){toast(error.message);}finally{busy(false);}
 }
 function taskSection(which) {
-  const achievements = which === "achievements";
-  const achievementsPane = el("achievement-pane");
-  const goalsPane = el("goals-pane");
-  if (!achievementsPane || !goalsPane) return;
-  achievementsPane.hidden = !achievements;
-  goalsPane.hidden = achievements;
-  for (const [id, active] of [["tasks-switch",!achievements],["achievements-switch",achievements]]) {
-    const button = el(id);
-    if (button) {
-      button.classList.toggle("active",active);
-      button.setAttribute("aria-pressed",String(active));
-    }
+  const panes={goals:"goals-pane",achievements:"achievement-pane",referrals:"referrals-pane"};
+  if(!panes[which])return;
+  for(const [section,id] of Object.entries(panes)){
+    if(el(id))el(id).hidden=section!==which;
   }
+  for(const [id,section] of [["tasks-switch","goals"],["achievements-switch","achievements"],["referrals-switch","referrals"]]){
+    const button=el(id);
+    if(button){button.classList.toggle("active",section===which);button.setAttribute("aria-pressed",String(section===which));}
+  }
+  if(which==="referrals")loadReferrals();
+}
+function incomingReferralCode(){
+  const signed=new URLSearchParams(tgInitData()).get("start_param")||"";
+  const raw=signed.startsWith("ref_")?signed.slice(4):new URLSearchParams(window.location.search).get("ref")||"";
+  return /^[0-9a-f]{16}$/.test(raw)?raw:"";
+}
+async function loadReferrals(){
+  if(!token)return;
+  try{
+    const r=await api("/api/referrals");
+    const link="https://t.me/Farmlife2026bot?startapp=ref_"+r.code;
+    el("referral-link").value=link;
+    el("referral-direct").textContent=number(r.counts["1"]||0);
+    el("referral-available").textContent=number(r.available_eggs);
+    el("referral-total").textContent=number(r.total_eggs);
+    el("referral-fraction").textContent="В накоплении: "+(r.fraction_units/10000).toLocaleString("ru-RU",{maximumFractionDigits:4})+" 🥚 сверх целых яиц";
+    el("referral-claim").disabled=!r.available_eggs;
+    el("referral-levels").innerHTML=r.rates.map((rate,i)=>`<div class="referral-level"><span>${i+1}-й уровень</span><b>${(rate/100).toLocaleString("ru-RU")}%</b><small>${number(r.counts[String(i+1)]||0)} друзей</small></div>`).join("");
+  }catch(e){toast("Не удалось загрузить приглашения: "+e.message);}
+}
+function copyReferralLink(){
+ const value=el("referral-link")?.value||"";
+ if(!value.startsWith("https://"))return toast("Ссылка ещё не готова");
+ if(navigator.clipboard?.writeText)navigator.clipboard.writeText(value).then(()=>toast("Приглашение скопировано ✓")).catch(()=>toast("Не удалось скопировать ссылку"));
+ else{el("referral-link").select();document.execCommand("copy");toast("Приглашение скопировано ✓");}
+}
+async function claimReferralEggs(){
+ if(pending)return;
+ try{busy(true);const result=await api("/api/referrals/claim",{});await refresh();await loadReferrals();toast("На склад добавлено "+number(result.eggs)+" яиц");}
+ catch(e){toast(e.message);}finally{busy(false);}
 }
 function marketTab(mode) {
   if (mode === "buy") tab("shop");
