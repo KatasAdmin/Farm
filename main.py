@@ -362,6 +362,10 @@ def bot_star_balance(chat_id):
   logger.exception("telegram_stars_balance_failed")
   return {"method":"sendMessage","chat_id":chat_id,"text":"Не удалось получить баланс Stars. Проверьте подключение Telegram."}
 
+@app.get("/api/stars/config")
+def stars_config():
+ return {"enabled":stars_payment_enabled(),"max_coins":min(5000,max(1,int(os.environ.get("FARM_STARS_MAX_COINS","5000")))),"stars_per_coin":2}
+
 @app.get("/api/stars/orders")
 def stars_orders(authorization:str=Header(default="")):
  with db() as c:
@@ -398,7 +402,7 @@ def stars_refund_order(order_id,admin_id):
    return "Telegram не подтвердил возврат. Баланс игры не менялся; проверьте транзакцию."
   c.execute("UPDATE star_orders SET status='refunded' WHERE id=%s AND status='paid'",(order_id,))
   c.execute("UPDATE players SET coins=coins-%s,purchased_coins=purchased_coins-%s WHERE id=%s",(order["coins"],order["coins"],order["player_id"]))
-  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,order["player_id"],"stars_refund",-order["coins"],"Возврат "+str(order["stars"])+" Stars администратором "+str(admin_id),time.time()))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,order["player_id"],"stars_refund",-order["coins"],"Возврат покупки — "+str(order["stars"])+" ⭐",time.time()))
  return "✅ Telegram подтвердил возврат "+str(order["stars"])+" ⭐; списано "+str(order["coins"])+" игровых монет."
 
 def farm_admin_refund_prompt(chat_id,order_id):
