@@ -72,3 +72,5 @@ def main():
 
 if __name__=="__main__":
     main()
+
+# On-demand prelaunch snapshot build trigger.
