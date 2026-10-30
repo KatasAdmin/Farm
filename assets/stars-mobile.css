@@ -65,3 +65,16 @@
   #topup-dialog h2 {margin-bottom:12px;}
   #topup-dialog p.muted {margin-bottom:12px;}
 }
+
+/* All Farm entry points (Safari, in-app browser and Telegram WebView):
+   iOS zooms the visual viewport on focus when an input renders below 16px. */
+html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+html body input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html body select,
+html body textarea {
+  font-size:16px !important;
+  -webkit-text-size-adjust:100%;
+}
+html body #topup-dialog #topup-amount {font-size:18px !important;}
+/* Prevent horizontal overflow that can mimic a zoomed interface. */
+html, body {max-width:100%;overflow-x:clip;}
