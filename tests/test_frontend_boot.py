@@ -74,7 +74,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('#shop .product .trade-dual-actions',css)
   for item in ("eggs","grain","chickens"):
    self.assertIn("openSell('"+item+"')" if item=="eggs" else "openSystemSell('"+item+"')",html)
-  def test_entrypoints_and_app_present(self):
+ def test_entrypoints_and_app_present(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   for value in ['id="app"','id="login"','id="nav"','id="farm"']:
    self.assertIn(value,html)
