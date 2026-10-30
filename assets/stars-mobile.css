@@ -220,3 +220,50 @@ nav#nav.bottom .nav-button>span:last-child {
  nav#nav.bottom .nav-button>span:last-child {font-size:10px;}
  #market .product>.btn,#shop .product>.btn {min-width:58px;padding:9px 5px;}
 }
+
+/* Oct 30 mobile correction: edge-to-edge trading banner. */
+#shop,#market {box-sizing:border-box;width:100%;min-width:0;}
+#shop .compact-trade-scene,#market .compact-trade-scene {
+ position:relative;display:block;box-sizing:border-box;overflow:hidden;
+ width:calc(100% + 24px)!important;max-width:none!important;
+ margin:0 -12px 12px!important;height:170px;min-height:170px;
+}
+#shop .compact-trade-scene .scene-image,
+#market .compact-trade-scene .scene-image {
+ position:absolute!important;inset:0!important;
+ display:block!important;width:100%!important;height:100%!important;
+ max-width:none!important;object-fit:cover!important;object-position:50% 50%!important;
+}
+#shop .compact-trade-scene .scene-caption,
+#market .compact-trade-scene .scene-caption {
+ position:absolute;z-index:2;inset:12px 10px auto;text-align:center;
+}
+/* Fast-access harvest forecast: collapsed until selected. */
+#farm details.forecast-card {overflow:hidden;}
+#farm .forecast-card .forecast-summary {
+ list-style:none;display:flex;align-items:center;cursor:pointer;
+ font-weight:800;font-size:19px;line-height:1.35;padding:14px 7px;
+}
+#farm .forecast-card .forecast-summary::-webkit-details-marker {display:none;}
+#farm .forecast-card .forecast-summary:after {content:"⌄";margin-left:auto;font-size:22px;line-height:1;opacity:.8;}
+#farm .forecast-card[open] .forecast-summary:after {transform:rotate(180deg);}
+#farm .forecast-card:not([open]) .forecast-details-content {display:none!important;}
+#farm .forecast-card[open] .forecast-details-content {padding:6px 0 5px;}
+/* Mirrored buy/sell actions fit narrow Telegram screens without cropping. */
+#shop .product .trade-dual-actions {
+ flex:0 0 auto;display:grid;grid-template-columns:1fr;gap:6px;
+ min-width:70px;max-width:80px;align-self:center;
+}
+#shop .product .trade-dual-actions>.btn {width:100%;min-width:0;padding:8px 5px;font-size:13px;}
+#shop .product>.price {max-width:53px;font-size:13px;}
+#shop .product>.price .icon {height:16px;width:16px;}
+#shop .product>div:not(.trade-dual-actions) {min-width:0;overflow-wrap:anywhere;}
+#egg-sale-dialog {max-width:min(440px,calc(100vw - 24px));width:calc(100vw - 24px);box-sizing:border-box;}
+#egg-sale-dialog .egg-sale-form {margin:0;padding:3px 0;min-width:0;}
+#egg-sale-dialog .trade-amount-controls {
+ display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin:11px 0;
+}
+#egg-sale-dialog .trade-amount-controls input {min-width:0;width:100%;box-sizing:border-box;font-size:18px!important;}
+#egg-sale-dialog .trade-amount-controls button {min-width:70px;}
+#egg-sale-dialog .egg-sale-form>.btn {margin:16px 0 10px;}
+#egg-sale-dialog>.btn.alt {margin-top:8px;width:100%;}

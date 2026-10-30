@@ -15,7 +15,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertNotRegex(js,r"\\basync\\s+async\\s+function\\b")
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
-  self.assertIn("/assets/game.js?v=49",html)
+  self.assertIn("/assets/game.js?v=50",html)
  def test_launch_help_and_placeholder_polish(self):
   root=Path(__file__).resolve().parents[1]
   html=(root/"index.html").read_text(encoding="utf-8")
@@ -25,7 +25,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('class="gems" hidden',html)
   self.assertIn('Задания недели',html)
   self.assertIn('id="weekly-claim"',html)
-  self.assertIn('/assets/stars-mobile.css?v=9',html)
+  self.assertIn('/assets/stars-mobile.css?v=10',html)
   self.assertIn('.gems[hidden] {display:none!important;}',css)
  def test_nickname_editor_enabled_for_every_farmer(self):
   root=Path(__file__).resolve().parents[1]
@@ -49,7 +49,8 @@ class FrontendBootSafety(unittest.TestCase):
   for resource in ("grain","chickens","eggs"):
    self.assertIn("openResourceActions('"+resource+"')",html)
   self.assertIn('id="system-sell-dialog"',html)
-  self.assertIn('id="egg-sale-form" hidden',html)
+  self.assertIn('id="egg-sale-dialog"',html)
+  self.assertIn('id="egg-sale-form"',html)
   self.assertIn('onclick="openSystemSell(\'chickens\')"',html)
   self.assertIn('onclick="openSystemSell(\'grain\')"',html)
   self.assertIn('id="incubator-shop-button"',html)
@@ -58,6 +59,21 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("Следующее яйцо",html)
   self.assertIn("Как рассчитывается прогноз?",html)
   self.assertNotIn("Купить корм</button>",html)
+ def test_trade_navigation_mobile_and_egg_dialog(self):
+  root=Path(__file__).resolve().parents[1]
+  html=(root/"index.html").read_text(encoding="utf-8")
+  js=(root/"assets"/"game.js").read_text(encoding="utf-8")
+  css=(root/"assets"/"stars-mobile.css").read_text(encoding="utf-8")
+  self.assertIn('<summary class="forecast-summary">🥚 Ближайший сбор яиц</summary>',html)
+  self.assertIn('id="egg-sale-dialog"',html)
+  self.assertEqual(html.count('id="egg-sale-form"'),1)
+  self.assertIn("if(grainPriceWrap)grainPriceWrap.hidden",js)
+  self.assertIn('el("egg-sale-dialog")',js)
+  self.assertNotIn('tab("market");return openSystemSell',js)
+  self.assertIn('#shop .compact-trade-scene,#market .compact-trade-scene',css)
+  self.assertIn('#shop .product .trade-dual-actions',css)
+  for item in ("eggs","grain","chickens"):
+   self.assertIn("openSell('"+item+"')" if item=="eggs" else "openSystemSell('"+item+"')",html)
  def test_entrypoints_and_app_present(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   for value in ['id="app"','id="login"','id="nav"','id="farm"']:

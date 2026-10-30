@@ -433,13 +433,13 @@ function openResourceActions(item) {
 function resourceAction(action){
  const item=selectedResource;
  el("resource-actions-dialog").close();
+ // A quick action must not navigate away from the original screen.
  if(action==="buy"){
-  tab("shop");
   if(item==="eggs")selectBuy("eggs");
   else showShop(item);
  }else if(action==="sell"){
   if(item==="eggs")openSell("eggs");
-  else{tab("market");openSystemSell(item);}
+  else openSystemSell(item);
  }
 }
 function openSystemSell(item){
@@ -479,12 +479,13 @@ async function confirmSystemSell(){
  }
 }
 function openSell(item) {
- if(item!=="eggs"){tab("market");return openSystemSell(item);}
- tab("market");
- el("egg-sale-form").hidden=false;
+ if(item!=="eggs")return openSystemSell(item);
+ if(!state||pending)return;
  el("sellitem").value="eggs";
+ el("sellnum").value="1";
  sellType();
- el("egg-sale-form").scrollIntoView({behavior:"smooth",block:"center"});
+ const dialog=el("egg-sale-dialog");
+ if(dialog&&!dialog.open)dialog.showModal();
 }
 function filterMarket(filter) {
   chosenFilter = filter;
@@ -630,7 +631,8 @@ function sellMaximum() {
   sellQuote();
 }
 function sellType() {
-  el("grainPriceWrap").hidden = el("sellitem").value !== "grain";
+  const grainPriceWrap=el("grainPriceWrap");
+  if(grainPriceWrap)grainPriceWrap.hidden=el("sellitem").value!=="grain";
   sellQuote();
 }
 function sellQuote() {
@@ -643,20 +645,19 @@ function sellQuote() {
     n > 0 && n <= state.me[item] && price > 0
       ? number(n * price) + " монет"
       : "Недостаточно товара";
+  const submit=el("egg-sale-confirm");
+  if(submit)submit.disabled=pending||!Number.isSafeInteger(n)||n<1||n>state.me.eggs;
 }
-function sellNow() {
+async function sellNow() {
+  if(pending)return;
   try {
-    const item = el("sellitem").value,
-      n = amount("sellnum");
-    if (!state || n > state.me[item]) throw Error("Недостаточно товара");
-    perform("/api/sell", {
-      item,
-      amount: n,
-      price: item === "eggs" ? (state.shop.eggs||1) : amount("sellprice"),
+    const item="eggs",n=amount("sellnum");
+    if(!state||n>state.me.eggs)throw Error("Недостаточно яиц");
+    const success=await perform("/api/sell",{
+      item,amount:n,price:state.shop.eggs||1,
     });
-  } catch (error) {
-    toast(error.message);
-  }
+    if(success&&el("egg-sale-dialog")?.open)el("egg-sale-dialog").close();
+  } catch(error){toast(error.message);}
 }
 function cancelLot(id) {
   if (confirm("Вернуть непроданный остаток на склад?"))
