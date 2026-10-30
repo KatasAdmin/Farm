@@ -100,3 +100,20 @@ html, body {max-width:100%;overflow-x:clip;}
 #wallet .stars-order-row strong,#wallet .stars-order-row small {display:block;line-height:1.45;}
 #wallet .stars-order-row small {color:#d0e8ff;font-size:12px;margin-top:3px;}
 #topup-dialog #topup-limit {font-size:13px;margin:-9px 0 15px;line-height:1.4;}
+
+/* Launch-ready player onboarding and concise help. */
+.gems[hidden] {display:none!important;}
+.launch-guide,.support-guide {
+  box-sizing:border-box;max-width:100%;min-width:0;margin:14px 10px;
+  padding:15px 17px;overflow-wrap:anywhere;
+}
+.launch-guide summary,.support-guide summary {
+  cursor:pointer;font-size:17px;font-weight:750;line-height:1.35;
+  color:#f5faff;list-style-position:inside;
+}
+.launch-guide-body,.support-guide-body {padding-top:11px;}
+.launch-guide-body p,.support-guide-body p {
+  margin:11px 0;font-size:15px;line-height:1.55;color:#e1f0ff;
+}
+.launch-guide-body p:last-child,.support-guide-body p:last-child {margin-bottom:1px;}
+.launch-guide-body b,.support-guide-body b {color:#fff;}
