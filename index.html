@@ -57,11 +57,7 @@
         </form>
         <form id="password-login-form" class="password-login"><h3>Уже есть ферма? Войти</h3><label for="login-name">Ник</label><input id="login-name" autocomplete="username" maxlength="22" required><label for="login-password">Пароль</label><input id="login-password" type="password" autocomplete="current-password" required><button class="btn blue wide" type="submit">Войти</button></form>
         <button type="button" class="btn blue wide telegram-entry" onclick="telegramLogin()" hidden>Войти через Telegram</button><p class="muted">Если у тебя уже есть ферма с паролем, сначала войди в неё внутри Telegram и привяжи Telegram в профиле. Иначе будет создана новая ферма.</p>
-        <div class="support-contact">
- <p>Потерял доступ к ферме? Администратор поможет проверить владение аккаунтом и восстановить вход.</p>
- <a class="btn blue wide" href="https://t.me/Farmlife2026bot?start=support" target="_blank" rel="noopener noreferrer">🆘 Связаться с администрацией</a>
- <p class="muted">Напиши боту: <b>/support ТвойНик Описание проблемы</b>. Ответ придёт в личный чат. Никому не сообщай пароль или код Telegram.</p>
-</div>
+
         <details class="recovery-login" hidden><summary>Старый аккаунт? Восстановить по коду</summary><form id="recover-form"><label for="recover-name">Имя фермера</label><input id="recover-name" autocomplete="username" required maxlength="22"><label for="recover-code">Сохранённый код восстановления</label><input id="recover-code" autocomplete="off" autocapitalize="none" spellcheck="false" required><button class="btn wide" type="submit">Войти в свою ферму</button></form></details><small>Регистрируйся по уникальному нику и паролю. Если уже есть ферма, войди по нику и паролю либо через Telegram.</small>
       </div>
     </section>
@@ -655,10 +651,9 @@
         <details class="card support-guide">
  <summary>❓ Вопросы и помощь</summary>
  <div class="support-guide-body">
-  <p><a class="btn blue wide" href="https://t.me/Farmlife2026bot?start=support" target="_blank" rel="noopener noreferrer">🆘 Написать в поддержку</a></p>
   <p><b>Не хватает зерна?</b> Купи его в разделе «Рынок» либо настрой автозакупку.</p>
   <p><b>Яйца не появляются?</b> Проверь корм, следующий сбор и свободное место на складе.</p>
-  <p><b>Не получается войти?</b> Используй привязанный Telegram или ник и пароль. Если не получается — обратись в поддержку через кнопку выше.</p>
+  <p><b>Не получается войти?</b> Используй привязанный Telegram или ник и пароль.</p>
   <p><b>Вопрос об оплате Stars?</b> Открой «Кошелёк → История покупок Stars» и сохрани время операции. Возвраты проверяет администратор.</p>
   <p class="muted">Не сообщай никому пароль, код подтверждения Telegram или токен бота.</p>
  </div>
