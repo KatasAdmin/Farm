@@ -681,11 +681,21 @@ def farm_admin_panel(chat_id):
  return {"method":"sendMessage","chat_id":chat_id,
          "text":"🛡 Админ-панель фермы\nВыберите раздел:",
          "reply_markup":{"inline_keyboard":[
+          [{"text":"🆘 Обращения игроков","callback_data":"adm:tickets"}],
           [{"text":"📋 Заявки на вывод","callback_data":"adm:requests"}],
           [{"text":"📊 Статистика","callback_data":"adm:stats"}],
           [{"text":"⭐ Баланс Stars","callback_data":"adm:stars"}],
           [{"text":"🧾 История оплат","callback_data":"adm:starorders"}],
           [{"text":"🔄 Обновить","callback_data":"adm:panel"}]]}}
+
+def farm_admin_support_tickets(chat_id):
+ with db() as c:
+  rows=c.execute("SELECT id,nickname,message,created FROM support_tickets WHERE status='open' ORDER BY created DESC LIMIT 8").fetchall()
+ if not rows:return {"method":"sendMessage","chat_id":chat_id,"text":"✅ Новых обращений нет."}
+ messages=["🆘 Последние обращения:"]
+ for x in rows:
+  messages.append("#"+x["id"]+" · "+x["nickname"]+"\n"+x["message"][:250]+"\nОтвет: /reply "+x["id"]+" текст")
+ return {"method":"sendMessage","chat_id":chat_id,"text":"\n\n".join(messages)[:3800]}
 
 def farm_admin_requests(chat_id):
  with db() as c:
@@ -721,6 +731,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   action=callback.get("data")
   if action=="adm:panel":return farm_admin_panel(chat.get("id"))
   if action=="adm:requests":return farm_admin_requests(chat.get("id"))
+  if action=="adm:tickets":return farm_admin_support_tickets(chat.get("id"))
   if action=="adm:stats":return farm_admin_stats(chat.get("id"))
   if action=="adm:stars":return bot_star_balance(chat.get("id"))
   if action=="adm:starorders":return farm_admin_star_orders(chat.get("id"))
@@ -756,14 +767,15 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
    if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
    return {"method":"sendMessage","chat_id":chat.get("id"),"text":reply_support_ticket(command.replace("@Farmlife2026bot","",1))}
  if isinstance(command,str) and command.split("@",1)[0].strip()=="/paysupport":
-  return {"method":"sendMessage","chat_id":chat.get("id"),"text":"Поддержка по оплатам: отправьте номер заказа, дату и описание проблемы владельцу бота. До запуска реальных платежей покупки отключены."}
+  return {"method":"sendMessage","chat_id":chat.get("id"),"text":"Поддержка по оплатам Stars: отправьте /support ВашНик Описание проблемы. Не сообщайте пароль и коды. Возвраты проверяются администрацией."}
  if isinstance(command,str) and command.split("@",1)[0].strip()=="/stars" and farm_admin_telegram(sender.get("id"),chat.get("id")):
   return bot_star_balance(chat.get("id"))
  if isinstance(command,str) and command.strip() in ("/start","/help"):
   return {"method":"sendMessage","chat_id":chat.get("id"),"text":"🐔 Ферма. Для привязки Telegram нажмите кнопку «Привязать Telegram» в профиле игры."}
- if isinstance(command,str) and command.split("@",1)[0].strip() in ("/admin","/requests","/zayavki"):
+ if isinstance(command,str) and command.split("@",1)[0].strip() in ("/admin","/requests","/zayavki","/tickets"):
   if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
   if command.startswith("/admin"):return farm_admin_panel(chat.get("id"))
+  if command.startswith("/tickets"):return farm_admin_support_tickets(chat.get("id"))
   return farm_admin_requests(chat.get("id"))
  if not (isinstance(command,str) and command.startswith("/start link_")):return {"ok":True}
  try:
