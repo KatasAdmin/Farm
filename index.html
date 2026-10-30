@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <link rel="stylesheet" href="/assets/stars-mobile.css?v=6" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=44" defer></script>
+    <script src="/assets/game.js?v=45" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -779,7 +779,7 @@
             <p id="telegram-link-status" class="muted">Проверяем привязку Telegram…</p>
             <button id="link-telegram-button" class="btn blue wide" onclick="linkTelegram()">Привязать Telegram</button>
             <p id="telegram-link-help" class="muted">Нажмите кнопку выше. Если вы открыли ферму в браузере, игра подскажет, как выполнить привязку через Telegram. Реальные выплаты пока отключены.</p>
-            <div id="nickname-settings" hidden><label for="settings-nickname">Имя фермера для входа по паролю</label><input id="settings-nickname" maxlength="22" placeholder="Выбери уникальный ник"><button class="btn blue wide" onclick="setAccountNickname()">Сохранить ник</button></div>
+            <div id="nickname-settings"><h3 class="account-section-title">Имя фермера</h3><label for="settings-nickname">Твой ник (от 2 до 22 символов)</label><input id="settings-nickname" minlength="2" maxlength="22" autocomplete="nickname" placeholder="Введи новый ник"><p class="muted">Ник должен быть свободен. После смены вход по паролю будет доступен с новым ником; Telegram-привязка сохранится.</p><button class="btn blue wide" onclick="setAccountNickname()">Сохранить новый ник</button></div>
             <details class="account-recovery-advanced" hidden><summary>Код восстановления и дополнительные настройки</summary><p class="muted">Код позволяет восстановить старый аккаунт. Создание нового кода отключает предыдущий.</p><button class="btn blue wide" onclick="generateRecoveryCode()">Создать код восстановления</button><button class="btn blue wide" onclick="tab('shop')">Настроить автозакупку</button></details>
           </div>
         </details>
