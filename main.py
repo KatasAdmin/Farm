@@ -616,7 +616,7 @@ def request_withdrawal(q:Request,authorization:str=Header(default="")):
   c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(q.amount,p["id"]))
   c.execute("INSERT INTO withdrawal_requests(id,player_id,amount,status,created,reserved) VALUES(%s,%s,%s,'pending',%s,true)",(request_id,p["id"],q.amount,time.time()))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"withdraw_reserve",-q.amount,"Резерв заявки на вывод",time.time()))
- notify_farm_admin(request_id,p["name"],p["telegram_id"],q.amount)
+ notify_farm_admin(request_id,p.get("name","Игрок"),p["telegram_id"],q.amount)
  return {"ok":True,"id":request_id,"status":"pending"}
 
 @app.post("/api/withdraw/cancel")
