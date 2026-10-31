@@ -100,7 +100,7 @@ def collect_debt(c, uid):
         c.execute('UPDATE bot_accounts SET available=available-%s WHERE uid=%s', (n,uid))
         c.execute('UPDATE bot_debts SET amount=amount-%s WHERE uid=%s', (n,uid))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,%s,'debt_repayment',%s,%s)",
-                  (uuid.uuid4().hex,uid,-n,'Погашение штрафа: '+b.money(n),time.time()))
+                  (uuid.uuid4().hex,uid,-n,'Погашение задолженности: '+b.money(n),time.time()))
     return n
 
 

@@ -13,6 +13,7 @@ import bot_extras
 import bot_economy
 import bot_ui
 import bot_about
+import bot_topups
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 from psycopg.types.json import Jsonb
@@ -92,6 +93,7 @@ def initialize(c):
     bot_economy.initialize(c)
     bot_ui.initialize(c)
     bot_about.initialize(c)
+    bot_topups.initialize(c)
     c.execute("SELECT pg_advisory_xact_lock(1984533)")
     c.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK,))
     unify_balances(c)
@@ -169,7 +171,7 @@ def cabinet(c, uid):
     frozen = c.execute("SELECT coalesce(sum(remaining),0) AS n FROM bot_tasks WHERE owner=%s AND status IN ('pending','active')", (uid,)).fetchone()["n"]
     earned = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind='task_reward'", (uid,)).fetchone()["n"]
     bonuses = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('daily_bonus','friend_reward','referral_reward')", (uid,)).fetchone()["n"]
-    deposits = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('manual_deposit','ads_manual_deposit')", (uid,)).fetchone()["n"]
+    deposits = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('manual_deposit','ads_manual_deposit','stars_wallet_deposit')", (uid,)).fetchone()["n"]
     paid = c.execute("SELECT coalesce(sum(amount),0) AS n FROM bot_payouts WHERE uid=%s AND status='paid'", (uid,)).fetchone()["n"]
     spent = c.execute("""SELECT coalesce(sum(coalesce(q.cost,t.reward)),0) AS n FROM bot_tasks t LEFT JOIN bot_task_terms q ON q.task=t.id JOIN bot_claims x
       ON x.task=t.id AND x.status='paid' WHERE t.owner=%s""", (uid,)).fetchone()["n"]
@@ -177,7 +179,7 @@ def cabinet(c, uid):
     debt = c.execute("SELECT amount FROM bot_debts WHERE uid=%s", (uid,)).fetchone()
     debt = debt["amount"] if debt else 0
     state(c, uid, 'clear')
-    debt_line = ('\n⚠️ Долг по штрафам: '+money(debt)) if debt else ''
+    debt_line = ('\n⚠️ Задолженность: '+money(debt)) if debt else ''
     text = (f"👤 <b>Мой кабинет</b>\n🆔 ID: <code>{uid}</code>\n\n"
             f"<b>💰 Доступный баланс: {money(a['available'])}</b>{debt_line}\n\n"
             "<b>📊 Статистика</b>\n"
@@ -241,11 +243,14 @@ def award(c, t, uid):
 def _admin_input(db, uid):
     with db() as c:
         row = state(c, uid)
-        return bool(row and row['state'] in ('economy_edit','about_edit'))
+        return bool(row and row['state'] in ('economy_edit','about_edit','topup_config','topup_bank_reference','topup_bank_confirm'))
 
 
 def handle(payload, db, api, is_admin):
     """Return None for legacy farm/payment/support messages, else webhook response."""
+    payment = bot_topups.payment(payload,db)
+    if payment is not None:
+        return payment
     retained = bot_economy.member_update(payload, db)
     if retained is not None:
         return retained
@@ -333,6 +338,9 @@ def route(c, uid, text, action, message, api, admin):
     public = bot_about.route(c,uid,text,action)
     if public is not None:
         return public
+    topup = bot_topups.route(c,uid,action)
+    if topup is not None:
+        return topup
     if action in ('history','claims','payouts','games'):
         state(c,uid,'clear')
     if action == "cancel_input":
@@ -353,9 +361,6 @@ def route(c, uid, text, action, message, api, admin):
     if action in ("convert", "convert_to_ads", "convert_from_ads", "tofarm", "fromfarm"):
         state(c, uid, "clear")
         return cabinet(c, uid)
-    if action == "deposit":
-        state(c, uid, "deposit")
-        return say(uid, "Укажи сумму пополнения в гривнах. Администратор получит обращение и согласует реквизиты. Автоматическая оплата картой пока не подключена.\nНе переводи деньги до согласования. /cancel — отмена.")
     if action == "history":
         rows = c.execute("SELECT delta,kind,details,created FROM bot_ledger WHERE uid=%s ORDER BY created DESC LIMIT 15", (uid,)).fetchall()
         return say(uid, "📜 Последние операции\n" + ("\n".join(("+" if r["delta"] >= 0 else "−") + money(abs(r["delta"])) + " · " + r["details"] for r in rows) or "Операций пока нет."))
@@ -496,6 +501,12 @@ def route(c, uid, text, action, message, api, admin):
         return say(uid, "✅ Проверка пройдена. Начислено " + money(t["reward"]))
     current = state(c, uid)
     if current:
+        if current['state'] in ('topup_config','topup_bank_reference','topup_bank_confirm'):
+            if not admin:
+                raise UserError('Доступ только администратору.')
+            return bot_topups.admin_input(c,uid,text,current)
+        if current['state'] in ('topup_stars','topup_card_amount','topup_card_receipt'):
+            return bot_topups.input_text(c,uid,text,message,current)
         if current['state']=='public_support':
             return bot_about.support(c,uid,text,message)
         if current['state']=='about_edit':
@@ -531,12 +542,7 @@ def process_input(c, uid, text, message, current, api):
         state(c, uid, "clear")
         return cabinet(c, uid)
     if stage == "deposit":
-        n = amount(text)
-        # Support queue is already visible in the existing administrator panel.
-        c.execute("INSERT INTO support_tickets(id,telegram_id,nickname,message,created) VALUES(%s,%s,%s,%s,%s)",
-                  (uuid.uuid4().hex[:12], uid, str(uid), "Пополнение баланса бота: " + money(n) + ". Согласовать реквизиты и подтвердить фактическое поступление.", time.time()))
-        state(c, uid, "clear")
-        return say(uid, "Запрос на пополнение передан администратору. Начисление будет только после проверки фактического платежа. Ответ придёт в этот чат.")
+        return bot_topups.menu(c,uid)
     if stage == "withdraw":
         n = amount(text)
         if n > account(c, uid)["available"]:
@@ -664,6 +670,9 @@ def confirmation(c, uid, action):
 
 
 def administration(c, uid, text, action, api):
+    topup = bot_topups.admin(c,uid,action)
+    if topup is not None:
+        return topup
     public = bot_about.admin(c,uid,action)
     if public is not None:
         return public
@@ -773,4 +782,4 @@ def administration(c, uid, text, action, api):
         p = rows[0]
         return say(uid, f"Выплата {p['id']}\nID игрока: {p['uid']}\n{money(p['amount'])}\n{p['destination']}\n\nПосле реального перевода:\n/botpaid {p['id']} НомерБанковскойОперации", [[button("Отклонить и вернуть деньги", "admin:rejectpayout:" + p["id"])]])
     pool = c.execute("SELECT amount FROM bot_cash_pool WHERE id=1").fetchone()["amount"]
-    return say(uid, f"🛡 Управление ботом\nУчтённый резерв: {money(pool)}\nОбязательства: {money(liability(c))}\nСвободный резерв: {money(max(0,pool-liability(c)))}\nНехватка покрытия: {money(max(0,liability(c)-pool))}\nДолги исполнителей: {money(c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n'])}\n\n/botcredit TelegramID Сумма НомерПлатежа — подтвердить фактически полученное пополнение\n/botfund Сумма НомерВзноса — учесть собственный резерв\n/botpaid НомерЗаявки НомерОперации — подтвердить фактически выполненную выплату\n\nРеквизиты для пополнений согласовываются через обращения: /tickets.\nОбзор администратора: /admin.", [[button("⚙️ Тарифы и правила", "admin:economy")], [button("📝 Модерация заданий", "admin:tasks"), button("💸 Выплаты", "admin:payouts")], [button("🎁 Бонусы и канал постов", "admin:bonus"), button("Проверить публикации", "admin:postissues")], [button("📚 Настройки «О боте»", "admin:about")]])
+    return say(uid, f"🛡 Управление ботом\nУчтённый резерв: {money(pool)}\nОбязательства: {money(liability(c))}\nСвободный резерв: {money(max(0,pool-liability(c)))}\nНехватка покрытия: {money(max(0,liability(c)-pool))}\nДолги исполнителей: {money(c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n'])}\n\n/botcredit TelegramID Сумма НомерПлатежа — подтвердить фактически полученное пополнение\n/botfund Сумма НомерВзноса — учесть собственный резерв\n/botpaid НомерЗаявки НомерОперации — подтвердить фактически выполненную выплату\n\nРеквизиты для пополнений согласовываются через обращения: /tickets.\nОбзор администратора: /admin.", [[button("⚙️ Тарифы и правила", "admin:economy")], [button("📝 Модерация заданий", "admin:tasks"), button("💸 Выплаты", "admin:payouts")], [button("🎁 Бонусы и канал постов", "admin:bonus"), button("Проверить публикации", "admin:postissues")], [button("📚 Настройки «О боте»", "admin:about"), button("➕ Пополнения", "admin:topupsettings")]])
