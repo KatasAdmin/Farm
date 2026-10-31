@@ -165,6 +165,9 @@ def copy_entry(c, uid, key):
 def admin(c, uid, text, action, api):
     b = core()
     ui = b.bot_ui
+    navigation={'admin','admin:economy','admin:bonus','admin:copy','admin:copyhistory','admin:money','admin:payouts','admin:tickets','admin:about','admin:topupsettings','admin:cardtopups','admin:postissues','admin:tasks','admin:retention'}
+    if action in navigation or action.startswith(('admin:settings:','admin:copylist:','admin:copyentry:','admin:copyreset:','admin:copyrestore:','admin:payview:','admin:ticketview:')):
+        b.state(c,uid,'clear')
     if action.startswith('admin:moneyconfirm:'):
         return confirm_money(c, uid, action, api)
     if action in ('admin', 'admin:economy') or (text.split(maxsplit=1)[0].split('@')[0] if text else '') == '/botadmin':
@@ -264,7 +267,9 @@ def input_text(c, uid, text, message, current, api):
     if stage == 'admin_field':
         return save_field(c, uid, data['key'], text)
     if stage == 'admin_channel':
-        return b.bot_extras.administration(c, uid, '/botchannel ' + text, '', api)
+        result=b.bot_extras.administration(c, uid, '/botchannel ' + text, '', api)
+        b.state(c,uid,'clear')
+        return result
     if stage == 'admin_pay_reference':
         if not 3 <= len(text) <= 80 or any((ch.isspace() or ord(ch) < 32 for ch in text)):
             raise b.UserError(tr('Введи номер банковской операции без пробелов: от 3 до 80 символов.', html_mode=False, section='bot_admin', limit=3000))

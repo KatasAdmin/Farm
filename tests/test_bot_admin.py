@@ -204,3 +204,16 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(admin.limits(self.c)['withdraw_fee'],250)
         self.assertEqual(self.c.execute('SELECT daily FROM bot_settings').fetchone()['daily'],80)
         self.assertEqual(self.c.execute('SELECT custom FROM bot_copy_catalog WHERE key=%s',(row['key'],)).fetchone()['custom'],'💼 Работа')
+
+    def test_navigation_cancels_old_edit_and_stale_confirmations(self):
+        self.send(1,action='admin:field:daily')
+        self.send(1,action='admin:settings:prices')
+        self.assertIsNone(bot.state(self.c,1))
+        self.send(1,'20')
+        self.assertEqual(self.c.execute('SELECT daily FROM bot_settings').fetchone()['daily'],50)
+        row=self.copy_row('menu','🚀 Заработать')
+        self.send(1,action='admin:copyedit:'+row['key']);self.send(1,'💼 Новое название')
+        nonce=bot.state(self.c,1)['data']['nonce']
+        self.send(1,action='admin:copy')
+        self.assertIn('устарело',self.send(1,action='admin:copysave:'+nonce)['text'])
+        self.assertIsNone(self.c.execute('SELECT custom FROM bot_copy_catalog WHERE key=%s',(row['key'],)).fetchone()['custom'])
