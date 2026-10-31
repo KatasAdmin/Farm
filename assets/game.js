@@ -10,7 +10,7 @@ function eggQuantity(n) {
   const v=Math.abs(n)%100, last=v%10;
   return `${number(n)} ${v>=11 && v<=14 ? "яиц" : last===1 ? "яйцо" : last>=2 && last<=4 ? "яйца" : "яиц"}`;
 }
-const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица", geese:"Гусыня" };
+const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица", geese:"Гусыня", feathers:"Перо" };
 const number = (n) => new Intl.NumberFormat("ru-RU").format(n);
 let token = localStorage.getItem("farm_token");
 let state = null,
@@ -419,13 +419,14 @@ function marketTab(mode) {
 }
 let selectedResource="eggs";
 let sellingResource=null;
-const systemBuyback={grain:1,chickens:20,geese:50};
+const systemBuyback={grain:1,chickens:20,geese:80,feathers:5};
 function openResourceActions(item) {
-  if (!state || !["grain","chickens","geese","eggs"].includes(item)) return;
+  if (!state || !["grain","chickens","geese","feathers","eggs"].includes(item)) return;
   selectedResource=item;
-  const title={grain:"🌾 Зерно",chickens:"🐔 Куры",geese:"🪿 Гуси",eggs:"🥚 Яйца"}[item];
+  const title={grain:"🌾 Зерно",chickens:"🐔 Куры",geese:"🪿 Гуси",feathers:"🪶 Перья",eggs:"🥚 Яйца"}[item];
   el("resource-action-title").textContent=title;
-  el("resource-action-description").textContent=item==="eggs"
+  el("resource-action-buy").hidden=item==="feathers";
+  el("resource-action-description").textContent=item==="feathers"?"Редкий ресурс гусей. Сохраняй для будущих производств или продай системе по 5 монет за штуку.":item==="eggs"
     ? "Купи яйца у других фермеров или выставь свои на рынок."
     : "Купи ресурс в магазине или продай его системе с мгновенным начислением монет.";
   el("resource-action-buy").textContent="Купить";
@@ -445,9 +446,9 @@ function resourceAction(action){
  }
 }
 function openSystemSell(item){
- if(!state||!["grain","chickens","geese"].includes(item)||pending)return;
+ if(!state||!["grain","chickens","geese","feathers"].includes(item)||pending)return;
  sellingResource=item;
- el("system-sell-title").textContent=item==="grain"?"🌾 Продать зерно":item==="geese"?"🪿 Продать гусыню":"🐔 Продать курицу";
+ el("system-sell-title").textContent=item==="grain"?"🌾 Продать зерно":item==="geese"?"🪿 Продать гусыню":item==="feathers"?"🪶 Продать перья":"🐔 Продать курицу";
  el("system-sell-amount").value="1";
  el("system-sell-amount").max=String(Math.min(10000,state.me[item]));
  systemSellQuote();
@@ -694,9 +695,9 @@ function storageFilter(filter, button) {
     .querySelectorAll("button")
     .forEach((x) => x.classList.toggle("active", x === button));
 }
-const logNames = { grain: "Зерно", chickens: "Курицы", geese:"Гуси", eggs: "Яйца" };
+const logNames = { grain: "Зерно", chickens: "Курицы", geese:"Гуси", feathers:"Перья", eggs: "Яйца" };
 function details(text) {
-  return text.replace(/grain|chickens|geese|eggs/g, (x) => logNames[x]);
+  return text.replace(/grain|chickens|geese|feathers|eggs/g, (x) => logNames[x]);
 }
 async function redeemPromoCode(event) {
   event.preventDefault();
@@ -943,7 +944,7 @@ function render() {
     const seenKey = "farm_seen_event_" + p.id;
     if (localStorage.getItem(seenKey) !== last.id) {
       localStorage.setItem(seenKey, last.id);
-      toast(last.kind === "chick_matured" ? "Цыплёнок вырос! +1 курица." : "Птицы снесли " + number(last.amount) + " яиц! Они уже на складе.");
+      toast(last.kind === "chick_matured" ? "Цыплёнок вырос! +1 курица." : last.kind === "feathers_collected" ? "🪶 Собрано перьев: "+number(last.amount)+". Они на складе!" : "Птицы снесли " + number(last.amount) + " яиц! Они уже на складе.");
     }
   }
   const progression = state.progression || {};
@@ -1005,7 +1006,7 @@ function render() {
   document.querySelectorAll("[data-buy-feed]").forEach(x => x.classList.toggle("needs-feed", f.effective_grain_shortage > 0));
   const storageWarning = el("storage-warning");
   storageWarning.hidden = buildings.storage_used < buildings.storage_capacity;
-  storageWarning.textContent = `Склад заполнен: ${number(buildings.storage_used)} / ${number(buildings.storage_capacity)}. Новые яйца не поместятся. Продай товары или улучши склад.`;
+  storageWarning.textContent = `Склад заполнен: ${number(buildings.storage_used)} / ${number(buildings.storage_capacity)}. Новые яйца и перья не поместятся. Продай товары или улучши склад.`;
   el("login").hidden = true;
   el("app").hidden = false;
   el("nav").hidden = false;

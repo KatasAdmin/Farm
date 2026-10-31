@@ -36,6 +36,8 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS production_model integer NOT NULL DEFAULT 1")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS egg_at double precision")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS egg_progress double precision NOT NULL DEFAULT 0")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS feathers integer NOT NULL DEFAULT 0 CHECK(feathers>=0)")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS feather_progress double precision NOT NULL DEFAULT 0 CHECK(feather_progress>=0)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS geese integer NOT NULL DEFAULT 0 CHECK(geese>=0)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS fed_geese integer NOT NULL DEFAULT 0 CHECK(fed_geese>=0)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS goose_xp integer NOT NULL DEFAULT 0 CHECK(goose_xp>=0)")
@@ -238,7 +240,7 @@ def person(c,h,lock=False):
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
 HEN_PRICE=40
-GOOSE_PRICE=100
+GOOSE_PRICE=160  # 24 days * (12 eggs - 2 grain * 2 coins * 24/18)
 GOOSE_MIN_LEVEL=3
 SYSTEM_GRAIN_BUYBACK=1
 SYSTEM_HEN_BUYBACK=20
@@ -272,7 +274,7 @@ def upgrade_production(c,p,now):
  # Finish legacy catch-up first; keep progress within the current 6-hour tick.
  old_progress=min(.999999, max(0,(now-p["last_tick"])/CYCLE)*min(p["fed_hens"],p["chickens"]))
  c.execute("UPDATE players SET production_model=4,egg_at=%s,egg_progress=%s WHERE id=%s",(now,old_progress,p["id"]))
- return {**p,"production_model":4,"egg_at":now,"egg_progress":old_progress,"geese":p.get("geese",0),"fed_geese":p.get("fed_geese",0)}
+ return {**p,"production_model":4,"egg_at":now,"egg_progress":old_progress,"geese":p.get("geese",0),"fed_geese":p.get("fed_geese",0),"feathers":p.get("feathers",0),"feather_progress":p.get("feather_progress",0)}
 
 # Rewards are exact 1/10000ths of eggs from actual chicken production.
 REFERRAL_RATES=(1000,500,300,200,100,50,25)
@@ -355,7 +357,7 @@ def referral_claim(q:Request,authorization:str=Header(default="")):
   if not reward:raise HTTPException(409,"Пока нет заработанных ресурсов")
   available=max(0,reward[earned_field]//10000-reward[claimed_field])
   if not available:raise HTTPException(409,"Целых бонусных ресурсов пока нет")
-  free=max(0,coop_limit(p)-p["chickens"]-p.get("geese",0)) if item=="chickens" else max(0,storage_limit(p)-p["grain"]-p["eggs"])
+  free=max(0,coop_limit(p)-p["chickens"]-p.get("geese",0)) if item=="chickens" else max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0))
   quantity=min(available,free)
   if not quantity:raise HTTPException(409,"Освободи место на складе или в курятнике")
   c.execute("UPDATE referral_rewards SET "+claimed_field+"="+claimed_field+"+%s WHERE player_id=%s",(quantity,p["id"]))
@@ -379,7 +381,10 @@ def advance(c,p,now=None):
    c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,produced))
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
    award_referrals(c,p,produced,now)
-  keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress","geese","fed_geese")
+  feather_gain=result.get("feathers",0)-p.get("feathers",0)
+  if feather_gain:
+   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"feathers_collected",feather_gain,now))
+  keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress","geese","fed_geese","feathers","feather_progress")
   c.execute("UPDATE players SET "+",".join(k+"=%s" for k in keys)+" WHERE id=%s",tuple(result[k] for k in keys)+(p["id"],))
   return update_incubation(c,result,now)
  start=p["last_tick"] if p["last_tick"] is not None else now
@@ -951,9 +956,9 @@ def state(authorization:str=Header(default="")):
 
   observed_at=time.time()
   prediction=forecast_v4(p,observed_at,jobs) if p.get('production_model',3)>=4 else forecast(p,observed_at,jobs)
-  expected_eggs=min(p["fed_hens"]+3*p.get("fed_geese",0),max(0,storage_limit(p)-p["grain"]-p["eggs"]))
+  expected_eggs=min(p["fed_hens"]+3*p.get("fed_geese",0),max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"],"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"]+2*p.get("geese",0),"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]+2*p.get("geese",0)),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
+  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":p["chickens"]+2*p.get("geese",0),"feed_cycles_available":3*p["grain"]//max(1,p["chickens"]+2*p.get("geese",0)),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -964,7 +969,7 @@ def shop(q:Request,authorization:str=Header(default="")):
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if q.item=="geese" and p.get("farmer_level",1)<GOOSE_MIN_LEVEL:raise HTTPException(403,"Гуси открываются с 3-го уровня фермера")
   if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"В курятнике нет места. Улучшите курятник")
-  if q.item=="grain" and p["grain"]+p["eggs"]+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
+  if q.item=="grain" and p["grain"]+p["eggs"]+p.get("feathers",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   if q.item=="chickens":
    # New hens arrive satiated; existing hungry hens are not refed.
    c.execute("UPDATE players SET coins=coins-%s,chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(cost,q.amount,q.amount,p["id"]))
@@ -982,9 +987,9 @@ def shop(q:Request,authorization:str=Header(default="")):
 @app.post("/api/shop/sell")
 def sell_to_system(q:Request,authorization:str=Header(default="")):
  check(q.amount)
- if q.item not in ("grain","chickens","geese"):
+ if q.item not in ("grain","chickens","geese","feathers"):
   raise HTTPException(400,"Этот товар нельзя продать системе")
- unit_price={"grain":SYSTEM_GRAIN_BUYBACK,"chickens":SYSTEM_HEN_BUYBACK,"geese":50}[q.item]
+ unit_price={"grain":SYSTEM_GRAIN_BUYBACK,"chickens":SYSTEM_HEN_BUYBACK,"geese":80,"feathers":5}[q.item]
  payout=q.amount*unit_price
  with db() as c:
   # Synchronize system buybacks with market operations and resource updates.
@@ -1000,6 +1005,8 @@ def sell_to_system(q:Request,authorization:str=Header(default="")):
   elif q.item=="geese":
    remaining=p["geese"]-q.amount
    c.execute("UPDATE players SET geese=%s,fed_geese=LEAST(fed_geese,%s),coins=coins+%s WHERE id=%s",(remaining,remaining,payout,p["id"]))
+  elif q.item=="feathers":
+   c.execute("UPDATE players SET feathers=feathers-%s,coins=coins+%s WHERE id=%s",(q.amount,payout,p["id"]))
   else:
    c.execute("UPDATE players SET grain=grain-%s,coins=coins+%s WHERE id=%s",(q.amount,payout,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury-%s WHERE id=1",(payout,))
@@ -1014,7 +1021,7 @@ def buy_bundle(authorization:str=Header(default="")):
   if now>=p["created_at"]+PROMO_SECONDS or p["bundle_uses"]>=5:raise HTTPException(400,"Акция завершена")
   if p["coins"]<PROMO_PRICE:raise HTTPException(400,"Недостаточно монет")
   hens=p["chickens"]+10
-  items=p["grain"]+p["eggs"]+100
+  items=p["grain"]+p["eggs"]+p.get("feathers",0)+100
   coop=max(p["coop_level"],(hens+p.get("geese",0)+9)//10)
   storage=max(p["storage_level"],(items+99)//100)
   if coop>MAX_BUILDING_LEVEL or storage>MAX_BUILDING_LEVEL:raise HTTPException(400,"Достигнута максимальная вместимость построек")
@@ -1070,7 +1077,7 @@ def buy(q:Request,authorization:str=Header(default="")):
    if remaining==0:break
   cost=sum(x["price"]*n for x,n in chosen)
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
-  if p["grain"]+p["eggs"]+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
+  if p["grain"]+p["eggs"]+p.get("feathers",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   for x,n in chosen:
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
@@ -1095,7 +1102,7 @@ def cancel_listing(listing_id:str,authorization:str=Header(default="")):
   entry=c.execute("SELECT * FROM market WHERE id=%s AND seller=%s FOR UPDATE",(listing_id,p["id"])).fetchone()
   if not entry or entry["quantity"]<=0:raise HTTPException(404,"Объявление уже закрыто")
   if entry["item"] not in ("grain","eggs"):raise HTTPException(400,"Некорректный товар")
-  if p["grain"]+p["eggs"]+entry["quantity"]>storage_limit(p):raise HTTPException(409,"На складе не хватает места для возврата. Освободите или расширьте склад")
+  if p["grain"]+p["eggs"]+p.get("feathers",0)+entry["quantity"]>storage_limit(p):raise HTTPException(409,"На складе не хватает места для возврата. Освободите или расширьте склад")
   c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(entry["quantity"],p["id"]))
   c.execute("UPDATE market SET quantity=0 WHERE id=%s",(listing_id,))
  return {"ok":True,"returned":entry["quantity"]}

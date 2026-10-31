@@ -37,9 +37,9 @@ class GeeseTests(unittest.TestCase):
                         split=simulate(simulate(p,100000+12*3600)[0],100000+30*3600)[0]
                         for key in ('eggs','grain','coins','fed_hens','fed_geese','chickens','geese'):
                             self.assertEqual(one[key],split[key])
-    def test_payback_is_fifteen_days_after_feed_cost(self):
+    def test_payback_is_twenty_four_days_after_feed_cost_excluding_feathers(self):
         p=dict(self.birdfarm(0,1,grain=1000),storage_level=50)
-        end,n,_=simulate(p,100000+15*86400)
+        end,n,_=simulate(p,100000+24*86400)
         self.assertEqual(n-2*(p['grain']-end['grain']),main.GOOSE_PRICE)
         self.assertGreater(main.GOOSE_PRICE,main.HEN_PRICE)
     def test_server_rejects_locked_and_overcrowded_goose_purchase(self):
@@ -68,10 +68,10 @@ class GooseTradingTests(unittest.TestCase):
         with patch.object(main,'db',return_value=self.c),patch.object(main,'person',side_effect=self.player),patch.object(main,'advance',side_effect=lambda c,p:p):
             main.shop(main.Request(item='geese',amount=2),'Bearer p')
             p=self.player()
-            self.assertEqual((p['coins'],p['chickens'],p['geese'],p['fed_geese'],p['goose_xp']),(300,2,3,3,40))
+            self.assertEqual((p['coins'],p['chickens'],p['geese'],p['fed_geese'],p['goose_xp']),(180,2,3,3,40))
             main.sell_to_system(main.Request(item='geese',amount=2),'Bearer p')
             p=self.player()
-            self.assertEqual((p['coins'],p['chickens'],p['geese'],p['fed_geese'],p['goose_xp']),(400,2,1,1,40))
+            self.assertEqual((p['coins'],p['chickens'],p['geese'],p['fed_geese'],p['goose_xp']),(340,2,1,1,40))
             with self.assertRaises(HTTPException):main.sell_to_system(main.Request(item='geese',amount=2),'Bearer p')
         self.assertEqual(len(self.c.execute('SELECT * FROM money_log').fetchall()),2)
-        self.assertEqual(self.c.execute('SELECT treasury FROM economy').fetchone()['treasury'],1100)
+        self.assertEqual(self.c.execute('SELECT treasury FROM economy').fetchone()['treasury'],1160)

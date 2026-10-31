@@ -3,11 +3,14 @@ import math
 from production import CYCLE, FEED_EVERY, GRAIN_PRICE
 GOOSE_CYCLE=2*3600
 GOOSE_FEED=2
+FEATHER_INTERVAL=7*24*3600
 
 def simulate(p, now):
  p=dict(p)
  cursor=min(now,p.get("egg_at") or now)
  progress=float(p.get("egg_progress") or 0)
+ feather_progress=float(p.get("feather_progress") or 0)
+ feathers=p.get("feathers",0)
  tick=p["last_tick"]
  phase=p["feed_phase"]
  hens=p["chickens"]
@@ -23,21 +26,30 @@ def simulate(p, now):
  produced=0
  refills=[]
  def accrue(until):
-  nonlocal cursor,progress,eggs,produced
-  if until<=cursor:return
-  total=progress+(fed/CYCLE+fed_geese/GOOSE_CYCLE)*(until-cursor)
-  whole=math.floor(total+1e-10)
-  progress=max(0,min(.999999999,total-whole))
-  laid=min(whole,max(0,capacity-grain-eggs))
-  eggs+=laid
-  produced+=laid
-  cursor=until
+  nonlocal cursor,progress,eggs,produced,feathers,feather_progress
+  # Interleave feather events and egg production by time, so polling cannot
+  # change which resource occupies the last warehouse slot. Eggs win ties.
+  while until>cursor:
+   step=min(until,cursor+(FEATHER_INTERVAL-feather_progress)/fed_geese) if fed_geese else until
+   elapsed=max(0,step-cursor)
+   total=progress+(fed/CYCLE+fed_geese/GOOSE_CYCLE)*elapsed
+   whole=math.floor(total+1e-10)
+   progress=max(0,min(.999999999,total-whole))
+   laid=min(whole,max(0,capacity-grain-eggs-feathers))
+   eggs+=laid
+   produced+=laid
+   feather_progress+=fed_geese*elapsed
+   cursor=step
+   if feather_progress>=FEATHER_INTERVAL-1e-7:
+    feather_progress=max(0,feather_progress-FEATHER_INTERVAL)
+    if grain+eggs+feathers<capacity:feathers+=1
+
  feed_at=tick+(FEED_EVERY-phase)*CYCLE
  for _ in range(146000):
   if feed_at>now:break
   accrue(feed_at)
   refill=p["autobuy_amount"]
-  if p["autobuy_enabled"] and grain<hens+GOOSE_FEED*geese and coins>=GRAIN_PRICE*refill and grain+eggs+refill<=capacity:
+  if p["autobuy_enabled"] and grain<hens+GOOSE_FEED*geese and coins>=GRAIN_PRICE*refill and grain+eggs+feathers+refill<=capacity:
    coins-=GRAIN_PRICE*refill
    grain+=refill
    refills.append(refill)
@@ -64,7 +76,7 @@ def simulate(p, now):
   feed_at+=FEED_EVERY*CYCLE
  accrue(min(now,feed_at))
  p.update(egg_at=cursor,egg_progress=progress,last_tick=tick,feed_phase=phase,
-          eggs=eggs,grain=grain,coins=coins,chickens=hens,fed_hens=fed,geese=geese,fed_geese=fed_geese,
+          eggs=eggs,feathers=feathers,feather_progress=feather_progress,grain=grain,coins=coins,chickens=hens,fed_hens=fed,geese=geese,fed_geese=fed_geese,
           satiety=sat,critical_cycles=critical)
  return p,produced,refills
 
@@ -83,7 +95,7 @@ def forecast(p,now,jobs=()):
  missing=max(0,after["chickens"]+GOOSE_FEED*after.get("geese",0)-after["fed_hens"]-GOOSE_FEED*after.get("fed_geese",0))
  notes=[]
  if fed<p["chickens"] or goose_fed<p.get("geese",0):notes.append(f"Сейчас несутся {fed+goose_fed} из {p['chickens']+p.get('geese',0)} птиц.")
- if six["grain"]+six["eggs"]>=100*p["storage_level"]:notes.append("Склад может ограничить сбор.")
+ if six["grain"]+six["eggs"]+six.get("feathers",0)>=100*p["storage_level"]:notes.append("Склад может ограничить сбор.")
  if missing:notes.append("Зерна не хватит на полное следующее кормление.")
  if r6 or r12 or rf:notes.append("Учтена автозакупка корма.")
  future=sum(j["mature_at"]<=now+2*CYCLE for j in jobs)
@@ -95,4 +107,6 @@ def forecast(p,now,jobs=()):
              grain_shortage=max(0,required-p["grain"]),effective_grain_shortage=missing,
              autobuy_expected=bool(r6 or r12 or rf),forecast_approximate=bool(future),
              forecast_note=" ".join(notes),feed_stock_seconds=next_feed+18*3600*(p["grain"]//required) if full else 0,
-             fed_hens=fed,fed_geese=goose_fed,known_maturing=future)
+             fed_hens=fed,fed_geese=goose_fed,known_maturing=future,
+             feathers_next_6h=six["feathers"]-p.get("feathers",0),
+             seconds_to_next_feather=(FEATHER_INTERVAL-p.get("feather_progress",0))/goose_fed if goose_fed else 0)
