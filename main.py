@@ -632,8 +632,12 @@ def notify_farm_admin(request_id,player_name,telegram_id,amount):
 
 # Initial administrator is approved by the repository owner. Keep the raw Telegram ID out of the source.
 FARM_OWNER_ID_SHA256="f3d199702967cf54be043ca9dd56dcb35e52f5740874ccff554d121b99ae6cd7"
+# Additional administrators are approved explicitly by the repository owner.
+FARM_ADDITIONAL_ADMIN_SHA256=frozenset({"f429c1349179ef68acf3fbbad343b244d1228046f282cd5d2c394b1651f48995"})
 def farm_admin_telegram(uid,chat_id):
  if type(uid) is not int or type(chat_id) is not int or uid<=0 or uid!=chat_id:return False
+ digest=hashlib.sha256(str(uid).encode()).hexdigest()
+ if any(hmac.compare_digest(digest,approved) for approved in FARM_ADDITIONAL_ADMIN_SHA256):return True
  with db() as c:
   row=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
   if row:return str(row["telegram_id"])==str(uid)
