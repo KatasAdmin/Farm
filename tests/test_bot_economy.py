@@ -47,6 +47,23 @@ class EconomyTests(unittest.TestCase):
         self.c.raw.commit()
         self.assertEqual(self.row('bot_settings')['daily'],25)
 
+    def test_all_kinds_deduct_commission_from_gross_including_posts(self):
+        # Even the old independent post reward cannot override the common formula.
+        self.c.execute("UPDATE bot_prices SET reward=1 WHERE kind='post'")
+        for kind in ('channel','group','bot','manual','post'):
+            q=eco.quote(self.c,kind,1000)
+            self.assertEqual((q['cost'],q['reward']),(1000,800))
+        self.assertEqual(eco.quote(self.c,'post')['reward'],3)
+        self.c.raw.commit()
+        self.send(1,action='admin:field:price_post');self.send(1,'10')
+        self.assertEqual(eco.quote(self.c,'post')['reward'],800)
+        self.send(1,action='admin:field:fee');self.send(1,'30')
+        for kind in ('channel','group','bot','manual','post'):
+            self.assertEqual(eco.quote(self.c,kind,1000)['reward'],700)
+        self.assertNotIn('admin:field:post_reward',str(self.send(1,action='admin:economy')))
+        self.send(1,action='admin:field:post_reward');self.send(1,'9')
+        self.assertEqual(eco.quote(self.c,'post')['reward'],700)
+
     def test_five_levels_exact_from_gross_not_net_reward(self):
         # 3 -> 4 -> 5 -> 6 -> 7 -> 8, each registered with an existing parent.
         self.send(8,'/start')
@@ -56,7 +73,7 @@ class EconomyTests(unittest.TestCase):
         self.c.raw.commit()
         self.credit(2,'100','large-order')
         self.send(2,action='new:manual')
-        for value in ('Big task','A manual proof is required','https://example.com','80','1'):
+        for value in ('Big task','A manual proof is required','https://example.com','100','1'):
             self.send(2,value)
         self.send(2,action='manual:photos_done')
         self.send(2,action='confirm_task')
@@ -230,7 +247,7 @@ class EconomyTests(unittest.TestCase):
     def test_admin_edit_prices_rates_and_snapshots(self):
         tid=self.task()
         self.send(1,action='admin:ecoedit:prices')
-        self.send(1,'1.00 0.50 0.80 0.05 0.03 2.00')
+        self.send(1,'1.00 0.50 0.80 0.05 2.00')
         self.assertEqual(eco.quote(self.c,'channel')['cost'],100)
         self.send(1,action='admin:ecoedit:rates')
         self.send(1,'30 5 2.5 1.5 0.75 0.25')
@@ -253,7 +270,7 @@ class EconomyTests(unittest.TestCase):
         self.send(1,'5 5 2.5 1.5 0.75 0.25')
         self.assertEqual(eco.config(self.c)['fee'],2000)
         self.send(1,action='admin:ecoedit:prices')
-        self.send(1,'1 1 1 0.01 0.03 1')
+        self.send(1,'1 1 1 0.01 1')
         self.assertEqual(eco.quote(self.c,'channel')['cost'],70)
         # Stored input alone never grants administrator privileges.
         bot.state(self.c,3,'economy_edit',{'field':'retention'})

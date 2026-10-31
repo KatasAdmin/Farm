@@ -1,4 +1,4 @@
-"""Manual task drafts: advertiser reward, photo albums and atomic money reservation."""
+"""Manual task drafts: advertiser gross price, photo albums and atomic money reservation."""
 import unittest
 from unittest.mock import patch
 import task_bot as bot
@@ -13,12 +13,12 @@ class ManualTaskTests(unittest.TestCase):
     credit=base.TaskBotTests.credit
     balance=base.TaskBotTests.balance
 
-    def draft(self,reward='10',count='2',link=None):
+    def draft(self,price='10',count='2',link=None):
         self.credit(2,'100','manual-funding')
         self.send(2,action='new:manual');self.send(2,'Custom assignment')
         self.send(2,'Complete the instructions and send proof of your result')
         self.send(2,action='manual:skip_url') if link is None else self.send(2,link)
-        self.send(2,reward);self.send(2,count)
+        self.send(2,price);self.send(2,count)
         self.assertEqual(bot.state(self.c,2)['state'],'manual_photos')
 
     def photo(self,uid=2,unique='image-one',album=None,caption='',event=None):
@@ -36,31 +36,31 @@ class ManualTaskTests(unittest.TestCase):
         self.assertIsNotNone(t)
         return t,preview
 
-    def test_exact_worker_reward_and_included_fee_no_fixed_manual_price(self):
+    def test_gross_price_includes_fee_no_fixed_manual_price(self):
         self.draft()
         self.assertEqual(self.balance(2),10000)
         t,preview=self.create()
-        self.assertIn('Награда исполнителю: 10,00 грн',preview['text'])
-        self.assertIn('Комиссия за выполнение: 2,50 грн',preview['text'])
-        self.assertIn('ИТОГО С БАЛАНСА: 25,00 грн',preview['text'])
-        self.assertEqual((t['reward'],t['remaining']),(1000,2500))
-        self.assertEqual(self.balance(2),7500)
-        self.assertEqual(self.c.execute('SELECT cost FROM bot_task_terms').fetchone()['cost'],1250)
+        self.assertIn('Награда исполнителю: 8,00 грн',preview['text'])
+        self.assertIn('В том числе комиссия: 2,00 грн',preview['text'])
+        self.assertIn('ИТОГО С БАЛАНСА: 20,00 грн',preview['text'])
+        self.assertEqual((t['reward'],t['remaining']),(800,2000))
+        self.assertEqual(self.balance(2),8000)
+        self.assertEqual(self.c.execute('SELECT cost FROM bot_task_terms').fetchone()['cost'],1000)
         self.send(2,action='confirm_task')
-        self.assertEqual(self.balance(2),7500)
+        self.assertEqual(self.balance(2),8000)
         self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_tasks').fetchone()['n'],1)
 
-    def test_reward_rounding_and_changed_tariff_snapshot(self):
-        for n in (1,2,3,7,99,101,1000,7777):
-            q=manual.reward_quote(self.c,n)
-            self.assertEqual(q['reward'],n)
-            self.assertGreaterEqual(q['cost'],n)
+    def test_price_rounding_and_changed_tariff_snapshot(self):
+        for n in (2,3,7,99,101,1000,7777):
+            q=manual.price_quote(self.c,n)
+            self.assertEqual(q['cost'],n)
+            self.assertEqual(q['reward'],n*80//100)
         self.c.raw.commit()
-        self.draft(reward='3.17',count='1')
+        self.draft(price='3.17',count='1')
         q=bot.state(self.c,2)['data']['terms']
         self.c.execute('UPDATE bot_economics SET fee=3000');self.c.raw.commit()
         t,_=self.create()
-        self.assertEqual(t['reward'],317)
+        self.assertEqual(t['reward'],253)
         self.assertEqual(bot.bot_economy.cost(self.c,t),q['cost'])
 
     def test_optional_link_and_photos_never_create_empty_url_buttons(self):
@@ -70,8 +70,8 @@ class ManualTaskTests(unittest.TestCase):
         self.assertNotIn('Примеры',str(response['reply_markup']))
         self.send(3,action='take:'+t['id']);self.send(3,action='check:'+t['id']);self.send(3,'Proof of completion')
         self.send(2,action='accept:'+t['id']+':3')
-        self.assertEqual(self.balance(3),1000)
-        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'],1250)
+        self.assertEqual(self.balance(3),800)
+        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'],1000)
 
     def test_album_and_individual_photo_deduplicate_and_store_largest_variant(self):
         self.draft()
@@ -85,7 +85,7 @@ class ManualTaskTests(unittest.TestCase):
         rows=manual.photo_rows(self.c,t['id'])
         self.assertEqual([r['file_id'] for r in rows],['big-a','big-b','big-c'])
         self.assertEqual([r['position'] for r in rows],[0,1,2])
-        self.assertEqual(self.balance(2),7500)
+        self.assertEqual(self.balance(2),8000)
 
     def test_description_with_album_caption_and_later_items_do_not_advance_link(self):
         self.credit(2,'100','description-fund')
@@ -109,7 +109,7 @@ class ManualTaskTests(unittest.TestCase):
         self.assertEqual(public['photo'],'big-second')
         self.assertIn('2/2',public['caption'])
         self.assertEqual(self.balance(3),0)
-        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'],2500)
+        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'],2000)
 
     def test_late_album_photo_invalidates_previous_confirmation(self):
         self.draft();self.send(2,action='manual:photos_done')
@@ -150,7 +150,7 @@ class ManualTaskTests(unittest.TestCase):
         for table in ('bot_tasks','bot_task_photos','bot_task_terms','bot_ad_orders'):
             self.assertEqual(self.c.execute('SELECT count(*) AS n FROM '+table).fetchone()['n'],0)
         self.send(2,action='confirm_task')
-        self.assertEqual(self.balance(2),7500)
+        self.assertEqual(self.balance(2),8000)
 
     def test_arbitrary_https_link_saved_and_unsafe_links_do_not_advance(self):
         self.credit(2,'100','links-fund')

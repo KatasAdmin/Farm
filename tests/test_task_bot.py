@@ -113,7 +113,7 @@ class TaskBotTests(unittest.TestCase):
     def task(self, kind='channel', count='2'):
         self.credit()
         self.send(2, action='new:' + kind)
-        for text in ['Test task', 'Join the channel please', 'https://t.me/ChannelTest'] + (['0.80'] if kind=='manual' else []) + [count]:
+        for text in ['Test task', 'Join the channel please', 'https://t.me/ChannelTest'] + (['1.00'] if kind=='manual' else []) + [count]:
             self.send(2, text)
         if kind=='manual':self.send(2,action='manual:photos_done')
         result = self.send(2, action='confirm_task')
@@ -343,7 +343,7 @@ class TaskBotTests(unittest.TestCase):
         self.joined = True
         self.send(3, action='check:' + tid)
         self.send(3, action='new:manual')
-        for text in ('My own task', 'Read and send proof please', 'https://example.com/', '0.22', '2'):
+        for text in ('My own task', 'Read and send proof please', 'https://example.com/', '0.28', '2'):
             self.send(3, text)
         self.send(3,action='manual:photos_done')
         self.send(3, action='confirm_task')

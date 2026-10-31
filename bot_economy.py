@@ -39,7 +39,7 @@ def quote(c, kind, custom=None):
     cfg = config(c)
     p = c.execute('SELECT * FROM bot_prices WHERE kind=%s', (kind,)).fetchone()
     gross = custom if custom is not None else p['cost']
-    reward = p['reward'] if kind == 'post' else gross * (10000 - cfg['fee']) // 10000
+    reward = gross * (10000 - cfg['fee']) // 10000
     refs = [cfg['ref' + str(i)] for i in range(1, 6)]
     if reward <= 0 or reward * SCALE + gross * sum(refs) > gross * SCALE:
         raise core().UserError(tr('Цена слишком мала для награды и реферальных отчислений. Увеличь цену.', html_mode=False, section='bot_economy', limit=3000))
@@ -209,10 +209,10 @@ def admin(c, uid, text, action):
         cfg = config(c)
         prices = c.execute('SELECT * FROM bot_prices ORDER BY kind').fetchall()
         daily = c.execute('SELECT daily FROM bot_settings WHERE id=1').fetchone()['daily']
-        return b.say(uid, tr('⚙️ Тарифы и правила\n{v0}\n\nКомиссия: {v1}% (для постов задаётся цена и награда отдельно).\nРефералы: {v2}\nБонус: {v3}\nПодписка: {v4} суток; штраф ×{v5}.\nИзменения действуют для новых заказов.', {'v0': '\n'.join((b.KINDS[p['kind']] + ': ' + b.money(p['cost']) + ' → ' + b.money(quote(c, p['kind'])['reward']) for p in prices)), 'v1': f"{pct(cfg['fee'])}", 'v2': ' / '.join((pct(cfg['ref' + str(i)]) + '%' for i in range(1, 6))), 'v3': f'{b.money(daily)}', 'v4': f"{cfg['days']}", 'v5': f"{cfg['multiplier']}"}, html_mode=False, section='bot_economy', limit=3000), [[b.button('Изменить тарифы', 'admin:ecoedit:prices'), b.button('Комиссия / рефералы', 'admin:ecoedit:rates')], [b.button('Срок / штраф', 'admin:ecoedit:retention'), b.button('Ежедневная награда', 'admin:bonus')], [b.button('Спорные отписки', 'admin:retention')]])
+        return b.say(uid, tr('⚙️ Тарифы и правила\n{v0}\n\nКомиссия: {v1}% уже включена в цену всех видов заданий и постов.\nРефералы: {v2}\nБонус: {v3}\nПодписка: {v4} суток; штраф ×{v5}.\nИзменения действуют для новых заказов.', {'v0': '\n'.join((b.KINDS[p['kind']] + ': ' + b.money(p['cost']) + ' → ' + b.money(quote(c, p['kind'])['reward']) for p in prices)), 'v1': f"{pct(cfg['fee'])}", 'v2': ' / '.join((pct(cfg['ref' + str(i)]) + '%' for i in range(1, 6))), 'v3': f'{b.money(daily)}', 'v4': f"{cfg['days']}", 'v5': f"{cfg['multiplier']}"}, html_mode=False, section='bot_economy', limit=3000), [[b.button('Изменить тарифы', 'admin:ecoedit:prices'), b.button('Комиссия / рефералы', 'admin:ecoedit:rates')], [b.button('Срок / штраф', 'admin:ecoedit:retention'), b.button('Ежедневная награда', 'admin:bonus')], [b.button('Спорные отписки', 'admin:retention')]])
     if action.startswith('admin:ecoedit:'):
         field = action.split(':')[-1]
-        prompts = {'prices': tr('Введи: канал бот группа пост наградаЗаПост задание. Все суммы в гривнах.\nПример: 0.70 0.40 0.60 0.04 0.03 1.00', html_mode=False, section='bot_economy', limit=3000), 'rates': tr('Введи комиссию и 5 реферальных процентов.\nПример: 20 5 2.5 1.5 0.75 0.25', html_mode=False, section='bot_economy', limit=3000), 'bonus': tr('Введи сумму ежедневной награды в гривнах.\nПример: 0.50. Сумма 0 отключает награду.', html_mode=False, section='bot_economy', limit=3000), 'retention': tr('Введи срок подписки в сутках и множитель штрафа.\nПример: 7 2', html_mode=False, section='bot_economy', limit=3000)}
+        prompts = {'prices': tr('Введи полные цены: канал бот группа пост задание. Все суммы в гривнах, комиссия уже включена.\nПример: 0.70 0.40 0.60 0.04 1.00', html_mode=False, section='bot_economy', limit=3000), 'rates': tr('Введи комиссию и 5 реферальных процентов.\nПример: 20 5 2.5 1.5 0.75 0.25', html_mode=False, section='bot_economy', limit=3000), 'bonus': tr('Введи сумму ежедневной награды в гривнах.\nПример: 0.50. Сумма 0 отключает награду.', html_mode=False, section='bot_economy', limit=3000), 'retention': tr('Введи срок подписки в сутках и множитель штрафа.\nПример: 7 2', html_mode=False, section='bot_economy', limit=3000)}
         if field not in prompts:
             raise b.UserError(tr('Неизвестная настройка.', html_mode=False, section='bot_economy', limit=3000))
         b.state(c, uid, 'economy_edit', {'field': field})
@@ -245,13 +245,11 @@ def edit(c, uid, text, data):
     cfg = config(c)
     field = data['field']
     if field == 'prices':
-        if len(p) != 6:
-            raise b.UserError(tr('Нужны 6 сумм: канал бот группа пост наградаЗаПост задание.', html_mode=False, section='bot_economy', limit=3000))
-        channel, bot, group, post, reward, manual = map(b.amount, p)
-        if reward * SCALE + post * sum((cfg['ref' + str(i)] for i in range(1, 6))) > post * SCALE:
-            raise b.UserError(tr('Цена поста не покрывает награду и рефералов.', html_mode=False, section='bot_economy', limit=3000))
+        if len(p) != 5:
+            raise b.UserError(tr('Нужны 5 полных цен: канал бот группа пост задание. Комиссия уже включена.', html_mode=False, section='bot_economy', limit=3000))
+        channel, bot, group, post, manual = map(b.amount, p)
         for kind, n in [('channel', channel), ('bot', bot), ('group', group), ('post', post), ('manual', manual)]:
-            r = reward if kind == 'post' else n * (10000 - cfg['fee']) // 10000
+            r = n * (10000 - cfg['fee']) // 10000
             if not r:
                 raise b.UserError(tr('Тариф не покрывает хотя бы одну копейку награды.', html_mode=False, section='bot_economy', limit=3000))
             c.execute('UPDATE bot_prices SET cost=%s,reward=%s WHERE kind=%s', (n, r, kind))
@@ -261,12 +259,11 @@ def edit(c, uid, text, data):
         fee, *refs = map(percentage, p)
         if fee >= 10000 or sum(refs) > fee:
             raise b.UserError(tr('Комиссия должна покрывать все реферальные проценты и быть меньше 100%.', html_mode=False, section='bot_economy', limit=3000))
-        post = c.execute("SELECT * FROM bot_prices WHERE kind='post'").fetchone()
-        if post['reward'] * SCALE + post['cost'] * sum(refs) > post['cost'] * SCALE:
-            raise b.UserError(tr('Проценты превышают доступную комиссию за пост.', html_mode=False, section='bot_economy', limit=3000))
-        if any((p['cost'] * (10000 - fee) // 10000 < 1 for p in c.execute("SELECT * FROM bot_prices WHERE kind<>'post'").fetchall())):
+        if any((p['cost'] * (10000 - fee) // 10000 < 1 for p in c.execute("SELECT * FROM bot_prices").fetchall())):
             raise b.UserError(tr('При такой комиссии один из тарифов даёт нулевую награду.', html_mode=False, section='bot_economy', limit=3000))
         c.execute('UPDATE bot_economics SET fee=%s,ref1=%s,ref2=%s,ref3=%s,ref4=%s,ref5=%s WHERE id=1', (fee, *refs))
+        for price in c.execute('SELECT * FROM bot_prices').fetchall():
+            c.execute('UPDATE bot_prices SET reward=%s WHERE kind=%s',(price['cost']*(10000-fee)//10000,price['kind']))
     elif field == 'bonus':
         if len(p) != 1:
             raise b.UserError(tr('Введи только сумму ежедневной награды. Например: 0.50.', html_mode=False, section='bot_economy', limit=3000))

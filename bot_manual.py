@@ -1,4 +1,4 @@
-"""Advertiser-defined manual tasks: exact worker reward and optional photo examples."""
+"""Advertiser-defined manual tasks: gross advertiser price and optional photo examples."""
 import re
 import uuid
 from urllib.parse import urlsplit
@@ -17,8 +17,8 @@ def initialize(c):
 
 
 def begin(c,uid):
-    b=core();b.state(c,uid,'manual_title',{'kind':'manual','images':[],'draft':uuid.uuid4().hex[:12]})
-    return b.input_prompt(uid,tr('📝 Своё задание\n\nВведи название: от 3 до 100 символов. Затем добавишь описание, ссылку, свою награду и фотографии с примерами.',section='bot_manual'))
+    b=core();b.state(c,uid,'manual_title',{'kind':'manual','images':[],'draft':uuid.uuid4().hex[:12],'pricing':'gross'})
+    return b.input_prompt(uid,tr('📝 Своё задание\n\nВведи название: от 3 до 100 символов. Затем добавишь описание, ссылку, цену выполнения и фотографии с примерами.',section='bot_manual'))
 
 
 def photo_rows(c,task):
@@ -30,14 +30,8 @@ def save(c,task,data):
         c.execute('INSERT INTO bot_task_photos VALUES(%s,%s,%s,%s)',(task,i,p['file_id'],p['unique_id']))
 
 
-def reward_quote(c,reward):
-    b=core();cfg=b.bot_economy.config(c)
-    denominator=10000-cfg['fee']
-    cost=(reward*10000+denominator-1)//denominator
-    if cost>100000000:raise b.UserError('С такой комиссией цена выполнения слишком велика. Уменьши награду.')
-    q=b.bot_economy.quote(c,'manual',cost)
-    if q['reward']!=reward:raise b.UserError('Не удалось рассчитать награду. Обратись в поддержку.')
-    return q
+def price_quote(c,price):
+    return core().bot_economy.quote(c,'manual',price)
 
 
 def add_photo(data,message):
@@ -62,7 +56,9 @@ def photo_prompt(uid,data):
 
 
 def preview(c,uid,data):
-    b=core();q=data['terms'];count=data['count']
+    b=core()
+    if data.get('pricing')!='gross':return begin(c,uid)
+    q=data['terms'];count=data['count']
     data['budget']=q['cost']*count
     if data['budget']>b.account(c,uid)['available']:raise b.UserError('Для этого количества выполнений не хватает средств. Пополни баланс или создай заказ с меньшим бюджетом.')
     data['nonce']=uuid.uuid4().hex[:12]
@@ -70,11 +66,12 @@ def preview(c,uid,data):
     rows=[]
     if data['images']:rows.append([b.button('📷 Проверить фотографии','manual:draft:'+data['draft']+':0')])
     rows.extend([[b.button('📷 Изменить фотографии','manual:photos')],[b.button('✅ Создать задание','confirm_task:'+data['nonce'])]])
-    return b.input_prompt(uid,tr('📝 Проверь задание\n\n{v0}\n\n{v1}\n\nСсылка: {v2}\nФотографий: {v3}\n\nНаграда исполнителю: {v4}\nКомиссия за выполнение: {v5}\nПолная цена выполнения: {v6}\nКоличество выполнений: {v7}\n\nИТОГО С БАЛАНСА: {v8}\n\nПосле подтверждения бюджет резервируется один раз. Задание появится после модерации. Проверять доказательства выполнения будешь ты.',{'v0':data['title'],'v1':data['description'],'v2':data['url'] or 'не нужна','v3':len(data['images']),'v4':b.money(data['reward']),'v5':b.money(q['cost']-data['reward']),'v6':b.money(q['cost']),'v7':count,'v8':b.money(data['budget'])},section='bot_manual'),rows)
+    return b.input_prompt(uid,tr('📝 Проверь задание\n\n{v0}\n\n{v1}\n\nСсылка: {v2}\nФотографий: {v3}\n\nНаграда исполнителю: {v4}\nВ том числе комиссия: {v5}\nПолная цена выполнения: {v6}\nКоличество выполнений: {v7}\n\nИТОГО С БАЛАНСА: {v8}\n\nПосле подтверждения бюджет резервируется один раз. Задание появится после модерации. Проверять доказательства выполнения будешь ты.',{'v0':data['title'],'v1':data['description'],'v2':data['url'] or 'не нужна','v3':len(data['images']),'v4':b.money(data['reward']),'v5':b.money(q['cost']-data['reward']),'v6':b.money(q['cost']),'v7':count,'v8':b.money(data['budget'])},section='bot_manual'),rows)
 
 
 def input_text(c,uid,text,message,current):
     b=core();stage=current['state'];data=current['data']
+    if data.get('pricing')!='gross':return begin(c,uid)
     if message.get('document') or message.get('video'):
         raise b.UserError('Для примера прикрепи фотографию или скриншот как фото. Документы и видео пока не поддерживаются.')
     text=(text or message.get('caption') or '').strip()
@@ -108,10 +105,11 @@ def input_text(c,uid,text,message,current):
             if len(text)>400 or parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password or any(ch.isspace() for ch in text):
                 raise b.UserError('Нужна HTTPS-ссылка без пробелов, логина и пароля. Или выбери «Без ссылки».')
             data['url']=text
-        b.state(c,uid,'manual_reward',data)
-        return b.input_prompt(uid,tr('💰 Награда исполнителю\n\nВведи свою сумму в гривнах за одно принятое выполнение. Именно эту сумму получит исполнитель. Комиссию покажем отдельно; она будет включена в полную стоимость заказа.',section='bot_manual'))
-    if stage=='manual_reward':
-        reward=b.amount(text);q=reward_quote(c,reward)
+        b.state(c,uid,'manual_price',data)
+        return b.input_prompt(uid,tr('💰 Цена одного выполнения\n\nВведи сумму в гривнах, которую заплатишь за одно принятое выполнение. Комиссия уже входит в эту цену. Исполнитель получит сумму за вычетом комиссии. Расчёт покажем перед созданием.',section='bot_manual'))
+    if stage=='manual_price':
+        price=b.amount(text);q=price_quote(c,price)
+        reward=q['reward']
         data['reward']=reward;data['terms']=q;b.state(c,uid,'manual_count',data)
         return b.input_prompt(uid,tr('👥 Сколько нужно выполнений?\n\nНаграда: {v0}\nКомиссия: {v1}\nЦена одного выполнения: {v2}\n\nВведи целое число от 1 до {v3}.',{'v0':b.money(reward),'v1':b.money(q['cost']-reward),'v2':b.money(q['cost']),'v3':b.bot_admin.limits(c)['max_executions']},section='bot_manual'))
     if stage=='manual_count':
@@ -150,7 +148,7 @@ def route(c,uid,action,admin=False):
         back='own:'+t['id'] if own else 'admin:tasks' if admin else 'task:'+t['id'] if public else 'earn'
         return gallery(uid,photo_rows(c,t['id']),int(parts[3]),back,t['title'],'manual:photo:'+t['id']+':')
     current=b.state(c,uid)
-    if not current or current['data'].get('kind')!='manual' or current['state'] not in ('manual_title','manual_description','manual_url','manual_reward','manual_count','manual_photos','task_confirm'):
+    if not current or current['data'].get('kind')!='manual' or current['state'] not in ('manual_title','manual_description','manual_url','manual_price','manual_count','manual_photos','task_confirm'):
         raise b.UserError('Черновик уже закрыт. Создай новое задание.')
     data=current['data']
     if parts[1]=='skip_url' and current['state']=='manual_url':return input_text(c,uid,'-',{},current)

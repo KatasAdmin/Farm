@@ -40,7 +40,7 @@ def bot_identity(c, uid, message, data):
     bid = forwarded_bot(message, expected_username=data['bot_username'])
     data['chat_id'] = bid
     b.state(c, uid, 'task_reward', data)
-    return b.say(uid, tr('Источник бота подтверждён. Укажи награду за одну подходящую пересылку в гривнах.\nВажно: пересылка не подтверждает первый запуск или то, что пользователь не заблокирует бота.', html_mode=False, section='bot_extras', limit=3000))
+    return b.say(uid, tr('Источник бота подтверждён. Укажи полную цену одной подходящей пересылки в гривнах. Комиссия уже включена в эту сумму; исполнитель получит остаток после её удержания.\nВажно: пересылка не подтверждает первый запуск или то, что пользователь не заблокирует бота.', html_mode=False, section='bot_extras', limit=3000))
 
 def bot_completion(c, uid, message, data):
     b = core()
