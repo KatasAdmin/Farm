@@ -347,3 +347,32 @@ feather_progress хранит остаток работы и сохраняет�
 Покупка гусей после изменения цены требует expected_price=160 из актуального
 окна подтверждения. Старый клиент без цены или с прежними 100 монетами получает
 409 без списания за покупку. Это защищает от незаметной смены цены при обновлении.
+
+### Единый магазин и достоверный таймер (r18)
+
+Существующий синий стиль сохраняется. Яйца, зерно, куры, гуси, перья и инкубатор
+имеют одинаковые строки: иконка, название/краткие свойства, цена, действия.
+Подробная экономика раскрывается отдельно, без дополнительной карточки гусыни.
+Ресурсы на телефоне идут парами: куры/гуси, зерно/яйца, перья/вместимость склада.
+Профиль показывает общее число птиц и единый статус, соответствующий уровню.
+
+next_egg_delay проверяет первое реально сохраняемое яйцо через тот же simulate,
+который начисляет ресурсы. Учитываются смена сытых птиц при общем кормлении,
+порции гусей, автозакупка и занятые перьями места. next_egg_scheduled=false
+отключает ложный обратный отсчёт и опрос из-за нулевого таймера; клиент вместо
+него показывает нужный корм/заполненный склад/отсутствие птицы. Событие пера
+также вызывает синхронизацию склада. Цыплята пересчитывают прогноз при реальном
+созревании; как и прежде, ещё не выведенная птица не включена в численный прогноз.
+
+Иллюстрация гусыни: assets/goose-v2.png (прозрачный PNG), создана встроенным
+image_gen; исходник сохранён отдельно, старый SVG не перезаписан. Финальный prompt:
+"Create a production game inventory asset: ONE adorable plump white female goose,
+full body standing three-quarter view facing right, orange beak and webbed feet,
+round glossy dark expressive eyes, slightly raised tail and sculpted soft layered
+wings. Match the polished 3D cartoon mobile farm game item style of a cute white
+chicken: warmly lit, detailed ivory feathers, soft cream shadows, gentle
+plastic/clay-like 3D material, cheerful premium casual game rendering, high visual
+clarity at 64 pixels. Isolated centered single goose with 10% padding, no ground
+scene, no framing, NO blue square, no badge, no background, NO text, no interface,
+no shadow box. Real transparent alpha background. This will sit on a dark blue shop
+row beside an existing chicken game sprite. Square canvas."

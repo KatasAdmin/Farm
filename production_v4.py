@@ -80,15 +80,34 @@ def simulate(p, now):
           satiety=sat,critical_cycles=critical)
  return p,produced,refills
 
+def next_egg_delay(p,now):
+ """First actually storable egg, including future feeds and warehouse space.
+ Pure simulation: opening the forecast never grants resources or rerolls drops.
+ Two feed intervals cover even goose rations accumulated by one-grain autobuys.
+ """
+ feed_at=p["last_tick"]+(FEED_EVERY-p["feed_phase"])*CYCLE
+ rate=min(p["chickens"],p["fed_hens"])/CYCLE+min(p.get("geese",0),p.get("fed_geese",0))/GOOSE_CYCLE
+ if rate:
+  started=min(now,p.get("egg_at") or now)
+  candidate=max(0,started+(1-(p.get("egg_progress") or 0))/rate-now)
+  if now+candidate<=feed_at and simulate(p,now+candidate)[1]>0:return candidate
+ high=math.ceil(max(0,feed_at-now)+2*FEED_EVERY*CYCLE+CYCLE)
+ if simulate(p,now+high)[1]<=0:return None
+ low=0
+ while low<high:
+  middle=(low+high)//2
+  if simulate(p,now+middle)[1]>0:high=middle
+  else:low=middle+1
+ return low
+
 def forecast(p,now,jobs=()):
  six,n6,r6=simulate(p,now+CYCLE)
  twelve,n12,r12=simulate(p,now+2*CYCLE)
  fed=min(p["chickens"],p["fed_hens"])
- progress=p.get("egg_progress") or 0
  goose_fed=min(p.get("geese",0),p.get("fed_geese",0))
- rate=fed/CYCLE+goose_fed/GOOSE_CYCLE
  required=p["chickens"]+GOOSE_FEED*p.get("geese",0)
- next_egg=(1-progress)/rate if rate else 0
+ next_egg=next_egg_delay(p,now)
+ egg_status="scheduled" if next_egg is not None else "empty" if not (p["chickens"]+p.get("geese",0)) else "storage_full" if p["grain"]+p["eggs"]+p.get("feathers",0)>=100*p["storage_level"] else "needs_feed"
  feed_at=p["last_tick"]+(FEED_EVERY-p["feed_phase"])*CYCLE
  next_feed=max(0,feed_at-now)
  after,_,rf=simulate(p,feed_at)
@@ -102,7 +121,8 @@ def forecast(p,now,jobs=()):
  if future:notes.append("Вывод цыплят не включён в прогноз.")
  notes.append("При неизменных настройках и запасах.")
  full=required and fed==p["chickens"] and goose_fed==p.get("geese",0)
- return dict(eggs_next_6h=n6,eggs_next_12h=n12,seconds_to_next_egg=max(0,next_egg),
+ return dict(eggs_next_6h=n6,eggs_next_12h=n12,seconds_to_next_egg=next_egg if next_egg is not None else 0,
+             next_egg_scheduled=next_egg is not None,next_egg_status=egg_status,
              seconds_to_next_feed=next_feed,grain_required_next_feed=required,
              grain_shortage=max(0,required-p["grain"]),effective_grain_shortage=missing,
              autobuy_expected=bool(r6 or r12 or rf),forecast_approximate=bool(future),

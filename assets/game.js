@@ -4,7 +4,7 @@ const art = {
   grain: "redesign/grain",
   eggs: "redesign/egg",
   chickens: "redesign/hen",
-  geese: "goose.svg",
+  geese: "goose-v2.png",
 };
 function eggQuantity(n) {
   const v=Math.abs(n)%100, last=v%10;
@@ -31,7 +31,7 @@ function safe(s) {
   );
 }
 function image(path, cls = "icon") {
-  return `<img src="/assets/${path}${path.endsWith(".svg")?"":".webp"}" class="${cls}" alt="" decoding="async">`;
+  return `<img src="/assets/${path}${/\.(svg|png|webp)$/.test(path)?"":".webp"}" class="${cls}" alt="" decoding="async">`;
 }
 function toast(message) {
   el("toast").textContent = message;
@@ -863,7 +863,7 @@ function render() {
   const p = state.me;
   for(const node of document.querySelectorAll("[data-system-stock]")){
     const resource=node.dataset.systemStock;
-    node.textContent=(resource==="chickens"?"В курятнике: ":"На складе: ")+number(p[resource]||0);
+    node.textContent=(["chickens","geese"].includes(resource)?"В птичнике: ":"На складе: ")+number(p[resource]||0);
   }
   if(el("system-sell-dialog")?.open)systemSellQuote();
   const isLinked = Boolean(p.telegram_id);
@@ -888,13 +888,14 @@ function render() {
   const xp = Number(pr.xp || 0), lvl = Number(pr.level || 1);
   celebrateLevel(p.id,lvl);
   const gooseBuy=el("goose-buy-button");
-  if(gooseBuy){gooseBuy.disabled=pending||lvl<3;gooseBuy.textContent=lvl<3?"С 3-го уровня":"Купить";}
+  if(gooseBuy){gooseBuy.disabled=pending||lvl<3;gooseBuy.textContent=lvl<3?"Ур. 3":"Купить";}
   document.querySelectorAll("[data-birds-total]").forEach(n=>n.textContent=number(p.chickens+(p.geese||0)));
   const prev = 25*(lvl-1)*(lvl-1), next = Number(pr.next_level_xp || 25);
   const percent = Math.max(0,Math.min(100,100*(xp-prev)/Math.max(1,next-prev)));
-  if (el("identity-level")) el("identity-level").textContent = farmerTitle(lvl)+" · Уровень " + lvl + " · " + xp + " XP";
+  if (el("identity-level")) el("identity-level").textContent = "Уровень " + lvl + " · " + xp + " XP";
   if (el("identity-xp-fill")) el("identity-xp-fill").style.width = percent + "%";
-  if (el("profile-level")) el("profile-level").textContent = farmerTitle(lvl)+" · Уровень " + lvl + " · " + xp + " XP";
+  if (el("profile-level")) el("profile-level").textContent = "Уровень " + lvl + " · " + xp + " XP";
+  if(el("profile-status"))el("profile-status").textContent="Статус: "+farmerTitle(lvl);
   for (const img of document.querySelectorAll(".identity .avatar, .profile-avatar")) img.src = avatarSource(p);
   const promo = state.promotion || {};
   document.querySelectorAll("[data-promo-discount]").forEach(x => x.textContent = `−${Math.round(100*(1-promo.price/promo.value))}%`);
@@ -937,7 +938,7 @@ function render() {
   }
   const shopIncubator = el("incubator-shop-button");
   if (shopIncubator) {
-    shopIncubator.textContent = inc.owned ? "Открыть инкубатор" : "Купить · " + number(inc.incubator_price);
+    shopIncubator.textContent = inc.owned ? "Открыть" : "Купить";
     shopIncubator.disabled = pending || (!inc.owned && p.coins < inc.incubator_price);
   }
   const last = state.last_farm_event;
@@ -1114,13 +1115,16 @@ function countdown() {
     return '<div class="incubator-job"><strong>'+(hatch?'🥚 Яйцо':'🐣 Цыплёнок')+' №'+(i+1)+'</strong><span>'+safe(label)+'</span></div>';
   }).join("") || '<p class="muted">Все ячейки свободны.</p>';
   document.querySelectorAll("[data-stage]").forEach(x=>x.classList.toggle("active",inc.owned&&jobs.length>0&&x.dataset.stage===(now<jobs[0].hatch_at?"egg":"chick")));
+  const eggScheduled=state.farm.next_egg_scheduled!==false;
   const seconds = Math.max(0,state.farm.seconds_to_next_egg - elapsed);
-  document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = clockDuration(seconds));
+  const eggLabel=eggScheduled?clockDuration(seconds):({empty:"Нет птицы",storage_full:"Склад заполнен",needs_feed:"Нужен корм"}[state.farm.next_egg_status]||"Ожидаем условия");
+  document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = eggLabel);
   const nextFeed = Math.max(0,state.farm.seconds_to_next_feed-elapsed);
   document.querySelectorAll("[data-feed-tick]").forEach(x => x.textContent=clockDuration(nextFeed));
   // Reconcile completed timers with the server; the browser never grants resources.
   const completedJobs = jobs.some(j => now >= j.mature_at) && !full;
-  const expired = seconds <= 0 || nextFeed <= 0 || completedJobs;
+  const featherDue=state.farm.seconds_to_next_feather>0&&elapsed>=state.farm.seconds_to_next_feather;
+  const expired = (eggScheduled && seconds <= 0) || nextFeed <= 0 || completedJobs || featherDue;
   if (expired && !pending && !refreshPromise && elapsed >= 1 && Date.now()-lastTimerRefresh >= 5000 && document.visibilityState === "visible") { lastTimerRefresh=Date.now(); refresh(); }
   if (el("purchase-dialog").open) purchaseQuote();
 }
