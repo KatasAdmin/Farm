@@ -588,7 +588,7 @@ def create_stars_invoice(q:Request,authorization:str=Header(default="")):
   stars=q.amount*2
   c.execute("INSERT INTO star_orders(id,player_id,telegram_id,coins,stars,status,created) VALUES(%s,%s,%s,%s,%s,'created',%s)",(order,p["id"],p["telegram_id"],q.amount,stars,time.time()))
  try:
-  result=telegram_api("createInvoiceLink",{"title":"Монеты фермы","description":str(q.amount)+" игровых монет (не для денежного вывода)","payload":order,"currency":"XTR","prices":[{"label":str(q.amount)+" монет", "amount":stars}]})
+  result=telegram_api("createInvoiceLink",{"title":"Монеты фермы","description":str(q.amount)+" монет для покупок на ферме","payload":order,"currency":"XTR","prices":[{"label":str(q.amount)+" монет", "amount":stars}]})
  except Exception:
   logger.exception("stars_invoice_creation_failed")
   raise HTTPException(503,"Не удалось создать счёт Telegram")
@@ -626,7 +626,7 @@ def stars_payment_received(message):
 def notify_farm_admin(request_id,player_name,telegram_id,amount):
  with db() as c:
   task_bot.bot_notifications.enqueue(c,'farm-withdraw:'+request_id,
-   tr('🐔 Заявка фермы на проверку\n\nИгрок: {v0}\nМонет: {v1}\nЗаявка: {v2}\n\nРеальные выплаты из фермы отключены.', {'v0': str(telegram_id), 'v1': str(amount), 'v2': request_id}, section='notifications'))
+   tr('🐔 Заявка фермы на проверку\n\nИгрок: {v0}\nМонет: {v1}\nЗаявка: {v2}\n\nПереводы из игры на баланс бота доступны в игровом кошельке.', {'v0': str(telegram_id), 'v1': str(amount), 'v2': request_id}, section='notifications'))
  task_bot.bot_notifications.wake()
 
 
