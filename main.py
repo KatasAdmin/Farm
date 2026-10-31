@@ -181,6 +181,7 @@ class Request(BaseModel):
  telegram_data:str=""
  referral:str=""
  transfer_id:str=""
+ expected_price:int|None=None
 def password_hash(password):
  if not 8<=len(password)<=128:raise HTTPException(400,"Пароль должен содержать от 8 до 128 символов")
  salt=secrets.token_bytes(16)
@@ -968,6 +969,7 @@ def shop(q:Request,authorization:str=Header(default="")):
   p=advance(c,person(c,authorization,True))
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if q.item=="geese" and p.get("farmer_level",1)<GOOSE_MIN_LEVEL:raise HTTPException(403,"Гуси открываются с 3-го уровня фермера")
+  if q.item=="geese" and q.expected_price!=GOOSE_PRICE:raise HTTPException(409,"Цена гусыни — 160 монет. Обновите игру и подтвердите покупку по новой цене")
   if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"В курятнике нет места. Улучшите курятник")
   if q.item=="grain" and p["grain"]+p["eggs"]+p.get("feathers",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   if q.item=="chickens":

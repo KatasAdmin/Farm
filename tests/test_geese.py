@@ -50,7 +50,7 @@ class GeeseTests(unittest.TestCase):
         for level,hens,geese in [(2,0,0),(3,9,1)]:
             p=dict(self.birdfarm(hens,geese),id='p',coins=1000,coop_level=1,farmer_level=level)
             with patch.object(main,'db',return_value=DB()),patch.object(main,'person',return_value=p),patch.object(main,'advance',return_value=p):
-                with self.assertRaises(HTTPException):main.shop(main.Request(item='geese',amount=1),'Bearer owner')
+                with self.assertRaises(HTTPException):main.shop(main.Request(item='geese',amount=1,expected_price=main.GOOSE_PRICE),'Bearer owner')
 
 class GooseTradingTests(unittest.TestCase):
     def setUp(self):
@@ -66,7 +66,7 @@ class GooseTradingTests(unittest.TestCase):
     def player(self,*args):return self.c.execute("SELECT * FROM players WHERE id='p'").fetchone()
     def test_purchase_and_sale_adjust_correct_species_fed_count_coins_and_audit(self):
         with patch.object(main,'db',return_value=self.c),patch.object(main,'person',side_effect=self.player),patch.object(main,'advance',side_effect=lambda c,p:p):
-            main.shop(main.Request(item='geese',amount=2),'Bearer p')
+            main.shop(main.Request(item='geese',amount=2,expected_price=main.GOOSE_PRICE),'Bearer p')
             p=self.player()
             self.assertEqual((p['coins'],p['chickens'],p['geese'],p['fed_geese'],p['goose_xp']),(180,2,3,3,40))
             main.sell_to_system(main.Request(item='geese',amount=2),'Bearer p')
@@ -75,3 +75,11 @@ class GooseTradingTests(unittest.TestCase):
             with self.assertRaises(HTTPException):main.sell_to_system(main.Request(item='geese',amount=2),'Bearer p')
         self.assertEqual(len(self.c.execute('SELECT * FROM money_log').fetchall()),2)
         self.assertEqual(self.c.execute('SELECT treasury FROM economy').fetchone()['treasury'],1160)
+
+    def test_old_or_missing_price_cannot_charge_the_new_price(self):
+        with patch.object(main,'db',return_value=self.c),patch.object(main,'person',side_effect=self.player),patch.object(main,'advance',side_effect=lambda c,p:p):
+            for old_price in (None,100):
+                with self.assertRaises(HTTPException) as error:main.shop(main.Request(item='geese',amount=1,expected_price=old_price),'Bearer p')
+                self.assertEqual(error.exception.status_code,409)
+        self.assertEqual(self.player()['coins'],500)
+        self.assertFalse(self.c.execute('SELECT * FROM money_log').fetchall())

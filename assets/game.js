@@ -622,6 +622,7 @@ async function confirmPurchase() {
       await perform(data.kind === "shop" ? "/api/shop" : "/api/buy", {
         item: data.item,
         amount: count,
+        expected_price: data.kind === "shop" ? data.price : undefined,
       });
   } catch (error) {
     toast(error.message);
