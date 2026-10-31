@@ -1573,7 +1573,19 @@
       "limit": 3000
     },
     {
-      "original": "🛠 <b>Управление ботом</b>\n\n💰 Учтённый резерв: {v0}\n📋 Обязательства: {v1}\n✅ Свободный резерв: {v2}\n⚠️ Нехватка покрытия: {v3}\n🧾 Долги исполнителей: {v4}\n\nВыбери нужный раздел:",
+      "original": "🛠 <b>Панель управления</b>\n\n<b>Ожидают проверки</b>\n📝 Задания: {v0}\n💸 Выплаты: {v1}\n💳 Квитанции: {v2}\n{v3}\nВыбери раздел ниже.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "\n⚠️ Нехватка покрытия: {v0}\n",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "💰 <b>Финансы</b>\n\n<b>Средства и обязательства</b>\nРезерв: <b>{v0}</b>\nОбязательства: {v1}\nСвободно: {v2}\n\n<b>Требует внимания</b>\nНехватка покрытия: {v3}\nДолги исполнителей: {v4}",
       "html_mode": true,
       "section": "bot_admin",
       "limit": 3000
@@ -1610,6 +1622,12 @@
     },
     {
       "original": "Подтверди действие кнопкой выше или нажми «Отмена».",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "📝 <b>Задания и публикации</b>\n\nПроверяй заказы, управляй рекламными постами и разбирай спорные отписки.",
       "html_mode": true,
       "section": "bot_admin",
       "limit": 3000
@@ -1737,6 +1755,12 @@
     {
       "original": "✉️ Ответ администрации\n\n{v0}",
       "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "⚙️ <b>Настройки бота</b>\n\nВыбери, что изменить. Условия уже созданных заказов сохранятся.",
+      "html_mode": true,
       "section": "bot_admin",
       "limit": 3000
     },
@@ -2169,35 +2193,19 @@
       "action": "admin:ecoedit:bonus"
     },
     {
-      "text": "💰 Тарифы и комиссии",
-      "action": "admin:economy"
+      "text": "💰 Финансы",
+      "action": "admin:section:finance"
     },
     {
-      "text": "🎁 Бонус и рефералы",
-      "action": "admin:settings:rewards"
+      "text": "📝 Задания",
+      "action": "admin:section:tasks"
     },
     {
-      "text": "⏳ Подписка и штраф",
-      "action": "admin:settings:retention"
+      "text": "⚙️ Настройки",
+      "action": "admin:section:settings"
     },
     {
-      "text": "📝 Модерация",
-      "action": "admin:tasks"
-    },
-    {
-      "text": "💸 Выплаты",
-      "action": "admin:payouts"
-    },
-    {
-      "text": "➕ Пополнения",
-      "action": "admin:topupsettings"
-    },
-    {
-      "text": "📣 Канал постов",
-      "action": "admin:channel"
-    },
-    {
-      "text": "🎨 Тексты и кнопки",
+      "text": "🎨 Оформление",
       "action": "admin:copy"
     },
     {
@@ -2209,16 +2217,20 @@
       "action": "admin:tickets"
     },
     {
+      "text": "⬅️ Мой кабинет",
+      "action": "cabinet"
+    },
+    {
+      "text": "💸 Заявки на вывод",
+      "action": "admin:payouts"
+    },
+    {
+      "text": "💳 Пополнения",
+      "action": "admin:topupsettings"
+    },
+    {
       "text": "📒 Учёт поступлений",
       "action": "admin:money"
-    },
-    {
-      "text": "📐 Лимиты",
-      "action": "admin:settings:limits"
-    },
-    {
-      "text": "🔎 Публикации",
-      "action": "admin:postissues"
     },
     {
       "text": "👁 Награда за пост",
@@ -2231,6 +2243,26 @@
     {
       "text": "⬅️ Оформление",
       "action": "admin:copy"
+    },
+    {
+      "text": "✅ Модерация заданий",
+      "action": "admin:tasks"
+    },
+    {
+      "text": "🔎 Проверка публикаций",
+      "action": "admin:postissues"
+    },
+    {
+      "text": "📣 Канал постов",
+      "action": "admin:channel"
+    },
+    {
+      "text": "⚠️ Спорные отписки",
+      "action": "admin:retention"
+    },
+    {
+      "text": "⬅️ Управление",
+      "action": "admin"
     },
     {
       "text": "🎁 Ежедневная награда",
@@ -2295,6 +2327,22 @@
     {
       "text": "✖️ Отмена",
       "action": "cancel_input"
+    },
+    {
+      "text": "💰 Тарифы и комиссии",
+      "action": "admin:economy"
+    },
+    {
+      "text": "🎁 Бонус и рефералы",
+      "action": "admin:settings:rewards"
+    },
+    {
+      "text": "⏳ Срок подписки и штраф",
+      "action": "admin:settings:retention"
+    },
+    {
+      "text": "📐 Лимиты операций",
+      "action": "admin:settings:limits"
     },
     {
       "text": "📅 Срок подписки",

@@ -37,8 +37,12 @@ class AdminTests(unittest.TestCase):
     def test_clean_sections_and_owner_entry(self):
         panel=self.send(1,action='admin')
         self.assertNotIn('/bot',panel['text'])
-        for section in ('admin:copy','admin:money','admin:tickets','admin:economy','admin:settings:limits'):
+        for section in ('admin:copy','admin:tickets','admin:section:finance','admin:section:tasks','admin:section:settings'):
             self.assertIn('bot:'+section,str(panel['reply_markup']))
+        for key,targets in [('finance',['admin:money','admin:payouts','admin:topupsettings']),('tasks',['admin:tasks','admin:postissues','admin:channel','admin:retention']),('settings',['admin:economy','admin:settings:rewards','admin:settings:retention','admin:settings:limits'])]:
+            submenu=self.send(1,action='admin:section:'+key)
+            for target in targets:self.assertIn('bot:'+target,str(submenu['reply_markup']))
+            self.assertIn('Доступ',self.send(2,action='admin:section:'+key)['text'])
         self.assertIn('bot:admin',str(self.send(1,action='cabinet')))
         self.assertNotIn('bot:admin',str(self.send(2,action='cabinet')))
         for action in ('admin','admin:copy','admin:field:daily','admin:money:credit'):

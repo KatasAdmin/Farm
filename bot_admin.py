@@ -32,10 +32,38 @@ def decimal(n):
 def panel(c, uid):
     b = core()
     b.state(c, uid, 'clear')
-    pool = c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
-    liabilities = b.liability(c)
-    debt = c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n']
-    return b.bot_ui.screen(uid, tr('🛠 <b>Управление ботом</b>\n\n💰 Учтённый резерв: {v0}\n📋 Обязательства: {v1}\n✅ Свободный резерв: {v2}\n⚠️ Нехватка покрытия: {v3}\n🧾 Долги исполнителей: {v4}\n\nВыбери нужный раздел:', {'v0': f'{b.money(pool)}', 'v1': f'{b.money(liabilities)}', 'v2': f'{b.money(max(0, pool - liabilities))}', 'v3': f'{b.money(max(0, liabilities - pool))}', 'v4': f'{b.money(debt)}'}, html_mode=True, section='bot_admin', limit=3000), [[b.button('💰 Тарифы и комиссии', 'admin:economy')], [b.button('🎁 Бонус и рефералы', 'admin:settings:rewards')], [b.button('⏳ Подписка и штраф', 'admin:settings:retention')], [b.button('📝 Модерация', 'admin:tasks'), b.button('💸 Выплаты', 'admin:payouts')], [b.button('➕ Пополнения', 'admin:topupsettings'), b.button('📣 Канал постов', 'admin:channel')], [b.button('🎨 Тексты и кнопки', 'admin:copy')], [b.button('📚 О боте', 'admin:about'), b.button('🆘 Обращения', 'admin:tickets')], [b.button('📒 Учёт поступлений', 'admin:money'), b.button('📐 Лимиты', 'admin:settings:limits')], [b.button('🔎 Публикации', 'admin:postissues')]])
+    tasks=c.execute("SELECT count(*) AS n FROM bot_tasks WHERE status='pending'").fetchone()['n']
+    payouts=c.execute("SELECT count(*) AS n FROM bot_payouts WHERE status='pending'").fetchone()['n']
+    receipts=c.execute("SELECT count(*) AS n FROM bot_card_topups WHERE status='pending'").fetchone()['n']
+    pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
+    shortage=max(0,b.liability(c)-pool)
+    alert=tr('\n⚠️ Нехватка покрытия: {v0}\n',{'v0':b.money(shortage)},html_mode=True,section='bot_admin') if shortage else ''
+    text=tr('🛠 <b>Панель управления</b>\n\n<b>Ожидают проверки</b>\n📝 Задания: {v0}\n💸 Выплаты: {v1}\n💳 Квитанции: {v2}\n{v3}\nВыбери раздел ниже.',{'v0':tasks,'v1':payouts,'v2':receipts,'v3':alert},html_mode=True,section='bot_admin')
+    return b.bot_ui.screen(uid,text,[
+        [b.button('💰 Финансы','admin:section:finance'),b.button('📝 Задания','admin:section:tasks')],
+        [b.button('⚙️ Настройки','admin:section:settings'),b.button('🎨 Оформление','admin:copy')],
+        [b.button('📚 О боте','admin:about'),b.button('🆘 Обращения','admin:tickets')],
+        [b.button('⬅️ Мой кабинет','cabinet')]])
+
+
+def section_screen(c,uid,key):
+    b=core(); b.state(c,uid,'clear')
+    if key=='finance':
+        pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
+        liabilities=b.liability(c)
+        debt=c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n']
+        text=tr('💰 <b>Финансы</b>\n\n<b>Средства и обязательства</b>\nРезерв: <b>{v0}</b>\nОбязательства: {v1}\nСвободно: {v2}\n\n<b>Требует внимания</b>\nНехватка покрытия: {v3}\nДолги исполнителей: {v4}',{'v0':b.money(pool),'v1':b.money(liabilities),'v2':b.money(max(0,pool-liabilities)),'v3':b.money(max(0,liabilities-pool)),'v4':b.money(debt)},html_mode=True,section='bot_admin')
+        rows=[[b.button('💸 Заявки на вывод','admin:payouts')],[b.button('💳 Пополнения','admin:topupsettings')],[b.button('📒 Учёт поступлений','admin:money')]]
+    elif key=='tasks':
+        text=tr('📝 <b>Задания и публикации</b>\n\nПроверяй заказы, управляй рекламными постами и разбирай спорные отписки.',html_mode=True,section='bot_admin')
+        rows=[[b.button('✅ Модерация заданий','admin:tasks')],[b.button('🔎 Проверка публикаций','admin:postissues')],[b.button('📣 Канал постов','admin:channel')],[b.button('⚠️ Спорные отписки','admin:retention')]]
+    elif key=='settings':
+        text=tr('⚙️ <b>Настройки бота</b>\n\nВыбери, что изменить. Условия уже созданных заказов сохранятся.',html_mode=True,section='bot_admin')
+        rows=[[b.button('💰 Тарифы и комиссии','admin:economy')],[b.button('🎁 Бонус и рефералы','admin:settings:rewards')],[b.button('⏳ Срок подписки и штраф','admin:settings:retention')],[b.button('📐 Лимиты операций','admin:settings:limits')]]
+    else:
+        raise b.UserError(tr('Неизвестный раздел.',section='bot_admin'))
+    return b.bot_ui.screen(uid,text,rows+[[b.button('⬅️ Управление','admin')]])
+
 
 def settings(c, uid, section):
     b = core()
@@ -168,6 +196,8 @@ def admin(c, uid, text, action, api):
     navigation={'admin','admin:economy','admin:bonus','admin:copy','admin:copyhistory','admin:money','admin:payouts','admin:tickets','admin:about','admin:topupsettings','admin:cardtopups','admin:postissues','admin:tasks','admin:retention'}
     if action in navigation or action.startswith(('admin:settings:','admin:copylist:','admin:copyentry:','admin:copyreset:','admin:copyrestore:','admin:payview:','admin:ticketview:')):
         b.state(c,uid,'clear')
+    if action.startswith('admin:section:'):
+        return section_screen(c,uid,action.split(':')[-1])
     if action.startswith('admin:moneyconfirm:'):
         return confirm_money(c, uid, action, api)
     if action in ('admin', 'admin:economy') or (text.split(maxsplit=1)[0].split('@')[0] if text else '') == '/botadmin':
