@@ -80,9 +80,9 @@ class StarsSafety(unittest.TestCase):
   self.assertIn("подтвердил возврат",result)
   api.assert_called_once_with("refundStarPayment",{"user_id":77,"telegram_payment_charge_id":"charge-1"})
   self.assertEqual(sum("UPDATE players SET coins=coins-" in q for q,a in db.calls),1)
- def test_withdrawal_is_disabled(self):
+ def test_transfer_requires_retry_key(self):
   from fastapi import HTTPException
   with self.assertRaises(HTTPException) as ex:main.request_withdrawal(main.Request(amount=100))
-  self.assertEqual(ex.exception.status_code,403)
+  self.assertEqual(ex.exception.status_code,400)
 
 if __name__=="__main__":unittest.main()

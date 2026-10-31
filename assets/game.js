@@ -754,10 +754,10 @@ async function loadWithdrawalStatus() {
     const request=value.request;
     const cancelButton=el("withdrawal-cancel");
     if(cancelButton)cancelButton.hidden=!request||request.status!=="pending";
-    note.textContent=request
+    note.textContent="Доступно для перевода: "+number(value.available||0)+" монет. "+(request
       ? "Последняя заявка: "+number(request.amount)+" монет · "+
         (request.status==="pending"?"ожидает ручной проверки":request.status==="rejected"?"отклонена":"статус: "+request.status)
-      : "Заявок на вывод пока нет.";
+      : "Бонусы и промокоды переводить нельзя.");
   }catch(error){note.textContent="Не удалось проверить заявки: "+error.message;}
 }
 async function cancelWithdrawalRequest(){
@@ -772,16 +772,18 @@ async function cancelWithdrawalRequest(){
     await loadHistory();
   }catch(error){toast(error.message);}finally{busy(false);}
 }
+let gameTransferKey="";
 function openWithdrawalRequest() {
   if(!state)return toast("Сначала войдите в игру");
   if(!state.me.telegram_id){
     tab("profile");
     const settings=document.querySelector("#profile details.profile-settings");
     if(settings){settings.open=true;setTimeout(()=>settings.scrollIntoView({behavior:"smooth",block:"start"}),100);}
-    toast("Откройте настройки ниже: там показано, как привязать Telegram. Реальные выплаты пока отключены.");
+    toast("Откройте настройки ниже: там показано, как привязать Telegram. Затем перевод поступит на ваш баланс в боте.");
     return;
   }
   if(state.me.coins<100)return toast("Для заявки нужно минимум 100 монет");
+  if(!gameTransferKey)gameTransferKey=crypto.randomUUID();
   el("withdrawal-amount").value=100;
   el("withdrawal-dialog").showModal();
 }
@@ -841,14 +843,15 @@ async function submitWithdrawalRequest() {
   try{
     const n=amount("withdrawal-amount",1000000);
     if(n<100)throw Error("Минимальная заявка — 100 монет");
-    if(!confirm("Отправить заявку на "+number(n)+" монет? Это не автоматическая выплата: сначала потребуется проверка."))return;
+    if(!confirm("Перевести "+number(n)+" монет на свой баланс бота? Будет зачислено "+number(n)+" грн."))return;
     busy(true);
-    await api("/api/withdraw/request",{amount:n});
+    await api("/api/withdraw/request",{amount:n,transfer_id:gameTransferKey});
+    gameTransferKey="";
     el("withdrawal-dialog").close();
     await refresh();
     await loadWithdrawalStatus();
     await loadHistory();
-    toast("Заявка принята: "+number(n)+" монет списано с баланса в резерв. Реальная выплата не выполнена.");
+    toast("✅ На баланс бота зачислено "+number(n)+" грн");
   }catch(error){toast(error.message);}
   finally{busy(false);}
 }

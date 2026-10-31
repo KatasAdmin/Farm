@@ -1,3 +1,4 @@
+import farm_wallet
 import referral_bridge
 from bot_copy import tr
 import os,time,uuid,secrets,hashlib,hmac,json,logging,base64
@@ -118,6 +119,7 @@ async def lifespan(app):
   # Preserve resources and balances; reset only the clock on the new production schedule.
   c.execute("UPDATE players SET production_model=3,last_tick=%s WHERE production_model<3",(time.time(),))
   task_bot.initialize(c)
+  farm_wallet.initialize(c)
  # Register this dedicated farm bot's webhook without blocking game startup on Telegram outages.
  try:
   token=os.environ.get("TELEGRAM_BOT_TOKEN","")
@@ -163,6 +165,7 @@ class Request(BaseModel):
  current_password:str=""
  telegram_data:str=""
  referral:str=""
+ transfer_id:str=""
 def password_hash(password):
  if not 8<=len(password)<=128:raise HTTPException(400,"Пароль должен содержать от 8 до 128 символов")
  salt=secrets.token_bytes(16)
@@ -1095,21 +1098,18 @@ def admin_summary(authorization:str=Header(default="")):
 
 @app.post("/api/withdraw/request")
 def request_withdrawal(q:Request,authorization:str=Header(default="")):
- raise HTTPException(403,"Денежный вывод временно отключён. Игровые монеты нельзя обменять на деньги.")
- if q.amount<100:raise HTTPException(400,"Минимальная заявка — 100 монет")
- if q.amount>1000000:raise HTTPException(400,"Сумма заявки слишком большая")
+ if q.amount<100:raise HTTPException(400,"Минимальный перевод — 100 монет")
+ if q.amount>1000000:raise HTTPException(400,"Сумма перевода слишком большая")
+ try:
+  key=str(uuid.UUID(q.transfer_id))
+ except (ValueError,AttributeError):raise HTTPException(400,"Обновите окно перевода и повторите попытку")
  with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  c.execute("SELECT pg_advisory_xact_lock(%s)",(task_bot.LOCK,))
   p=advance(c,person(c,authorization,True))
-  if not p["telegram_id"]:raise HTTPException(403,"Для заявки на вывод сначала привяжите Telegram в профиле")
-  if p["coins"]<q.amount:raise HTTPException(400,"Недостаточно монет")
-  if c.execute("SELECT 1 FROM withdrawal_requests WHERE player_id=%s AND status='pending'",(p["id"],)).fetchone():
-   raise HTTPException(409,"Предыдущая заявка ещё ожидает проверки")
-  request_id=uuid.uuid4().hex
-  c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(q.amount,p["id"]))
-  c.execute("INSERT INTO withdrawal_requests(id,player_id,amount,status,created,reserved) VALUES(%s,%s,%s,'pending',%s,true)",(request_id,p["id"],q.amount,time.time()))
-  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"withdraw_reserve",-q.amount,"Резерв заявки на вывод",time.time()))
- notify_farm_admin(request_id,p.get("name","Игрок"),p["telegram_id"],q.amount)
- return {"ok":True,"id":request_id,"status":"pending"}
+  result=farm_wallet.transfer(c,p,q.amount,key,task_bot)
+ task_bot.bot_notifications.wake()
+ return result
 
 @app.post("/api/withdraw/cancel")
 def cancel_withdrawal(authorization:str=Header(default="")):
@@ -1127,7 +1127,8 @@ def withdrawal_status(authorization:str=Header(default="")):
  with db() as c:
   p=person(c,authorization)
   last=c.execute("SELECT id,amount,status,created,reserved FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
- return {"minimum":100,"request":last,"payouts_enabled":False,"message":"Денежный вывод отключён"}
+  eligible=farm_wallet.available(c,p)
+ return {"minimum":100,"request":last,"payouts_enabled":True,"available":eligible,"rate":1,"message":"Перевод на баланс бота · 1 монета = 1 грн"}
 
 @app.post("/api/promo/redeem")
 def redeem_promo(q:Request,authorization:str=Header(default="")):
@@ -1169,8 +1170,8 @@ REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1}
 @app.post("/api/weekly/claim")
 def claim_weekly(authorization:str=Header(default="")):
  with db() as c:
-  p=person(c,authorization,True)
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  p=person(c,authorization,True)
   now=time.time()
   week_start=int((now+3*86400)//604800)*604800-3*86400
   if week_start>now:week_start-=604800

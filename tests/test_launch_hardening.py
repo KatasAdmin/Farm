@@ -18,12 +18,12 @@ class DB:
   return Result(None)
 
 class LaunchHardeningTests(unittest.TestCase):
- def test_new_withdrawal_is_disabled_without_creating_reserve(self):
+ def test_transfer_without_retry_key_does_not_create_reserve(self):
   d=DB()
   with patch.object(main,"db",return_value=d):
    with self.assertRaises(HTTPException) as e:
     main.request_withdrawal(main.Request(amount=100),authorization="Bearer x")
-  self.assertEqual(e.exception.status_code,403)
+  self.assertEqual(e.exception.status_code,400)
   self.assertEqual(d.calls,[])
  def test_cancel_reserved_request_refunds_once(self):
   d=DB({"amount":100,"reserved":True})
