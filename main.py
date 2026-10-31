@@ -1,6 +1,7 @@
 from bot_copy import tr
 import os,time,uuid,secrets,hashlib,hmac,json,logging,base64
 import task_bot
+from bot_release import RELEASE
 import threading
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.exceptions import InvalidSignature
@@ -378,7 +379,13 @@ def advance(c,p,now=None):
 @app.get("/",response_class=HTMLResponse)
 def index():return open("index.html",encoding="utf8").read()
 @app.get("/health")
-def health():return {"ok":True}
+def health():return {"ok":True,"release":RELEASE}
+@app.get("/health/revision/{revision}")
+@app.post("/health/revision/{revision}")
+def revision_health(revision:str):
+ # Read-only deployment probe; POST supports Railway's credential-free HTTP tester.
+ if revision!=RELEASE:raise HTTPException(409,"Different release is active")
+ return health()
 def limit_public_registration(c,now):
  """Prevent rapid anonymous signup floods with transactional global time buckets."""
  for slot,capacity in (("web:minute:"+str(int(now//60)),12),("web:day:"+str(int(now//86400)),300)):
@@ -673,24 +680,20 @@ def farm_admin_panel(chat_id):
 
 def farm_tools_panel(chat_id):
  return {"method":"sendMessage","chat_id":chat_id,
-         "text":"🛡 Админ-панель фермы\nВыберите раздел:",
+         "text":"🐔 Ферма и Stars\n\nИнструменты фермы. Задания, пополнения и гривневые выплаты — в основной панели.",
          "reply_markup":{"inline_keyboard":[
-          [{"text":"🚀 Управление заданиями и балансами","callback_data":"bot:admin"}],
+          [{"text":"⬅️ Основная панель","callback_data":"bot:admin"}],
           [{"text":"🆘 Обращения игроков","callback_data":"adm:tickets"}],
-          [{"text":"📋 Заявки на вывод","callback_data":"adm:requests"}],
+          [{"text":"📋 Заявки фермы","callback_data":"adm:requests"}],
           [{"text":"📊 Статистика","callback_data":"adm:stats"}],
           [{"text":"⭐ Баланс Stars","callback_data":"adm:stars"}],
           [{"text":"🧾 История оплат","callback_data":"adm:starorders"}],
           [{"text":"🔄 Обновить","callback_data":"adm:panel"}]]}}
 
 def farm_admin_support_tickets(chat_id):
- with db() as c:
-  rows=c.execute("SELECT id,nickname,message,created FROM support_tickets WHERE status='open' ORDER BY created DESC LIMIT 8").fetchall()
- if not rows:return {"method":"sendMessage","chat_id":chat_id,"text":"✅ Новых обращений нет."}
- messages=["🆘 Последние обращения:"]
- for x in rows:
-  messages.append("#"+x["id"]+" · "+x["nickname"]+"\n"+x["message"][:250]+"\nОтвет: /reply "+x["id"]+" текст")
- return {"method":"sendMessage","chat_id":chat_id,"text":"\n\n".join(messages)[:3800]}
+ with db() as c, task_bot.bot_copy.session(c,True):
+  return task_bot.bot_admin.admin(c,chat_id,'','admin:tickets',telegram_api)
+
 
 def farm_admin_requests(chat_id):
  with db() as c:

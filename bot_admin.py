@@ -6,6 +6,7 @@ import re
 import time
 import uuid
 import bot_payments
+from bot_release import RELEASE
 LIMITS = {'withdraw_min': 1, 'withdraw_max': 100000000, 'withdraw_fee': 0, 'max_stars': 10000, 'max_executions': 10000, 'card_min': 1, 'card_max': 100000000}
 TITLES = {'withdraw_min': 'Минимальный вывод', 'withdraw_max': 'Максимальный вывод', 'withdraw_fee': 'Комиссия вывода', 'max_stars': 'Максимум Stars за оплату', 'max_executions': 'Выполнений в одном заказе', 'card_min': 'Минимум перевода на карту', 'card_max': 'Максимум перевода на карту'}
 KINDS = {'channel': '📣 Подписка на канал', 'bot': '🤖 Задание на бота', 'group': '👥 Вступление в группу', 'post': '👁 Пост', 'manual': '📝 Ручное задание'}
@@ -44,6 +45,7 @@ def panel(c, uid):
     if receipts:quick.append([b.button('📨 Квитанции · '+str(receipts),'admin:cardtopups')])
     if payouts:quick.append([b.button('💸 Выплаты · '+str(payouts),'admin:payouts')])
     if tasks:quick.append([b.button('📝 Модерация · '+str(tasks),'admin:tasks')])
+    text+='\n\n<i>Версия: '+RELEASE+'</i>'
     return b.bot_ui.screen(uid,text,quick+[
         [b.button('💰 Финансы','admin:section:finance'),b.button('📝 Задания','admin:section:tasks')],
         [b.button('⚙️ Настройки','admin:section:settings'),b.button('🎨 Оформление','admin:copy')],

@@ -108,14 +108,14 @@ def administration(c, uid, text, action, api):
     cmd = parts[0].split('@')[0] if parts else ''
     if cmd == '/botbonus':
         if len(parts) != 2:
-            raise b.UserError(tr('Формат: /botbonus СуммаЗаДень\nНапример: /botbonus 0.50. Сумма 0 отключает награду.', html_mode=False, section='bot_extras', limit=3000))
+            raise b.UserError(tr('Укажи сумму ежедневной награды. Например: 0.50. Ноль отключает награду.', html_mode=False, section='bot_extras', limit=3000))
         daily = 0 if parts[1] in ('0', '0.00', '0,00') else b.amount(parts[1])
         c.execute('UPDATE bot_settings SET daily=%s WHERE id=1', (daily,))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'bonus_config',%s,%s)", (uuid.uuid4().hex, uid, 'Ежедневная награда: ' + b.money(daily), time.time()))
         return b.say(uid, tr('Ежедневная награда сохранена: {v0}. Зачисляется на баланс один раз в день.', {'v0': b.money(daily)}, html_mode=False, section='bot_extras', limit=3000))
     if cmd == '/botchannel':
         if len(parts) != 2:
-            raise b.UserError(tr('Формат: /botchannel @ИмяКанала\nСначала добавь нашего бота администратором с правом публикации сообщений.', html_mode=False, section='bot_extras', limit=3000))
+            raise b.UserError(tr('Пришли @имя или ссылку на канал. Сначала добавь нашего бота администратором с правом публикации сообщений.', html_mode=False, section='bot_extras', limit=3000))
         cid, url = b.resolve_chat(api, parts[1], 'channel')
         me = api('getMe', {})
         rights = api('getChatMember', {'chat_id': cid, 'user_id': me['id']})
@@ -124,8 +124,7 @@ def administration(c, uid, text, action, api):
         c.execute('UPDATE bot_settings SET channel_id=%s,channel_url=%s WHERE id=1', (cid, url))
         return b.say(uid, tr('Канал рекламных постов подключён: {v0}', {'v0': url}, html_mode=False, section='bot_extras', limit=3000))
     if action == 'admin:bonus':
-        cfg = settings(c)
-        return b.say(uid, tr('🎁 Ежедневная награда: {v0}\nЗачисляется на баланс один раз в день.\n\nИзменить сумму: /botbonus 0.50\n\nРекламный канал: {v1}\nПодключить: /botchannel @ИмяКанала', {'v0': f"{b.money(cfg['daily'])}", 'v1': f"{cfg['channel_url'] or 'не подключён'}"}, html_mode=False, section='bot_extras', limit=3000), [[b.button('Изменить ежедневную награду', 'admin:ecoedit:bonus')]])
+        return b.bot_admin.settings(c,uid,'rewards')
     if action.startswith('admin:bindpost:'):
         tid = action.split(':')[-1]
         pub = c.execute("SELECT * FROM bot_post_publications WHERE task=%s AND status IN ('sending','uncertain')", (tid,)).fetchone()
