@@ -1,3 +1,4 @@
+from bot_copy import tr
 import os,time,uuid,secrets,hashlib,hmac,json,logging,base64
 import task_bot
 import threading
@@ -137,6 +138,8 @@ async def lifespan(app):
  stop_retention=threading.Event()
  retention_thread=threading.Thread(target=task_bot.bot_economy.worker,args=(db,telegram_api,stop_retention),daemon=True)
  retention_thread.start()
+ notification_thread=threading.Thread(target=task_bot.bot_notifications.worker,args=(db,telegram_api,stop_retention),daemon=True)
+ notification_thread.start()
  try:
   yield
  finally:
@@ -508,13 +511,9 @@ def stars_orders(authorization:str=Header(default="")):
  return {"orders":orders,"payment_enabled":stars_payment_enabled()}
 
 def farm_admin_star_orders(chat_id):
- with db() as c:
-  orders=c.execute("SELECT o.id,o.coins,o.stars,o.status,COALESCE(p.name,'Архивный игрок') AS name FROM star_orders o LEFT JOIN players p ON p.id=o.player_id ORDER BY o.created DESC LIMIT 10").fetchall()
- lines=["⭐ Последние покупки Stars:"]
- for o in orders:
-  lines.append(o["id"][:8]+" · "+o["name"]+" · "+str(o["coins"])+" 🪙 / "+str(o["stars"])+" ⭐ · "+o["status"])
- keyboard=[[{"text":"↩️ Возврат "+o["id"][:8],"callback_data":"adm:refund:"+o["id"]}] for o in orders if o["status"]=="paid"]
- return {"method":"sendMessage","chat_id":chat_id,"text":"\n".join(lines) if orders else "Покупок ещё нет.","reply_markup":{"inline_keyboard":keyboard} if orders and keyboard else None}
+ with db() as c, task_bot.bot_copy.session(c,True):
+  return task_bot.bot_admin.bot_payments.screen(c,chat_id)
+
 
 def stars_refund_order(order_id,admin_id):
  if not isinstance(order_id,str) or len(order_id)!=32 or any(ch not in "0123456789abcdef" for ch in order_id):
@@ -598,31 +597,16 @@ def stars_payment_received(message):
   c.execute("UPDATE star_orders SET status='paid',charge_id=%s WHERE id=%s",(charge,order_id))
   c.execute("UPDATE players SET coins=coins+%s,purchased_coins=purchased_coins+%s WHERE id=%s",(x["coins"],x["coins"],x["player_id"]))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,x["player_id"],"stars_purchase",x["coins"],"Покупка за "+str(x["stars"])+" Stars",time.time()))
+  task_bot.bot_notifications.enqueue(c,"farm-stars-paid:"+order_id,tr('✅ Оплата Stars в ферме\n\nИгрок: {v0}\nОплачено: {v1} Stars\nНачислено: {v2} монет', {'v0': str(x['telegram_id']), 'v1': str(x['stars']), 'v2': str(x['coins'])}, section='notifications'),"admin:payments:farm:0",subject=x["telegram_id"])
+ task_bot.bot_notifications.wake()
  return {"method":"sendMessage","chat_id":message.get("chat",{}).get("id"),"text":"✅ Оплата получена! Начислено "+str(x["coins"])+" игровых монет."}
 
 def notify_farm_admin(request_id,player_name,telegram_id,amount):
- bot=os.environ.get("TELEGRAM_BOT_TOKEN","")
- recipient=os.environ.get("FARM_ADMIN_TELEGRAM_ID","")
- if not recipient:
-  try:
-   with db() as c:
-    admin=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
-   recipient=str(admin["telegram_id"]) if admin else ""
-  except Exception:logger.exception("admin_identity_lookup_failed")
- if not bot or not recipient:return
- message=("🐔 Новая заявка на вывод\n"
-          "Заявка: "+request_id[:12]+"\n"
-          "Игрок: "+player_name+"\n"
-          "Telegram ID: "+str(telegram_id)+"\n"
-          "Монет: "+str(amount)+"\n"
-          "Статус: ожидает проверки. Реальные выплаты отключены.")
- data=json.dumps({"chat_id":recipient,"text":message}).encode()
- try:
-  req=URLRequest("https://api.telegram.org/bot"+bot+"/sendMessage",data=data,headers={"Content-Type":"application/json"})
-  with urlopen(req,timeout=4) as response:
-   if not json.load(response).get("ok"):logger.error("admin_notification_not_accepted")
- except Exception:
-  logger.exception("admin_notification_failed")
+ with db() as c:
+  task_bot.bot_notifications.enqueue(c,'farm-withdraw:'+request_id,
+   tr('🐔 Заявка фермы на проверку\n\nИгрок: {v0}\nМонет: {v1}\nЗаявка: {v2}\n\nРеальные выплаты из фермы отключены.', {'v0': str(telegram_id), 'v1': str(amount), 'v2': request_id}, section='notifications'))
+ task_bot.bot_notifications.wake()
+
 
 # Initial administrator is approved by the repository owner. Keep the raw Telegram ID out of the source.
 FARM_OWNER_ID_SHA256="f3d199702967cf54be043ca9dd56dcb35e52f5740874ccff554d121b99ae6cd7"
@@ -662,11 +646,8 @@ def create_support_ticket(uid,command):
    return "Обращение уже отправлено. Следующее — через 15 минут (не больше 4 за день)."
   ticket=secrets.token_hex(6)
   c.execute("INSERT INTO support_tickets(id,telegram_id,nickname,message,created) VALUES(%s,%s,%s,%s,%s)",(ticket,uid,name,details,now))
- admin=support_admin_chat()
- if admin:
-  try:
-   telegram_api("sendMessage",{"chat_id":admin,"text":"🆘 Обращение #"+ticket+"\nНик: "+name+"\nTG ID: "+str(uid)+"\n"+details+"\nОтвет: /reply "+ticket+" текст"})
-  except Exception:logger.exception("support_admin_notification_failed")
+  task_bot.bot_notifications.enqueue(c,'ticket:'+ticket,tr('🆘 Новое обращение\n\nИгрок: {v0}\nОбращение: {v1}', {'v0': str(uid), 'v1': ticket}, section='notifications'),'admin:ticketview:'+ticket,subject=uid)
+ task_bot.bot_notifications.wake()
  return "✅ Обращение #"+ticket+" принято. Администратор ответит здесь. Не сообщай пароль или коды подтверждения."
 
 def reply_support_ticket(command):
@@ -687,6 +668,10 @@ def reply_support_ticket(command):
  return "✅ Ответ отправлен по обращению #"+ticket
 
 def farm_admin_panel(chat_id):
+ with db() as c, task_bot.bot_copy.session(c,True):
+  return task_bot.bot_admin.panel(c,chat_id)
+
+def farm_tools_panel(chat_id):
  return {"method":"sendMessage","chat_id":chat_id,
          "text":"🛡 Админ-панель фермы\nВыберите раздел:",
          "reply_markup":{"inline_keyboard":[
@@ -741,7 +726,10 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   chat=(msg.get("chat") or {})
   if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
   action=callback.get("data")
+  try:telegram_api("answerCallbackQuery",{"callback_query_id":callback.get("id")})
+  except Exception:logger.warning("legacy_admin_callback_ack_failed")
   if action=="adm:panel":return farm_admin_panel(chat.get("id"))
+  if action=="adm:farm":return farm_tools_panel(chat.get("id"))
   if action=="adm:requests":return farm_admin_requests(chat.get("id"))
   if action=="adm:tickets":return farm_admin_support_tickets(chat.get("id"))
   if action=="adm:stats":return farm_admin_stats(chat.get("id"))

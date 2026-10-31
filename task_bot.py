@@ -17,6 +17,7 @@ import bot_about
 import bot_topups
 import bot_copy
 import bot_admin
+import bot_notifications
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 from psycopg.types.json import Jsonb
@@ -56,6 +57,7 @@ def initialize(c):
     bot_topups.initialize(c)
     bot_copy.initialize(c)
     bot_admin.initialize(c)
+    bot_notifications.initialize(c)
     c.execute('SELECT pg_advisory_xact_lock(1984533)')
     c.execute('SELECT pg_advisory_xact_lock(%s)', (LOCK,))
     unify_balances(c)
@@ -180,6 +182,7 @@ def handle(payload, db, api, is_admin):
     """Return None for legacy farm/payment/support messages, else webhook response."""
     payment = bot_topups.payment(payload, db)
     if payment is not None:
+        bot_notifications.wake()
         return payment
     retained = bot_economy.member_update(payload, db)
     if retained is not None:
@@ -239,6 +242,7 @@ def handle(payload, db, api, is_admin):
     except Exception:
         log.exception('task_bot_update_failed')
         raise
+    bot_notifications.wake()
     bot_extras.deliver_posts(db, api)
     if callback.get('id') and response.get('method') != 'answerCallbackQuery':
         try:
@@ -576,6 +580,7 @@ def confirmation(c, uid, action):
         tid = uuid.uuid4().hex[:16]
         change(c, uid, -data['budget'], 'task_budget', 'Бюджет задания ' + tid)
         c.execute("INSERT INTO bot_tasks(id,owner,kind,title,description,url,chat_id,reward,remaining,status,created) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending',%s)", (tid, uid, data['kind'], data['title'], data['description'], data['url'], data.get('chat_id'), data['reward'], data['budget'], time.time()))
+        bot_notifications.enqueue(c,'task:'+tid,tr('📝 Новый заказ на модерации\n\nАвтор: {v0}\nНазвание: {v1}\nБюджет: {v2}', {'v0': str(uid), 'v1': data['title'], 'v2': money(data['budget'])}, section='notifications'),'admin:tasks',subject=uid)
         bot_economy.save_terms(c, tid, data)
         result = say(uid, tr('Задание {v0} создано и ожидает модерации. Бюджет зарезервирован.', {'v0': tid}, html_mode=False, section='task_bot', limit=3000))
     elif action == 'confirm_payout' and current['state'] == 'payout_confirm':
@@ -585,6 +590,7 @@ def confirmation(c, uid, action):
         change(c, uid, -data['amount'], 'payout_reserve', 'Резерв заявки ' + pid)
         c.execute("INSERT INTO bot_payouts(id,uid,amount,destination,status,created) VALUES(%s,%s,%s,%s,'pending',%s)", (pid, uid, data['amount'], data['destination'], time.time()))
         c.execute('INSERT INTO bot_payout_terms VALUES(%s,%s,%s)', (pid, data.get('fee', 0), data.get('net', data['amount'])))
+        bot_notifications.enqueue(c,'payout:'+pid,tr('💸 Новая заявка на вывод\n\nИгрок: {v0}\nС баланса: {v1}\nК выплате: {v2}\nЗаявка: {v3}\n\nСредства зарезервированы. Перевод ещё не выполнен.', {'v0': str(uid), 'v1': money(data['amount']), 'v2': money(data.get('net', data['amount'])), 'v3': pid}, section='notifications'),'admin:payview:'+pid,subject=uid)
         result = say(uid, tr('Заявка {v0} принята. Зарезервировано {v1}. Выплата выполняется администратором вручную.', {'v0': pid, 'v1': money(data['amount'])}, html_mode=False, section='task_bot', limit=3000))
     else:
         raise UserError(tr('Эта кнопка устарела.', html_mode=False, section='task_bot', limit=3000))
@@ -592,6 +598,26 @@ def confirmation(c, uid, action):
     return result
 
 def administration(c, uid, text, action, api):
+    result=_administration(c,uid,text,action,api)
+    if action in ('admin:tasks','admin:postissues','admin:retention'):
+        back='admin:section:tasks'
+    elif action in ('admin:payouts','admin:topupsettings','admin:cardtopups'):
+        back='admin:section:finance'
+    elif action.startswith(('admin:approve:','admin:rejecttask:')):
+        back='admin:tasks'
+    elif action.startswith(('admin:cardconfirm:','admin:cardreject:')):
+        back='admin:cardtopups'
+    elif action.startswith(('admin:payconfirm:','admin:rejectpayout:')):
+        back='admin:payouts'
+    else:
+        return result
+    rows=(result.get('reply_markup') or {}).get('inline_keyboard',[])
+    result['reply_markup']={'inline_keyboard':rows}
+    rows[:]=[row for row in rows if not any(btn.get('callback_data')=='bot:admin' for btn in row)]
+    rows.append([button('⬅️ Назад',back)])
+    return result
+
+def _administration(c, uid, text, action, api):
     console = bot_admin.admin(c, uid, text, action, api)
     if console is not None:
         return console
@@ -662,6 +688,7 @@ def administration(c, uid, text, action, api):
         if not row:
             raise UserError(tr('Недостаточно учтённого резерва. Проверь учёт фактических поступлений.', html_mode=False, section='task_bot', limit=3000))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)", (uuid.uuid4().hex, p['uid'], 'Выплачено ' + money(bot_admin.net(c, p)) + ' · ' + p['id'], time.time()))
+        bot_notifications.enqueue(c,'payout-paid:'+p['id'],tr('✅ Выплата выполнена\n\nСумма: {v0}\nЗаявка: {v1}', {'v0': money(bot_admin.net(c, p)), 'v1': p['id']}, section='notifications'),recipient=p['uid'])
         state(c, uid, 'clear')
         return say(uid, tr('Выплата подтверждена, заявка закрыта.', html_mode=False, section='task_bot', limit=3000))
     if action.startswith(('admin:approve:', 'admin:rejecttask:')):
@@ -688,6 +715,7 @@ def administration(c, uid, text, action, api):
         if not p:
             raise UserError(tr('Заявка уже закрыта.', html_mode=False, section='task_bot', limit=3000))
         change(c, p['uid'], p['amount'], 'payout_rejected', 'Возврат по заявке ' + pid)
+        bot_notifications.enqueue(c,'payout-rejected:'+pid,tr('❌ Заявка на вывод отклонена\n\nНа баланс возвращено: {v0}\nЗаявка: {v1}', {'v0': money(p['amount']), 'v1': pid}, section='notifications'),recipient=p['uid'])
         return say(uid, tr('Заявка отклонена, деньги возвращены на баланс.', html_mode=False, section='task_bot', limit=3000))
     if action == 'admin:postissues':
         rows = c.execute("SELECT task,status FROM bot_post_publications WHERE status IN ('sending','uncertain') LIMIT 8").fetchall()

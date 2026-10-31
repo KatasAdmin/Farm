@@ -71,6 +71,7 @@ def input_text(c, uid, text, message, current):
             raise b.UserError(tr('Слишком большая сумма. Укажи меньше Stars.', html_mode=False, section='bot_topups', limit=3000))
         order = uuid.uuid4().hex
         c.execute("INSERT INTO bot_wallet_stars VALUES(%s,%s,%s,%s,'created',NULL,NULL,%s)", (order, uid, stars, amount, time.time()))
+        b.bot_notifications.enqueue(c,'stars-intent:'+order,tr('⭐ Создан счёт на пополнение\n\nИгрок: {v0}\nК оплате: {v1} Stars\nК зачислению: {v2}\n\nСчёт ещё не оплачен.', {'v0': str(uid), 'v1': str(stars), 'v2': b.money(amount)}, section='notifications'),'admin:payments:stars:0',subject=uid,kind='intent')
         b.state(c, uid, 'clear')
         return {'method': 'sendInvoice', 'chat_id': uid, 'title': tr('Пополнение баланса бота', html_mode=False, section='bot_topups', limit=32), 'description': tr('На баланс будет зачислено {v0}. Счёт действителен 1 час.', {'v0': b.money(amount)}, html_mode=False, section='bot_topups', limit=255), 'payload': PREFIX + order, 'provider_token': '', 'currency': 'XTR', 'prices': [{'label': 'Пополнение ' + b.money(amount), 'amount': stars}], 'start_parameter': PREFIX + order}
     if stage == 'topup_card_amount':
@@ -79,6 +80,8 @@ def input_text(c, uid, text, message, current):
         if not rules['card_min'] <= amount <= rules['card_max']:
             raise b.UserError(tr('Сумма перевода: от {v0} до {v1}', {'v0': b.money(rules['card_min']), 'v1': b.money(rules['card_max'])}, html_mode=False, section='bot_topups', limit=3000))
         data['amount'] = amount
+        intent=uuid.uuid4().hex
+        b.bot_notifications.enqueue(c,'card-intent:'+intent,tr('💳 Пользователь начал пополнение картой\n\nИгрок: {v0}\nСумма: {v1}\n\nРеквизиты выданы. Квитанции пока нет — деньги не зачислены.', {'v0': str(uid), 'v1': b.money(amount)}, section='notifications'),'admin:cardtopups',subject=uid,kind='intent')
         b.state(c, uid, 'topup_card_receipt', data)
         return ui.input_screen(uid, tr('💳 <b>Реквизиты для перевода</b>\n\nКарта: <code>{v0}</code>\nПолучатель: <b>{v1}</b>\nСумма: <b>{v2}</b>\n\nПосле перевода отправь квитанцию одним фото или PDF. Зачисление — после проверки поступления администратором.', {'v0': data['card'], 'v1': ui.esc(data['recipient']), 'v2': b.money(amount)}, html_mode=True, section='bot_topups', limit=3000), cancel_action='deposit')
     if stage == 'topup_card_receipt':
@@ -93,6 +96,7 @@ def input_text(c, uid, text, message, current):
             raise b.UserError(tr('Эта квитанция уже отправлена или оплачена. Проверь «Мои пополнения».', html_mode=False, section='bot_topups', limit=3000))
         tid = uuid.uuid4().hex[:16]
         c.execute("INSERT INTO bot_card_topups VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'pending','',%s)", (tid, uid, data['amount'], data['card'], data['recipient'], file['file_id'], key, media, time.time()))
+        b.bot_notifications.enqueue(c,'card-receipt:'+tid,tr('📨 Новая квитанция на проверке\n\nИгрок: {v0}\nСумма: {v1}\nЗаявка: {v2}\n\nПеред зачислением проверь поступление в банке.', {'v0': str(uid), 'v1': b.money(data['amount']), 'v2': tid}, section='notifications'),'admin:cardview:'+tid,subject=uid)
         b.state(c, uid, 'clear')
         return ui.screen(uid, tr('📨 <b>Квитанция отправлена на проверку</b>\n\nЗаявка: <code>{v0}</code>\nСумма: {v1}\nСтатус доступен в «Мои пополнения».', {'v0': tid, 'v1': b.money(data['amount'])}, html_mode=True, section='bot_topups', limit=3000), [[b.button('📥 Мои пополнения', 'topup:mine')]])
     return None
@@ -127,12 +131,15 @@ def payment(payload, db):
                 return {'ok': True}
             c.execute("UPDATE bot_wallet_stars SET status='paid',charge_id=%s WHERE id=%s", (charge, oid))
             b.change(c, order['uid'], order['amount'], 'stars_wallet_deposit', 'Оплата Stars · ' + oid)
+            b.bot_notifications.enqueue(c,'stars-paid:'+oid,tr('✅ Пополнение Stars оплачено\n\nИгрок: {v0}\nОплачено: {v1} Stars\nЗачислено: {v2}', {'v0': str(order['uid']), 'v1': str(order['stars']), 'v2': b.money(order['amount'])}, section='notifications'),'admin:payments:stars:0',subject=order['uid'])
             return b.say(order['uid'], tr('✅ Оплата получена! На баланс начислено {v0}', {'v0': b.money(order['amount'])}, html_mode=False, section='bot_topups', limit=3000), [[b.button('👤 Мой кабинет', 'cabinet')]])
         if order['status'] == 'checkout' and (not c.execute('SELECT 1 FROM bot_wallet_stars WHERE charge_id=%s', (charge,)).fetchone()):
             c.execute("UPDATE bot_wallet_stars SET status='refunded',charge_id=%s WHERE id=%s", (charge, oid))
+            refund_notice(c,order)
             return {'ok': True}
         if order['status'] == 'paid' and order['charge_id'] == charge:
             c.execute("UPDATE bot_wallet_stars SET status='refunded' WHERE id=%s", (oid,))
+            refund_notice(c,order)
             c.execute('INSERT INTO bot_debts VALUES(%s,%s) ON CONFLICT(uid) DO UPDATE SET amount=bot_debts.amount+EXCLUDED.amount', (order['uid'], order['amount']))
             c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'stars_wallet_refund',%s,%s)", (uuid.uuid4().hex, order['uid'], 'Возврат оплаты Stars: ' + b.money(order['amount']) + ' · ' + oid, time.time()))
             b.bot_economy.collect_debt(c, order['uid'])
@@ -142,6 +149,12 @@ def payment(payload, db):
                 if p:
                     b.change(c, order['uid'], p['amount'], 'payout_cancel', 'Отмена заявки при возврате оплаты · ' + p['id'])
         return {'ok': True}
+
+def refund_notice(c,order):
+    b=core(); oid=order['id']
+    b.bot_notifications.enqueue(c,'stars-refunded:'+oid,tr('↩️ Возврат оплаты Stars\n\nИгрок: {v0}\nСумма: {v1} Stars\nЗачисление на баланс отменено.', {'v0': str(order['uid']), 'v1': str(order['stars'])}, section='notifications'),'admin:payments:stars:0',subject=order['uid'])
+    b.bot_notifications.enqueue(c,'stars-refunded-user:'+oid,tr('↩️ Telegram подтвердил возврат {v0} Stars. Соответствующее зачисление на баланс отменено.', {'v0': str(order['stars'])}, section='notifications'),recipient=order['uid'])
+
 
 def admin(c, uid, action):
     b = core()
@@ -160,11 +173,17 @@ def admin(c, uid, action):
         return ui.screen(uid, tr('📨 <b>Квитанции на проверке</b>\n\nПроверяй фактическое поступление в банке перед зачислением.', html_mode=True, section='bot_topups', limit=3000), [[b.button(r['id'] + ' · ' + b.money(r['amount']), 'admin:cardview:' + r['id'])] for r in rows] + [[b.button('⬅️ Пополнения', 'admin:topupsettings')]])
     if action.startswith(('admin:cardview:', 'admin:cardapprove:', 'admin:cardreject:')):
         tid = action.split(':')[-1]
-        row = c.execute("SELECT * FROM bot_card_topups WHERE id=%s AND status='pending' FOR UPDATE", (tid,)).fetchone()
+        row = c.execute("SELECT * FROM bot_card_topups WHERE id=%s FOR UPDATE", (tid,)).fetchone()
         if not row:
             raise b.UserError(tr('Заявка уже обработана или не найдена.', html_mode=False, section='bot_topups', limit=3000))
+        if row['status']!='pending':
+            if not action.startswith('admin:cardview:'):
+                raise b.UserError('Эта заявка уже обработана. Повторного зачисления нет.')
+            status='✅ Зачислено' if row['status']=='approved' else '❌ Отклонено'
+            return ui.screen(uid,'💳 <b>Заявка на пополнение</b>\n\n'+ui.esc(tid)+'\nИгрок: '+str(row['uid'])+'\nСумма: '+b.money(row['amount'])+'\nСтатус: <b>'+status+'</b>',[[b.button('🧾 История оплат','admin:payments:card:0')],[b.button('⬅️ Квитанции','admin:cardtopups')]])
         if action.startswith('admin:cardreject:'):
             c.execute("UPDATE bot_card_topups SET status='rejected' WHERE id=%s", (tid,))
+            b.bot_notifications.enqueue(c,'card-rejected:'+tid,tr('❌ Квитанция отклонена\n\nЗаявка: {v0}\nСумма: {v1}\nДеньги на баланс не зачислены. Если перевод был выполнен, обратись в поддержку.', {'v0': tid, 'v1': b.money(row['amount'])}, section='notifications'),recipient=row['uid'])
             return ui.screen(uid, tr('Заявка отклонена. Начисления нет.', html_mode=True, section='bot_topups', limit=3000))
         if action.startswith('admin:cardapprove:'):
             b.state(c, uid, 'topup_bank_reference', {'id': tid, 'nonce': uuid.uuid4().hex[:12]})
@@ -183,6 +202,7 @@ def admin(c, uid, action):
         c.execute("UPDATE bot_card_topups SET status='approved',reference=%s WHERE id=%s", (data['reference'], row['id']))
         c.execute('UPDATE bot_cash_pool SET amount=amount+%s WHERE id=1', (row['amount'],))
         b.change(c, row['uid'], row['amount'], 'manual_deposit', 'Перевод на карту · ' + row['id'])
+        b.bot_notifications.enqueue(c,'card-approved:'+row['id'],tr('✅ Пополнение подтверждено\n\nНа баланс зачислено: {v0}\nЗаявка: {v1}', {'v0': b.money(row['amount']), 'v1': row['id']}, section='notifications'),recipient=row['uid'])
         b.state(c, uid, 'clear')
         return ui.screen(uid, tr('✅ Зачислено {v0} пользователю {v1}', {'v0': b.money(row['amount']), 'v1': str(row['uid'])}, html_mode=True, section='bot_topups', limit=3000))
     return None

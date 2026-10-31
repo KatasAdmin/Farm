@@ -87,6 +87,7 @@ def support(c, uid, text, message):
     name = c.execute('SELECT name FROM bot_accounts WHERE uid=%s', (uid,)).fetchone()['name']
     c.execute('INSERT INTO support_tickets(id,telegram_id,nickname,message,created) VALUES(%s,%s,%s,%s,%s)', (ticket, uid, name, text, time.time()))
     b.state(c, uid, 'clear')
+    b.bot_notifications.enqueue(c,'ticket:'+ticket,tr('🆘 Новое обращение\n\nИгрок: {v0}\nОбращение: {v1}', {'v0': str(uid), 'v1': ticket}, section='notifications'),'admin:ticketview:'+ticket,subject=uid)
     return b.bot_ui.screen(uid, tr('📨 <b>Вопрос передан администрации</b>\n\nНомер обращения: <code>{v0}</code>\nОтвет придёт в этот чат.', {'v0': ticket}, html_mode=True, section='bot_about', limit=3000), [[b.button('⬅️ О боте', 'about')]])
 
 def normalize_link(text):

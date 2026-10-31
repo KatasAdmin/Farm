@@ -199,6 +199,12 @@
       "limit": 3000
     },
     {
+      "original": "📝 Новый заказ на модерации\n\nАвтор: {v0}\nНазвание: {v1}\nБюджет: {v2}",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
       "original": "Задание {v0} создано и ожидает модерации. Бюджет зарезервирован.",
       "html_mode": false,
       "section": "task_bot",
@@ -211,6 +217,12 @@
       "limit": 3000
     },
     {
+      "original": "✅ Выплата выполнена\n\nСумма: {v0}\nЗаявка: {v1}",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
       "original": "Выплата подтверждена, заявка закрыта.",
       "html_mode": false,
       "section": "task_bot",
@@ -220,6 +232,12 @@
       "original": "Задание отклонено, бюджет возвращён.",
       "html_mode": false,
       "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "❌ Заявка на вывод отклонена\n\nНа баланс возвращено: {v0}\nЗаявка: {v1}",
+      "html_mode": false,
+      "section": "notifications",
       "limit": 3000
     },
     {
@@ -406,6 +424,12 @@
       "original": "Опиши, что нужно сделать (10–1000 символов). Для ручного задания укажи, какое доказательство прислать.",
       "html_mode": false,
       "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "💸 Новая заявка на вывод\n\nИгрок: {v0}\nС баланса: {v1}\nК выплате: {v2}\nЗаявка: {v3}\n\nСредства зарезервированы. Перевод ещё не выполнен.",
+      "html_mode": false,
+      "section": "notifications",
       "limit": 3000
     },
     {
@@ -925,6 +949,12 @@
       "limit": 3000
     },
     {
+      "original": "🆘 Новое обращение\n\nИгрок: {v0}\nОбращение: {v1}",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
       "original": "📨 <b>Вопрос передан администрации</b>\n\nНомер обращения: <code>{v0}</code>\nОтвет придёт в этот чат.",
       "html_mode": true,
       "section": "bot_about",
@@ -1027,6 +1057,18 @@
       "limit": 3000
     },
     {
+      "original": "↩️ Возврат оплаты Stars\n\nИгрок: {v0}\nСумма: {v1} Stars\nЗачисление на баланс отменено.",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
+      "original": "↩️ Telegram подтвердил возврат {v0} Stars. Соответствующее зачисление на баланс отменено.",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
       "original": "💎 <b>Криптобот</b>\n\nЭтот способ ещё не подключён.",
       "html_mode": true,
       "section": "bot_topups",
@@ -1075,6 +1117,12 @@
       "limit": 3000
     },
     {
+      "original": "⭐ Создан счёт на пополнение\n\nИгрок: {v0}\nК оплате: {v1} Stars\nК зачислению: {v2}\n\nСчёт ещё не оплачен.",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
       "original": "Пополнение баланса бота",
       "html_mode": false,
       "section": "bot_topups",
@@ -1087,9 +1135,21 @@
       "limit": 255
     },
     {
+      "original": "💳 Пользователь начал пополнение картой\n\nИгрок: {v0}\nСумма: {v1}\n\nРеквизиты выданы. Квитанции пока нет — деньги не зачислены.",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
       "original": "💳 <b>Реквизиты для перевода</b>\n\nКарта: <code>{v0}</code>\nПолучатель: <b>{v1}</b>\nСумма: <b>{v2}</b>\n\nПосле перевода отправь квитанцию одним фото или PDF. Зачисление — после проверки поступления администратором.",
       "html_mode": true,
       "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "📨 Новая квитанция на проверке\n\nИгрок: {v0}\nСумма: {v1}\nЗаявка: {v2}\n\nПеред зачислением проверь поступление в банке.",
+      "html_mode": false,
+      "section": "notifications",
       "limit": 3000
     },
     {
@@ -1115,6 +1175,12 @@
       "html_mode": false,
       "section": "bot_topups",
       "limit": 1024
+    },
+    {
+      "original": "✅ Пополнение подтверждено\n\nНа баланс зачислено: {v0}\nЗаявка: {v1}",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
     },
     {
       "original": "✅ Зачислено {v0} пользователю {v1}",
@@ -1183,6 +1249,12 @@
       "limit": 3000
     },
     {
+      "original": "✅ Пополнение Stars оплачено\n\nИгрок: {v0}\nОплачено: {v1} Stars\nЗачислено: {v2}",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
       "original": "✅ Оплата получена! На баланс начислено {v0}",
       "html_mode": false,
       "section": "bot_topups",
@@ -1204,6 +1276,12 @@
       "original": "Заявка уже обработана или не найдена.",
       "html_mode": false,
       "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "❌ Квитанция отклонена\n\nЗаявка: {v0}\nСумма: {v1}\nДеньги на баланс не зачислены. Если перевод был выполнен, обратись в поддержку.",
+      "html_mode": false,
+      "section": "notifications",
       "limit": 3000
     },
     {
@@ -1877,6 +1955,24 @@
       "html_mode": false,
       "section": "bot_admin",
       "limit": 3000
+    },
+    {
+      "original": "🧾 <b>История оплат</b>\n{v0}\n\n<i>Созданный счёт и квитанция ещё не означают зачисление.</i>",
+      "html_mode": true,
+      "section": "bot_payments",
+      "limit": 3000
+    },
+    {
+      "original": "✅ Оплата Stars в ферме\n\nИгрок: {v0}\nОплачено: {v1} Stars\nНачислено: {v2} монет",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
+      "original": "🐔 Заявка фермы на проверку\n\nИгрок: {v0}\nМонет: {v1}\nЗаявка: {v2}\n\nРеальные выплаты из фермы отключены.",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
     }
   ],
   "buttons": [
@@ -2161,6 +2257,14 @@
       "action": "admin:topupsettings"
     },
     {
+      "text": "🧾 История оплат",
+      "action": "admin:payments:card:0"
+    },
+    {
+      "text": "⬅️ Квитанции",
+      "action": "admin:cardtopups"
+    },
+    {
       "text": "Изменить тарифы",
       "action": "admin:ecoedit:prices"
     },
@@ -2193,6 +2297,38 @@
       "action": "admin:ecoedit:bonus"
     },
     {
+      "text": "💸 Заявки на вывод",
+      "action": "admin:payouts"
+    },
+    {
+      "text": "📨 Проверить квитанции",
+      "action": "admin:cardtopups"
+    },
+    {
+      "text": "🧾 История оплат",
+      "action": "admin:payments:all:0"
+    },
+    {
+      "text": "💳 Настройки пополнения",
+      "action": "admin:topupsettings"
+    },
+    {
+      "text": "📒 Учёт поступлений",
+      "action": "admin:money"
+    },
+    {
+      "text": "👁 Награда за пост",
+      "action": "admin:field:post_reward"
+    },
+    {
+      "text": "💸 Комиссия вывода",
+      "action": "admin:field:withdraw_fee"
+    },
+    {
+      "text": "⬅️ Оформление",
+      "action": "admin:copy"
+    },
+    {
       "text": "💰 Финансы",
       "action": "admin:section:finance"
     },
@@ -2219,30 +2355,6 @@
     {
       "text": "⬅️ Мой кабинет",
       "action": "cabinet"
-    },
-    {
-      "text": "💸 Заявки на вывод",
-      "action": "admin:payouts"
-    },
-    {
-      "text": "💳 Пополнения",
-      "action": "admin:topupsettings"
-    },
-    {
-      "text": "📒 Учёт поступлений",
-      "action": "admin:money"
-    },
-    {
-      "text": "👁 Награда за пост",
-      "action": "admin:field:post_reward"
-    },
-    {
-      "text": "💸 Комиссия вывода",
-      "action": "admin:field:withdraw_fee"
-    },
-    {
-      "text": "⬅️ Оформление",
-      "action": "admin:copy"
     },
     {
       "text": "✅ Модерация заданий",
@@ -2375,6 +2487,26 @@
     {
       "text": "⬅️ Оформление",
       "action": "admin:copy"
+    },
+    {
+      "text": "Все",
+      "action": "admin:payments:all:0"
+    },
+    {
+      "text": "💳 Карта",
+      "action": "admin:payments:card:0"
+    },
+    {
+      "text": "⭐ Бот",
+      "action": "admin:payments:stars:0"
+    },
+    {
+      "text": "🐔 Ферма",
+      "action": "admin:payments:farm:0"
+    },
+    {
+      "text": "⬅️ Финансы",
+      "action": "admin:section:finance"
     }
   ]
 }
