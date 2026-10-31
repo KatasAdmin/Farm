@@ -23,6 +23,9 @@ def db():return psycopg.connect(os.environ["DATABASE_URL"],row_factory=dict_row)
 @asynccontextmanager
 async def lifespan(app):
  with db() as c:
+  # Match request lock order before DDL takes exclusive table locks.
+  # Otherwise a live webhook can hold this lock while waiting on our tables.
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   c.execute("CREATE TABLE IF NOT EXISTS players(id text primary key,name text unique,token text unique,coins int default 10,grain int default 5,chickens int default 1,eggs int default 0,last_feed float default 0)")
   c.execute("CREATE TABLE IF NOT EXISTS market(id text primary key,seller text,item text,quantity int,price int)")
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
