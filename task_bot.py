@@ -1,3 +1,4 @@
+import bot_promos
 import referral_bridge
 """Task marketplace and UAH wallet in the existing farm bot.
 
@@ -54,6 +55,7 @@ def member(info):
 
 def initialize(c):
     referral_bridge.initialize(c)
+    bot_promos.initialize(c)
     statements = ['CREATE TABLE IF NOT EXISTS bot_accounts(\n          uid bigint PRIMARY KEY CHECK(uid>0), name text NOT NULL,\n          available bigint NOT NULL DEFAULT 0 CHECK(available>=0),\n          referrer bigint, created double precision NOT NULL)', 'ALTER TABLE bot_accounts ADD COLUMN IF NOT EXISTS advertising bigint NOT NULL DEFAULT 0 CHECK(advertising>=0)', 'CREATE TABLE IF NOT EXISTS bot_cash_pool(\n          id integer PRIMARY KEY CHECK(id=1), amount bigint NOT NULL DEFAULT 0 CHECK(amount>=0))', 'INSERT INTO bot_cash_pool(id) VALUES(1) ON CONFLICT DO NOTHING', 'CREATE TABLE IF NOT EXISTS bot_ledger(\n          id text PRIMARY KEY,uid bigint NOT NULL,delta bigint NOT NULL,kind text NOT NULL,\n          details text NOT NULL,created double precision NOT NULL)', 'CREATE INDEX IF NOT EXISTS bot_ledger_user ON bot_ledger(uid,created)', 'CREATE TABLE IF NOT EXISTS bot_receipts(\n          event text PRIMARY KEY,response jsonb NOT NULL,created double precision NOT NULL)', 'CREATE TABLE IF NOT EXISTS bot_states(\n          uid bigint PRIMARY KEY,state text NOT NULL,data jsonb NOT NULL,updated double precision NOT NULL)', "CREATE TABLE IF NOT EXISTS bot_tasks(\n          id text PRIMARY KEY,owner bigint NOT NULL,kind text NOT NULL,title text NOT NULL,\n          description text NOT NULL,url text NOT NULL,chat_id bigint,\n          reward bigint NOT NULL CHECK(reward>0),remaining bigint NOT NULL CHECK(remaining>=0),\n          status text NOT NULL CHECK(status IN ('pending','active','closed','rejected')),\n          created double precision NOT NULL)", 'CREATE INDEX IF NOT EXISTS bot_tasks_catalog ON bot_tasks(status,kind,created)', "CREATE TABLE IF NOT EXISTS bot_claims(\n          task text NOT NULL,uid bigint NOT NULL,status text NOT NULL,\n          proof text NOT NULL DEFAULT '',photo text NOT NULL DEFAULT '',created double precision NOT NULL,\n          PRIMARY KEY(task,uid))", "CREATE TABLE IF NOT EXISTS bot_payouts(\n          id text PRIMARY KEY,uid bigint NOT NULL,amount bigint NOT NULL CHECK(amount>0),\n          destination text NOT NULL,status text NOT NULL CHECK(status IN ('pending','paid','rejected','cancelled')),\n          reference text NOT NULL DEFAULT '',created double precision NOT NULL)", "CREATE UNIQUE INDEX IF NOT EXISTS bot_one_pending_payout ON bot_payouts(uid) WHERE status='pending'", 'CREATE TABLE IF NOT EXISTS bot_deposits(\n          reference text PRIMARY KEY,uid bigint NOT NULL,amount bigint NOT NULL CHECK(amount>0),created double precision NOT NULL)']
     for sql in statements:
         c.execute(sql)
@@ -254,7 +256,7 @@ def handle(payload, db, api, is_admin):
             c.execute('SELECT pg_advisory_xact_lock(1984533)')
             c.execute('SELECT pg_advisory_xact_lock(%s)', (LOCK,))
             old = c.execute('SELECT response FROM bot_receipts WHERE event=%s', (event,)).fetchone()
-            if not admin and (action.startswith('bot:admin') or cmd.startswith('/bot')):
+            if not admin and (action.startswith('bot:admin') or cmd.startswith('/bot') or cmd.startswith('/bonus')):
                 return say(uid,'Доступ только администратору.')
             if old:
                 cached=dict(old['response'])
@@ -302,6 +304,8 @@ def handle(payload, db, api, is_admin):
 
 def route(c, uid, text, action, message, api, admin):
     cmd = text.split(maxsplit=1)[0].split('@')[0] if text else ''
+    if cmd.startswith('/bonus'):
+        return bot_promos.command(c,uid,text,admin)
     if admin and cmd=='/start' and text not in ('/start wallet','/start support') and not text.startswith('/start link_'):
         return bot_admin.panel(c,uid)
     if action.startswith('admin') or cmd.startswith('/bot'):
