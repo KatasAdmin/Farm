@@ -1,0 +1,2332 @@
+{
+  "texts": [
+    {
+      "original": "👤 <b>Мой кабинет</b>\n🆔 ID: <code>{v0}</code>\n\n<b>💰 Доступный баланс: {v1}</b>{v2}\n\n<b>📊 Статистика</b>\n💳 Пополнений: {v3}\n📣 Потрачено на рекламу: {v4}\n💵 Заработано на заданиях: {v5}\n🎁 Бонусы и рефералы: {v6}\n\n❄️ В бюджете заданий: {v7}\n⌛ Ожидает выплаты: {v8}\n💸 Выведено всего: {v9}",
+      "html_mode": true,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "\n⚠️ Задолженность: {v0}",
+      "html_mode": true,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "{v0}\n\n{v1}\n\nНаграда: {v2}{v3}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Подтверди действие кнопкой выше или нажми «Отмена».",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Укажи сумму в гривнах, например 5 или 0,50. Максимум два знака после запятой.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Допустимая сумма: от 0,01 до 1 000 000 грн.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Недостаточно средств на балансе.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Тип чата не соответствует заданию.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Добавь @Farmlife2026bot администратором этого канала/группы, затем повтори.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Не удалось получить ссылку на закрытый чат. Выдай боту право приглашать участников.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "🤖 {v0}\n\n{v1}\n\nНаграда: {v2}\nВозьми задание, запусти бота и перешли сюда свежий ответ от него. Это проверка источника пересылки, не гарантия первого запуска. Не пересылай пароли и коды.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Заявка уже обработана или задание не взято.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Бюджет задания закончился. Награда не списана.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Действие отменено. Выбери раздел в меню внизу.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "🎮 Игры\nОткрой свою ферму:",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "📜 Последние операции\n{v0}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "В работе",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "На проверке",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Оплачено",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Отклонено",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "✅ Мои выполнения\n{v0}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Выплачено",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Отменено",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "📥 Заявки\n{v0}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "💸 Вывод средств\n\nС баланса: от {v0} до {v1}\nКомиссия: {v2}%\n\nВведи сумму в гривнах. Затем укажешь реквизиты для ручной выплаты.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "{v0}Введи название задания (до 100 символов).",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "✅ Проверка пройдена. Начислено {v0}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Пост привязан к заданию. Проверь, что кнопка получения награды стоит под правильным постом.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Укажи реквизиты для выплаты: номер карты или IBAN и имя получателя. Не отправляй CVV, PIN, пароли или коды.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Проверить заявку\nСумма с баланса: {v0}\nКомиссия: {v1}\nК выплате: {v2}\nРеквизиты: {v3}\n\nПосле подтверждения сумма будет зарезервирована до ручной выплаты.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Работа отправлена на ручную проверку. Результат и начисление появятся в кабинете.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Действие уже выполнено или отменено.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Эта кнопка относится к другой заявке. Используй последнее подтверждение.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Задание {v0} создано и ожидает модерации. Бюджет зарезервирован.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Подтверждение отменено.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Выплата подтверждена, заявка закрыта.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Задание отклонено, бюджет возвращён.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Заявка отклонена, деньги возвращены на баланс.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Если пост опубликован, привяжи его пересылкой. Если публикации нет — обратись к разработчику для проверки, не отправляй её повторно вслепую.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Модерация {v0}\nАвтор: {v1}\nТип: {v2}\n{v3}\n{v4}\n{v5}\nНаграда: {v6}\nБюджет: {v7}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Некорректная сумма.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Укажи публичную ссылку https://t.me/имя или числовой ID чата. Для закрытого чата сначала добавь нашего бота администратором.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Доступ только администратору.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Нет ожидающей заявки.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Неизвестный тип задания.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Канал рекламных постов ещё не подключён администратором.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Выбери:",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Пока ничего нет.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Задание не найдено.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Работа отклонена. Начисления нет.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Задание недоступно или бюджет исчерпан.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Все места этого задания сейчас на проверке. Выбери другое задание.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Получить награду можно только кнопкой под исходным постом в нашем канале.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Сначала нажми «Взять задание», затем выполни его и нажми «Проверить».",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Отправь доказательство выполнения: текст или одно фото с подписью. Проверит рекламодатель.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Подписка пока не подтверждена. Вступи в канал/группу и повтори проверку.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Перешли исходный пост именно из подключённого канала.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Сумма вывода: от {v0} до {v1}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "После комиссии сумма к выплате должна быть не меньше копейки.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Недостаточно средств.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Сначала дождись обработки предыдущей заявки или отмени её в кабинете.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Реквизиты должны содержать от 8 до 250 символов.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Отправь текст или фото, не документ и не альбом.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Пришли одно фото, не альбом.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Сократи описание до 1500 символов.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Свободный бюджет задания закончился. Можно выбрать другое задание.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Работа уже отправлена или задание не взято.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Опиши, что нужно сделать (10–1000 символов). Для ручного задания укажи, какое доказательство прислать.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Заявка {v0} принята. Зарезервировано {v1}. Выплата выполняется администратором вручную.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Эта кнопка устарела.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Подтвердить фактическую выплату?\nЗаявка: {v0}\nПолучатель: {v1}\nСумма: {v2}\nРеквизиты: {v3}\nОперация: {v4}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Подтверждение устарело.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Подтверждение относится к другой выплате.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Заявка уже закрыта.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Эта банковская операция уже использована для выплаты.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Недостаточно учтённого резерва. Проверь учёт фактических поступлений.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Задание уже прошло модерацию.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Нет заданий на модерации.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Открыть",
+      "html_mode": false,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "Сначала открой @Farmlife2026bot и нажми /start, затем вернись к посту.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Некорректная страница.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Это задание другого рекламодателя.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "{v0}\nСтатус: {v1}\nНаграда: {v2}\nОстаток бюджета: {v3}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Задание закрыто. Возвращено: {v0}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Работа уже проверена.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "{v0}\nИгрок: {v1}\n\n{v2}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Работа принята, награда начислена игроку.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Проверка временно недоступна: нашему боту нужны права администратора этого чата.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Название: от 3 до 100 символов.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "У тебя уже есть ожидающая заявка.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Зачислено {v0} пользователю {v1} на единый баланс.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Резерв увеличен на {v0}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Формат: /botpaid НомерЗаявки НомерБанковскойОперации\nТолько после фактической выплаты. Команда не переводит деньги.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Нет ожидающей заявки с таким номером.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Проверь введённые данные и открой управление ботом кнопкой в кабинете.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Пост одобрен и поставлен в очередь публикации. Проверь результат кнопкой «Публикации» в управлении ботом.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Задание опубликовано.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Перейти к боту",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "🌾 Ферма",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Сначала администратор должен проверить результат публикации поста.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Сначала проверь присланные работы.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Некорректный номер работы.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Ты уже состоишь в этом канале/группе. Это задание для новых участников.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Ты уже получал награду за этого бота.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Описание: от 10 до 1000 символов.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Добавь @Farmlife2026bot администратором канала/группы. Затем пришли ссылку или числовой ID. Права будут проверены автоматически.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Пришли HTTPS-ссылку на бота/материал. Для поста без ссылки отправь минус (-).",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Формат: /botcredit TelegramID Сумма УникальныйНомерПлатежа Только после фактического получения денег. Игрок должен открыть бота хотя бы раз.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Игрок ещё не зарегистрирован в боте.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Такой платёж уже учтён. Повторного начисления нет.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Формат: /botfund Сумма УникальныйНомерВзноса\nУчёт собственных денег, фактически выделенных на выплаты.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Этот взнос уже учтён.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Сначала выдай нашему боту права администратора в целевом чате.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Укажи полную цену одного выполнения, включая комиссию. Например: {v0}",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Цена выполнения: {v0}. Награда исполнителю: {v1}.\nНа сколько выполнений выделить бюджет? От 1 до {v2}.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "На сколько выполнений выделить бюджет? От 1 до {v0}.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Открыть пост",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Нужна ссылка https://t.me/ИмяБота, при необходимости с параметром start.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "{v0}\nНаграда: {v1}\nВыполнений: {v2}\nПолная цена выполнения: {v3}\nБюджет: {v4}\nКомиссия уже включена в цену\n\nПосле подтверждения бюджет резервируется, задание отправляется на модерацию.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Посмотреть опубликованный пост",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Укажи целое число от 1 до {v0}.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "На балансе не хватает средств. Пополни баланс либо укажи меньше выполнений.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Нужна корректная HTTPS-ссылка без паролей в адресе.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "Telegram не подтвердил доступ к чату. Проверь ссылку и права нашего бота.",
+      "html_mode": false,
+      "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "🚀 <b>Как хочешь заработать?</b>\n\n<b>💼 Доступные задания</b>\n📣 Подписаться на канал: <b>{v0}</b>\n👁 Посмотреть пост: <b>{v1}</b>\n🤖 Перейти в бота: <b>{v2}</b>\n👥 Вступить в группу: <b>{v3}</b>\n📝 Выполнить задание: <b>{v4}</b>\n🤝 Приглашать друзей: <b>можно</b>\n⭐ Квесты: <i>готовятся</i>\n\n<b>💎 Награды в доступных заданиях: {v5}</b>\n<i>За каждое задание награда выдаётся один раз после проверки.</i>",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "🌱 Ты пришёл самостоятельно",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "👥 <b>Твоя партнёрская команда</b>\n\n{v0}\n\n👤 Приглашено в команду: <b>{v1}</b>\n🔥 Активных: <b>{v2}</b>\n💤 Пока без выполнений: <b>{v3}</b>\n<i>Активный участник выполнил хотя бы одно оплаченное задание.</i>\n\n<b>💎 Пять уровней дохода</b>\n",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "\n<b>💰 Доход от команды: {v0}</b>\n<i>Доли меньше копейки накапливаются автоматически.</i>\n\n🔗 <b>Твоя ссылка для приглашений</b>\nhttps://t.me/Farmlife2026bot?start=partner_{v1}\n\nПроценты начисляются с полной цены оплаченных выполнений команды.\n<b>🤝 Приглашай друзей — зарабатывайте вместе!</b>",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "{v0}\n<i>По числу личных приглашений первого уровня{v1}.</i>\n\n",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "\n🤝 Твоих приглашений: <b>{v0}</b>",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "🌾 <b>Farm · Новая жизнь</b>\n\nПривет, <b>{v0}</b>! 👋\n\n",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "🚀 <b>Зарабатывай</b> на заданиях\n📣 <b>Продвигай</b> свои проекты\n🎮 <b>Играй</b> и развивай ферму\n🤝 <b>Приглашай друзей</b> в свою команду\n\n👇 Выбери раздел в меню внизу",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "✉️ <b>Твоё приветственное сообщение</b>\n\nЕго увидят новые участники, которые впервые запустят бота по твоей партнёрской ссылке. Расскажи о команде, помоги освоиться или добавь ссылку на свой проект.\n\n🎁 <b>Функция бесплатная.</b> Текст можно менять в любое время.\n\n<b>Текущий текст:</b>\n{v0}",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "📣 <b>Что хочешь продвинуть?</b>\n\n<b>💰 Баланс: {v0}</b>\n\nВыбери формат и создай свой заказ.\nПолная стоимость резервируется после подтверждения. Публикация — после модерации.",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "🤝 Тебя пригласил: <b>{v0}</b>",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "{v0} Уровень {v1}: {v2} чел. · <b>{v3}%</b> · {v4}\n",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "🔥 <b>Топ рефоводов сегодня</b>",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "🏆 <b>Топ рефоводов за всё время</b>",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "{v0} <b>{v1}</b> — {v2} чел.\n",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "🌱 Пока нет приглашений. Ты можешь стать первым!\n",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "✉️ <b>Проверь приветствие</b>\n\n{v0}",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "✉️ <b>Сообщение от пригласившего {v0}:</b>\n{v1}\n\n",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "⭐ <b>Квесты готовятся</b>\n\nПока выбирай задания, получай ежедневную награду и приглашай друзей.",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "✏️ <b>Новое приветствие</b>\n\nПришли текст от 1 до 500 символов. Можно добавить ссылки.",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "👁 <b>Так увидит сообщение новый участник</b>\n\n{v0}",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "Нажми «Сохранить» под предпросмотром или «Отмена».",
+      "html_mode": true,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "Пришли свой текст от 1 до 500 символов, одним сообщением.",
+      "html_mode": false,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "Такого рейтинга нет.",
+      "html_mode": false,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "Сначала добавь текст приветствия.",
+      "html_mode": false,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "Эта кнопка устарела. Снова открой редактирование приветствия.",
+      "html_mode": false,
+      "section": "bot_ui",
+      "limit": 3000
+    },
+    {
+      "original": "📊 <b>Статистика нашего бота</b>\n\n⏱ Работаем дней: <b>{v0}</b>\n📅 Отсчёт с: <b>{v1}</b>\n👥 Всего пользователей: <b>{v2}</b>\n🆕 Новых за сегодня: <b>{v3}</b>\n\n<b>✅ Оплаченные выполнения</b>\n📣 Подписок на каналы: <b>{v4}</b>\n👥 Вступлений в группы: <b>{v5}</b>\n👁 Наград за посты: <b>{v6}</b>\n🤖 Заданий на ботов: <b>{v7}</b>\n📝 Ручных заданий: <b>{v8}</b>\n\n<b>📣 Доступные заказы</b>\n📣 На каналы: <b>{v9}</b>\n👁 На посты: <b>{v10}</b>\n👥 На группы: <b>{v11}</b>\n🤖 На ботов: <b>{v12}</b>\n📝 Ручные задания: <b>{v13}</b>\n⭐ Квесты: <i>готовятся</i>\n\n🎁 Ежедневных наград начислено: <b>{v14}</b>\n💸 Выплачено всего: <b>{v15}</b>\n\n<i>Обновлено: {v16} · Киев</i>",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "📚 <b>Информация о нашем боте</b>\n\n🌾 <b>Farm · Новая жизнь</b>\nЗадания, продвижение проектов и ферма в одном месте.\n\n🚀 Выполняй задания\n📣 Продвигай свой проект\n🤝 Собирай команду\n🎮 Развивай ферму",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "📋 <b>Правила и работа бота</b>\n\n💰 <b>Единый баланс в гривнах</b>\nЗаработок можно использовать для заказов или подать на ручную выплату. Stars и монеты фермы учитываются отдельно.\n\n✅ <b>Задания</b>\nНаграда выдаётся после проверки, один раз за выполнение. Подписки проверяются автоматически, ручные доказательства — рекламодателем. Для задания на бота нужна пересылка свежего ответа. Для поста оплачивается кнопка награды под исходной публикацией.\n\n📣 <b>Продвижение</b>\nПолная стоимость резервируется при подтверждении заказа. Публикация после модерации. Неиспользованный остаток возвращается при закрытии заказа.\n\n⏳ <b>Срок подписки и штраф</b>\nСрок, награда и штраф указаны в карточке до взятия задания. Эти условия сохраняются для твоего выполнения. Добровольный выход раньше срока приводит к указанному штрафу; рекламодателю возвращается полная цена выполнения, реферальные начисления сохраняются. Если денег не хватает, долг погашается из следующих поступлений. Исключение администратором и сбой проверки не вызывают автоматический штраф.\n\n🎁 <b>Ежедневная награда</b>\nПолучить можно один раз за календарный день по Киеву.\n\n💸 <b>Выплаты</b>\nЗаявку проверяет администратор, перевод выполняется вручную. Ожидающую заявку можно отменить в кабинете.\n\n🔐 Не отправляй CVV, PIN, пароли и коды подтверждения.",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "Раздел не найден.",
+      "html_mode": false,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "📨 <b>Вопрос передан администрации</b>\n\nНомер обращения: <code>{v0}</code>\nОтвет придёт в этот чат.",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "📚 <b>Настройки раздела «О боте»</b>\n\n{v0}",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "\n📅 Дата отсчёта: {v0}\n\nБез прямого контакта администратора кнопка открывает обращение внутри бота.",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "👨‍💻 <b>Связь с администрацией</b>\n\nНапиши свой вопрос одним текстовым сообщением. Он попадёт в обращения, ответ придёт в этот чат.\nНе отправляй пароли, CVV и коды.",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "💸 <b>Выплаты нашего бота</b>\n\n✅ Выполнено выплат: <b>{v0}</b>\n💰 Выплачено: <b>{v1}</b>\n\nКанал с публикациями выплат пока не подключён.",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "{v0}\n\n{v1} пока не подключён.",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "Напиши вопрос своим текстом, одним сообщением до 1500 символов.",
+      "html_mode": false,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "Укажи @имя или HTTPS-ссылку на Telegram. Минус (-) убирает ссылку.",
+      "html_mode": false,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "Введи дату запуска в формате ГГГГ-ММ-ДД. Она не может быть в будущем.",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "Пришли @имя или ссылку на нужный Telegram-канал/чат/контакт. Минус (-) уберёт ссылку.",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "✏️ <b>Изменить настройку</b>\n\n{v0}",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "👨‍💻 <b>Связь с администратором</b>",
+      "html_mode": true,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "Неизвестная настройка.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Нужна дата от 2000-01-01 до сегодняшнего дня, в формате ГГГГ-ММ-ДД.",
+      "html_mode": false,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "Некорректная Telegram-ссылка.",
+      "html_mode": false,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "Написать администратору",
+      "html_mode": false,
+      "section": "bot_about",
+      "limit": 3000
+    },
+    {
+      "original": "➕ <b>Пополнение баланса</b>\n\nВыбери способ оплаты:\n\n⭐ <b>Telegram Stars</b> — зачисление автоматически после оплаты.\n💎 <b>Криптобот</b> — подключим позже.\n💳 <b>Карта</b> — перевод по реквизитам и квитанция на проверку.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "💎 <b>Криптобот</b>\n\nЭтот способ ещё не подключён.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "⭐ <b>Пополнение через Stars</b>\n\n💱 Курс: <b>{v0}</b>\n\nОтправь количество Stars, которое хочешь оплатить.\n✍️ Например: <code>20</code> → <b>{v1}</b> на баланс бота.\n\n🧾 Бот пришлёт счёт. После оплаты сумма зачислится автоматически.\n\n<i>От 1 до {v2} Stars, только целое число.</i>",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "💳 <b>Перевод на карту</b>\n\nВведи сумму пополнения в гривнах. Затем получишь реквизиты и сможешь прикрепить квитанцию.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Счёт создан",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Ожидаем подтверждение Telegram",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Зачислено",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Возвращено",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "📥 <b>Мои пополнения</b>\n\n{v0}",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Пополнение баланса бота",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 32
+    },
+    {
+      "original": "На баланс будет зачислено {v0}. Счёт действителен 1 час.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 255
+    },
+    {
+      "original": "💳 <b>Реквизиты для перевода</b>\n\nКарта: <code>{v0}</code>\nПолучатель: <b>{v1}</b>\nСумма: <b>{v2}</b>\n\nПосле перевода отправь квитанцию одним фото или PDF. Зачисление — после проверки поступления администратором.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "📨 <b>Квитанция отправлена на проверку</b>\n\nЗаявка: <code>{v0}</code>\nСумма: {v1}\nСтатус доступен в «Мои пополнения».",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "⚙️ <b>Пополнения</b>\n\n⭐ За 1 Star: {v0}\n💳 Карта: {v1}\nПолучатель: {v2}\n\nStars учитываются отдельно от реальных гривен банковского резерва.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "📨 <b>Квитанции на проверке</b>\n\nПроверяй фактическое поступление в банке перед зачислением.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Пополнение {v0}\nПользователь: {v1}\nСумма: {v2}\nКарта: {v3}\nПолучатель: {v4}",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 1024
+    },
+    {
+      "original": "✅ Зачислено {v0} пользователю {v1}",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Подтверди зачисление только после проверки поступления в банке.\nПользователь: {v0}\nСумма: {v1}\nЗаявка: {v2}\nОперация: {v3}",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Используй кнопку подтверждения выше или нажми «Отмена».",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "⭐ <b>Telegram Stars</b>\n\nКурс зачисления ещё не установлен администратором. Оплата пока недоступна.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "💳 <b>Перевод на карту</b>\n\nРеквизиты ещё не указаны администратором. Пока ничего не переводи.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Квитанция уже на проверке. Статус — в «Мои пополнения».",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Количество Stars: целое число от 1 до {v0}.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Слишком большая сумма. Укажи меньше Stars.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Сумма перевода: от {v0} до {v1}",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Прикрепи одну квитанцию: фото или PDF до 20 МБ. Не альбом и не текст.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Эта квитанция уже отправлена или оплачена. Проверь «Мои пополнения».",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "✅ Оплата получена! На баланс начислено {v0}",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Введи сумму в гривнах за 1 Star. 0 отключает оплату.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Пришли две строки: номер карты (16 цифр) и имя получателя. Минус (-) отключает способ.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Заявка уже обработана или не найдена.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Заявка отклонена. Начисления нет.",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Введи уникальный номер фактической банковской операции. Сумма: {v0}",
+      "html_mode": true,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Заявка уже обработана.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Эта банковская операция уже учтена. Повторного начисления нет.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Номер банковской операции: от 3 до 80 символов, одной строкой.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Эта заявка уже обработана.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Нужны две строки: 16 цифр карты и имя получателя.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Проверь номер карты: контрольная сумма не сходится.",
+      "html_mode": false,
+      "section": "bot_topups",
+      "limit": 3000
+    },
+    {
+      "original": "Цена слишком мала для награды и реферальных отчислений. Увеличь цену.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "⚙️ Тарифы и правила\n{v0}\n\nКомиссия: {v1}% (для постов задаётся цена и награда отдельно).\nРефералы: {v2}\nБонус: {v3}\nПодписка: {v4} суток; штраф ×{v5}.\nИзменения действуют для новых заказов.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Введи: канал бот группа пост наградаЗаПост задание. Все суммы в гривнах.\nПример: 0.70 0.40 0.60 0.04 0.03 1.00",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Введи комиссию и 5 реферальных процентов.\nПример: 20 5 2.5 1.5 0.75 0.25",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Введи сумму ежедневной награды в гривнах.\nПример: 0.50. Сумма 0 отключает награду.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Введи срок подписки в сутках и множитель штрафа.\nПример: 7 2",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Проверка отписки\nИгрок {v0} · {v1}\nЧат {v2}\n{v3}\nШтраф: {v4}; возврат: {v5}.\nПодтверждай только доказанный добровольный выход раньше срока.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Решение сохранено.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Условия подписки обновились. Открой карточку и снова нажми «Взять задание».",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Процент: от 0 до 100, максимум два знака после запятой.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Спорных отписок нет.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Эта отписка уже обработана.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Нужны 6 сумм: канал бот группа пост наградаЗаПост задание.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Цена поста не покрывает награду и рефералов.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Тариф не покрывает хотя бы одну копейку награды.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Нужны комиссия и 5 реферальных процентов.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Комиссия должна покрывать все реферальные проценты и быть меньше 100%.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Проценты превышают доступную комиссию за пост.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "При такой комиссии один из тарифов даёт нулевую награду.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Введи только сумму ежедневной награды. Например: 0.50.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Срок: 1–365 суток; множитель: 1–10.",
+      "html_mode": false,
+      "section": "bot_economy",
+      "limit": 3000
+    },
+    {
+      "original": "Источник бота подтверждён. Укажи награду за одну подходящую пересылку в гривнах.\nВажно: пересылка не подтверждает первый запуск или то, что пользователь не заблокирует бота.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "✅ Источник пересылки проверен. Начислено {v0}",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Нужна настоящая пересылка сообщения от бота с видимым источником. Скопированный текст, скриншот или скрытый отправитель не подходят. Не пересылай пароли и коды.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Это сообщение от другого бота. Перешли ответ именно указанного в задании бота.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Источник пересылки не совпадает с ботом из задания.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Не удалось проверить источник сообщения.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Нужен свежий ответ бота, полученный после взятия задания. Запусти его и перешли новый ответ.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Сначала возьми доступное задание на бота.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "За этого бота ты уже получал награду. Повторной оплаты нет.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Выбери другое задание.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "🎁 Начислен ежедневный бонус: {v0}",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "👁 Рекламные посты публикуются в нашем канале. Под постом нажми кнопку награды. Оплачивается нажатие, подтвердить фактическое прочтение Telegram не позволяет.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Начислено {v0}",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Ежедневная награда сохранена: {v0}. Зачисляется на баланс один раз в день.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Канал рекламных постов подключён: {v0}",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "🎁 Ежедневная награда: {v0}\nЗачисляется на баланс один раз в день.\n\nИзменить сумму: /botbonus 0.50\n\nРекламный канал: {v1}\nПодключить: /botchannel @ИмяКанала",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Перешли сюда опубликованный пост из нужного канала. Будет привязан его исходный ID; повторной отправки в канал не будет.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Подключи канал постов кнопкой «Канал постов» в управлении ботом.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Проверь право бота публиковать сообщения в канале.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "🎁 Ежедневная награда сейчас отключена.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Сегодня бонус уже получен. Следующий день считается по времени Киева.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Канал рекламных постов пока не указан администратором.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Публикация ещё проверяется администратором. Попробуй позже.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Нажми кнопку под исходным постом в нашем канале.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Этот пост недоступен для получения награды.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Награда за этот пост уже получена.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Формат: /botbonus СуммаЗаДень\nНапример: /botbonus 0.50. Сумма 0 отключает награду.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Формат: /botchannel @ИмяКанала\nСначала добавь нашего бота администратором с правом публикации сообщений.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "У нашего бота нет права публиковать сообщения в этом канале.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "Нет неопределённой публикации для этого задания.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "📣 Реклама\n{v0}\n\n{v1}{v2}\n\nНаграда за нажатие кнопки — {v3}. Один раз на пользователя.",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "👁 Открыть посты",
+      "html_mode": false,
+      "section": "bot_extras",
+      "limit": 3000
+    },
+    {
+      "original": "🛠 <b>Управление ботом</b>\n\n💰 Учтённый резерв: {v0}\n📋 Обязательства: {v1}\n✅ Свободный резерв: {v2}\n⚠️ Нехватка покрытия: {v3}\n🧾 Долги исполнителей: {v4}\n\nВыбери нужный раздел:",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "💰 <b>Тарифы и комиссии</b>\n\n<b>Цена → награда исполнителю</b>\n",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "\nКомиссия включена в цену. Для постов цена и награда задаются отдельно.\nИзменения действуют для новых заказов.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Неизвестный параметр.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "🎨 <b>Выбери текст для изменения</b>\n\nОсновные тексты уже доступны. Динамические кнопки добавляются после открытия раздела. Для быстрого поиска вернись в «Оформление».",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "🎨 <b>Текущий вариант</b>\n\n{v0}\n\nСуммы и данные в метках подставляются автоматически.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Подтверди действие кнопкой выше или нажми «Отмена».",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "🎁 <b>Награды и партнёры</b>\n\nЕжедневная награда: {v0}\n\n",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "\nПроценты от полной цены выполнения. Их сумма не может превышать комиссию.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "🎨 <b>Оформление бота</b>\n\nИзменяй надписи, сообщения и названия разделов. Метки в фигурных скобках подставляют реальные суммы и данные — их нужно сохранить. Назначение кнопок не меняется.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Текст не найден. Открой нужный раздел бота и вернись в каталог.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "✏️ <b>{v0}</b>\n\nСейчас: <b>{v1}</b>\n\nВведи новое значение одним числом.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "📣 <b>Канал рекламных постов</b>\n\nДобавь бота администратором с правом публикации, затем пришли @имя или ссылку на канал.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "📒 <b>Учёт поступлений</b>\n\nПодтверждай только фактически полученные деньги.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "💸 <b>Заявки на вывод</b>\n\n{v0}",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "💸 <b>Выплата</b>\n\nID: {v0}\nЗарезервировано: {v1}\nК переводу: <b>{v2}</b>\nРеквизиты: {v3}",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "🔎 <b>Поиск надписей</b>\n\nНапиши несколько слов из нужного текста или названия кнопки.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "✏️ <b>Новый текст</b>\n\n{v0}\n\nПришли новый вариант. Сохрани все метки в фигурных скобках. После ввода будет предпросмотр.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "🕘 <b>История оформления</b>\n\nВыбери изменение, чтобы вернуть предыдущий вариант.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "🆘 <b>Последние обращения</b>",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "🆘 <b>Обращение</b>\n\n{v0}\n{v1}",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Напиши ответ пользователю одним сообщением.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Введи сумму фактического пополнения в гривнах.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Введи уникальный номер банковского платежа или взноса.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Подтверди фактическое поступление.\nСумма: {v0}\nПолучатель: {v1}\nОперация: {v2}",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "🔎 <b>Результаты поиска</b>\n\nПоказано до 20 совпадений. Если нужного текста нет, попробуй более точный запрос.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "👁 <b>Предпросмотр</b>\n\n{v0}",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "✉️ Ответ администрации\n\n{v0}",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Уровень {v0}: {v1}%\n",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "⏳ <b>Подписка и штраф</b>\n\nСрок: {v0} суток\nШтраф: ×{v1} награды\n\nНовые значения применяются к новым заданиям.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "📐 <b>Лимиты</b>\n\nВыбери параметр. Изменения действуют для новых запросов.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Неизвестный раздел.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Введи Telegram ID получателя.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Введи сумму фактического взноса в гривнах.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "После фактического перевода {v0} введи уникальный номер банковской операции.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Неизвестная страница.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Текст не найден.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Запись не найдена.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Обращение не найдено.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Введи номер банковской операции без пробелов: от 3 до 80 символов.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Пользователь не найден. Он должен сначала открыть бота.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Нужен номер одной строкой без пробелов: от 3 до 80 символов.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Для поиска введи от 2 до 80 символов.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Ответ: от 1 до 1500 символов.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Минимальная сумма не может превышать максимальную.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Комиссия вывода должна быть меньше 100%.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "Введи целое число от 1 до 10000.",
+      "html_mode": false,
+      "section": "bot_admin",
+      "limit": 3000
+    }
+  ],
+  "buttons": [
+    {
+      "text": "➕ Пополнить",
+      "action": "deposit"
+    },
+    {
+      "text": "💸 Вывести",
+      "action": "withdraw"
+    },
+    {
+      "text": "✅ Мои выполнения",
+      "action": "claims"
+    },
+    {
+      "text": "📥 Мои заявки",
+      "action": "payouts"
+    },
+    {
+      "text": "📜 История",
+      "action": "history"
+    },
+    {
+      "text": "🛠 Управление ботом",
+      "action": "admin"
+    },
+    {
+      "text": "⬅️ Задания",
+      "action": "earn"
+    },
+    {
+      "text": "Пропустить",
+      "action": "skip_bot"
+    },
+    {
+      "text": "Отменить ожидающую заявку",
+      "action": "cancelpayout"
+    },
+    {
+      "text": "✖️ Отмена",
+      "action": "cancel_input"
+    },
+    {
+      "text": "Отмена",
+      "action": "admin:cancel"
+    },
+    {
+      "text": "✖️ Отмена",
+      "action": "cancel_input"
+    },
+    {
+      "text": "✏️ Изменить текст",
+      "action": "welcome:edit"
+    },
+    {
+      "text": "⬅️ Партнёры",
+      "action": "friends"
+    },
+    {
+      "text": "⭐ Квесты",
+      "action": "quests"
+    },
+    {
+      "text": "📝 Задания",
+      "action": "list:manual:0"
+    },
+    {
+      "text": "🤝 За друга",
+      "action": "friends"
+    },
+    {
+      "text": "👁 Пост",
+      "action": "new:post"
+    },
+    {
+      "text": "📣 Канал",
+      "action": "new:channel"
+    },
+    {
+      "text": "🤖 Бота",
+      "action": "new:bot"
+    },
+    {
+      "text": "👥 Группу",
+      "action": "new:group"
+    },
+    {
+      "text": "📝 Задание",
+      "action": "new:manual"
+    },
+    {
+      "text": "📋 Мои заказы",
+      "action": "mine:0"
+    },
+    {
+      "text": "✅ Проверить работы",
+      "action": "reviews:0"
+    },
+    {
+      "text": "➕ Пополнить",
+      "action": "deposit"
+    },
+    {
+      "text": "🏆 Топ рефоводов",
+      "action": "top:all"
+    },
+    {
+      "text": "🔥 Топ сегодня",
+      "action": "top:today"
+    },
+    {
+      "text": "✉️ Приветственное сообщение",
+      "action": "welcome"
+    },
+    {
+      "text": "🏆 За всё время",
+      "action": "top:all"
+    },
+    {
+      "text": "🔥 Сегодня",
+      "action": "top:today"
+    },
+    {
+      "text": "⬅️ Партнёры",
+      "action": "friends"
+    },
+    {
+      "text": "👁 Предпросмотр",
+      "action": "welcome:preview"
+    },
+    {
+      "text": "🗑 Удалить",
+      "action": "welcome:delete"
+    },
+    {
+      "text": "✏️ Изменить",
+      "action": "welcome:edit"
+    },
+    {
+      "text": "✖️ Отмена",
+      "action": "cancel_input"
+    },
+    {
+      "text": "🚀 К заданиям",
+      "action": "earn"
+    },
+    {
+      "text": "⬅️ К приветствию",
+      "action": "welcome"
+    },
+    {
+      "text": "📊 Статистика",
+      "action": "about:stats"
+    },
+    {
+      "text": "📋 Правила бота",
+      "action": "about:rules"
+    },
+    {
+      "text": "🔄 Обновить",
+      "action": "about:stats"
+    },
+    {
+      "text": "⬅️ О боте",
+      "action": "about"
+    },
+    {
+      "text": "👨‍💻 Задать вопрос",
+      "action": "about:admin_url"
+    },
+    {
+      "text": "⬅️ О боте",
+      "action": "about"
+    },
+    {
+      "text": "⬅️ О боте",
+      "action": "about"
+    },
+    {
+      "text": "⬅️ О боте",
+      "action": "about"
+    },
+    {
+      "text": "♻️ Новости",
+      "action": "admin:aboutedit:news"
+    },
+    {
+      "text": "💸 Выплаты",
+      "action": "admin:aboutedit:payouts"
+    },
+    {
+      "text": "❤️ Чат",
+      "action": "admin:aboutedit:chat"
+    },
+    {
+      "text": "👨‍💻 Контакт",
+      "action": "admin:aboutedit:admin_url"
+    },
+    {
+      "text": "📅 Дата отсчёта",
+      "action": "admin:aboutedit:started"
+    },
+    {
+      "text": "⬅️ Управление ботом",
+      "action": "admin"
+    },
+    {
+      "text": "⬅️ О боте",
+      "action": "about"
+    },
+    {
+      "text": "⬅️ О боте",
+      "action": "about"
+    },
+    {
+      "text": "⭐ Telegram Stars",
+      "action": "topup:stars"
+    },
+    {
+      "text": "💎 Криптобот · скоро",
+      "action": "topup:crypto"
+    },
+    {
+      "text": "💳 Банковская карта",
+      "action": "topup:card"
+    },
+    {
+      "text": "📥 Мои пополнения",
+      "action": "topup:mine"
+    },
+    {
+      "text": "⬅️ Мой кабинет",
+      "action": "cabinet"
+    },
+    {
+      "text": "⬅️ Пополнение",
+      "action": "deposit"
+    },
+    {
+      "text": "🔄 Обновить",
+      "action": "topup:mine"
+    },
+    {
+      "text": "⬅️ Пополнение",
+      "action": "deposit"
+    },
+    {
+      "text": "📥 Мои пополнения",
+      "action": "topup:mine"
+    },
+    {
+      "text": "⭐ Курс Stars",
+      "action": "admin:topupedit:rate"
+    },
+    {
+      "text": "💳 Реквизиты",
+      "action": "admin:topupedit:card"
+    },
+    {
+      "text": "📨 Квитанции на проверке",
+      "action": "admin:cardtopups"
+    },
+    {
+      "text": "✖️ Отмена",
+      "action": "cancel_input"
+    },
+    {
+      "text": "⬅️ Пополнение",
+      "action": "deposit"
+    },
+    {
+      "text": "⬅️ Пополнение",
+      "action": "deposit"
+    },
+    {
+      "text": "👤 Мой кабинет",
+      "action": "cabinet"
+    },
+    {
+      "text": "⬅️ Пополнения",
+      "action": "admin:topupsettings"
+    },
+    {
+      "text": "Изменить тарифы",
+      "action": "admin:ecoedit:prices"
+    },
+    {
+      "text": "Комиссия / рефералы",
+      "action": "admin:ecoedit:rates"
+    },
+    {
+      "text": "Срок / штраф",
+      "action": "admin:ecoedit:retention"
+    },
+    {
+      "text": "Ежедневная награда",
+      "action": "admin:bonus"
+    },
+    {
+      "text": "Спорные отписки",
+      "action": "admin:retention"
+    },
+    {
+      "text": "Следующие задания",
+      "action": "list:bot:0"
+    },
+    {
+      "text": "🤖 Боты",
+      "action": "list:bot:0"
+    },
+    {
+      "text": "Изменить ежедневную награду",
+      "action": "admin:ecoedit:bonus"
+    },
+    {
+      "text": "💰 Тарифы и комиссии",
+      "action": "admin:economy"
+    },
+    {
+      "text": "🎁 Бонус и рефералы",
+      "action": "admin:settings:rewards"
+    },
+    {
+      "text": "⏳ Подписка и штраф",
+      "action": "admin:settings:retention"
+    },
+    {
+      "text": "📝 Модерация",
+      "action": "admin:tasks"
+    },
+    {
+      "text": "💸 Выплаты",
+      "action": "admin:payouts"
+    },
+    {
+      "text": "➕ Пополнения",
+      "action": "admin:topupsettings"
+    },
+    {
+      "text": "📣 Канал постов",
+      "action": "admin:channel"
+    },
+    {
+      "text": "🎨 Тексты и кнопки",
+      "action": "admin:copy"
+    },
+    {
+      "text": "📚 О боте",
+      "action": "admin:about"
+    },
+    {
+      "text": "🆘 Обращения",
+      "action": "admin:tickets"
+    },
+    {
+      "text": "📒 Учёт поступлений",
+      "action": "admin:money"
+    },
+    {
+      "text": "📐 Лимиты",
+      "action": "admin:settings:limits"
+    },
+    {
+      "text": "🔎 Публикации",
+      "action": "admin:postissues"
+    },
+    {
+      "text": "👁 Награда за пост",
+      "action": "admin:field:post_reward"
+    },
+    {
+      "text": "💸 Комиссия вывода",
+      "action": "admin:field:withdraw_fee"
+    },
+    {
+      "text": "⬅️ Оформление",
+      "action": "admin:copy"
+    },
+    {
+      "text": "🎁 Ежедневная награда",
+      "action": "admin:field:daily"
+    },
+    {
+      "text": "⬅️ Управление",
+      "action": "admin"
+    },
+    {
+      "text": "📱 Главное меню",
+      "action": "admin:copylist:menu:0"
+    },
+    {
+      "text": "🔘 Кнопки",
+      "action": "admin:copylist:button:0"
+    },
+    {
+      "text": "📝 Сообщения",
+      "action": "admin:copylist:text:0"
+    },
+    {
+      "text": "🔎 Найти текст",
+      "action": "admin:copysearch"
+    },
+    {
+      "text": "🕘 История изменений",
+      "action": "admin:copyhistory"
+    },
+    {
+      "text": "⬅️ Управление",
+      "action": "admin"
+    },
+    {
+      "text": "⬅️ Оформление",
+      "action": "admin:copy"
+    },
+    {
+      "text": "💳 Учесть пополнение игрока",
+      "action": "admin:money:credit"
+    },
+    {
+      "text": "🏦 Учесть собственный взнос",
+      "action": "admin:money:fund"
+    },
+    {
+      "text": "⬅️ Управление",
+      "action": "admin"
+    },
+    {
+      "text": "⬅️ Выплаты",
+      "action": "admin:payouts"
+    },
+    {
+      "text": "⬅️ Обращения",
+      "action": "admin:tickets"
+    },
+    {
+      "text": "✖️ Отмена",
+      "action": "cancel_input"
+    },
+    {
+      "text": "✖️ Отмена",
+      "action": "cancel_input"
+    },
+    {
+      "text": "📅 Срок подписки",
+      "action": "admin:field:days"
+    },
+    {
+      "text": "⚠️ Множитель штрафа",
+      "action": "admin:field:multiplier"
+    },
+    {
+      "text": "🔎 Спорные отписки",
+      "action": "admin:retention"
+    },
+    {
+      "text": "⬅️ Управление",
+      "action": "admin"
+    },
+    {
+      "text": "⬅️ Оформление",
+      "action": "admin:copy"
+    },
+    {
+      "text": "⬅️ Управление",
+      "action": "admin"
+    },
+    {
+      "text": "🔎 Другой запрос",
+      "action": "admin:copysearch"
+    },
+    {
+      "text": "⬅️ Оформление",
+      "action": "admin:copy"
+    }
+  ]
+}
