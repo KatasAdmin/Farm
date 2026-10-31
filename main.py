@@ -1,3 +1,4 @@
+import referral_bridge
 from bot_copy import tr
 import os,time,uuid,secrets,hashlib,hmac,json,logging,base64
 import task_bot
@@ -109,6 +110,7 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS player_achievements(player_id text NOT NULL,achievement text NOT NULL,unlocked_at double precision NOT NULL,PRIMARY KEY(player_id,achievement))")
   c.execute("CREATE TABLE IF NOT EXISTS promo_codes(code_hash text PRIMARY KEY,amount integer NOT NULL CHECK(amount>0),redeemed_by text,redeemed_at double precision)")
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("2fd7af1234b12ab6eea8f3317fedea22d7d579ec4ca6a88ec021c6a985374ca8",))
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("b0e941625c95ad16ffb65b61659cb3de4e71754a97f0abb3ed6d6ba653dfcaf8",))
   c.execute("CREATE TABLE IF NOT EXISTS reward_emission(id int PRIMARY KEY,total_minted bigint NOT NULL DEFAULT 0)")
   c.execute("INSERT INTO reward_emission(id,total_minted) VALUES(1,0) ON CONFLICT(id) DO NOTHING")
   c.execute("UPDATE players SET last_tick=%s WHERE last_tick IS NULL",(time.time(),))
@@ -464,12 +466,14 @@ def auth_config():
 def link_telegram(q:Request,authorization:str=Header(default="")):
  uid=telegram_identity(q.telegram_data)
  with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
   p=person(c,authorization,True)
   if p["telegram_id"] is not None and p["telegram_id"]!=uid:raise HTTPException(409,"Сначала отвяжите прежний Telegram через поддержку")
   other=c.execute("SELECT id FROM players WHERE telegram_id=%s",(uid,)).fetchone()
   if other and other["id"]!=p["id"]:raise HTTPException(409,"Этот Telegram уже привязан к другой ферме")
   c.execute("UPDATE players SET telegram_id=%s WHERE id=%s",(uid,p["id"]))
+  referral_bridge.sync(c,uid)
  return {"ok":True}
 
 def telegram_webhook_secret():
@@ -647,6 +651,7 @@ def create_support_ticket(uid,command):
  if len(details)>700:return "Описание должно быть короче 700 символов."
  now=time.time()
  with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
   limits=c.execute("SELECT COUNT(*)::int AS n,MAX(created) AS last FROM support_tickets WHERE telegram_id=%s AND created>%s",(uid,now-86400)).fetchone()
   if limits["n"]>=4 or (limits["last"] and now-limits["last"]<900):
@@ -789,6 +794,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   if len(code)>128:return {"ok":True}
   digest=hashlib.sha256(code.encode()).hexdigest()
   with db() as c:
+   c.execute("SELECT pg_advisory_xact_lock(1984533)")
    c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
    entry=c.execute("SELECT player_id FROM telegram_link_codes WHERE code_hash=%s AND expires>%s FOR UPDATE",(digest,time.time())).fetchone()
    if not entry:return {"method":"sendMessage","chat_id":chat_id,"text":"Ссылка привязки истекла. Вернитесь в ферму и нажмите «Привязать Telegram» ещё раз."}
@@ -797,6 +803,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
    if not p or (p["telegram_id"] and p["telegram_id"]!=uid) or (other and other["id"]!=p["id"]):
     return {"method":"sendMessage","chat_id":chat_id,"text":"Этот Telegram уже привязан к другой ферме или аккаунт недоступен. Обратитесь в поддержку."}
    c.execute("UPDATE players SET telegram_id=%s WHERE id=%s",(uid,p["id"]))
+   referral_bridge.sync(c,uid)
    c.execute("DELETE FROM telegram_link_codes WHERE player_id=%s",(p["id"],))
   return {"method":"sendMessage","chat_id":chat_id,"text":"✅ Telegram привязан к вашей ферме! Вернитесь в игру — прогресс сохранён."}
  except Exception:
@@ -807,6 +814,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
 def login_telegram(q:Request):
  uid=telegram_identity(q.telegram_data)
  with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
   p=c.execute("SELECT id FROM players WHERE telegram_id=%s FOR UPDATE",(uid,)).fetchone()
   if not p:
@@ -820,10 +828,13 @@ def login_telegram(q:Request):
    signed_param=dict(parse_qsl(q.telegram_data,keep_blank_values=True)).get("start_param","")
    signed_code=signed_param[4:] if signed_param.startswith("ref_") else ""
    # Signed Telegram start_param takes precedence over a client-provided code.
-   if signed_code or q.referral:register_referral(c,pid,signed_code or q.referral,time.time())
+   referral_bridge.sync(c,uid)
+   bot_parent=c.execute("SELECT referrer FROM bot_accounts WHERE uid=%s",(uid,)).fetchone()
+   if not (bot_parent and bot_parent["referrer"]) and (signed_code or q.referral):register_referral(c,pid,signed_code or q.referral,time.time())
    c.execute("UPDATE economy SET treasury=treasury-10 WHERE id=1")
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,None,"new_player",-10,"Начальный баланс: "+name,time.time()))
    p={"id":pid}
+  referral_bridge.sync(c,uid)
   token=secrets.token_hex(24)
   c.execute("UPDATE players SET token=%s WHERE id=%s",(token,p["id"]))
  return {"token":token}

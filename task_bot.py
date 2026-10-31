@@ -1,3 +1,4 @@
+import referral_bridge
 """Task marketplace and UAH wallet in the existing farm bot.
 
 All monetary values are integer kopecks. Telegram Stars are kept separate.
@@ -52,6 +53,7 @@ def member(info):
     return info.get('status') in ('creator', 'administrator', 'member') or (info.get('status') == 'restricted' and info.get('is_member') is True)
 
 def initialize(c):
+    referral_bridge.initialize(c)
     statements = ['CREATE TABLE IF NOT EXISTS bot_accounts(\n          uid bigint PRIMARY KEY CHECK(uid>0), name text NOT NULL,\n          available bigint NOT NULL DEFAULT 0 CHECK(available>=0),\n          referrer bigint, created double precision NOT NULL)', 'ALTER TABLE bot_accounts ADD COLUMN IF NOT EXISTS advertising bigint NOT NULL DEFAULT 0 CHECK(advertising>=0)', 'CREATE TABLE IF NOT EXISTS bot_cash_pool(\n          id integer PRIMARY KEY CHECK(id=1), amount bigint NOT NULL DEFAULT 0 CHECK(amount>=0))', 'INSERT INTO bot_cash_pool(id) VALUES(1) ON CONFLICT DO NOTHING', 'CREATE TABLE IF NOT EXISTS bot_ledger(\n          id text PRIMARY KEY,uid bigint NOT NULL,delta bigint NOT NULL,kind text NOT NULL,\n          details text NOT NULL,created double precision NOT NULL)', 'CREATE INDEX IF NOT EXISTS bot_ledger_user ON bot_ledger(uid,created)', 'CREATE TABLE IF NOT EXISTS bot_receipts(\n          event text PRIMARY KEY,response jsonb NOT NULL,created double precision NOT NULL)', 'CREATE TABLE IF NOT EXISTS bot_states(\n          uid bigint PRIMARY KEY,state text NOT NULL,data jsonb NOT NULL,updated double precision NOT NULL)', "CREATE TABLE IF NOT EXISTS bot_tasks(\n          id text PRIMARY KEY,owner bigint NOT NULL,kind text NOT NULL,title text NOT NULL,\n          description text NOT NULL,url text NOT NULL,chat_id bigint,\n          reward bigint NOT NULL CHECK(reward>0),remaining bigint NOT NULL CHECK(remaining>=0),\n          status text NOT NULL CHECK(status IN ('pending','active','closed','rejected')),\n          created double precision NOT NULL)", 'CREATE INDEX IF NOT EXISTS bot_tasks_catalog ON bot_tasks(status,kind,created)', "CREATE TABLE IF NOT EXISTS bot_claims(\n          task text NOT NULL,uid bigint NOT NULL,status text NOT NULL,\n          proof text NOT NULL DEFAULT '',photo text NOT NULL DEFAULT '',created double precision NOT NULL,\n          PRIMARY KEY(task,uid))", "CREATE TABLE IF NOT EXISTS bot_payouts(\n          id text PRIMARY KEY,uid bigint NOT NULL,amount bigint NOT NULL CHECK(amount>0),\n          destination text NOT NULL,status text NOT NULL CHECK(status IN ('pending','paid','rejected','cancelled')),\n          reference text NOT NULL DEFAULT '',created double precision NOT NULL)", "CREATE UNIQUE INDEX IF NOT EXISTS bot_one_pending_payout ON bot_payouts(uid) WHERE status='pending'", 'CREATE TABLE IF NOT EXISTS bot_deposits(\n          reference text PRIMARY KEY,uid bigint NOT NULL,amount bigint NOT NULL CHECK(amount>0),created double precision NOT NULL)']
     for sql in statements:
         c.execute(sql)
@@ -267,8 +269,16 @@ def handle(payload, db, api, is_admin):
                 raw = text.split('partner_', 1)[1]
                 if raw.isdecimal() and len(raw) <= 19 and (0 < int(raw) <= 9223372036854775807) and (int(raw) != uid):
                     ref = c.execute('SELECT uid FROM bot_accounts WHERE uid=%s', (int(raw),)).fetchone()
+            # A pre-existing game inviter takes precedence over a new bot link.
+            game_ref=c.execute('SELECT p.telegram_id AS uid FROM referrals r JOIN players ch ON ch.id=r.child_id JOIN players p ON p.id=r.parent_id WHERE ch.telegram_id=%s',(uid,)).fetchone()
+            if game_ref:ref=game_ref if game_ref['uid'] else None
+            if game_ref and game_ref['uid']:
+                ref=game_ref
+                c.execute('INSERT INTO bot_accounts(uid,name,created) VALUES(%s,%s,%s) ON CONFLICT(uid) DO NOTHING',(ref['uid'],'Игрок',time.time()))
+            if ref and not referral_bridge.acyclic(c,uid,ref['uid']):ref=None
             is_new = not c.execute('SELECT 1 FROM bot_accounts WHERE uid=%s', (uid,)).fetchone()
             c.execute('INSERT INTO bot_accounts(uid,name,referrer,created) VALUES(%s,%s,%s,%s)\n              ON CONFLICT(uid) DO UPDATE SET name=EXCLUDED.name', (uid, str(sender.get('first_name') or 'Игрок')[:100], ref['uid'] if ref else None, time.time()))
+            referral_bridge.sync(c, uid)
             unify_balances(c, uid)
             message = dict(message, _new_referral=bool(is_new and ref and text.startswith('/start partner_')))
             with bot_copy.session(c, admin):

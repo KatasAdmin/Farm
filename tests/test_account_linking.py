@@ -6,6 +6,7 @@ import main
 class Cursor:
  def __init__(self,row=None): self.row=row
  def fetchone(self): return self.row
+ def fetchall(self): return []
 
 class DB:
  def __init__(self,player): self.player=player;self.queries=[]

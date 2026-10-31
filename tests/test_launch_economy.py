@@ -8,6 +8,8 @@ class Cursor:
         self.row = row
     def fetchone(self):
         return self.row
+    def fetchall(self):
+        return []
 
 class FakeDB:
     def __init__(self):
