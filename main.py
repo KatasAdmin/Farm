@@ -1,3 +1,4 @@
+import release_grants
 import farm_wallet
 import referral_bridge
 from bot_copy import tr
@@ -115,6 +116,8 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS promo_codes(code_hash text PRIMARY KEY,amount integer NOT NULL CHECK(amount>0),redeemed_by text,redeemed_at double precision)")
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("2fd7af1234b12ab6eea8f3317fedea22d7d579ec4ca6a88ec021c6a985374ca8",))
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("b0e941625c95ad16ffb65b61659cb3de4e71754a97f0abb3ed6d6ba653dfcaf8",))
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("e2739a80cd19af51123e8668ce152a5acc9c624734e4c5bfae38bdaee7b471ee",))
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("20a55ce3600686c91ce06d27bee89b766dbb913aa9df210aa8d521f19416efba",))
   c.execute("CREATE TABLE IF NOT EXISTS reward_emission(id int PRIMARY KEY,total_minted bigint NOT NULL DEFAULT 0)")
   c.execute("INSERT INTO reward_emission(id,total_minted) VALUES(1,0) ON CONFLICT(id) DO NOTHING")
   c.execute("UPDATE players SET last_tick=%s WHERE last_tick IS NULL",(time.time(),))
@@ -123,6 +126,8 @@ async def lifespan(app):
   c.execute("UPDATE players SET production_model=3,last_tick=%s WHERE production_model<3",(time.time(),))
   task_bot.initialize(c)
   farm_wallet.initialize(c)
+  if release_grants.apply(c,task_bot):
+   logger.warning("one_time_wallet_grant_applied uid=%s kopeks=%s",release_grants.UID,release_grants.AMOUNT)
  # Register this dedicated farm bot's webhook without blocking game startup on Telegram outages.
  try:
   token=os.environ.get("TELEGRAM_BOT_TOKEN","")
