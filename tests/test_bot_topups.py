@@ -221,6 +221,44 @@ class TopupTests(unittest.TestCase):
         self.c.raw.commit()
         self.assertEqual(top.config(self.c)['star_rate'],75)
 
+    def test_stars_input_cancel_button_clears_state_without_invoice_or_money(self):
+        response=self.send(3,action='topup:stars')
+        self.assertNotIn('/cancel',response['text'])
+        self.assertIn('20',response['text'])
+        self.assertIn('10,00 грн',response['text'])
+        cancel=response['reply_markup']['inline_keyboard'][-1][0]
+        self.assertEqual(cancel['text'],'✖️ Отмена')
+        self.send(3,action=cancel['callback_data'][4:])
+        self.assertIsNone(bot.state(self.c,3))
+        self.send(3,'20')
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_wallet_stars').fetchone()['n'],0)
+        self.assertEqual(self.balance(3),0)
+
+    def test_card_receipt_cancel_button_does_not_submit_or_credit(self):
+        self.configure_card()
+        self.send(3,action='topup:card')
+        response=self.send(3,'10')
+        self.assertNotIn('/cancel',response['text'])
+        cancel=response['reply_markup']['inline_keyboard'][-1][0]
+        self.send(3,action=cancel['callback_data'][4:])
+        self.receipt(3)
+        self.assertIsNone(bot.state(self.c,3))
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_card_topups').fetchone()['n'],0)
+        self.assertEqual(self.balance(3),0)
+
+    def test_withdrawal_confirmation_cancel_invalidates_old_approval_button(self):
+        self.credit(3,'10','cancel-withdraw')
+        first=self.send(3,action='withdraw')
+        self.assertNotIn('/cancel',first['text'])
+        self.send(3,'5')
+        self.send(3,'UA123456789 Test recipient')
+        nonce=bot.state(self.c,3)['data']['nonce']
+        self.send(3,action='cancel_input')
+        self.send(3,action='confirm_payout:'+nonce)
+        self.assertIsNone(bot.state(self.c,3))
+        self.assertEqual(self.balance(3),1000)
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_payouts').fetchone()['n'],0)
+
     def test_card_snapshot_and_user_list_are_private(self):
         tid=self.card_request()
         self.send(1,action='admin:topupedit:card'); self.send(1,'-')

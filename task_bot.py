@@ -131,7 +131,16 @@ def say(uid, text, buttons=None):
 
 
 def button(text, action):
+    if action == 'cancel_input':
+        text = '✖️ Отмена'
     return {"text": text, "callback_data": "bot:" + action}
+
+
+def input_prompt(uid, text, buttons=None, cancel_action='cancel_input'):
+    rows=list(buttons or [])
+    if not any(b.get('callback_data')=='bot:'+cancel_action for row in rows for b in row):
+        rows.append([button('✖️ Отмена',cancel_action)])
+    return say(uid,text,rows)
 
 
 def account(c, uid):
@@ -308,7 +317,7 @@ def handle(payload, db, api, is_admin):
                     response = route(c, uid, text, action[4:] if callback else "", message, api, admin)
             except UserError as error:
                 response = ({"method": "answerCallbackQuery", "callback_query_id": callback['id'], "text": str(error)[:200], "show_alert": True}
-                            if channel_claim else say(uid, str(error)))
+                            if channel_claim else (input_prompt(uid,str(error)) if state(c,uid) else say(uid,str(error))))
             c.execute("INSERT INTO bot_receipts VALUES(%s,%s,%s)", (event, Jsonb(response), time.time()))
     except Exception:
         # Do not acknowledge processing failures: Telegram will retry the same update.
@@ -382,7 +391,7 @@ def route(c, uid, text, action, message, api, admin):
         return cabinet(c, uid)
     if action == "withdraw":
         state(c, uid, action)
-        return say(uid, "Введи сумму в гривнах. Затем укажешь реквизиты для ручной выплаты.\n/cancel — отмена.")
+        return input_prompt(uid, "Введи сумму в гривнах. Затем укажешь реквизиты для ручной выплаты.")
     if action.startswith("new:"):
         kind = action.split(":")[1]
         if kind not in KINDS:
@@ -390,7 +399,7 @@ def route(c, uid, text, action, message, api, admin):
         if kind == 'post' and not bot_extras.settings(c)['channel_id']:
             raise UserError('Канал рекламных постов ещё не подключён администратором.')
         state(c, uid, "task_title", {"kind": kind})
-        return say(uid, ("Пост появится в нашем канале после модерации. Оплачивается нажатие кнопки, а не доказанное прочтение.\n\n" if kind == "post" else "") + "Введи название задания (до 100 символов). /cancel — отмена.")
+        return input_prompt(uid, ("Пост появится в нашем канале после модерации. Оплачивается нажатие кнопки, а не доказанное прочтение.\n\n" if kind == "post" else "") + "Введи название задания (до 100 символов).")
     if action.startswith(("list:", "mine:", "reviews:")):
         parts = action.split(":")
         try:
@@ -494,7 +503,7 @@ def route(c, uid, text, action, message, api, admin):
             return task_card(t, uid, c)
         if t["kind"] == "manual":
             state(c, uid, "proof", {"task": t["id"]})
-            return say(uid, "Отправь доказательство выполнения: текст или одно фото с подписью. Проверит рекламодатель. /cancel — отмена.")
+            return input_prompt(uid, "Отправь доказательство выполнения: текст или одно фото с подписью. Проверит рекламодатель.")
         if not member(api("getChatMember", {"chat_id": t["chat_id"], "user_id": uid})):
             raise UserError("Подписка пока не подтверждена. Вступи в канал/группу и повтори проверку.")
         award(c, t, uid)
@@ -550,7 +559,7 @@ def process_input(c, uid, text, message, current, api):
         if c.execute("SELECT 1 FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone():
             raise UserError("Сначала дождись обработки предыдущей заявки или отмени её в кабинете.")
         state(c, uid, "destination", {"amount": n})
-        return say(uid, "Укажи реквизиты для выплаты: номер карты или IBAN и имя получателя. Не отправляй CVV, PIN, пароли или коды.\n/cancel — отмена.")
+        return input_prompt(uid, "Укажи реквизиты для выплаты: номер карты или IBAN и имя получателя. Не отправляй CVV, PIN, пароли или коды.")
     if stage == "destination":
         if not 8 <= len(text) <= 250:
             raise UserError("Реквизиты должны содержать от 8 до 250 символов.")
@@ -634,10 +643,10 @@ def process_input(c, uid, text, message, current, api):
             state(c, uid, "task_confirm", data)
             return say(uid, f"{data['title']}\nНаграда: {money(data['reward'])}\nВыполнений: {text}\nПолная цена выполнения: {money(data.get('terms',{}).get('cost',data['reward']))}\nБюджет: {money(total)}\nКомиссия уже включена в цену\n\nПосле подтверждения бюджет резервируется, задание отправляется на модерацию.", [[button("✅ Создать", "confirm_task:" + data["nonce"]), button("Отмена", "cancel_input")]])
         else:
-            return say(uid, "Подтверди действие кнопкой выше или отправь /cancel.")
+            return input_prompt(uid, "Подтверди действие кнопкой выше или нажми «Отмена».")
         state(c, uid, next_stage, data)
-        return say(uid, prompt + "\n/cancel — отмена.")
-    return say(uid, "Подтверди действие кнопкой выше или отправь /cancel.")
+        return input_prompt(uid, prompt)
+    return input_prompt(uid, "Подтверди действие кнопкой выше или нажми «Отмена».")
 
 
 def confirmation(c, uid, action):

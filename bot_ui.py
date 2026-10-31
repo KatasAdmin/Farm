@@ -22,6 +22,13 @@ def screen(uid, text, buttons=None):
     return result
 
 
+def input_screen(uid, text, buttons=None, cancel_action='cancel_input'):
+    result=core().input_prompt(uid,text,buttons,cancel_action)
+    result['parse_mode']='HTML'
+    result['link_preview_options']={'is_disabled':True}
+    return result
+
+
 def initialize(c):
     c.execute('CREATE INDEX IF NOT EXISTS bot_claims_user ON bot_claims(uid,status)')
     c.execute('CREATE INDEX IF NOT EXISTS bot_ref_rewards_parent ON bot_ref_rewards(parent,level)')
@@ -237,7 +244,7 @@ def route(c,uid,text,action,message):
         return welcome(c,uid)
     if action=='welcome:edit':
         b.state(c,uid,'welcome_edit')
-        return screen(uid,'✏️ <b>Новое приветствие</b>\n\nПришли текст от 1 до 500 символов. Можно добавить ссылки.\n/cancel — отмена.')
+        return input_screen(uid,'✏️ <b>Новое приветствие</b>\n\nПришли текст от 1 до 500 символов. Можно добавить ссылки.')
     if action=='welcome:preview':
         row=c.execute('SELECT body FROM bot_ref_welcomes WHERE uid=%s',(uid,)).fetchone()
         if not row:
@@ -262,7 +269,7 @@ def route(c,uid,text,action,message):
 def input_text(c,uid,text,message,current):
     b=core()
     if current['state']=='welcome_confirm':
-        return screen(uid,'Нажми «Сохранить» под предпросмотром или отправь /cancel.')
+        return input_screen(uid,'Нажми «Сохранить» под предпросмотром или «Отмена».')
     if (not 1<=len(text)<=500 or any(ord(ch)<32 and ch not in '\n\t' for ch in text)
             or message.get('photo') or message.get('document') or message.get('forward_origin') or message.get('media_group_id')):
         raise b.UserError('Пришли свой текст от 1 до 500 символов, одним сообщением.')

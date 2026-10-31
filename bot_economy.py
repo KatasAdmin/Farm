@@ -283,7 +283,7 @@ def admin(c, uid, text, action):
         if field not in prompts:
             raise b.UserError('Неизвестная настройка.')
         b.state(c,uid,'economy_edit',{'field':field})
-        return b.say(uid,prompts[field]+'\n/cancel — отмена.')
+        return b.input_prompt(uid,prompts[field])
     if action=='admin:retention':
         row=c.execute("SELECT * FROM bot_retention WHERE state='review' ORDER BY started LIMIT 1").fetchone()
         if not row:

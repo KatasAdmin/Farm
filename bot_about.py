@@ -115,9 +115,9 @@ def route(c,uid,text,action):
             return b.bot_ui.screen(uid,'👨‍💻 <b>Связь с администратором</b>',[
                 [{'text':'Написать администратору','url':cfg['admin_url']}],[b.button('⬅️ О боте','about')]])
         b.state(c,uid,'public_support')
-        return b.bot_ui.screen(uid,'👨‍💻 <b>Связь с администрацией</b>\n\n'
+        return b.bot_ui.input_screen(uid,'👨‍💻 <b>Связь с администрацией</b>\n\n'
             'Напиши свой вопрос одним текстовым сообщением. Он попадёт в обращения, ответ придёт в этот чат.\n'
-            'Не отправляй пароли, CVV и коды.\n/cancel — отмена.',[[b.button('⬅️ О боте','about')]])
+            'Не отправляй пароли, CVV и коды.',cancel_action='about')
     if key in ('news','chat','payouts'):
         cfg=settings(c)
         if cfg[key]:
@@ -176,7 +176,7 @@ def admin(c,uid,action):
         b.state(c,uid,'about_edit',{'field':field})
         prompt=('Введи дату запуска в формате ГГГГ-ММ-ДД. Она не может быть в будущем.' if field=='started'
                 else 'Пришли @имя или ссылку на нужный Telegram-канал/чат/контакт. Минус (-) уберёт ссылку.')
-        return ui.screen(uid,'✏️ <b>Изменить настройку</b>\n\n'+prompt+'\n/cancel — отмена.')
+        return ui.input_screen(uid,'✏️ <b>Изменить настройку</b>\n\n'+prompt)
     return None
 
 

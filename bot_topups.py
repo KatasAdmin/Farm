@@ -68,8 +68,11 @@ def route(c,uid,action):
             return ui.screen(uid,'⭐ <b>Telegram Stars</b>\n\nКурс зачисления ещё не установлен администратором. Оплата пока недоступна.',[[b.button('⬅️ Пополнение','deposit')]])
         b.state(c,uid,'topup_stars',{'rate':cfg['star_rate']})
         rate_label='2 Stars = 1,00 грн' if cfg['star_rate']==50 else '1 Star = '+b.money(cfg['star_rate'])
-        return ui.screen(uid,'⭐ <b>Пополнить через Stars</b>\n\nКурс: <b>'+rate_label+'</b>\n'
-                         'Введи количество Stars целым числом от 1 до 10000. Перед оплатой увидишь сумму зачисления.\n/cancel — отмена.')
+        return ui.input_screen(uid,'⭐ <b>Пополнение через Stars</b>\n\n💱 Курс: <b>'+rate_label+'</b>\n\n'
+                         'Отправь количество Stars, которое хочешь оплатить.\n'
+                         '✍️ Например: <code>20</code> → <b>'+b.money(20*cfg['star_rate'])+'</b> на баланс бота.\n\n'
+                         '🧾 Бот пришлёт счёт. После оплаты сумма зачислится автоматически.\n\n'
+                         '<i>От 1 до 10 000 Stars, только целое число.</i>',cancel_action='deposit')
     if action=='topup:card':
         cfg=config(c)
         if not cfg['card']:
@@ -77,7 +80,7 @@ def route(c,uid,action):
         if c.execute("SELECT 1 FROM bot_card_topups WHERE uid=%s AND status='pending'",(uid,)).fetchone():
             raise b.UserError('Квитанция уже на проверке. Статус — в «Мои пополнения».')
         b.state(c,uid,'topup_card_amount',{'card':cfg['card'],'recipient':cfg['recipient']})
-        return ui.screen(uid,'💳 <b>Перевод на карту</b>\n\nВведи сумму пополнения в гривнах. Затем получишь реквизиты и сможешь прикрепить квитанцию.\n/cancel — отмена.')
+        return ui.input_screen(uid,'💳 <b>Перевод на карту</b>\n\nВведи сумму пополнения в гривнах. Затем получишь реквизиты и сможешь прикрепить квитанцию.',cancel_action='deposit')
     if action=='topup:mine':
         b.state(c,uid,'clear')
         rows=c.execute("""SELECT id,amount,status,created,'card' AS kind FROM bot_card_topups WHERE uid=%s
@@ -110,9 +113,9 @@ def input_text(c,uid,text,message,current):
         amount=b.amount(text)
         data['amount']=amount
         b.state(c,uid,'topup_card_receipt',data)
-        return ui.screen(uid,'💳 <b>Реквизиты для перевода</b>\n\nКарта: <code>'+data['card']+'</code>\n'
+        return ui.input_screen(uid,'💳 <b>Реквизиты для перевода</b>\n\nКарта: <code>'+data['card']+'</code>\n'
                          'Получатель: <b>'+ui.esc(data['recipient'])+'</b>\nСумма: <b>'+b.money(amount)+'</b>\n\n'
-                         'После перевода отправь квитанцию одним фото или PDF. Зачисление — после проверки поступления администратором.\n/cancel — отмена.')
+                         'После перевода отправь квитанцию одним фото или PDF. Зачисление — после проверки поступления администратором.',cancel_action='deposit')
     if stage=='topup_card_receipt':
         photos=message.get('photo') or []; doc=message.get('document') or {}
         file=photos[-1] if photos else doc
@@ -194,8 +197,8 @@ def admin(c,uid,action):
         if field not in ('rate','card'):
             raise b.UserError('Неизвестная настройка.')
         b.state(c,uid,'topup_config',{'field':field})
-        return ui.screen(uid,'Введи сумму в гривнах за 1 Star. 0 отключает оплату.' if field=='rate' else
-                         'Пришли две строки: номер карты (16 цифр) и имя получателя. Минус (-) отключает способ.\n/cancel — отмена.')
+        return ui.input_screen(uid,'Введи сумму в гривнах за 1 Star. 0 отключает оплату.' if field=='rate' else
+                         'Пришли две строки: номер карты (16 цифр) и имя получателя. Минус (-) отключает способ.')
     if action=='admin:cardtopups':
         rows=c.execute("SELECT id,amount FROM bot_card_topups WHERE status='pending' ORDER BY created LIMIT 10").fetchall()
         return ui.screen(uid,'📨 <b>Квитанции на проверке</b>\n\nПроверяй фактическое поступление в банке перед зачислением.',
@@ -210,7 +213,7 @@ def admin(c,uid,action):
             return ui.screen(uid,'Заявка отклонена. Начисления нет.')
         if action.startswith('admin:cardapprove:'):
             b.state(c,uid,'topup_bank_reference',{'id':tid,'nonce':uuid.uuid4().hex[:12]})
-            return ui.screen(uid,'Введи уникальный номер фактической банковской операции. Сумма: '+b.money(row['amount'])+'\n/cancel — отмена.')
+            return ui.input_screen(uid,'Введи уникальный номер фактической банковской операции. Сумма: '+b.money(row['amount']))
         return {'method':'sendPhoto' if row['media']=='photo' else 'sendDocument','chat_id':uid,
                 'photo' if row['media']=='photo' else 'document':row['file_id'],
                 'caption':f"Пополнение {tid}\nПользователь: {row['uid']}\nСумма: {b.money(row['amount'])}\nКарта: {row['card']}\nПолучатель: {row['recipient']}",
@@ -246,7 +249,7 @@ def admin_input(c,uid,text,current):
                                'Пользователь: '+str(row['uid'])+'\nСумма: '+b.money(row['amount'])+'\nЗаявка: '+data['id']+'\nОперация: '+b.bot_ui.esc(text),
                                [[b.button('✅ Подтвердить','admin:cardconfirm:'+data['nonce'])],[b.button('Отмена','cancel_input')]])
     if current['state']=='topup_bank_confirm':
-        return b.say(uid,'Используй кнопку подтверждения выше или /cancel.')
+        return b.input_prompt(uid,'Используй кнопку подтверждения выше или нажми «Отмена».')
     if data['field']=='rate':
         rate=0 if text in ('0','0.00','0,00') else b.amount(text)
         c.execute('UPDATE bot_topup_config SET star_rate=%s WHERE id=1',(rate,))
