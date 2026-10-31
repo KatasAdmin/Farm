@@ -4,12 +4,13 @@ const art = {
   grain: "redesign/grain",
   eggs: "redesign/egg",
   chickens: "redesign/hen",
+  geese: "goose.svg",
 };
 function eggQuantity(n) {
   const v=Math.abs(n)%100, last=v%10;
   return `${number(n)} ${v>=11 && v<=14 ? "яиц" : last===1 ? "яйцо" : last>=2 && last<=4 ? "яйца" : "яиц"}`;
 }
-const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица" };
+const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица", geese:"Гусыня" };
 const number = (n) => new Intl.NumberFormat("ru-RU").format(n);
 let token = localStorage.getItem("farm_token");
 let state = null,
@@ -30,7 +31,7 @@ function safe(s) {
   );
 }
 function image(path, cls = "icon") {
-  return `<img src="/assets/${path}.webp" class="${cls}" alt="" decoding="async">`;
+  return `<img src="/assets/${path}${path.endsWith(".svg")?"":".webp"}" class="${cls}" alt="" decoding="async">`;
 }
 function toast(message) {
   el("toast").textContent = message;
@@ -418,11 +419,11 @@ function marketTab(mode) {
 }
 let selectedResource="eggs";
 let sellingResource=null;
-const systemBuyback={grain:1,chickens:20};
+const systemBuyback={grain:1,chickens:20,geese:50};
 function openResourceActions(item) {
-  if (!state || !["grain","chickens","eggs"].includes(item)) return;
+  if (!state || !["grain","chickens","geese","eggs"].includes(item)) return;
   selectedResource=item;
-  const title={grain:"🌾 Зерно",chickens:"🐔 Куры",eggs:"🥚 Яйца"}[item];
+  const title={grain:"🌾 Зерно",chickens:"🐔 Куры",geese:"🪿 Гуси",eggs:"🥚 Яйца"}[item];
   el("resource-action-title").textContent=title;
   el("resource-action-description").textContent=item==="eggs"
     ? "Купи яйца у других фермеров или выставь свои на рынок."
@@ -444,9 +445,9 @@ function resourceAction(action){
  }
 }
 function openSystemSell(item){
- if(!state||!["grain","chickens"].includes(item)||pending)return;
+ if(!state||!["grain","chickens","geese"].includes(item)||pending)return;
  sellingResource=item;
- el("system-sell-title").textContent=item==="grain"?"🌾 Продать зерно":"🐔 Продать курицу";
+ el("system-sell-title").textContent=item==="grain"?"🌾 Продать зерно":item==="geese"?"🪿 Продать гусыню":"🐔 Продать курицу";
  el("system-sell-amount").value="1";
  el("system-sell-amount").max=String(Math.min(10000,state.me[item]));
  systemSellQuote();
@@ -542,6 +543,7 @@ function selectBuy(item) {
 }
 function showShop(item) {
   if (!state) return;
+  if(item==="geese" && (state.progression?.level||1)<(state.shop.goose_min_level||3))return toast("Гуси открываются с 3-го уровня. Зарабатывай опыт и развивай ферму!");
   const price = state.shop[item];
   if (!price) return;
   openPurchase({ kind: "shop", item, price });
@@ -569,7 +571,7 @@ function openPurchase(data) {
   img.src =
     "/assets/" +
     (data.kind === "bundle" ? "redesign/wallet" : art[data.item]) +
-    ".webp";
+    (data.item==="geese"?"":".webp");
   el("purchase-amount").value = 1;
   el("purchase-amount").closest(".stepper").hidden = data.kind === "bundle";
   purchaseQuote();
@@ -589,13 +591,13 @@ function purchaseQuote() {
     ? quote(purchase.item, n)
     : { cost: purchase.price * n, remaining: 0 };
   el("purchase-total").textContent = valid ? number(result.cost) : "—";
-  const room = purchase.item === "chickens"
-    ? state.buildings.coop_capacity - state.me.chickens
+  const room = ["chickens","geese"].includes(purchase.item)
+    ? state.buildings.coop_capacity - state.me.chickens - (state.me.geese||0)
     : state.buildings.storage_capacity - state.buildings.storage_used;
   const noRoom = purchase.kind !== "bundle" && n > room;
   const expired = purchase.kind === "bundle" && !promotionActive();
   let info = expired ? "Акция завершена"
-    : noRoom ? (purchase.item === "chickens" ? "В курятнике нет места. Улучши курятник." : "На складе нет места. Улучши склад.")
+    : noRoom ? (["chickens","geese"].includes(purchase.item) ? "В птичнике нет места. Расширь его." : "На складе нет места. Улучши склад.")
     : !valid
     ? "Введите целое количество от 1 до 10 000"
     : result.remaining > 0
@@ -692,9 +694,9 @@ function storageFilter(filter, button) {
     .querySelectorAll("button")
     .forEach((x) => x.classList.toggle("active", x === button));
 }
-const logNames = { grain: "Зерно", chickens: "Курицы", eggs: "Яйца" };
+const logNames = { grain: "Зерно", chickens: "Курицы", geese:"Гуси", eggs: "Яйца" };
 function details(text) {
-  return text.replace(/grain|chickens|eggs/g, (x) => logNames[x]);
+  return text.replace(/grain|chickens|geese|eggs/g, (x) => logNames[x]);
 }
 async function redeemPromoCode(event) {
   event.preventDefault();
@@ -882,11 +884,15 @@ function render() {
   assignStat("stat-margin",farmDailyStats.feed_margin_coins);
   const pr = state.progression || {};
   const xp = Number(pr.xp || 0), lvl = Number(pr.level || 1);
+  celebrateLevel(p.id,lvl);
+  const gooseBuy=el("goose-buy-button");
+  if(gooseBuy){gooseBuy.disabled=pending||lvl<3;gooseBuy.textContent=lvl<3?"С 3-го уровня":"Купить";}
+  document.querySelectorAll("[data-birds-total]").forEach(n=>n.textContent=number(p.chickens+(p.geese||0)));
   const prev = 25*(lvl-1)*(lvl-1), next = Number(pr.next_level_xp || 25);
   const percent = Math.max(0,Math.min(100,100*(xp-prev)/Math.max(1,next-prev)));
-  if (el("identity-level")) el("identity-level").textContent = "Уровень " + lvl + " · " + xp + " XP";
+  if (el("identity-level")) el("identity-level").textContent = farmerTitle(lvl)+" · Уровень " + lvl + " · " + xp + " XP";
   if (el("identity-xp-fill")) el("identity-xp-fill").style.width = percent + "%";
-  if (el("profile-level")) el("profile-level").textContent = "Уровень " + lvl + " · " + xp + " XP";
+  if (el("profile-level")) el("profile-level").textContent = farmerTitle(lvl)+" · Уровень " + lvl + " · " + xp + " XP";
   for (const img of document.querySelectorAll(".identity .avatar, .profile-avatar")) img.src = avatarSource(p);
   const promo = state.promotion || {};
   document.querySelectorAll("[data-promo-discount]").forEach(x => x.textContent = `−${Math.round(100*(1-promo.price/promo.value))}%`);
@@ -905,7 +911,7 @@ function render() {
   const button=el("incubator-action");
   if(button){const full=jobs.length>=(inc.capacity||1);
     button.textContent=!inc.owned?"Купить · "+number(inc.incubator_price)+" монет":"Заложить 12 яиц + 15 монет";
-    button.disabled=pending||(!inc.owned?p.coins<inc.incubator_price:full||p.eggs<12||p.coins<15||p.chickens+jobs.length>=state.buildings.coop_capacity);}
+    button.disabled=pending||(!inc.owned?p.coins<inc.incubator_price:full||p.eggs<12||p.coins<15||p.chickens+(p.geese||0)+jobs.length>=state.buildings.coop_capacity);}
   const guide=el("launch-guide");
   if(guide)guide.hidden=!(Date.now()/1000<(p.created_at||0)+3600 && !localStorage.getItem("farm_guide_dismissed_"+p.id));
   const tutorial=state.tutorial||{};
@@ -937,7 +943,7 @@ function render() {
     const seenKey = "farm_seen_event_" + p.id;
     if (localStorage.getItem(seenKey) !== last.id) {
       localStorage.setItem(seenKey, last.id);
-      toast(last.kind === "chick_matured" ? "Цыплёнок вырос! +1 курица." : "Куры снесли " + number(last.amount) + " яиц! Они уже на складе.");
+      toast(last.kind === "chick_matured" ? "Цыплёнок вырос! +1 курица." : "Птицы снесли " + number(last.amount) + " яиц! Они уже на складе.");
     }
   }
   const progression = state.progression || {};
@@ -990,6 +996,7 @@ function render() {
   document.querySelectorAll("[data-eggs-12h]").forEach(x => x.textContent = `${approx}+${eggQuantity(f.eggs_next_12h)}`);
   document.querySelectorAll("[data-feed-required]").forEach(x => x.textContent = number(f.grain_required_next_feed));
   document.querySelectorAll("[data-fed-hens]").forEach(x => x.textContent = number(f.fed_hens));
+  document.querySelectorAll("[data-fed-birds]").forEach(x => x.textContent = number(f.fed_hens+(f.fed_geese||0)));
   document.querySelectorAll("[data-forecast-note]").forEach(x => x.textContent = f.forecast_note);
   const brief=el("forecast-brief"); brief.hidden=!f.forecast_approximate; brief.textContent="Есть взрослеющие цыплята — оценка для нынешних несушек.";
   const feedStatus = f.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления."
@@ -1015,10 +1022,10 @@ function render() {
     x.parentElement.setAttribute("aria-valuenow", sat);
     x.style.background = sat < 35 ? "linear-gradient(#ffb65d,#db3b29)" : "";
   });
-  el("feedstock").textContent = p.chickens
+  el("feedstock").textContent = p.chickens+(p.geese||0)
     ? "~"+Math.max(0,Math.floor(state.farm.feed_stock_seconds/3600))+" часов"
-    : "— (нет кур)";
-  el("warning").textContent = state.farm.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления." : "Кормление раз в 18 часов · 1 зерно на курицу.";
+    : "— (нет птицы)";
+  el("warning").textContent = state.farm.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления." : "Кормление раз в 18 часов · курица: 1 зерно, гусыня: 2.";
   el("warning").dataset.alert = String(state.farm.effective_grain_shortage > 0);
   el("warning").hidden=state.farm.effective_grain_shortage<=0;
 
@@ -1054,7 +1061,7 @@ function render() {
   el("leaders").innerHTML = state.top
     .map(
       (x, i) =>
-        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>${number(x.chickens)} куриц</small></div><b>${number(x.coins)} ${image("redesign/coin")}</b></div>`,
+        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>${number(x.chickens+(x.geese||0))} птиц</small></div><b>${number(x.coins)} ${image("redesign/coin")}</b></div>`,
     )
     .join("");
   el("mylist").innerHTML = state.my_listings.length
@@ -1093,7 +1100,7 @@ function countdown() {
   el("bundle-buy").disabled = pending || !promoActive || state.me.coins < promo.price;
   const inc=state.incubator||{}, now=state.now+elapsed;
   const jobs=inc.jobs||[];
-  const full=state.me.chickens>=state.buildings.coop_capacity;
+  const full=state.me.chickens+(state.me.geese||0)>=state.buildings.coop_capacity;
   const status=!inc.owned?"Инкубатор ещё не куплен":jobs.length===0?"Свободен · заложи яйцо":jobs.length+" из "+inc.capacity+" мест занято";
   if(el("incubation-status"))el("incubation-status").textContent=status;
   document.querySelectorAll("[data-incubator-summary]").forEach(x=>x.textContent=status);
@@ -1174,3 +1181,18 @@ function openBotWallet(){
  if(tg?.openTelegramLink)tg.openTelegramLink(url);
  else window.open(url,"_blank","noopener,noreferrer");
 }
+
+function celebrateLevel(playerId,level){
+ if(!playerId)return;
+ const key="farm_seen_level_"+playerId;
+ let previous=0;
+ try{previous=Number(localStorage.getItem(key)||0);localStorage.setItem(key,String(Math.max(previous,level)));}catch(e){return;}
+ if(!previous||level<=previous)return;
+ const dialog=el("level-up-dialog");
+ if(!dialog)return;
+ el("level-up-number").textContent=String(level);
+ el("level-up-description").textContent=previous<3&&level>=3?"Теперь в магазине доступны гуси — больше яиц и новые возможности для фермы!":"Твоё хозяйство растёт! Продолжай производить, торговать и развивать ферму.";
+ dialog.showModal();
+}
+
+function farmerTitle(level){return level>=15?"Хозяин фермы":level>=10?"Мастер фермы":level>=5?"Фермер":level>=3?"Птицевод":"Новичок";}

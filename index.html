@@ -12,10 +12,11 @@
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
+    <link rel="stylesheet" href="/assets/birds.css?v=1" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <link rel="stylesheet" href="/assets/stars-mobile.css?v=12" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=55" defer></script>
+    <script src="/assets/game.js?v=56" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -30,7 +31,7 @@
         <p class="eyebrow">НОВАЯ ЖИЗНЬ</p>
         <h1>Твоя ферма ждёт</h1>
         <p>
-          Заботься о курицах, продавай урожай и развивай хозяйство вместе с
+          Выращивай птицу, продавай яйца и развивай хозяйство вместе с
           другими фермерами.
         </p>
         <p class="starter">
@@ -99,7 +100,7 @@
         >
       </header>
       <section id="farm" class="panel active unified-farm-panel" aria-label="Ферма">
-        <div id="tutorial-card" class="card tutorial-card" hidden><div class="tutorial-heading"><img src="/assets/redesign/achievement.webp" alt=""><div><strong>Добро пожаловать на ферму!</strong><small id="tutorial-progress">Шаг 1 из 3</small></div></div><p id="tutorial-instruction">Начнём с курятника.</p><button id="tutorial-next" class="btn wide" onclick="completeTutorialStep()">Посмотреть курятник</button><p class="muted">Три подсказки и +5 монет за завершение. Один раз на аккаунт.</p></div>
+        <div id="tutorial-card" class="card tutorial-card" hidden><div class="tutorial-heading"><img src="/assets/redesign/achievement.webp" alt=""><div><strong>Добро пожаловать на ферму!</strong><small id="tutorial-progress">Шаг 1 из 3</small></div></div><p id="tutorial-instruction">Начнём с птичника.</p><button id="tutorial-next" class="btn wide" onclick="completeTutorialStep()">Посмотреть птичник</button><p class="muted">Три подсказки и +5 монет за завершение. Один раз на аккаунт.</p></div>
         <div class="farm-hero">
           <img
             src="/assets/backgrounds/farm_sunset.webp"
@@ -125,7 +126,7 @@
         <div class="quicknav farm-quicknav" aria-label="Быстрые действия на ферме">
           <button type="button" class="quick" onclick="tab('coop')">
             <span class="nav-art" aria-hidden="true"><img src="/assets/redesign/coop-icon.webp" class="icon" alt="" decoding="async"></span>
-            <span>Курятник</span>
+            <span>Птичник</span>
           </button>
           <button type="button" class="quick" onclick="tab('upgrades')">
             <span class="nav-art" aria-hidden="true"><img src="/assets/redesign/storage.webp" class="icon" alt="" decoding="async"></span>
@@ -136,20 +137,22 @@
  <summary>🌱 Как начать играть? · подсказка для новичка</summary>
  <div class="launch-guide-body">
  <button type="button" class="btn alt small" onclick="dismissLaunchGuide()">Скрыть подсказку навсегда</button>
-  <p><b>1. Начни с курицы.</b> Она несёт по одному яйцу каждые 6 часов, когда сыта.</p>
-  <p><b>2. Следи за кормом.</b> Каждые 18 часов курицам требуется по одному зерну. Запас виден на главной.</p>
+  <p><b>1. Начни с курицы.</b> Сытая курица несёт яйцо каждые 6 часов. С 3-го уровня доступны гуси — яйцо каждые 2 часа.</p>
+  <p><b>2. Следи за кормом.</b> Все птицы едят раз в 18 часов: курице нужно 1 зерно, гусыне — 2. Запас виден на главной.</p>
   <p><b>3. Продавай яйца.</b> Выставляй их на рынке и получай монеты, когда другие игроки купят товар.</p>
-  <p><b>4. Развивай хозяйство.</b> Покупай куриц, увеличивай склад, выполняй задания и улучшай ферму.</p>
+  <p><b>4. Развивай хозяйство.</b> Покупай птицу, увеличивай склад, выполняй задания и улучшай ферму.</p>
   <p><b>5. Переводи заработанное.</b> В кошельке нажми «На баланс бота». Оттуда можно заказать выплату.</p>
  </div>
 </details>
+        <div class="flock-summary">🐔 🪿 Всего птиц: <strong data-birds-total>—</strong> <button class="btn alt small" onclick="tab('shop')">Расширить хозяйство</button></div>
         <h2 class="section-title">
           Моё хозяйство
         </h2>
-        <div class="three resource-actions">
+        <div class="three resource-actions bird-resources">
           <button type="button" class="resource resource-link" onclick="openResourceActions('chickens')" aria-label="Куры: купить или продать">
             <img src="/assets/redesign/hen.webp" class="icon" alt="" decoding="async"/><span>Куры</span><strong data-value="chickens">—</strong>
           </button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('geese')" aria-label="Гуси: купить или продать"><img src="/assets/goose.svg" class="icon" alt=""/><span>Гуси</span><strong data-value="geese">0</strong></button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('grain')" aria-label="Зерно: купить или продать">
             <img src="/assets/redesign/grain.webp" class="icon" alt="" decoding="async"/><span>Зерно</span><strong data-value="grain">—</strong>
           </button>
@@ -195,7 +198,7 @@
           <div class="forecast-timers"><div><span>Следующее яйцо</span><strong data-next-tick>—</strong></div><div><span>Следующее кормление</span><strong data-feed-tick>—</strong></div></div>
           <div class="forecast-feeding" hidden><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><strong>Следующее кормление: −<span data-feed-required>—</span> зерна</strong><p data-feed-status>Проверяем запас…</p></div></div>
           <div class="buttons"><button class="btn" onclick="openSell('eggs')">Продать яйца</button><button class="btn alt" data-buy-feed onclick="tab('shop');showShop('grain')">Купить зерно</button></div>
-          <details class="farm-explainer"><summary>Как рассчитывается прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Каждая сытая курица производит одно яйцо за 6 часов. Все куры кормятся одновременно раз в 18 часов: на каждую нужно 1 зерно. Прогноз зависит от числа сытых кур, запаса зерна и времени до кормления. Если кур станет больше, зерно закончится или изменится состояние стада, расчёт обновится. Яйца сразу поступают на склад, если там есть место.</p></details>
+          <details class="farm-explainer"><summary>Как рассчитывается прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Сытая курица несёт яйцо за 6 часов, гусыня — за 2 часа. Общее кормление раз в 18 часов: 1 зерно на курицу и 2 на гусыню. Производство всех сытых птиц складывается, поэтому яйца появляются чаще. Прогноз учитывает корм, сытость, автозакупку и место на складе.</p></details>
           </div>
         </details>
         <details class="card farm-day-statistics">
@@ -228,7 +231,7 @@
           </button>
         </div>
       </section>
-      <section id="coop" class="panel unified-farm-panel" aria-label="Курятник">
+      <section id="coop" class="panel unified-farm-panel" aria-label="Птичник">
         <div class="panelhead">
           <button
             class="back"
@@ -243,7 +246,7 @@
             decoding="async"
           />
           <div>
-            <h1>Курятник</h1>
+            <h1>Птичник</h1>
             <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
           </div>
         </div>
@@ -256,7 +259,7 @@
             <div data-stage="egg"><img src="/assets/redesign/egg.webp" alt=""><strong>Яйцо</strong><small data-incubate-duration>—</small></div><span>→</span>
             <div data-stage="chick"><img src="/assets/characters/chick_yellow.webp" alt=""><strong>Цыплёнок</strong><small data-grow-duration>—</small></div><span>→</span>
             <div data-stage="hen"><img src="/assets/redesign/hen.webp" alt=""><strong>Курица</strong><small>После взросления</small></div>
-          </div><p class="muted">Курица появится после завершения роста, если в курятнике есть место.</p>
+          </div><p class="muted">Курица появится после завершения роста, если в птичнике есть место.</p>
         </div>
 </div>
         <div id="coop-birds-pane">
@@ -264,21 +267,21 @@
           <img
             src="/assets/redesign/coop.webp"
             class="scene-image"
-            alt="Курица и яйца в освещённом деревянном курятнике"
+            alt="Курица и яйца в освещённом деревянном птичнике"
             decoding="async"
           />
         </div>
 
         <div class="card coop-summary unified-primary-card">
-          <h2>Мои несушки <span data-sat aria-label="Сытость">—</span></h2>
-          <p class="coop-level">Уровень <b data-building="coop_level">—</b> · Вместимость <b data-value="chickens">—</b> / <b data-building="coop_capacity">—</b></p>
+          <h2>Моя птица <span data-sat aria-label="Сытость">—</span></h2>
+          <p class="coop-level">Уровень <b data-building="coop_level">—</b> · Вместимость <b data-birds-total>—</b> / <b data-building="coop_capacity">—</b></p>
           <div class="coop-stock">
-            <span>Куриц: <b data-value="chickens">—</b></span
+            <span>Куриц: <b data-value="chickens">—</b></span><span>Гусей: <b data-value="geese">0</b></span
             ><span>Зерна: <b data-value="grain">—</b></span>
           </div>
           <div class="progress"><span data-sat-bar></span></div>
           <button class="btn small" onclick="tab('upgrades')">
-            Улучшить курятник
+            Улучшить птичник
           </button>
         </div>
         <div class="card">
@@ -311,15 +314,15 @@
               /><span>1 яйцо</span>
             </div>
           </div>
-          <p class="cycle">Цикл: 1 яйцо каждые 6 часов</p>
+          <p class="cycle">Курица: яйцо / 6 ч · Гусыня: яйцо / 2 ч</p>
           <div class="statsrow"><span>Следующий сбор через</span><b data-next-tick>—</b></div>
           <div class="statsrow"><span>Следующее кормление через</span><b data-feed-tick>—</b></div>
           <p id="coop-harvest" class="feature-note">За 6 часов: <b data-eggs-6h>—</b> · За 12 часов: <b data-eggs-12h>—</b></p>
-          <p class="feature-note">Кормление: −<span data-feed-required>—</span> зерна · Сытых кур: <span data-fed-hens>—</span></p><p class="muted" data-feed-status></p>
+          <p class="feature-note">Кормление: −<span data-feed-required>—</span> зерна · Сытых птиц: <span data-fed-birds>—</span></p><p class="muted" data-feed-status></p>
           <details class="farm-explainer"><summary>Условия прогноза</summary><p data-forecast-note></p></details>
         </div>
         <details class="card production-history"><summary>История производства яиц</summary><div id="production-history"></div></details>
-        <details class="card economics unified-details"><summary>Экономика одной курицы</summary><div class="unified-details-content">
+        <details class="card economics unified-details"><summary>Экономика птицы: куры и гуси</summary><div class="unified-details-content">
 
           <div class="statsrow"><span>Цена курицы</span><b>40 монет</b></div>
           <div class="statsrow"><span>Яйца за сутки</span><b>до 4 шт. × 1 монета</b></div>
@@ -330,9 +333,10 @@
           <div class="statsrow"><span>Игровой результат</span><b>≈ 1,33 монеты/сутки</b></div>
           <p class="muted">Расчёт предполагает продажу всех яиц, достаточно корма, место на складе и отсутствие других расходов. Окупаемость ≈ 30 дней не гарантирована: спрос формируют игроки.</p>
 </div></details>
+        <div class="card goose-economics"><h2 class="cardtitle">🪿 Экономика гусыни</h2><div class="statsrow"><span>Покупка</span><b>100 монет · с уровня 3</b></div><div class="statsrow"><span>Кладка</span><b>до 12 яиц в сутки</b></div><div class="statsrow"><span>Корм</span><b>2 зерна / 18 часов</b></div><div class="statsrow"><span>Расход корма</span><b>≈ 5,33 монеты / сутки</b></div><div class="statsrow"><span>После корма</span><b>≈ 6,67 монеты / сутки</b></div><p class="muted">Расчётная окупаемость около 15 дней при продаже всех яиц по 1 монете, достаточном корме и свободном складе.</p></div>
         <div class="payback">
           <span class="calendar">30</span>
-          <div>Окупаемость<strong>≈ 30 дней</strong></div>
+          <div>Расчётная окупаемость<strong>Курица ≈ 30 дней · Гусыня ≈ 15 дней</strong></div>
         </div>
         <details class="card auto-card unified-details"><summary>Автозакупка корма</summary><div class="unified-details-content">
           <h2 class="cardtitle">
@@ -401,7 +405,7 @@
             />
             <div>
               <h3>Зерно</h3>
-              <small>Корм для кур · у системы</small>
+              <small>Корм для птицы · у системы</small>
             </div>
             <strong class="price"
               >2<img
@@ -430,6 +434,8 @@
                 decoding="async" /></strong
             ><div class="trade-dual-actions"><button class="btn small" onclick="showShop('chickens')">Купить</button><button class="btn alt small" onclick="openSystemSell('chickens')">Продать</button></div>
           </div>
+          <div class="product goose-product"><img src="/assets/goose.svg" class="product-image" alt="Гусыня"><div><h3>Гусыня <span class="bird-tier">Уровень 3</span></h3><small>🥚 Яйцо каждые 2 часа · 2 зерна / 18 ч</small><small>100 монет · расчётная окупаемость ≈ 15 дней*</small></div><div class="trade-dual-actions"><button id="goose-buy-button" class="btn small" onclick="showShop('geese')">Купить</button><button class="btn alt small" onclick="openSystemSell('geese')">Продать</button></div></div>
+          <p class="muted bird-economy-note">* При постоянном корме и продаже всех яиц по 1 монете. Склад и спрос на рынке влияют на результат. Курица: 40 монет, около 30 дней.</p>
           <div class="product incubator-shop"><img src="/assets/redesign/incubator.webp" class="product-image" alt=""/><div><h3>Инкубатор</h3><small data-incubator-summary>Выводи куриц из яиц</small><small>Цена: <span data-incubator-price>—</span> монет</small></div><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить</button></div>
         </div>
         <details class="trade-extras"><summary>Ещё возможности: акция и автозакупка</summary>
@@ -525,7 +531,7 @@
 
         </details>
         <details class="card trade-listings"><summary>Мои объявления</summary><div id="mylist"></div></details>
-        <details class="card trade-rules"><summary>Как работает торговля?</summary><p>Куриц и зерно система выкупает сразу по указанной цене. Яйца выставляются на общий рынок: их оплачивают другие игроки.</p><p>Непроданные яйца можно вернуть на склад при наличии свободного места.</p></details>
+        <details class="card trade-rules"><summary>Как работает торговля?</summary><p>Птицу и зерно система выкупает сразу по указанной цене. Яйца выставляются на общий рынок: их оплачивают другие игроки.</p><p>Непроданные яйца можно вернуть на склад при наличии свободного места.</p></details>
       </section>
       <section id="wallet" class="panel" aria-label="Кошелёк">
         <div class="panelhead">
@@ -614,7 +620,7 @@
           />
           <h2>Развивай хозяйство</h2>
           <p>
-            Покупай кур, производи яйца,<br />торгуй и зарабатывай вместе<br />с
+            Выращивай кур и гусей, производи яйца,<br />торгуй и зарабатывай вместе<br />с
             другими игроками!
           </p>
         </div>
@@ -754,7 +760,7 @@
       <div><span>Бонус за друзей</span><strong>5 🪙</strong></div>
       <div><span>Уровней</span><strong>7</strong></div>
     </div>
-    <p class="muted">Бонусные ресурсы копятся дробями. Забрать целые можно, когда есть место на складе или в курятнике.</p>
+    <p class="muted">Бонусные ресурсы копятся дробями. Забрать целые можно, когда есть место на складе или в птичнике.</p>
     <div id="referral-resources" aria-live="polite">
       <div class="referral-resource"><span>🥚 Яйца</span><strong id="referral-eggs-available">0</strong><small id="referral-eggs-fraction">0 / 1</small><button class="btn blue" id="referral-eggs-claim" onclick="claimReferralResource('eggs')" disabled>Забрать</button></div>
       <div class="referral-resource"><span>🌾 Зерно</span><strong id="referral-grain-available">0</strong><small id="referral-grain-fraction">0 / 1</small><button class="btn blue" id="referral-grain-claim" onclick="claimReferralResource('grain')" disabled>Забрать</button></div>
@@ -773,7 +779,7 @@
             <div id="farmer-level" class="farmer-level" aria-live="polite"></div>
             <div class="progress"><span id="farmer-xp-bar"></span></div>
             <p id="farmer-xp-caption" class="muted"></p>
-            <p class="muted">Опыт за зерно, кур, яйца, продажи, задания, улучшения и инкубацию. Уровень показывает развитие твоего хозяйства.</p>
+            <p class="muted">Получай опыт за корм, покупку птицы, производство, продажи, задания и улучшения. Уровень открывает новую птицу: гуси доступны с 3-го уровня. Твой статус растёт от новичка до мастера фермы.</p>
           </div>
           <div class="card achievements-list" id="achievements-list"></div>
         </div>
@@ -822,12 +828,12 @@
         <div class="card">
           <div class="upgrade">
             <img src="/assets/redesign/coop-icon.webp" class="upgrade-art" alt="">
-            <div><h2>Курятник · уровень <span data-building="coop_level">—</span></h2>
-              <p>Место для <strong data-building="coop_capacity">—</strong> кур. Сейчас: <strong data-value="chickens">—</strong>.</p>
+            <div><h2>Птичник · уровень <span data-building="coop_level">—</span></h2>
+              <p>Место для <strong data-building="coop_capacity">—</strong> птиц. Сейчас: <strong data-birds-total>—</strong>.</p>
               <button id="upgrade-coop" class="btn small" onclick="upgradeBuilding('coop')">Улучшить</button>
             </div>
           </div>
-          <p class="muted">Следующий уровень добавляет 10 мест. Уже имеющиеся курицы сохраняются.</p>
+          <p class="muted">Следующий уровень добавляет 10 мест. Куры и гуси живут в общем птичнике.</p>
         </div>
         <div class="card">
           <div class="upgrade">
@@ -878,7 +884,7 @@
           </button>
           <p class="muted" data-auto-status>Проверяем настройки…</p>
         </div>
-        <button class="btn alt wide" onclick="tab('coop');coopSection('incubator')">🐣 Инкубатор находится в курятнике</button>
+        <button class="btn alt wide" onclick="tab('coop');coopSection('incubator')">🐣 Инкубатор находится в птичнике</button>
       </section>
     </div>
     <nav id="nav" class="bottom" aria-label="Основная навигация" hidden>
@@ -1001,5 +1007,6 @@
         </button>
       </div>
     </dialog>
-  </body>
+  <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
+</body>
 </html>
