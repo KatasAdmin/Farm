@@ -145,9 +145,10 @@ def payment(payload, db):
             b.bot_economy.collect_debt(c, order['uid'])
             debt = c.execute('SELECT amount FROM bot_debts WHERE uid=%s', (order['uid'],)).fetchone()['amount']
             if debt:
-                p = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' RETURNING amount,id", (order['uid'],)).fetchone()
+                p = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' AND NOT EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=bot_payouts.id AND w.phase='working') RETURNING amount,id", (order['uid'],)).fetchone()
                 if p:
                     b.change(c, order['uid'], p['amount'], 'payout_cancel', 'Отмена заявки при возврате оплаты · ' + p['id'])
+            b.bot_payouts.debt_notice(c,order['uid'],oid)
         return {'ok': True}
 
 def refund_notice(c,order):
@@ -182,9 +183,7 @@ def admin(c, uid, action):
             status='✅ Зачислено' if row['status']=='approved' else '❌ Отклонено'
             return ui.screen(uid,'💳 <b>Заявка на пополнение</b>\n\n'+ui.esc(tid)+'\nИгрок: '+str(row['uid'])+'\nСумма: '+b.money(row['amount'])+'\nСтатус: <b>'+status+'</b>',[[b.button('🧾 История оплат','admin:payments:card:0')],[b.button('⬅️ Квитанции','admin:cardtopups')]])
         if action.startswith('admin:cardreject:'):
-            c.execute("UPDATE bot_card_topups SET status='rejected' WHERE id=%s", (tid,))
-            b.bot_notifications.enqueue(c,'card-rejected:'+tid,tr('❌ Квитанция отклонена\n\nЗаявка: {v0}\nСумма: {v1}\nДеньги на баланс не зачислены. Если перевод был выполнен, обратись в поддержку.', {'v0': tid, 'v1': b.money(row['amount'])}, section='notifications'),recipient=row['uid'])
-            return ui.screen(uid, tr('Заявка отклонена. Начисления нет.', html_mode=True, section='bot_topups', limit=3000))
+            return b.bot_decisions.begin(c,uid,'card',tid)
         if action.startswith('admin:cardapprove:'):
             b.state(c, uid, 'topup_bank_reference', {'id': tid, 'nonce': uuid.uuid4().hex[:12]})
             return ui.input_screen(uid, tr('Введи уникальный номер фактической банковской операции. Сумма: {v0}', {'v0': b.money(row['amount'])}, html_mode=True, section='bot_topups', limit=3000))

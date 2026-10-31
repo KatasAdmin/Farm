@@ -122,6 +122,7 @@ class EconomyTests(unittest.TestCase):
         self.send(3,'UA123456789 User')
         self.send(3,action='confirm_payout')
         pid=self.row('bot_payouts')['id']
+        self.send(1,action='admin:payref:'+pid)
         self.send(1,f'/botpaid {pid} bank-executed')
         self.send(1,action='admin:payconfirm')
         self.assertEqual(self.row('bot_cash_pool')['amount'],944)

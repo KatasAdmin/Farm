@@ -90,7 +90,7 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(admin.net(self.c,p),450)
         self.assertEqual(bot.liability(self.c),1000)
         self.field('withdraw_fee','20')
-        self.send(1,action='admin:payref:'+p['id']); self.send(1,'bank-payout-real')
+        self.send(1,action='admin:payref:'+p['id']); self.send(1,action='admin:payrecord:'+p['id']); self.send(1,'bank-payout-real')
         self.send(1,action='admin:payconfirm',event=888)
         self.send(1,action='admin:payconfirm',event=888)
         self.assertEqual(self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount'],550)
@@ -102,7 +102,7 @@ class AdminTests(unittest.TestCase):
         self.credit(); self.field('withdraw_fee','10')
         p,_=self.payout(); self.send(2,action='cancelpayout')
         self.assertEqual(self.balance(2),1000)
-        p,_=self.payout(); self.send(1,action='admin:rejectpayout:'+p['id'])
+        p,_=self.payout(); base.complete_refusal(self,1,'admin:rejectpayout:'+p['id'])
         self.assertEqual(self.balance(2),1000)
         self.assertEqual(self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount'],1000)
 

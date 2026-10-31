@@ -181,6 +181,12 @@
       "limit": 3000
     },
     {
+      "original": "📝 Пришла работа на проверку\n\nЗадание: {v0}\nИсполнитель: {v1}",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
       "original": "Работа отправлена на ручную проверку. Результат и начисление появятся в кабинете.",
       "html_mode": false,
       "section": "task_bot",
@@ -229,24 +235,6 @@
       "limit": 3000
     },
     {
-      "original": "Задание отклонено, бюджет возвращён.",
-      "html_mode": false,
-      "section": "task_bot",
-      "limit": 3000
-    },
-    {
-      "original": "❌ Заявка на вывод отклонена\n\nНа баланс возвращено: {v0}\nЗаявка: {v1}",
-      "html_mode": false,
-      "section": "notifications",
-      "limit": 3000
-    },
-    {
-      "original": "Заявка отклонена, деньги возвращены на баланс.",
-      "html_mode": false,
-      "section": "task_bot",
-      "limit": 3000
-    },
-    {
       "original": "Если пост опубликован, привяжи его пересылкой. Если публикации нет — обратись к разработчику для проверки, не отправляй её повторно вслепую.",
       "html_mode": false,
       "section": "task_bot",
@@ -277,7 +265,7 @@
       "limit": 3000
     },
     {
-      "original": "Нет ожидающей заявки.",
+      "original": "Нет заявки, доступной для отмены. Выплату в работе отменить нельзя.",
       "html_mode": false,
       "section": "task_bot",
       "limit": 3000
@@ -308,12 +296,6 @@
     },
     {
       "original": "Задание не найдено.",
-      "html_mode": false,
-      "section": "task_bot",
-      "limit": 3000
-    },
-    {
-      "original": "Работа отклонена. Начисления нет.",
       "html_mode": false,
       "section": "task_bot",
       "limit": 3000
@@ -465,7 +447,7 @@
     {
       "original": "Заявка уже закрыта.",
       "html_mode": false,
-      "section": "bot_admin",
+      "section": "task_bot",
       "limit": 3000
     },
     {
@@ -517,12 +499,6 @@
       "limit": 3000
     },
     {
-      "original": "{v0}\nСтатус: {v1}\nНаграда: {v2}\nОстаток бюджета: {v3}",
-      "html_mode": false,
-      "section": "task_bot",
-      "limit": 3000
-    },
-    {
       "original": "Задание закрыто. Возвращено: {v0}",
       "html_mode": false,
       "section": "task_bot",
@@ -538,6 +514,12 @@
       "original": "{v0}\nИгрок: {v1}\n\n{v2}",
       "html_mode": false,
       "section": "task_bot",
+      "limit": 3000
+    },
+    {
+      "original": "✅ Работа принята\n\nЗадание: {v0}\nНачислено: {v1}",
+      "html_mode": false,
+      "section": "notifications",
       "limit": 3000
     },
     {
@@ -734,12 +716,6 @@
     },
     {
       "original": "{v0}\nНаграда: {v1}\nВыполнений: {v2}\nПолная цена выполнения: {v3}\nБюджет: {v4}\nКомиссия уже включена в цену\n\nПосле подтверждения бюджет резервируется, задание отправляется на модерацию.",
-      "html_mode": false,
-      "section": "task_bot",
-      "limit": 3000
-    },
-    {
-      "original": "Посмотреть опубликованный пост",
       "html_mode": false,
       "section": "task_bot",
       "limit": 3000
@@ -1279,18 +1255,6 @@
       "limit": 3000
     },
     {
-      "original": "❌ Квитанция отклонена\n\nЗаявка: {v0}\nСумма: {v1}\nДеньги на баланс не зачислены. Если перевод был выполнен, обратись в поддержку.",
-      "html_mode": false,
-      "section": "notifications",
-      "limit": 3000
-    },
-    {
-      "original": "Заявка отклонена. Начисления нет.",
-      "html_mode": true,
-      "section": "bot_topups",
-      "limit": 3000
-    },
-    {
       "original": "Введи уникальный номер фактической банковской операции. Сумма: {v0}",
       "html_mode": true,
       "section": "bot_topups",
@@ -1759,12 +1723,6 @@
       "limit": 3000
     },
     {
-      "original": "💸 <b>Выплата</b>\n\nID: {v0}\nЗарезервировано: {v1}\nК переводу: <b>{v2}</b>\nРеквизиты: {v3}",
-      "html_mode": true,
-      "section": "bot_admin",
-      "limit": 3000
-    },
-    {
       "original": "🔎 <b>Поиск надписей</b>\n\nНапиши несколько слов из нужного текста или названия кнопки.",
       "html_mode": true,
       "section": "bot_admin",
@@ -1879,12 +1837,6 @@
       "limit": 3000
     },
     {
-      "original": "После фактического перевода {v0} введи уникальный номер банковской операции.",
-      "html_mode": true,
-      "section": "bot_admin",
-      "limit": 3000
-    },
-    {
       "original": "Неизвестная страница.",
       "html_mode": false,
       "section": "bot_admin",
@@ -1960,6 +1912,72 @@
       "original": "🧾 <b>История оплат</b>\n{v0}\n\n<i>Созданный счёт и квитанция ещё не означают зачисление.</i>",
       "html_mode": true,
       "section": "bot_payments",
+      "limit": 3000
+    },
+    {
+      "original": "💸 <b>Заявка на вывод</b>\n\nНомер: <code>{v0}</code>\nИгрок: {v1}\nСтатус: <b>{v2}</b>\nС баланса: {v3}\nК переводу: <b>{v4}</b>\nРеквизиты: {v5}",
+      "html_mode": true,
+      "section": "bot_payouts",
+      "limit": 3000
+    },
+    {
+      "original": "🏦 Заявка {v0} взята в работу. Средства остаются зарезервированы. Отмена недоступна до решения администратора.",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
+      "original": "\n\n⚠️ Задолженность получателя: {v0}. Проверь, выполнен ли уже банковский перевод. Не подтверждай отказ, если перевод отправлен или его результат неизвестен.",
+      "html_mode": true,
+      "section": "bot_payouts",
+      "limit": 3000
+    },
+    {
+      "original": "Сначала открой заявку и нажми «Взять в работу».",
+      "html_mode": false,
+      "section": "bot_payouts",
+      "limit": 3000
+    },
+    {
+      "original": "\n\nВыполни перевод, затем введи номер банковской операции. Отмена формы не снимает статус «В работе». При неизвестном результате перевода не отклоняй заявку.",
+      "html_mode": true,
+      "section": "bot_payouts",
+      "limit": 3000
+    },
+    {
+      "original": "✅ <b>Подтверждение перевода</b>\n\nТолько после фактической выплаты {v0} введи уникальный номер банковской операции.",
+      "html_mode": true,
+      "section": "bot_payouts",
+      "limit": 3000
+    },
+    {
+      "original": "⚠️ Долг у получателя выплаты в работе\n\nИгрок: {v0}\nЗадолженность: {v1}\nЗаявка: {v2}\n\nПроверь результат банковского перевода. Заявка автоматически не отменена, чтобы не вернуть уже отправленные деньги повторно.",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
+      "original": "📝 <b>Причина отказа</b>\n\nОбъясни, что не подходит и что нужно исправить: от 5 до 500 символов. Причину увидит пользователь. До подтверждения решение не применяется.",
+      "html_mode": true,
+      "section": "bot_decisions",
+      "limit": 3000
+    },
+    {
+      "original": "❌ <b>Подтвердить отказ?</b>\n\nПричина: {v0}\n\n{v1}",
+      "html_mode": true,
+      "section": "bot_decisions",
+      "limit": 3000
+    },
+    {
+      "original": "❌ Получен отказ\n\nЗаявка: {v0}\nПричина: {v1}\n\n{v2}",
+      "html_mode": false,
+      "section": "notifications",
+      "limit": 3000
+    },
+    {
+      "original": "📣 <b>{v0}</b>\n\nСтатус: {v1}\nЗаказано выполнений: <b>{v2}</b>\n✅ Оплачено: {v3}\n⏳ На проверке: {v4}\nДоступно мест: {v5}\n\n<b>Финансы заказа</b>\nЦена выполнения: {v6}\nНаграда исполнителю: {v7}\nОстаток бюджета: <b>{v8}</b>",
+      "html_mode": true,
+      "section": "bot_advertising",
       "limit": 3000
     },
     {
@@ -2425,10 +2443,6 @@
       "action": "admin"
     },
     {
-      "text": "⬅️ Выплаты",
-      "action": "admin:payouts"
-    },
-    {
       "text": "⬅️ Обращения",
       "action": "admin:tickets"
     },
@@ -2507,6 +2521,22 @@
     {
       "text": "⬅️ Финансы",
       "action": "admin:section:finance"
+    },
+    {
+      "text": "⬅️ Выплаты",
+      "action": "admin:payouts"
+    },
+    {
+      "text": "✖️ Отмена",
+      "action": "cancel_input"
+    },
+    {
+      "text": "📝 Проверить работы",
+      "action": "reviews:0"
+    },
+    {
+      "text": "⬅️ Мои заказы",
+      "action": "mine:0"
     }
   ]
 }

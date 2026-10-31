@@ -108,9 +108,10 @@ def penalize(c, r, evidence):
     c.execute('INSERT INTO bot_debts VALUES(%s,%s) ON CONFLICT(uid) DO UPDATE SET amount=bot_debts.amount+EXCLUDED.amount', (r['uid'], r['fine']))
     c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'retention_fine',%s,%s)", (uuid.uuid4().hex, r['uid'], 'Штраф ' + b.money(r['fine']) + ' за раннюю отписку · ' + r['task'], time.time()))
     collect_debt(c, r['uid'])
-    pending = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' RETURNING amount,id", (r['uid'],)).fetchone()
+    pending = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' AND NOT EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=bot_payouts.id AND w.phase='working') RETURNING amount,id", (r['uid'],)).fetchone()
     if pending:
         b.change(c, r['uid'], pending['amount'], 'payout_cancel', 'Заявка отменена из-за штрафа · ' + pending['id'])
+    b.bot_payouts.debt_notice(c,r['uid'],r['task'])
     b.change(c, r['owner'], r['cost'], 'retention_refund', 'Полный возврат цены выполнения · ' + r['task'] + ' · ' + str(r['uid']))
     return True
 

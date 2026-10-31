@@ -201,6 +201,8 @@ def admin(c, uid, text, action, api):
     navigation={'admin','admin:economy','admin:bonus','admin:copy','admin:copyhistory','admin:money','admin:payouts','admin:tickets','admin:about','admin:topupsettings','admin:cardtopups','admin:postissues','admin:tasks','admin:retention'}
     if action in navigation or action.startswith(('admin:settings:','admin:copylist:','admin:copyentry:','admin:copyreset:','admin:copyrestore:','admin:payview:','admin:ticketview:')):
         b.state(c,uid,'clear')
+    payout=b.bot_payouts.route(c,uid,action)
+    if payout is not None:return payout
     if action.startswith('admin:payments:'):
         b.state(c,uid,'clear')
         parts=action.split(':')
@@ -236,16 +238,7 @@ def admin(c, uid, text, action, api):
         return ui.input_screen(uid, tr('Введи Telegram ID получателя.', html_mode=True, section='bot_admin', limit=3000) if kind == 'credit' else tr('Введи сумму фактического взноса в гривнах.', html_mode=True, section='bot_admin', limit=3000))
     if action == 'admin:payouts':
         rows = c.execute("SELECT * FROM bot_payouts WHERE status='pending' ORDER BY created LIMIT 10").fetchall()
-        return ui.screen(uid, tr('💸 <b>Заявки на вывод</b>\n\n{v0}', {'v0': 'Выбери заявку.' if rows else 'Ожидающих заявок нет.'}, html_mode=True, section='bot_admin', limit=3000), [[b.button(str(r['uid']) + ' · ' + b.money(net(c, r)), 'admin:payview:' + r['id'])] for r in rows] + [[b.button('⬅️ Управление', 'admin')]])
-    if action.startswith(('admin:payview:', 'admin:payref:')):
-        pid = action.split(':')[-1]
-        p = c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending'", (pid,)).fetchone()
-        if not p:
-            raise b.UserError(tr('Заявка уже закрыта.', html_mode=False, section='bot_admin', limit=3000))
-        if action.startswith('admin:payref:'):
-            b.state(c, uid, 'admin_pay_reference', {'id': pid})
-            return ui.input_screen(uid, tr('После фактического перевода {v0} введи уникальный номер банковской операции.', {'v0': b.money(net(c, p))}, html_mode=True, section='bot_admin', limit=3000))
-        return ui.screen(uid, tr('💸 <b>Выплата</b>\n\nID: {v0}\nЗарезервировано: {v1}\nК переводу: <b>{v2}</b>\nРеквизиты: {v3}', {'v0': f"{p['uid']}", 'v1': f"{b.money(p['amount'])}", 'v2': f'{b.money(net(c, p))}', 'v3': f"{ui.esc(p['destination'])}"}, html_mode=True, section='bot_admin', limit=3000), [[b.button('✅ Подтвердить перевод', 'admin:payref:' + pid)], [b.button('❌ Отклонить и вернуть', 'admin:rejectpayout:' + pid)], [b.button('⬅️ Выплаты', 'admin:payouts')]])
+        return ui.screen(uid, tr('💸 <b>Заявки на вывод</b>\n\n{v0}', {'v0': 'Выбери заявку.' if rows else 'Ожидающих заявок нет.'}, html_mode=True, section='bot_admin', limit=3000), [[b.button(('🏦 ' if b.bot_payouts.work(c,r['id']) else '⏳ ')+str(r['uid']) + ' · ' + b.money(net(c, r)), 'admin:payview:' + r['id'])] for r in rows] + [[b.button('⬅️ Управление', 'admin')]])
     if action == 'admin:copysearch':
         b.state(c, uid, 'admin_copy_search')
         return ui.input_screen(uid, tr('🔎 <b>Поиск надписей</b>\n\nНапиши несколько слов из нужного текста или названия кнопки.', html_mode=True, section='bot_admin', limit=3000))
@@ -305,6 +298,8 @@ def input_text(c, uid, text, message, current, api):
     ui = b.bot_ui
     stage = current['state']
     data = current['data']
+    if stage in ('admin_rejection_reason','admin_rejection_confirm'):
+        return b.bot_decisions.input_text(c,uid,text,current)
     if stage == 'admin_field':
         return save_field(c, uid, data['key'], text)
     if stage == 'admin_channel':

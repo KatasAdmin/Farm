@@ -18,6 +18,9 @@ import bot_topups
 import bot_copy
 import bot_admin
 import bot_notifications
+import bot_payouts
+import bot_decisions
+import bot_advertising
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 from psycopg.types.json import Jsonb
@@ -58,6 +61,9 @@ def initialize(c):
     bot_copy.initialize(c)
     bot_admin.initialize(c)
     bot_notifications.initialize(c)
+    bot_payouts.initialize(c)
+    bot_decisions.initialize(c)
+    bot_advertising.initialize(c)
     c.execute('SELECT pg_advisory_xact_lock(1984533)')
     c.execute('SELECT pg_advisory_xact_lock(%s)', (LOCK,))
     unify_balances(c)
@@ -166,10 +172,17 @@ def award(c, t, uid):
     if not claim or claim['status'] not in ('started', 'review'):
         raise UserError(tr('Заявка уже обработана или задание не взято.', html_mode=False, section='task_bot', limit=3000))
     gross = bot_economy.cost(c, t)
+    order=bot_advertising.order(c,t)
+    if order and c.execute("SELECT count(*) AS n FROM bot_claims WHERE task=%s AND status='paid'",(t['id'],)).fetchone()['n']>=order['slots']:
+        raise UserError('Все оплаченные выполнения уже использованы.')
     if t['status'] != 'active' or t['remaining'] < gross:
         raise UserError(tr('Бюджет задания закончился. Награда не списана.', html_mode=False, section='task_bot', limit=3000))
-    c.execute('UPDATE bot_tasks SET remaining=remaining-%s WHERE id=%s', (gross, t['id']))
-    c.execute("UPDATE bot_claims SET status='paid' WHERE task=%s AND uid=%s", (t['id'], uid))
+    if uid==t['owner'] or (t['kind']=='manual' and claim['status']!='review'):
+        raise UserError('Своё задание и непроверенную работу оплачивать нельзя.')
+    changed=c.execute("UPDATE bot_tasks SET remaining=remaining-%s WHERE id=%s AND status='active' AND remaining>=%s RETURNING remaining",(gross,t['id'],gross)).fetchone()
+    if not changed:raise UserError('Бюджет задания закончился. Повторного списания нет.')
+    paid=c.execute("UPDATE bot_claims SET status='paid' WHERE task=%s AND uid=%s AND status IN ('started','review') RETURNING uid",(t['id'],uid)).fetchone()
+    if not paid:raise UserError('Работа уже обработана.')
     change(c, uid, t['reward'], 'task_reward', 'Задание ' + t['id'])
     bot_economy.settle(c, t, uid, time.time())
 
@@ -186,6 +199,7 @@ def handle(payload, db, api, is_admin):
         return payment
     retained = bot_economy.member_update(payload, db)
     if retained is not None:
+        bot_notifications.wake()
         return retained
     callback = payload.get('callback_query') or {}
     message = callback.get('message') or payload.get('message') or {}
@@ -212,7 +226,7 @@ def handle(payload, db, api, is_admin):
     event = 'callback:' + str(callback['id']) if callback.get('id') else 'message:' + str(uid) + ':' + str(message.get('message_id'))
     if not callback and (not isinstance(message.get('message_id'), int)):
         return None
-    admin = is_admin(uid, uid) if action.startswith('bot:admin') or cmd.startswith('/bot') or text or (action == 'bot:cabinet') else False
+    admin = is_admin(uid, uid)
     try:
         with db() as c:
             c.execute('SELECT pg_advisory_xact_lock(1984533)')
@@ -297,13 +311,13 @@ def route(c, uid, text, action, message, api, admin):
         labels = {'started': tr('В работе', html_mode=False, section='task_bot', limit=3000), 'review': tr('На проверке', html_mode=False, section='task_bot', limit=3000), 'paid': tr('Оплачено', html_mode=False, section='task_bot', limit=3000), 'rejected': tr('Отклонено', html_mode=False, section='task_bot', limit=3000)}
         return say(uid, tr('✅ Мои выполнения\n{v0}', {'v0': '\n'.join((r['title'] + ' · ' + labels.get(r['status'], r['status']) for r in rows)) or 'Пока нет взятых заданий.'}, html_mode=False, section='task_bot', limit=3000))
     if action == 'payouts':
-        rows = c.execute('SELECT id,amount,status FROM bot_payouts WHERE uid=%s ORDER BY created DESC LIMIT 10', (uid,)).fetchall()
-        labels = {'pending': tr('На проверке', html_mode=False, section='task_bot', limit=3000), 'paid': tr('Выплачено', html_mode=False, section='task_bot', limit=3000), 'rejected': tr('Отклонено', html_mode=False, section='task_bot', limit=3000), 'cancelled': tr('Отменено', html_mode=False, section='task_bot', limit=3000)}
+        rows=c.execute("SELECT p.id,p.amount,CASE WHEN EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=p.id AND w.phase='working') THEN 'working' ELSE p.status END AS status FROM bot_payouts p WHERE p.uid=%s ORDER BY p.created DESC LIMIT 10",(uid,)).fetchall()
+        labels = {'working': '🏦 В работе', 'pending': tr('На проверке', html_mode=False, section='task_bot', limit=3000), 'paid': tr('Выплачено', html_mode=False, section='task_bot', limit=3000), 'rejected': tr('Отклонено', html_mode=False, section='task_bot', limit=3000), 'cancelled': tr('Отменено', html_mode=False, section='task_bot', limit=3000)}
         return say(uid, tr('📥 Заявки\n{v0}', {'v0': '\n'.join((r['id'][:8] + ' · ' + money(r['amount']) + ' · ' + labels[r['status']] for r in rows)) or 'Заявок пока нет.'}, html_mode=False, section='task_bot', limit=3000), [[button('Отменить ожидающую заявку', 'cancelpayout')]])
     if action == 'cancelpayout':
-        row = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' RETURNING amount,id", (uid,)).fetchone()
+        row = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' AND NOT EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=bot_payouts.id AND w.phase='working') RETURNING amount,id", (uid,)).fetchone()
         if not row:
-            raise UserError(tr('Нет ожидающей заявки.', html_mode=False, section='task_bot', limit=3000))
+            raise UserError(tr('Нет заявки, доступной для отмены. Выплату в работе отменить нельзя.', html_mode=False, section='task_bot', limit=3000))
         change(c, uid, row['amount'], 'payout_cancel', 'Отмена ' + row['id'][:8])
         return cabinet(c, uid)
     if action == 'withdraw':
@@ -339,6 +353,8 @@ def route(c, uid, text, action, message, api, admin):
         if offset:
             buttons.append([button('← Назад', ':'.join(parts[:-1]) + ':' + str(max(0, offset - 8)))])
         return say(uid, tr('Выбери:', html_mode=False, section='task_bot', limit=3000) if rows else tr('Пока ничего нет.', html_mode=False, section='task_bot', limit=3000), buttons + [[button('⬅️ Продвижение' if parts[0] != 'list' else '⬅️ Заработать', 'promotion' if parts[0] != 'list' else 'earn')]])
+    if action.startswith('rejectdecision:'):
+        return bot_decisions.confirm(c,uid,action.split(':')[-1])
     if action.startswith(('task:', 'take:', 'check:', 'own:', 'close:', 'review:', 'accept:', 'rejectwork:')):
         parts = action.split(':')
         t = c.execute('SELECT * FROM bot_tasks WHERE id=%s FOR UPDATE', (parts[1],)).fetchone()
@@ -349,12 +365,7 @@ def route(c, uid, text, action, message, api, admin):
             if t['owner'] != uid:
                 raise UserError(tr('Это задание другого рекламодателя.', html_mode=False, section='task_bot', limit=3000))
             if op == 'own':
-                buttons = [[button('Закрыть и вернуть остаток', 'close:' + t['id'])]]
-                if t['kind'] == 'post':
-                    publication = c.execute("SELECT url FROM bot_post_publications WHERE task=%s AND status='posted'", (t['id'],)).fetchone()
-                    if publication:
-                        buttons.insert(0, [{'text': tr('Посмотреть опубликованный пост', html_mode=False, section='task_bot', limit=3000), 'url': publication['url']}])
-                return say(uid, tr('{v0}\nСтатус: {v1}\nНаграда: {v2}\nОстаток бюджета: {v3}', {'v0': f"{t['title']}", 'v1': f"{t['status']}", 'v2': f"{money(t['reward'])}", 'v3': f"{money(t['remaining'])}"}, html_mode=False, section='task_bot', limit=3000), buttons)
+                return bot_advertising.card(c,t)
             if op == 'close':
                 if t['kind'] == 'post' and c.execute("SELECT 1 FROM bot_post_publications WHERE task=%s AND status IN ('sending','uncertain')", (t['id'],)).fetchone():
                     raise UserError(tr('Сначала администратор должен проверить результат публикации поста.', html_mode=False, section='task_bot', limit=3000))
@@ -379,9 +390,10 @@ def route(c, uid, text, action, message, api, admin):
                 return say(uid, tr('{v0}\nИгрок: {v1}\n\n{v2}', {'v0': t['title'], 'v1': str(worker), 'v2': claim['proof']}, html_mode=False, section='task_bot', limit=3000), buttons)
             if op == 'accept':
                 award(c, t, worker)
+                state(c,uid,'clear')
+                bot_notifications.enqueue(c,'work-accepted:'+t['id']+':'+str(worker),tr('✅ Работа принята\n\nЗадание: {v0}\nНачислено: {v1}', {'v0': t['title'], 'v1': money(t['reward'])}, section='notifications'),recipient=worker)
                 return say(uid, tr('Работа принята, награда начислена игроку.', html_mode=False, section='task_bot', limit=3000))
-            c.execute("UPDATE bot_claims SET status='rejected' WHERE task=%s AND uid=%s", (t['id'], worker))
-            return say(uid, tr('Работа отклонена. Начисления нет.', html_mode=False, section='task_bot', limit=3000))
+            return bot_decisions.begin(c,uid,'work',t['id'],worker)
         if t['status'] != 'active' or t['remaining'] < bot_economy.cost(c, t) or t['owner'] == uid:
             raise UserError(tr('Задание недоступно или бюджет исчерпан.', html_mode=False, section='task_bot', limit=3000))
         reserved = c.execute("SELECT count(*) AS n FROM bot_claims WHERE task=%s AND status='review'", (t['id'],)).fetchone()['n']
@@ -451,6 +463,8 @@ def route(c, uid, text, action, message, api, admin):
     return bot_ui.home(c, uid)
 
 def process_input(c, uid, text, message, current, api):
+    if current['state'] in ('work_rejection_reason','work_rejection_confirm'):
+        return bot_decisions.input_text(c,uid,text,current)
     stage, data = (current['state'], current['data'])
     if stage == 'task_bot_identity':
         return bot_extras.bot_identity(c, uid, message, data)
@@ -506,6 +520,7 @@ def process_input(c, uid, text, message, current, api):
         row = c.execute("UPDATE bot_claims SET status='review',proof=%s,photo=%s\n          WHERE task=%s AND uid=%s AND status='started' RETURNING uid", (proof, photos[-1]['file_id'] if photos else '', t['id'], uid)).fetchone()
         if not row:
             raise UserError(tr('Работа уже отправлена или задание не взято.', html_mode=False, section='task_bot', limit=3000))
+        bot_notifications.enqueue(c,'work-review:'+t['id']+':'+str(uid),tr('📝 Пришла работа на проверку\n\nЗадание: {v0}\nИсполнитель: {v1}', {'v0': t['title'], 'v1': str(uid)}, section='notifications'),'review:'+t['id']+':'+str(uid),recipient=t['owner'])
         state(c, uid, 'clear')
         return say(uid, tr('Работа отправлена на ручную проверку. Результат и начисление появятся в кабинете.', html_mode=False, section='task_bot', limit=3000))
     if stage.startswith('task_'):
@@ -582,6 +597,7 @@ def confirmation(c, uid, action):
         c.execute("INSERT INTO bot_tasks(id,owner,kind,title,description,url,chat_id,reward,remaining,status,created) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending',%s)", (tid, uid, data['kind'], data['title'], data['description'], data['url'], data.get('chat_id'), data['reward'], data['budget'], time.time()))
         bot_notifications.enqueue(c,'task:'+tid,tr('📝 Новый заказ на модерации\n\nАвтор: {v0}\nНазвание: {v1}\nБюджет: {v2}', {'v0': str(uid), 'v1': data['title'], 'v2': money(data['budget'])}, section='notifications'),'admin:tasks',subject=uid)
         bot_economy.save_terms(c, tid, data)
+        bot_advertising.save(c,tid,data)
         result = say(uid, tr('Задание {v0} создано и ожидает модерации. Бюджет зарезервирован.', {'v0': tid}, html_mode=False, section='task_bot', limit=3000))
     elif action == 'confirm_payout' and current['state'] == 'payout_confirm':
         if c.execute("SELECT 1 FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone():
@@ -618,6 +634,8 @@ def administration(c, uid, text, action, api):
     return result
 
 def _administration(c, uid, text, action, api):
+    decision=bot_decisions.admin(c,uid,action)
+    if decision is not None:return decision
     console = bot_admin.admin(c, uid, text, action, api)
     if console is not None:
         return console
@@ -663,7 +681,8 @@ def _administration(c, uid, text, action, api):
             p = c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending' FOR UPDATE", (parts[1],)).fetchone()
             if not p:
                 raise UserError(tr('Нет ожидающей заявки с таким номером.', html_mode=False, section='task_bot', limit=3000))
-            state(c, uid, 'admin_pay_confirm', {'id': p['id'], 'reference': parts[2], 'nonce': uuid.uuid4().hex[:12]})
+            work=bot_payouts.require(c,p['id'],uid)
+            state(c, uid, 'admin_pay_confirm', {'id': p['id'], 'reference': parts[2], 'work_token':work['token'],'nonce': uuid.uuid4().hex[:12]})
             current = state(c, uid)
             return say(uid, tr('Подтвердить фактическую выплату?\nЗаявка: {v0}\nПолучатель: {v1}\nСумма: {v2}\nРеквизиты: {v3}\nОперация: {v4}', {'v0': f"{p['id']}", 'v1': f"{p['uid']}", 'v2': f'{money(bot_admin.net(c, p))}', 'v3': f"{p['destination']}", 'v4': f'{parts[2]}'}, html_mode=False, section='task_bot', limit=3000), [[button('✅ Выплачено, подтвердить', 'admin:payconfirm:' + current['data']['nonce']), button('Отмена', 'admin:cancel')]])
         except (ValueError, IndexError):
@@ -681,9 +700,12 @@ def _administration(c, uid, text, action, api):
         p = c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending' FOR UPDATE", (data['id'],)).fetchone()
         if not p:
             raise UserError(tr('Заявка уже закрыта.', html_mode=False, section='task_bot', limit=3000))
+        work=bot_payouts.require(c,p['id'],uid)
+        if data.get('work_token')!=work['token']:raise UserError('Подтверждение устарело. Открой заявку заново.')
         if c.execute("SELECT 1 FROM bot_payouts WHERE status='paid' AND reference=%s", (data['reference'],)).fetchone():
             raise UserError(tr('Эта банковская операция уже использована для выплаты.', html_mode=False, section='task_bot', limit=3000))
         c.execute("UPDATE bot_payouts SET status='paid',reference=%s WHERE id=%s", (data['reference'], p['id']))
+        c.execute("UPDATE bot_payout_work SET phase='paid' WHERE id=%s",(p['id'],))
         row = c.execute('UPDATE bot_cash_pool SET amount=amount-%s WHERE id=1 AND amount>=%s RETURNING amount', (bot_admin.net(c, p), bot_admin.net(c, p))).fetchone()
         if not row:
             raise UserError(tr('Недостаточно учтённого резерва. Проверь учёт фактических поступлений.', html_mode=False, section='task_bot', limit=3000))
@@ -706,17 +728,7 @@ def _administration(c, uid, text, action, api):
                     raise UserError(tr('Сначала выдай нашему боту права администратора в целевом чате.', html_mode=False, section='task_bot', limit=3000))
             c.execute("UPDATE bot_tasks SET status='active' WHERE id=%s", (tid,))
             return say(uid, tr('Пост одобрен и поставлен в очередь публикации. Проверь результат кнопкой «Публикации» в управлении ботом.', html_mode=False, section='task_bot', limit=3000) if t['kind'] == 'post' else tr('Задание опубликовано.', html_mode=False, section='task_bot', limit=3000))
-        c.execute("UPDATE bot_tasks SET status='rejected',remaining=0 WHERE id=%s", (tid,))
-        change(c, t['owner'], t['remaining'], 'task_rejected', 'Отклонено модерацией ' + tid)
-        return say(uid, tr('Задание отклонено, бюджет возвращён.', html_mode=False, section='task_bot', limit=3000))
-    if action.startswith('admin:rejectpayout:'):
-        pid = action.split(':')[-1]
-        p = c.execute("UPDATE bot_payouts SET status='rejected' WHERE id=%s AND status='pending' RETURNING *", (pid,)).fetchone()
-        if not p:
-            raise UserError(tr('Заявка уже закрыта.', html_mode=False, section='task_bot', limit=3000))
-        change(c, p['uid'], p['amount'], 'payout_rejected', 'Возврат по заявке ' + pid)
-        bot_notifications.enqueue(c,'payout-rejected:'+pid,tr('❌ Заявка на вывод отклонена\n\nНа баланс возвращено: {v0}\nЗаявка: {v1}', {'v0': money(p['amount']), 'v1': pid}, section='notifications'),recipient=p['uid'])
-        return say(uid, tr('Заявка отклонена, деньги возвращены на баланс.', html_mode=False, section='task_bot', limit=3000))
+        return bot_decisions.begin(c,uid,'task',tid)
     if action == 'admin:postissues':
         rows = c.execute("SELECT task,status FROM bot_post_publications WHERE status IN ('sending','uncertain') LIMIT 8").fetchall()
         return say(uid, tr('Если пост опубликован, привяжи его пересылкой. Если публикации нет — обратись к разработчику для проверки, не отправляй её повторно вслепую.', html_mode=False, section='task_bot', limit=3000), [[button(r['task'] + ' · ' + r['status'], 'admin:bindpost:' + r['task'])] for r in rows])

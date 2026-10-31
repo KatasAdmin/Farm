@@ -97,7 +97,7 @@ class BotScreenTests(unittest.TestCase):
         self.send(3,'A real proof')
         response=self.send(1,action='earn')
         self.assertIn('Выполнить задание: <b>0</b>',response['text'])
-        self.send(2,action=f'rejectwork:{tid}:3')
+        base.complete_refusal(self,2,f'rejectwork:{tid}:3')
         response=self.send(1,action='earn')
         self.assertIn('Выполнить задание: <b>1</b>',response['text'])
 

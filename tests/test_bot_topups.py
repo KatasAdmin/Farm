@@ -186,7 +186,7 @@ class TopupTests(unittest.TestCase):
     def test_pdf_receipt_owner_preview_and_rejection_without_money(self):
         tid=self.card_request(document=True)
         self.assertEqual(self.send(1,action='admin:cardview:'+tid)['method'],'sendDocument')
-        self.send(1,action='admin:cardreject:'+tid)
+        base.complete_refusal(self,1,'admin:cardreject:'+tid)
         self.assertEqual(self.balance(3),0)
         self.assertIn('Отклонено',self.send(3,action='topup:mine')['text'])
 

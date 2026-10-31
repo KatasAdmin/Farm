@@ -56,6 +56,15 @@ class Database:
             self.depth -= 1
 
 
+def complete_refusal(test,uid,action,reason='Условия задания не выполнены'):
+    result=test.send(uid,action=action)
+    current=bot.state(test.c,uid)
+    if not current or current['state'] not in ('admin_rejection_reason','work_rejection_reason'):return result
+    test.send(uid,reason)
+    current=bot.state(test.c,uid)
+    return test.send(uid,action=('admin:rejectdecision:' if current['state'].startswith('admin_') else 'rejectdecision:')+current['data']['nonce'])
+
+
 class TaskBotTests(unittest.TestCase):
     def setUp(self):
         self.c = Database()
@@ -195,6 +204,7 @@ class TaskBotTests(unittest.TestCase):
             self.send(2, text, action)
         pid = self.c.execute('SELECT id FROM bot_payouts').fetchone()['id']
         self.send(3, f'/botpaid {pid} bank123')
+        self.send(1,action='admin:payref:'+pid)
         self.send(1, f'/botpaid {pid} bank123')
         self.assertEqual(self.c.execute('SELECT status FROM bot_payouts').fetchone()['status'], 'pending')
         self.send(1, action='admin:payconfirm')
@@ -258,7 +268,7 @@ class TaskBotTests(unittest.TestCase):
         tid = self.task()
         self.c.execute("UPDATE bot_tasks SET status='pending' WHERE id=%s", (tid,))
         self.c.raw.commit()
-        self.send(1, action='admin:rejecttask:' + tid)
+        complete_refusal(self,1,'admin:rejecttask:'+tid)
         self.send(1, action='admin:rejecttask:' + tid)
         self.assertEqual((self.balance(2), self.ads_balance(2)), (1000, 0))
         self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks').fetchone()['remaining'], 0)
@@ -277,7 +287,7 @@ class TaskBotTests(unittest.TestCase):
         self.send(3, 'My proof')
         self.assertNotIn('Test task', str(self.send(1, action='list:manual:0')))
         self.assertIn('на проверке', self.send(1, action='take:' + tid)['text'])
-        self.send(2, action=f'rejectwork:{tid}:3')
+        complete_refusal(self,2,f'rejectwork:{tid}:3')
         self.assertIn('Test task', str(self.send(1, action='list:manual:0')))
         self.invariant()
     def test_spent_frozen_earned_statistics_are_real(self):
