@@ -68,6 +68,7 @@ def confirm(c,uid,nonce,admin=False):
         c.execute("UPDATE bot_tasks SET status='rejected',remaining=0 WHERE id=%s",(key,))
         b.change(c,recipient,row['remaining'],'task_rejected','Отклонено модерацией '+key)
         result='Задание отклонено, бюджет возвращён.';detail='Остаток бюджета возвращён: '+b.money(row['remaining'])
+        c.execute('INSERT INTO bot_task_admin_audit VALUES(%s,%s,%s,%s,%s,%s,%s)',(uuid.uuid4().hex,key,uid,'reject',d['reason'],row['remaining'],time.time()))
     else:
         c.execute("UPDATE bot_claims SET status='rejected' WHERE task=%s AND uid=%s",(key,worker))
         result='Работа отклонена. Начисления нет.';detail='Награда не начислена. Можно обратиться в поддержку, если не согласен с решением.'

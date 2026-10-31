@@ -52,7 +52,7 @@ class OperationTests(unittest.TestCase):
         self.assertIn('История оплат',legacy['text'])
         self.assertIsInstance(legacy['reply_markup'],dict)
         with patch.object(main,'db',return_value=self.c):root=main.farm_admin_panel(1)
-        self.assertIn('Панель управления',root['text'])
+        self.assertIn('Панель администратора',root['text'])
 
     def test_journal_covers_wallet_stars_card_bank_and_archived_farm(self):
         tid=self.card_request()

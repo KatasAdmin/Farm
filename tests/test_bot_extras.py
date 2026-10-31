@@ -135,6 +135,19 @@ class ExtendedBotTests(unittest.TestCase):
         before = self.balance(3)
         self.forward(1, text='/botcredit 3 100 forged-payment')
         self.assertEqual(self.balance(3), before)
+    def test_paused_post_button_does_not_spend_or_pay_then_resumes(self):
+        tid=self.create_post_task()
+        self.send(1,action='admin:taskop:pause:'+tid)
+        self.send(1,action='admin:taskcontrol:'+bot.state(self.c,1)['data']['nonce'])
+        before=self.c.execute('SELECT remaining FROM bot_tasks WHERE id=%s',(tid,)).fetchone()['remaining']
+        self.channel_claim(3,tid)
+        self.assertEqual(self.balance(3),0)
+        self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks WHERE id=%s',(tid,)).fetchone()['remaining'],before)
+        self.send(1,action='admin:taskop:resume:'+tid)
+        self.send(1,action='admin:taskcontrol:'+bot.state(self.c,1)['data']['nonce'])
+        self.channel_claim(3,tid);self.assertEqual(self.balance(3),3)
+        self.invariant()
+
     def test_post_keeps_agreed_reward_after_commission_change(self):
         tid=self.create_post_task()
         self.send(1,action='admin:field:fee');self.send(1,'30')

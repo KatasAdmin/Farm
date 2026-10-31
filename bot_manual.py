@@ -143,9 +143,9 @@ def route(c,uid,action,admin=False):
         if not t:raise b.UserError('Задание не найдено.')
         own=t['owner']==uid
         claim=c.execute('SELECT 1 FROM bot_claims WHERE task=%s AND uid=%s',(t['id'],uid)).fetchone()
-        public=t['status']=='active' and t['remaining']>=b.bot_economy.cost(c,t)
+        public=t['status']=='active' and not b.bot_moderation.paused(c,t['id']) and t['remaining']>=b.bot_economy.cost(c,t)
         if not (own or admin or claim or public):raise b.UserError('Примеры этого задания пока недоступны.')
-        back='own:'+t['id'] if own else 'admin:tasks' if admin else 'task:'+t['id'] if public else 'earn'
+        back='own:'+t['id'] if own else 'admin:task:'+t['id'] if admin else 'task:'+t['id'] if public else 'earn'
         return gallery(uid,photo_rows(c,t['id']),int(parts[3]),back,t['title'],'manual:photo:'+t['id']+':')
     current=b.state(c,uid)
     if not current or current['data'].get('kind')!='manual' or current['state'] not in ('manual_title','manual_description','manual_url','manual_price','manual_count','manual_photos','task_confirm'):

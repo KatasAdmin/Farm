@@ -101,7 +101,7 @@ class ManualTaskTests(unittest.TestCase):
         self.draft();self.photo(unique='first');self.photo(unique='second');t,_=self.create()
         response=self.send(3,action='manual:photo:'+t['id']+':0')
         self.assertIn('недоступны',response['text'])
-        mod=self.send(1,action='admin:tasks')
+        mod=self.send(1,action='admin:task:'+t['id'])
         self.assertIn('manual:photo:'+t['id'],str(mod['reply_markup']))
         self.assertEqual(self.send(1,action='manual:photo:'+t['id']+':0')['photo'],'big-first')
         self.send(1,action='admin:approve:'+t['id'])

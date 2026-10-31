@@ -169,7 +169,7 @@ class AboutTests(unittest.TestCase):
         self.assertIn('один раз за календарный день',response['text'])
         for action in ['about:news','about:payouts','about:chat','about:admin_url','about:stats','about']:
             self.assertIn('text',self.send(3,action=action))
-        self.assertIn('admin:about',str(self.send(1,'/botadmin')['reply_markup']))
+        self.assertIn('admin:about',str(self.send(1,action='admin:section:manage')['reply_markup']))
 
 
 if __name__=='__main__':

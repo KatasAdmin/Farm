@@ -22,6 +22,7 @@ import bot_payouts
 import bot_decisions
 import bot_advertising
 import bot_manual
+import bot_moderation
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 from psycopg.types.json import Jsonb
@@ -66,6 +67,7 @@ def initialize(c):
     bot_decisions.initialize(c)
     bot_advertising.initialize(c)
     bot_manual.initialize(c)
+    bot_moderation.initialize(c)
     c.execute('SELECT pg_advisory_xact_lock(1984533)')
     c.execute('SELECT pg_advisory_xact_lock(%s)', (LOCK,))
     unify_balances(c)
@@ -170,7 +172,22 @@ def task_card(t, uid, c):
         return say(uid, tr('🤖 {v0}\n\n{v1}\n\nНаграда: {v2}\nВозьми задание, запусти бота и перешли сюда свежий ответ от него. Это проверка источника пересылки, не гарантия первого запуска. Не пересылай пароли и коды.', {'v0': f"{t['title']}", 'v1': f"{t['description']}", 'v2': f"{money(t['reward'])}"}, html_mode=False, section='task_bot', limit=3000), [[{'text': tr('Перейти к боту', html_mode=False, section='task_bot', limit=3000), 'url': t['url']}], [button('Взять / отправить пересылку', 'take:' + t['id'])], [button('Пропустить', 'skip_bot')]])
     return say(uid, tr('{v0}\n\n{v1}\n\nНаграда: {v2}{v3}', {'v0': f"{t['title']}", 'v1': f"{t['description']}", 'v2': f"{money(t['reward'])}", 'v3': bot_economy.rule_text(c, t)}, html_mode=False, section='task_bot', limit=3000), [[{'text': tr('Открыть', html_mode=False, section='task_bot', limit=3000), 'url': t['url']}], [button('Взять задание', 'take:' + t['id']), button('Проверить', 'check:' + t['id'])], [button('⬅️ Задания', 'earn')]])
 
+def can_close_order(c,t):
+    if t['kind']=='post' and c.execute("SELECT 1 FROM bot_post_publications WHERE task=%s AND status IN ('sending','uncertain')",(t['id'],)).fetchone():
+        raise UserError('Сначала нужно проверить результат публикации поста.')
+    if c.execute("SELECT 1 FROM bot_claims WHERE task=%s AND status='review'",(t['id'],)).fetchone():
+        raise UserError('Сначала проверь присланные работы.')
+
+def close_order(c,t):
+    can_close_order(c,t)
+    row=c.execute("UPDATE bot_tasks SET status='closed',remaining=0 WHERE id=%s AND status IN ('pending','active') RETURNING id",(t['id'],)).fetchone()
+    if not row:raise UserError('Задание уже закрыто.')
+    refund=t['remaining']
+    if refund:change(c,t['owner'],refund,'task_close','Закрытие задания '+t['id'])
+    return refund
+
 def award(c, t, uid):
+    bot_moderation.available(c,t['id'])
     claim = c.execute('SELECT * FROM bot_claims WHERE task=%s AND uid=%s FOR UPDATE', (t['id'], uid)).fetchone()
     if not claim or claim['status'] not in ('started', 'review'):
         raise UserError(tr('Заявка уже обработана или задание не взято.', html_mode=False, section='task_bot', limit=3000))
@@ -235,8 +252,13 @@ def handle(payload, db, api, is_admin):
             c.execute('SELECT pg_advisory_xact_lock(1984533)')
             c.execute('SELECT pg_advisory_xact_lock(%s)', (LOCK,))
             old = c.execute('SELECT response FROM bot_receipts WHERE event=%s', (event,)).fetchone()
+            if not admin and (action.startswith('bot:admin') or cmd.startswith('/bot')):
+                return say(uid,'Доступ только администратору.')
             if old:
-                return old['response']
+                cached=dict(old['response'])
+                required=cached.pop('_requires_admin',False)
+                if required and not admin:return say(uid,'Доступ только администратору.')
+                return cached
             if channel_claim and (not account(c, uid)):
                 return {'method': 'answerCallbackQuery', 'callback_query_id': callback['id'], 'text': tr('Сначала открой @Farmlife2026bot и нажми /start, затем вернись к посту.', html_mode=False, section='task_bot', limit=3000), 'show_alert': True}
             text = bot_copy.canonical_menu(c, text)
@@ -255,7 +277,7 @@ def handle(payload, db, api, is_admin):
                         response = route(c, uid, text, action[4:] if callback else '', message, api, admin)
                 except UserError as error:
                     response = {'method': 'answerCallbackQuery', 'callback_query_id': callback['id'], 'text': str(error)[:200], 'show_alert': True} if channel_claim else input_prompt(uid, str(error)) if state(c, uid) else say(uid, str(error))
-                c.execute('INSERT INTO bot_receipts VALUES(%s,%s,%s)', (event, Jsonb(response), time.time()))
+                c.execute('INSERT INTO bot_receipts VALUES(%s,%s,%s)', (event, Jsonb(dict(response,_requires_admin=admin)), time.time()))
     except Exception:
         log.exception('task_bot_update_failed')
         raise
@@ -270,6 +292,8 @@ def handle(payload, db, api, is_admin):
 
 def route(c, uid, text, action, message, api, admin):
     cmd = text.split(maxsplit=1)[0].split('@')[0] if text else ''
+    if admin and cmd=='/start' and text not in ('/start wallet','/start support') and not text.startswith('/start link_'):
+        return bot_admin.panel(c,uid)
     if action.startswith('admin') or cmd.startswith('/bot'):
         if not admin:
             return say(uid, tr('Доступ только администратору.', html_mode=False, section='task_bot', limit=3000))
@@ -373,14 +397,7 @@ def route(c, uid, text, action, message, api, admin):
             if op == 'own':
                 return bot_advertising.card(c,t)
             if op == 'close':
-                if t['kind'] == 'post' and c.execute("SELECT 1 FROM bot_post_publications WHERE task=%s AND status IN ('sending','uncertain')", (t['id'],)).fetchone():
-                    raise UserError(tr('Сначала администратор должен проверить результат публикации поста.', html_mode=False, section='task_bot', limit=3000))
-                if c.execute("SELECT 1 FROM bot_claims WHERE task=%s AND status='review'", (t['id'],)).fetchone():
-                    raise UserError(tr('Сначала проверь присланные работы.', html_mode=False, section='task_bot', limit=3000))
-                refund = t['remaining']
-                c.execute("UPDATE bot_tasks SET status='closed',remaining=0 WHERE id=%s", (t['id'],))
-                if refund:
-                    change(c, uid, refund, 'task_close', 'Закрытие задания ' + t['id'])
+                refund = close_order(c,t)
                 return say(uid, tr('Задание закрыто. Возвращено: {v0}', {'v0': money(refund)}, html_mode=False, section='task_bot', limit=3000))
             try:
                 worker = int(parts[2])
@@ -400,6 +417,7 @@ def route(c, uid, text, action, message, api, admin):
                 bot_notifications.enqueue(c,'work-accepted:'+t['id']+':'+str(worker),tr('✅ Работа принята\n\nЗадание: {v0}\nНачислено: {v1}', {'v0': t['title'], 'v1': money(t['reward'])}, section='notifications'),recipient=worker)
                 return say(uid, tr('Работа принята, награда начислена игроку.', html_mode=False, section='task_bot', limit=3000))
             return bot_decisions.begin(c,uid,'work',t['id'],worker)
+        bot_moderation.available(c,t['id'])
         if t['status'] != 'active' or t['remaining'] < bot_economy.cost(c, t) or t['owner'] == uid:
             raise UserError(tr('Задание недоступно или бюджет исчерпан.', html_mode=False, section='task_bot', limit=3000))
         reserved = c.execute("SELECT count(*) AS n FROM bot_claims WHERE task=%s AND status='review'", (t['id'],)).fetchone()['n']
@@ -739,17 +757,10 @@ def _administration(c, uid, text, action, api):
                 if info.get('status') not in ('administrator', 'creator'):
                     raise UserError(tr('Сначала выдай нашему боту права администратора в целевом чате.', html_mode=False, section='task_bot', limit=3000))
             c.execute("UPDATE bot_tasks SET status='active' WHERE id=%s", (tid,))
+            c.execute('INSERT INTO bot_task_admin_audit VALUES(%s,%s,%s,%s,%s,%s,%s)',(uuid.uuid4().hex,tid,uid,'approve','Одобрено модератором',0,time.time()))
             return say(uid, tr('Пост одобрен и поставлен в очередь публикации. Проверь результат кнопкой «Публикации» в управлении ботом.', html_mode=False, section='task_bot', limit=3000) if t['kind'] == 'post' else tr('Задание опубликовано.', html_mode=False, section='task_bot', limit=3000))
         return bot_decisions.begin(c,uid,'task',tid)
     if action == 'admin:postissues':
         rows = c.execute("SELECT task,status FROM bot_post_publications WHERE status IN ('sending','uncertain') LIMIT 8").fetchall()
         return say(uid, tr('Если пост опубликован, привяжи его пересылкой. Если публикации нет — обратись к разработчику для проверки, не отправляй её повторно вслепую.', html_mode=False, section='task_bot', limit=3000), [[button(r['task'] + ' · ' + r['status'], 'admin:bindpost:' + r['task'])] for r in rows])
-    if action == 'admin:tasks':
-        rows = c.execute("SELECT * FROM bot_tasks WHERE status='pending' ORDER BY created LIMIT 1").fetchall()
-        if not rows:
-            return say(uid, tr('Нет заданий на модерации.', html_mode=False, section='task_bot', limit=3000))
-        t = rows[0]
-        moderation_buttons=[[button('✅ Опубликовать', 'admin:approve:' + t['id']), button('❌ Отклонить', 'admin:rejecttask:' + t['id'])]]
-        if bot_manual.photo_rows(c,t['id']):moderation_buttons.append([button('📷 Посмотреть примеры','manual:photo:'+t['id']+':0')])
-        return say(uid, tr('Модерация {v0}\nАвтор: {v1}\nТип: {v2}\n{v3}\n{v4}\n{v5}\nНаграда: {v6}\nБюджет: {v7}', {'v0': f"{t['id']}", 'v1': f"{t['owner']}", 'v2': f"{t['kind']}", 'v3': f"{t['title']}", 'v4': f"{t['description']}", 'v5': f"{t['url']}", 'v6': f"{money(t['reward'])}", 'v7': f"{money(t['remaining'])}"}, html_mode=False, section='task_bot', limit=3000), moderation_buttons)
     return bot_admin.panel(c, uid)

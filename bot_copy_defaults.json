@@ -241,12 +241,6 @@
       "limit": 3000
     },
     {
-      "original": "Модерация {v0}\nАвтор: {v1}\nТип: {v2}\n{v3}\n{v4}\n{v5}\nНаграда: {v6}\nБюджет: {v7}",
-      "html_mode": false,
-      "section": "task_bot",
-      "limit": 3000
-    },
-    {
       "original": "Некорректная сумма.",
       "html_mode": false,
       "section": "task_bot",
@@ -469,12 +463,6 @@
       "limit": 3000
     },
     {
-      "original": "Нет заданий на модерации.",
-      "html_mode": false,
-      "section": "task_bot",
-      "limit": 3000
-    },
-    {
       "original": "Открыть",
       "html_mode": false,
       "section": "bot_about",
@@ -596,18 +584,6 @@
     },
     {
       "original": "🌾 Ферма",
-      "html_mode": false,
-      "section": "task_bot",
-      "limit": 3000
-    },
-    {
-      "original": "Сначала администратор должен проверить результат публикации поста.",
-      "html_mode": false,
-      "section": "task_bot",
-      "limit": 3000
-    },
-    {
-      "original": "Сначала проверь присланные работы.",
       "html_mode": false,
       "section": "task_bot",
       "limit": 3000
@@ -1573,12 +1549,6 @@
       "limit": 3000
     },
     {
-      "original": "🛠 <b>Панель управления</b>\n\n<b>Ожидают проверки</b>\n📝 Задания: {v0}\n💸 Выплаты: {v1}\n💳 Квитанции: {v2}\n{v3}\nВыбери раздел ниже.",
-      "html_mode": true,
-      "section": "bot_admin",
-      "limit": 3000
-    },
-    {
       "original": "\n⚠️ Нехватка покрытия: {v0}\n",
       "html_mode": true,
       "section": "bot_admin",
@@ -2020,6 +1990,48 @@
       "original": "💰 Цена одного выполнения\n\nВведи сумму в гривнах, которую заплатишь за одно принятое выполнение. Комиссия уже входит в эту цену. Исполнитель получит сумму за вычетом комиссии. Расчёт покажем перед созданием.",
       "html_mode": false,
       "section": "bot_manual",
+      "limit": 3000
+    },
+    {
+      "original": "🛡 <b>Панель администратора</b>\n\n<b>Ожидают проверки</b>\n📝 Задания: {v0}\n💸 Выплаты: {v1}\n💳 Квитанции: {v2}\n{v3}\nВыбери раздел ниже.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "⚙️ <b>Управление ботом</b>\n\nНастраивай условия, проверяй заказы и управляй оформлением. Все действия доступны через кнопки. Изменение тарифов не переписывает старые заказы.",
+      "html_mode": true,
+      "section": "bot_admin",
+      "limit": 3000
+    },
+    {
+      "original": "📝 <b>{v0}</b>\n<code>{v1}</code>\n\n{v2}\nТип: {v3}\n👤 Автор: {v4}\nID автора: <code>{v5}</code>\n\n<b>Условия</b>\n{v6}\n\n🔗 {v7}\n\n<b>Оплата и выполнения</b>\nЦена: {v8}\nНаграда: {v9}\nЗаказано: {v10}\n✅ Оплачено: {v11}\n⏳ На проверке: {v12}\n🛠 В работе: {v13}\n💰 Остаток: {v14}",
+      "html_mode": true,
+      "section": "bot_moderation",
+      "limit": 3000
+    },
+    {
+      "original": "📝 <b>Управление заданиями</b>\n\n{v0} · страница {v1}\n{v2}\n\nОткрой карточку: автор, условия, оплата, выполнения и действия. Закрытые заказы остаются в архиве.",
+      "html_mode": true,
+      "section": "bot_moderation",
+      "limit": 3000
+    },
+    {
+      "original": "<b>{v0}?</b>\n\n{v1}\nID: <code>{v2}</code>\n\n{v3}",
+      "html_mode": true,
+      "section": "bot_moderation",
+      "limit": 3000
+    },
+    {
+      "original": "📦 Закрытие задания\n\nНапиши причину: от 5 до 500 символов. Её увидит рекламодатель. Остаток вернётся после подтверждения; история выполнений сохранится.",
+      "html_mode": false,
+      "section": "bot_moderation",
+      "limit": 3000
+    },
+    {
+      "original": "🔎 Поиск задания\n\nПришли полный ID из карточки заказа. Команды не нужны.",
+      "html_mode": false,
+      "section": "bot_moderation",
       "limit": 3000
     }
   ],
@@ -2575,6 +2587,74 @@
     {
       "text": "⏭ Без ссылки",
       "action": "manual:skip_url"
+    },
+    {
+      "text": "⚙️ Управление",
+      "action": "admin:section:manage"
+    },
+    {
+      "text": "💳 Пополнения",
+      "action": "admin:cardtopups"
+    },
+    {
+      "text": "📊 Статистика",
+      "action": "admin:statistics"
+    },
+    {
+      "text": "🔄 Обновить",
+      "action": "admin"
+    },
+    {
+      "text": "💰 Тарифы",
+      "action": "admin:economy"
+    },
+    {
+      "text": "💸 Выплаты",
+      "action": "admin:payouts"
+    },
+    {
+      "text": "📝 Модерация заданий",
+      "action": "admin:tasks"
+    },
+    {
+      "text": "⏳ Подписка и штраф",
+      "action": "admin:settings:retention"
+    },
+    {
+      "text": "💳 Пополнения",
+      "action": "admin:topupsettings"
+    },
+    {
+      "text": "🎨 Тексты и кнопки",
+      "action": "admin:copy"
+    },
+    {
+      "text": "📐 Лимиты",
+      "action": "admin:settings:limits"
+    },
+    {
+      "text": "🔎 Публикации",
+      "action": "admin:postissues"
+    },
+    {
+      "text": "⬅️ Админ-панель",
+      "action": "admin"
+    },
+    {
+      "text": "📋 Все задания",
+      "action": "admin:tasklist:all:0"
+    },
+    {
+      "text": "🔎 Поиск по ID",
+      "action": "admin:tasksearch"
+    },
+    {
+      "text": "⬅️ Управление",
+      "action": "admin:section:manage"
+    },
+    {
+      "text": "⬅️ Список заданий",
+      "action": "admin:tasks"
     }
   ]
 }

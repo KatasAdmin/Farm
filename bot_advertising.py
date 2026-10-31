@@ -37,9 +37,10 @@ def card(c,t):
     stats={r['status']:r['n'] for r in c.execute('SELECT status,count(*) AS n FROM bot_claims WHERE task=%s GROUP BY status',(t['id'],)).fetchall()}
     cost=b.bot_economy.cost(c,t)
     status={'active':'🟢 Выполняется','pending':'⏳ На модерации','closed':'Закрыт','rejected':'❌ Отклонён'}[t['status']]
+    if t['status']=='active' and b.bot_moderation.paused(c,t['id']):status='⏸ Остановлено администратором'
     if t['status']=='active' and t['remaining']<cost:status='✅ Все оплаченные места использованы'
     publication=c.execute('SELECT status,url FROM bot_post_publications WHERE task=%s',(t['id'],)).fetchone() if t['kind']=='post' else None
-    publish_ready=t['kind']!='post' or bool(publication and publication['status']=='posted')
+    publish_ready=(t['kind']!='post' or bool(publication and publication['status']=='posted')) and not b.bot_moderation.paused(c,t['id'])
     if t['status']=='active' and not publish_ready:status='⏳ Проверяется публикация поста'
     slots=str(purchased['slots']) if purchased else 'не указан в старом заказе'
     text=tr('📣 <b>{v0}</b>\n\nСтатус: {v1}\nЗаказано выполнений: <b>{v2}</b>\n✅ Оплачено: {v3}\n⏳ На проверке: {v4}\nДоступно мест: {v5}\n\n<b>Финансы заказа</b>\nЦена выполнения: {v6}\nНаграда исполнителю: {v7}\nОстаток бюджета: <b>{v8}</b>',{'v0':b.bot_ui.esc(t['title']),'v1':status,'v2':slots,'v3':stats.get('paid',0),'v4':stats.get('review',0),'v5':max(0,t['remaining']//cost-stats.get('review',0)) if t['status']=='active' and publish_ready else 0,'v6':b.money(cost),'v7':b.money(t['reward']),'v8':b.money(t['remaining'])},html_mode=True,section='bot_advertising')

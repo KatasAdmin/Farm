@@ -618,7 +618,7 @@ def notify_farm_admin(request_id,player_name,telegram_id,amount):
 # Initial administrator is approved by the repository owner. Keep the raw Telegram ID out of the source.
 FARM_OWNER_ID_SHA256="f3d199702967cf54be043ca9dd56dcb35e52f5740874ccff554d121b99ae6cd7"
 def farm_admin_telegram(uid,chat_id):
- if str(uid)!=str(chat_id) or not uid:return False
+ if type(uid) is not int or type(chat_id) is not int or uid<=0 or uid!=chat_id:return False
  with db() as c:
   row=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
   if row:return str(row["telegram_id"])==str(uid)
@@ -727,7 +727,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   sender=callback.get("from") or {}
   msg=callback.get("message") or {}
   chat=(msg.get("chat") or {})
-  if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
+  if chat.get("type")!="private" or sender.get("is_bot") or not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
   action=callback.get("data")
   try:telegram_api("answerCallbackQuery",{"callback_query_id":callback.get("id")})
   except Exception:logger.warning("legacy_admin_callback_ack_failed")
@@ -767,7 +767,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
    if str(chat.get("id"))!=str(sender.get("id")):return {"ok":True}
    return {"method":"sendMessage","chat_id":chat.get("id"),"text":create_support_ticket(sender.get("id"),command.replace("@Farmlife2026bot","",1))}
   if normalized=="/reply":
-   if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
+   if chat.get("type")!="private" or sender.get("is_bot") or not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
    return {"method":"sendMessage","chat_id":chat.get("id"),"text":reply_support_ticket(command.replace("@Farmlife2026bot","",1))}
  if isinstance(command,str) and command.split("@",1)[0].strip()=="/paysupport":
   return {"method":"sendMessage","chat_id":chat.get("id"),"text":"Поддержка по оплатам Stars: отправьте /support ВашНик Описание проблемы. Не сообщайте пароль и коды. Возвраты проверяются администрацией."}
@@ -776,7 +776,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
  if isinstance(command,str) and command.strip() in ("/start","/help"):
   return {"method":"sendMessage","chat_id":chat.get("id"),"text":"🐔 Ферма. Для привязки Telegram нажмите кнопку «Привязать Telegram» в профиле игры."}
  if isinstance(command,str) and command.split("@",1)[0].strip() in ("/admin","/requests","/zayavki","/tickets"):
-  if not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
+  if chat.get("type")!="private" or sender.get("is_bot") or not farm_admin_telegram(sender.get("id"),chat.get("id")):return {"ok":True}
   if command.startswith("/admin"):return farm_admin_panel(chat.get("id"))
   if command.startswith("/tickets"):return farm_admin_support_tickets(chat.get("id"))
   return farm_admin_requests(chat.get("id"))

@@ -40,22 +40,28 @@ def panel(c, uid):
     pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
     shortage=max(0,b.liability(c)-pool)
     alert=tr('\n⚠️ Нехватка покрытия: {v0}\n',{'v0':b.money(shortage)},html_mode=True,section='bot_admin') if shortage else ''
-    text=tr('🛠 <b>Панель управления</b>\n\n<b>Ожидают проверки</b>\n📝 Задания: {v0}\n💸 Выплаты: {v1}\n💳 Квитанции: {v2}\n{v3}\nВыбери раздел ниже.',{'v0':tasks,'v1':payouts,'v2':receipts,'v3':alert},html_mode=True,section='bot_admin')
-    quick=[]
-    if receipts:quick.append([b.button('📨 Квитанции · '+str(receipts),'admin:cardtopups')])
-    if payouts:quick.append([b.button('💸 Выплаты · '+str(payouts),'admin:payouts')])
-    if tasks:quick.append([b.button('📝 Модерация · '+str(tasks),'admin:tasks')])
+    text=tr('🛡 <b>Панель администратора</b>\n\n<b>Ожидают проверки</b>\n📝 Задания: {v0}\n💸 Выплаты: {v1}\n💳 Квитанции: {v2}\n{v3}\nВыбери раздел ниже.',{'v0':tasks,'v1':payouts,'v2':receipts,'v3':alert},html_mode=True,section='bot_admin')
     text+='\n\n<i>Версия: '+RELEASE+'</i>'
-    return b.bot_ui.screen(uid,text,quick+[
-        [b.button('💰 Финансы','admin:section:finance'),b.button('📝 Задания','admin:section:tasks')],
-        [b.button('⚙️ Настройки','admin:section:settings'),b.button('🎨 Оформление','admin:copy')],
-        [b.button('📚 О боте','admin:about'),b.button('🆘 Обращения','admin:tickets')],
-        [b.button('⬅️ Мой кабинет','cabinet')]])
+    return b.bot_ui.screen(uid,text,[
+        [b.button('⚙️ Управление','admin:section:manage'),b.button('💸 Заявки на вывод','admin:payouts')],
+        [b.button('💳 Пополнения','admin:cardtopups'),b.button('🆘 Обращения','admin:tickets')],
+        [b.button('📊 Статистика','admin:statistics'),b.button('🧾 История оплат','admin:payments:all:0')],
+        [{'text':'⭐ Stars','callback_data':'adm:stars'},{'text':'🐔 Ферма','callback_data':'adm:farm'}],
+        [b.button('🔄 Обновить','admin'),b.button('⬅️ Мой кабинет','cabinet')]])
 
 
 def section_screen(c,uid,key):
     b=core(); b.state(c,uid,'clear')
-    if key=='finance':
+    if key=='manage':
+        text=tr('⚙️ <b>Управление ботом</b>\n\nНастраивай условия, проверяй заказы и управляй оформлением. Все действия доступны через кнопки. Изменение тарифов не переписывает старые заказы.',html_mode=True,section='bot_admin')
+        rows=[[b.button('💰 Тарифы','admin:economy'),b.button('💸 Выплаты','admin:payouts')],
+            [b.button('📝 Модерация заданий','admin:tasks')],
+            [b.button('🎁 Бонус и рефералы','admin:settings:rewards'),b.button('⏳ Подписка и штраф','admin:settings:retention')],
+            [b.button('💳 Пополнения','admin:topupsettings'),b.button('📒 Учёт поступлений','admin:money')],
+            [b.button('🎨 Тексты и кнопки','admin:copy'),b.button('📚 О боте','admin:about')],
+            [b.button('📐 Лимиты','admin:settings:limits'),b.button('📣 Канал постов','admin:channel')],
+            [b.button('🔎 Публикации','admin:postissues'),b.button('⚠️ Спорные отписки','admin:retention')]]
+    elif key=='finance':
         pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
         liabilities=b.liability(c)
         debt=c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n']
@@ -202,6 +208,15 @@ def copy_entry(c, uid, key):
 def admin(c, uid, text, action, api):
     b = core()
     ui = b.bot_ui
+    moderation=b.bot_moderation.route(c,uid,action)
+    if moderation is not None:return moderation
+    if action=='admin:statistics':
+        b.state(c,uid,'clear')
+        pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
+        users=c.execute('SELECT count(*) AS n FROM bot_accounts').fetchone()['n']
+        tasks=c.execute('SELECT count(*) AS n FROM bot_tasks').fetchone()['n']
+        paid=c.execute("SELECT count(*) AS n FROM bot_claims WHERE status='paid'").fetchone()['n']
+        return ui.screen(uid,'📊 Статистика бота\n\n👤 Пользователей: '+str(users)+'\n📝 Заказов: '+str(tasks)+'\n✅ Оплаченных выполнений: '+str(paid)+'\n💰 Учтено средств: '+b.money(pool)+'\nОбязательства: '+b.money(b.liability(c)),[[b.button('⬅️ Админ-панель','admin')]])
     navigation={'admin','admin:economy','admin:bonus','admin:copy','admin:copyhistory','admin:money','admin:payouts','admin:tickets','admin:about','admin:topupsettings','admin:cardtopups','admin:postissues','admin:tasks','admin:retention'}
     if action in navigation or action.startswith(('admin:settings:','admin:copylist:','admin:copyentry:','admin:copyreset:','admin:copyrestore:','admin:payview:','admin:ticketview:')):
         b.state(c,uid,'clear')
@@ -302,6 +317,8 @@ def input_text(c, uid, text, message, current, api):
     ui = b.bot_ui
     stage = current['state']
     data = current['data']
+    if stage.startswith('admin_task_'):
+        return b.bot_moderation.input_text(c,uid,text,current)
     if stage in ('admin_rejection_reason','admin_rejection_confirm'):
         return b.bot_decisions.input_text(c,uid,text,current)
     if stage == 'admin_field':
