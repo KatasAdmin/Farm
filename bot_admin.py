@@ -9,7 +9,7 @@ import bot_payments
 from bot_release import RELEASE
 LIMITS = {'withdraw_min': 1, 'withdraw_max': 100000000, 'withdraw_fee': 0, 'max_stars': 10000, 'max_executions': 10000, 'card_min': 1, 'card_max': 100000000}
 TITLES = {'withdraw_min': 'Минимальный вывод', 'withdraw_max': 'Максимальный вывод', 'withdraw_fee': 'Комиссия вывода', 'max_stars': 'Максимум Stars за оплату', 'max_executions': 'Выполнений в одном заказе', 'card_min': 'Минимум перевода на карту', 'card_max': 'Максимум перевода на карту'}
-KINDS = {'channel': '📣 Подписка на канал', 'bot': '🤖 Задание на бота', 'group': '👥 Вступление в группу', 'post': '👁 Пост', 'manual': '📝 Ручное задание'}
+KINDS = {'channel': '📣 Подписка на канал', 'bot': '🤖 Задание на бота', 'group': '👥 Вступление в группу', 'post': '👁 Пост', 'manual': '📝 Задание · пример'}
 
 def core():
     import task_bot
@@ -83,7 +83,7 @@ def settings(c, uid, section):
             text += f"{name}: {b.money(p['cost'])} → {b.money(p['reward'])}\n"
             rows.append([b.button(name + ' · ' + b.money(p['cost']), 'admin:field:price_' + kind)])
         rows += [[b.button('👁 Награда за пост', 'admin:field:post_reward')], [b.button('📊 Комиссия заданий · ' + b.bot_economy.pct(cfg['fee']) + '%', 'admin:field:fee')], [b.button('💸 Комиссия вывода', 'admin:field:withdraw_fee')]]
-        text += tr('\nКомиссия включена в цену. Для постов цена и награда задаются отдельно.\nИзменения действуют для новых заказов.', html_mode=True, section='bot_admin', limit=3000)
+        text += tr('\nКомиссия включена в цену. Для постов цена и награда задаются отдельно. В ручном задании заказчик задаёт свою награду; тариф здесь — только пример расчёта.\nИзменения действуют для новых заказов.', html_mode=True, section='bot_admin', limit=3000)
     elif section == 'rewards':
         n = c.execute('SELECT daily FROM bot_settings WHERE id=1').fetchone()['daily']
         text = tr('🎁 <b>Награды и партнёры</b>\n\nЕжедневная награда: {v0}\n\n', {'v0': b.money(n)}, html_mode=True, section='bot_admin', limit=3000)

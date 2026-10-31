@@ -21,6 +21,7 @@ import bot_notifications
 import bot_payouts
 import bot_decisions
 import bot_advertising
+import bot_manual
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 from psycopg.types.json import Jsonb
@@ -64,6 +65,7 @@ def initialize(c):
     bot_payouts.initialize(c)
     bot_decisions.initialize(c)
     bot_advertising.initialize(c)
+    bot_manual.initialize(c)
     c.execute('SELECT pg_advisory_xact_lock(1984533)')
     c.execute('SELECT pg_advisory_xact_lock(%s)', (LOCK,))
     unify_balances(c)
@@ -163,6 +165,7 @@ def resolve_chat(api, target, kind):
     return (info['id'], link)
 
 def task_card(t, uid, c):
+    if t['kind']=='manual':return bot_manual.task_card(c,t,uid)
     if t['kind'] == 'bot':
         return say(uid, tr('🤖 {v0}\n\n{v1}\n\nНаграда: {v2}\nВозьми задание, запусти бота и перешли сюда свежий ответ от него. Это проверка источника пересылки, не гарантия первого запуска. Не пересылай пароли и коды.', {'v0': f"{t['title']}", 'v1': f"{t['description']}", 'v2': f"{money(t['reward'])}"}, html_mode=False, section='task_bot', limit=3000), [[{'text': tr('Перейти к боту', html_mode=False, section='task_bot', limit=3000), 'url': t['url']}], [button('Взять / отправить пересылку', 'take:' + t['id'])], [button('Пропустить', 'skip_bot')]])
     return say(uid, tr('{v0}\n\n{v1}\n\nНаграда: {v2}{v3}', {'v0': f"{t['title']}", 'v1': f"{t['description']}", 'v2': f"{money(t['reward'])}", 'v3': bot_economy.rule_text(c, t)}, html_mode=False, section='task_bot', limit=3000), [[{'text': tr('Открыть', html_mode=False, section='task_bot', limit=3000), 'url': t['url']}], [button('Взять задание', 'take:' + t['id']), button('Проверить', 'check:' + t['id'])], [button('⬅️ Задания', 'earn')]])
@@ -288,6 +291,8 @@ def route(c, uid, text, action, message, api, admin):
     if action == 'cancel_input':
         state(c, uid, 'clear')
         return say(uid, tr('Действие отменено. Выбери раздел в меню внизу.', html_mode=False, section='task_bot', limit=3000))
+    manual=bot_manual.route(c,uid,action,admin)
+    if manual is not None:return manual
     if action.startswith(('confirm_task:', 'confirm_payout:')):
         return confirmation(c, uid, action)
     if text in sum(MENU, []) or cmd in ('/start', '/help', '/menu', '/cancel'):
@@ -328,6 +333,7 @@ def route(c, uid, text, action, message, api, admin):
         kind = action.split(':')[1]
         if kind not in KINDS:
             raise UserError(tr('Неизвестный тип задания.', html_mode=False, section='task_bot', limit=3000))
+        if kind=='manual':return bot_manual.begin(c,uid)
         if kind == 'post' and (not bot_extras.settings(c)['channel_id']):
             raise UserError(tr('Канал рекламных постов ещё не подключён администратором.', html_mode=False, section='task_bot', limit=3000))
         state(c, uid, 'task_title', {'kind': kind})
@@ -463,6 +469,11 @@ def route(c, uid, text, action, message, api, admin):
     return bot_ui.home(c, uid)
 
 def process_input(c, uid, text, message, current, api):
+    if current['data'].get('kind')=='manual':
+        if current['state'].startswith('manual_') or (current['state']=='task_confirm' and current['data'].get('draft')):
+            return bot_manual.input_text(c,uid,text,message,current)
+        if current['state'].startswith('task_') and current['state']!='task_confirm':
+            return bot_manual.begin(c,uid)
     if current['state'] in ('work_rejection_reason','work_rejection_confirm'):
         return bot_decisions.input_text(c,uid,text,current)
     stage, data = (current['state'], current['data'])
@@ -598,6 +609,7 @@ def confirmation(c, uid, action):
         bot_notifications.enqueue(c,'task:'+tid,tr('📝 Новый заказ на модерации\n\nАвтор: {v0}\nНазвание: {v1}\nБюджет: {v2}', {'v0': str(uid), 'v1': data['title'], 'v2': money(data['budget'])}, section='notifications'),'admin:tasks',subject=uid)
         bot_economy.save_terms(c, tid, data)
         bot_advertising.save(c,tid,data)
+        if data['kind']=='manual':bot_manual.save(c,tid,data)
         result = say(uid, tr('Задание {v0} создано и ожидает модерации. Бюджет зарезервирован.', {'v0': tid}, html_mode=False, section='task_bot', limit=3000))
     elif action == 'confirm_payout' and current['state'] == 'payout_confirm':
         if c.execute("SELECT 1 FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone():
@@ -737,5 +749,7 @@ def _administration(c, uid, text, action, api):
         if not rows:
             return say(uid, tr('Нет заданий на модерации.', html_mode=False, section='task_bot', limit=3000))
         t = rows[0]
-        return say(uid, tr('Модерация {v0}\nАвтор: {v1}\nТип: {v2}\n{v3}\n{v4}\n{v5}\nНаграда: {v6}\nБюджет: {v7}', {'v0': f"{t['id']}", 'v1': f"{t['owner']}", 'v2': f"{t['kind']}", 'v3': f"{t['title']}", 'v4': f"{t['description']}", 'v5': f"{t['url']}", 'v6': f"{money(t['reward'])}", 'v7': f"{money(t['remaining'])}"}, html_mode=False, section='task_bot', limit=3000), [[button('✅ Опубликовать', 'admin:approve:' + t['id']), button('❌ Отклонить', 'admin:rejecttask:' + t['id'])]])
+        moderation_buttons=[[button('✅ Опубликовать', 'admin:approve:' + t['id']), button('❌ Отклонить', 'admin:rejecttask:' + t['id'])]]
+        if bot_manual.photo_rows(c,t['id']):moderation_buttons.append([button('📷 Посмотреть примеры','manual:photo:'+t['id']+':0')])
+        return say(uid, tr('Модерация {v0}\nАвтор: {v1}\nТип: {v2}\n{v3}\n{v4}\n{v5}\nНаграда: {v6}\nБюджет: {v7}', {'v0': f"{t['id']}", 'v1': f"{t['owner']}", 'v2': f"{t['kind']}", 'v3': f"{t['title']}", 'v4': f"{t['description']}", 'v5': f"{t['url']}", 'v6': f"{money(t['reward'])}", 'v7': f"{money(t['remaining'])}"}, html_mode=False, section='task_bot', limit=3000), moderation_buttons)
     return bot_admin.panel(c, uid)

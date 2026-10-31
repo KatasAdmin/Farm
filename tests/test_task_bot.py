@@ -113,8 +113,9 @@ class TaskBotTests(unittest.TestCase):
     def task(self, kind='channel', count='2'):
         self.credit()
         self.send(2, action='new:' + kind)
-        for text in ['Test task', 'Join the channel please', 'https://t.me/ChannelTest'] + (['1'] if kind=='manual' else []) + [count]:
+        for text in ['Test task', 'Join the channel please', 'https://t.me/ChannelTest'] + (['0.80'] if kind=='manual' else []) + [count]:
             self.send(2, text)
+        if kind=='manual':self.send(2,action='manual:photos_done')
         result = self.send(2, action='confirm_task')
         self.assertIn('ожидает модерации', result['text'])
         tid = self.c.execute('SELECT id FROM bot_tasks').fetchone()['id']
@@ -310,6 +311,7 @@ class TaskBotTests(unittest.TestCase):
         self.send(2, action='new:manual')
         for text in ('Second task', 'Description for second task', 'https://example.com/', '1', '2'):
             self.send(2, text)
+        self.send(2,action='manual:photos_done')
         self.c.execute('UPDATE bot_accounts SET available=0 WHERE uid=2')
         self.c.raw.commit()
         reply = self.send(2, action='confirm_task')
@@ -341,8 +343,9 @@ class TaskBotTests(unittest.TestCase):
         self.joined = True
         self.send(3, action='check:' + tid)
         self.send(3, action='new:manual')
-        for text in ('My own task', 'Read and send proof please', 'https://example.com/', '0.28', '2'):
+        for text in ('My own task', 'Read and send proof please', 'https://example.com/', '0.22', '2'):
             self.send(3, text)
+        self.send(3,action='manual:photos_done')
         self.send(3, action='confirm_task')
         self.assertEqual(self.balance(3), 0)
         self.assertEqual(self.c.execute('SELECT remaining FROM bot_tasks WHERE owner=3').fetchone()['remaining'], 56)

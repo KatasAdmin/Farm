@@ -44,6 +44,7 @@ def card(c,t):
     slots=str(purchased['slots']) if purchased else 'не указан в старом заказе'
     text=tr('📣 <b>{v0}</b>\n\nСтатус: {v1}\nЗаказано выполнений: <b>{v2}</b>\n✅ Оплачено: {v3}\n⏳ На проверке: {v4}\nДоступно мест: {v5}\n\n<b>Финансы заказа</b>\nЦена выполнения: {v6}\nНаграда исполнителю: {v7}\nОстаток бюджета: <b>{v8}</b>',{'v0':b.bot_ui.esc(t['title']),'v1':status,'v2':slots,'v3':stats.get('paid',0),'v4':stats.get('review',0),'v5':max(0,t['remaining']//cost-stats.get('review',0)) if t['status']=='active' and publish_ready else 0,'v6':b.money(cost),'v7':b.money(t['reward']),'v8':b.money(t['remaining'])},html_mode=True,section='bot_advertising')
     rows=[]
+    if b.bot_manual.photo_rows(c,t['id']):rows.append([b.button('📷 Примеры задания','manual:photo:'+t['id']+':0')])
     if stats.get('review',0):rows.append([b.button('📝 Проверить работы','reviews:0')])
     if t['status'] in ('pending','active'):rows.append([b.button('Закрыть и вернуть остаток','close:'+t['id'])])
     if t['kind']=='post':

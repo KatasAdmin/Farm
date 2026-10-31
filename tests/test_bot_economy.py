@@ -56,8 +56,9 @@ class EconomyTests(unittest.TestCase):
         self.c.raw.commit()
         self.credit(2,'100','large-order')
         self.send(2,action='new:manual')
-        for value in ('Big task','A manual proof is required','https://example.com','100','1'):
+        for value in ('Big task','A manual proof is required','https://example.com','80','1'):
             self.send(2,value)
+        self.send(2,action='manual:photos_done')
         self.send(2,action='confirm_task')
         tid=self.row('bot_tasks')['id']
         self.send(1,action='admin:approve:'+tid)
