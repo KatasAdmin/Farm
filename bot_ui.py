@@ -30,12 +30,16 @@ def initialize(c):
       body text NOT NULL,updated double precision NOT NULL)""")
 
 
-def catalog_filter():
-    # Shared by the overview and actual task list; one reward per worker/order.
-    return """t.status='active' AND t.owner<>%s
+def active_order_filter():
+    return """t.status='active'
       AND t.remaining>=coalesce((SELECT cost FROM bot_task_terms q WHERE q.task=t.id),t.reward)*
         (1+(SELECT count(*) FROM bot_claims r WHERE r.task=t.id AND r.status='review'))
-      AND (t.kind<>'post' OR EXISTS(SELECT 1 FROM bot_post_publications p WHERE p.task=t.id AND p.status='posted'))
+      AND (t.kind<>'post' OR EXISTS(SELECT 1 FROM bot_post_publications p WHERE p.task=t.id AND p.status='posted'))"""
+
+
+def catalog_filter():
+    # Shared availability rules; personal exclusions apply only to the worker's catalog.
+    return active_order_filter()+""" AND t.owner<>%s
       AND NOT EXISTS(SELECT 1 FROM bot_claims x WHERE x.task=t.id AND x.uid=%s
         AND x.status IN ('paid','rejected','review'))
       AND (t.kind<>'bot' OR t.chat_id IS NULL OR NOT EXISTS(
@@ -151,8 +155,8 @@ def partners(c,uid):
         [b.button('✉️ Приветственное сообщение','welcome')]])
 
 
-def today_bounds():
-    now=dt.datetime.now(ZoneInfo('Europe/Kyiv'))
+def today_bounds(now=None):
+    now=now or dt.datetime.now(ZoneInfo('Europe/Kyiv'))
     start=now.replace(hour=0,minute=0,second=0,microsecond=0)
     return start.timestamp(),(start+dt.timedelta(days=1)).timestamp()
 

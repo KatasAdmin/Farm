@@ -12,6 +12,7 @@ import uuid
 import bot_extras
 import bot_economy
 import bot_ui
+import bot_about
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 from psycopg.types.json import Jsonb
@@ -90,6 +91,7 @@ def initialize(c):
     bot_extras.initialize(c)
     bot_economy.initialize(c)
     bot_ui.initialize(c)
+    bot_about.initialize(c)
     c.execute("SELECT pg_advisory_xact_lock(1984533)")
     c.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK,))
     unify_balances(c)
@@ -239,7 +241,7 @@ def award(c, t, uid):
 def _admin_input(db, uid):
     with db() as c:
         row = state(c, uid)
-        return bool(row and row['state'] == 'economy_edit')
+        return bool(row and row['state'] in ('economy_edit','about_edit'))
 
 
 def handle(payload, db, api, is_admin):
@@ -328,7 +330,10 @@ def route(c, uid, text, action, message, api, admin):
     presentation = bot_ui.route(c, uid, text, action, message)
     if presentation is not None:
         return presentation
-    if action in ('history','claims','payouts','about','games'):
+    public = bot_about.route(c,uid,text,action)
+    if public is not None:
+        return public
+    if action in ('history','claims','payouts','games'):
         state(c,uid,'clear')
     if action == "cancel_input":
         state(c, uid, "clear")
@@ -343,8 +348,6 @@ def route(c, uid, text, action, message, api, admin):
         return say(uid, "🎮 Игры\nОткрой свою ферму:", [[{"text": "🌾 Ферма", "web_app": {"url": farm_url()}}]])
     if text in ("👤 Мой кабинет", "/start wallet") or action == "cabinet":
         return cabinet(c, uid)
-    if text == "📚 О боте" or action == "about":
-        return say(uid, "📚 Новая жизнь\nЗадания, продвижение проектов и ферма в одном боте.\n\nНаграды за задания — в гривнах. Выплаты проверяет администратор вручную. Бюджет заданий резервируется заранее. Повторная награда за одно задание не начисляется.\n\nПомощь: /support ТвойНик Описание проблемы\nНе отправляй пароли, CVV, PIN или коды из SMS.\n\n/cancel — отменить ввод.")
     if text == "📣 Продвижение" or action == "promotion":
         return bot_ui.promotion(c,uid)
     if action in ("convert", "convert_to_ads", "convert_from_ads", "tofarm", "fromfarm"):
@@ -493,6 +496,12 @@ def route(c, uid, text, action, message, api, admin):
         return say(uid, "✅ Проверка пройдена. Начислено " + money(t["reward"]))
     current = state(c, uid)
     if current:
+        if current['state']=='public_support':
+            return bot_about.support(c,uid,text,message)
+        if current['state']=='about_edit':
+            if not admin:
+                raise UserError('Доступ только администратору.')
+            return bot_about.edit(c,uid,text,current['data'])
         if current["state"] in ("welcome_edit","welcome_confirm"):
             return bot_ui.input_text(c,uid,text,message,current)
         if current["state"] == "economy_edit":
@@ -655,6 +664,9 @@ def confirmation(c, uid, action):
 
 
 def administration(c, uid, text, action, api):
+    public = bot_about.admin(c,uid,action)
+    if public is not None:
+        return public
     economy = bot_economy.admin(c, uid, text, action)
     if economy is not None:
         return economy
@@ -761,4 +773,4 @@ def administration(c, uid, text, action, api):
         p = rows[0]
         return say(uid, f"Выплата {p['id']}\nID игрока: {p['uid']}\n{money(p['amount'])}\n{p['destination']}\n\nПосле реального перевода:\n/botpaid {p['id']} НомерБанковскойОперации", [[button("Отклонить и вернуть деньги", "admin:rejectpayout:" + p["id"])]])
     pool = c.execute("SELECT amount FROM bot_cash_pool WHERE id=1").fetchone()["amount"]
-    return say(uid, f"🛡 Управление ботом\nУчтённый резерв: {money(pool)}\nОбязательства: {money(liability(c))}\nСвободный резерв: {money(max(0,pool-liability(c)))}\nНехватка покрытия: {money(max(0,liability(c)-pool))}\nДолги исполнителей: {money(c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n'])}\n\n/botcredit TelegramID Сумма НомерПлатежа — подтвердить фактически полученное пополнение\n/botfund Сумма НомерВзноса — учесть собственный резерв\n/botpaid НомерЗаявки НомерОперации — подтвердить фактически выполненную выплату\n\nРеквизиты для пополнений согласовываются через обращения: /tickets.\nОбзор администратора: /admin.", [[button("⚙️ Тарифы и правила", "admin:economy")], [button("📝 Модерация заданий", "admin:tasks"), button("💸 Выплаты", "admin:payouts")], [button("🎁 Бонусы и канал постов", "admin:bonus"), button("Проверить публикации", "admin:postissues")]])
+    return say(uid, f"🛡 Управление ботом\nУчтённый резерв: {money(pool)}\nОбязательства: {money(liability(c))}\nСвободный резерв: {money(max(0,pool-liability(c)))}\nНехватка покрытия: {money(max(0,liability(c)-pool))}\nДолги исполнителей: {money(c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n'])}\n\n/botcredit TelegramID Сумма НомерПлатежа — подтвердить фактически полученное пополнение\n/botfund Сумма НомерВзноса — учесть собственный резерв\n/botpaid НомерЗаявки НомерОперации — подтвердить фактически выполненную выплату\n\nРеквизиты для пополнений согласовываются через обращения: /tickets.\nОбзор администратора: /admin.", [[button("⚙️ Тарифы и правила", "admin:economy")], [button("📝 Модерация заданий", "admin:tasks"), button("💸 Выплаты", "admin:payouts")], [button("🎁 Бонусы и канал постов", "admin:bonus"), button("Проверить публикации", "admin:postissues")], [button("📚 Настройки «О боте»", "admin:about")]])
