@@ -20,6 +20,7 @@ def initialize(c):
           star_rate bigint NOT NULL DEFAULT 0 CHECK(star_rate>=0),card text NOT NULL DEFAULT '',
           recipient text NOT NULL DEFAULT '')""",
         'INSERT INTO bot_topup_config(id) VALUES(1) ON CONFLICT DO NOTHING',
+        'CREATE TABLE IF NOT EXISTS bot_topup_migrations(id text PRIMARY KEY)',
         """CREATE TABLE IF NOT EXISTS bot_wallet_stars(id text PRIMARY KEY,uid bigint NOT NULL,
           stars integer NOT NULL CHECK(stars>0),amount bigint NOT NULL CHECK(amount>0),
           status text NOT NULL CHECK(status IN ('created','checkout','paid','refunded')),
@@ -33,6 +34,10 @@ def initialize(c):
         'CREATE INDEX IF NOT EXISTS bot_card_receipt ON bot_card_topups(receipt_key,status)',
     ]:
         c.execute(sql)
+    applied=c.execute("INSERT INTO bot_topup_migrations VALUES('wallet-stars-rate-50-2026-10-31') ON CONFLICT DO NOTHING RETURNING id").fetchone()
+    if applied:
+        # The owner approved 2 Stars = 1 UAH; later admin edits must survive restarts.
+        c.execute('UPDATE bot_topup_config SET star_rate=50 WHERE id=1')
 
 
 def config(c):
@@ -62,7 +67,8 @@ def route(c,uid,action):
         if not cfg['star_rate']:
             return ui.screen(uid,'⭐ <b>Telegram Stars</b>\n\nКурс зачисления ещё не установлен администратором. Оплата пока недоступна.',[[b.button('⬅️ Пополнение','deposit')]])
         b.state(c,uid,'topup_stars',{'rate':cfg['star_rate']})
-        return ui.screen(uid,'⭐ <b>Пополнить через Stars</b>\n\nКурс: <b>1 Star = '+b.money(cfg['star_rate'])+'</b>\n'
+        rate_label='2 Stars = 1,00 грн' if cfg['star_rate']==50 else '1 Star = '+b.money(cfg['star_rate'])
+        return ui.screen(uid,'⭐ <b>Пополнить через Stars</b>\n\nКурс: <b>'+rate_label+'</b>\n'
                          'Введи количество Stars целым числом от 1 до 10000. Перед оплатой увидишь сумму зачисления.\n/cancel — отмена.')
     if action=='topup:card':
         cfg=config(c)

@@ -58,6 +58,8 @@ class TopupTests(unittest.TestCase):
         return self.send(1,action='admin:cardconfirm:'+data['nonce'])
 
     def test_menu_has_three_methods_and_no_payment_without_configuration(self):
+        self.c.execute('UPDATE bot_topup_config SET star_rate=0')
+        self.c.raw.commit()
         result=self.send(3,action='deposit')
         for action in ('topup:stars','topup:crypto','topup:card'):
             self.assertIn('bot:'+action,str(result))
@@ -198,14 +200,26 @@ class TopupTests(unittest.TestCase):
 
     def test_card_and_rate_configuration_owner_only_and_invalid_card_rejected(self):
         self.send(3,action='admin:topupedit:rate'); self.send(3,'100')
-        self.assertEqual(top.config(self.c)['star_rate'],0)
+        self.assertEqual(top.config(self.c)['star_rate'],50)
         self.send(1,action='admin:topupedit:card'); self.send(1,'1234567890123456\nNot valid')
         self.assertEqual(top.config(self.c)['card'],'')
         self.configure_card()
         self.assertEqual(top.config(self.c)['card'],'4242424242424242')
         bot.state(self.c,3,'topup_config',{'field':'rate'}); self.c.raw.commit()
         self.send(3,'100')
-        self.assertEqual(top.config(self.c)['star_rate'],0)
+        self.assertEqual(top.config(self.c)['star_rate'],50)
+
+    def test_default_rate_two_stars_per_hryvnia_and_later_admin_edits_preserved(self):
+        self.assertEqual(top.config(self.c)['star_rate'],50)
+        reply=self.send(3,action='topup:stars')
+        self.assertIn('2 Stars = 1,00 грн',reply['text'])
+        invoice=self.send(3,'20')
+        self.assertIn('10,00 грн',invoice['description'])
+        self.assertEqual(self.balance(3),0)
+        self.configure_rate('0.75')
+        bot.initialize(self.c)
+        self.c.raw.commit()
+        self.assertEqual(top.config(self.c)['star_rate'],75)
 
     def test_card_snapshot_and_user_list_are_private(self):
         tid=self.card_request()
