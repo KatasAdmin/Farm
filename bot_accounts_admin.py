@@ -80,7 +80,7 @@ def card(c,uid,target):
           '\n\n💰 Баланс бота: <b>'+b.money(a['available'])+'</b>\nДолг: '+b.money(debt['amount'] if debt else 0)+'\nПригласил: '+str(a['referrer'] or '—'))
     if farm:
         text+='\n\n🐔 <b>Привязанная ферма</b>\nНик: '+esc(farm.get('name','—'))+'\nID фермы: <code>'+esc(farm['id'])+'</code>\nМонеты в игре: '+str(farm['coins'])
-        text+='\nКуры: '+str(farm.get('chickens',0))+' · Гуси: '+str(farm.get('geese',0))+'\nЯйца: '+str(farm.get('eggs',0))+' · Перья: '+str(farm.get('feathers',0))
+        text+='\nКуры: '+str(farm.get('chickens',0))+' · Гуси: '+str(farm.get('geese',0))+'\nЯйца: '+str(farm.get('eggs',0))+' · Перья: '+str(farm.get('feathers',0))+'\nКоровы: '+str(farm.get('cows',0))+' · Молоко: '+str(farm.get('milk',0))
     else:text+='\n\n🐔 Привязанной фермы нет.'
     identity=c.execute('SELECT username,phone FROM bot_identities WHERE uid=%s',(target,)).fetchone()
     if identity:

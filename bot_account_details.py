@@ -39,12 +39,15 @@ def screen(c,uid,target,section,page=0):
         else:
             q,f=farm_preview(farm,now);hens=q.get('chickens',0);geese=q.get('geese',0)
             fed=q.get('fed_hens',0);fed_geese=q.get('fed_geese',0);rate=fed/6+fed_geese/2;ideal=hens/6+geese/2
-            used=q.get('grain',0)+q.get('eggs',0)+q.get('feathers',0);cap=100*q.get('storage_level',1)
+            used=q.get('grain',0)+q.get('eggs',0)+q.get('feathers',0)+q.get('milk',0);cap=100*q.get('storage_level',1)
             lines.extend(['Ник: <b>'+esc(q.get('name','—'))+'</b>\nID фермы: <code>'+esc(pid)+'</code>\nСоздана: '+(stamp(q['created_at']) if q.get('created_at') else '—'),
               'Уровень: '+str(q.get('farmer_level',1))+'\nСтатус: '+esc({'farmer':'Фермер','president':'Президент'}.get(q.get('game_status'),q.get('game_status','Фермер')))+'\nПол: '+esc({'male':'Мужской','female':'Женский','unspecified':'Не указан'}.get(q.get('gender'),'Не указан'))+' · Возраст: '+str(q.get('age') or '—')+'\nПароль: '+('задан' if q.get('password_hash') else 'не задан'),
               f'🐔 Куры: <b>{hens}</b> · 🪿 Гуси: <b>{geese}</b>\nСытых: {fed} кур и {fed_geese} гусей\nСытость: {q.get("satiety",0)}%\nПтичник: {hens+geese} / {10*q.get("coop_level",1)}',
               f'🥚 Яйца: <b>{q.get("eggs",0)}</b> · 🪶 Перья: <b>{q.get("feathers",0)}</b>\n🌾 Зерно: {q.get("grain",0)}\nСклад: {used} / {cap}\nСвободно: {max(0,cap-used)}',
               f'📈 Скорость сытых птиц: <b>{rate:g} яиц/ч</b>\nПри сытом стаде: {ideal:g}/ч · {ideal*6:g} за 6 ч · {ideal*24:g} за сутки\nОдно яйцо: примерно каждые {duration(3600/rate) if rate else "—"}\nЭто скорость производства; корм и заполненный склад ограничивают сбор.'])
+            if q.get('cows',0):
+                lines.append('🐄 Коровы: '+str(q['cows'])+' · Сытых: '+str(q.get('fed_cows',0))+'\nКоровник: '+str(q['cows'])+' / '+str(2*q.get('cowshed_level',1))+'\n🥛 Молоко: '+str(q.get('milk',0))+'\nСкорость при кормлении: '+str(3*q['cows'])+' ед./сутки · цена 11 монет\nКорм: '+str(3*q['cows'])+' зерна раз в 18 часов')
+                if f:lines.append('Следующее молоко: '+duration(f['seconds_to_next_milk'] if f.get('next_milk_scheduled') else None)+'\nМолоко за 12 ч: '+str(f.get('milk_next_12h',0)))
             if f:
                 lines.append('Прогноз: <b>'+str(f['eggs_next_6h'])+' яиц за 6 ч</b> · '+str(f['eggs_next_12h'])+' за 12 ч\nСледующее яйцо: '+duration(f['seconds_to_next_egg'] if f['next_egg_scheduled'] else None)+'\nКормление через '+duration(f['seconds_to_next_feed'])+'\nНа кормление нужно: '+str(f['grain_required_next_feed'])+' зерна\nНе хватает на следующее кормление: '+str(f['effective_grain_shortage']))
                 if geese:lines.append('🪶 Следующее перо при постоянном корме: '+(duration(f['seconds_to_next_feather']) if fed_geese else 'нужен корм'))

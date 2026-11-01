@@ -24,12 +24,13 @@ const art = {
   eggs: "redesign/egg",
   chickens: "redesign/hen",
   geese: "goose-v2.png",
+  cows:"cow-v1.webp",milk:"milk-v1.webp",
 };
 function eggQuantity(n) {
   const v=Math.abs(n)%100, last=v%10;
   return `${number(n)} ${v>=11 && v<=14 ? "яиц" : last===1 ? "яйцо" : last>=2 && last<=4 ? "яйца" : "яиц"}`;
 }
-const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица", geese:"Гусыня", feathers:"Перо" };
+const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица", geese:"Гусыня", cows:"Корова",milk:"Молоко", feathers:"Перо" };
 const number = (n) => new Intl.NumberFormat("ru-RU").format(n);
 let token = storage.getItem("farm_token");
 let state = null,
@@ -131,11 +132,11 @@ async function claimDaily(key) {
   if (completed) toast("Награда получена! Монеты начислены.");
 }
 async function upgradeBuilding(kind) {
-  if (pending || !state || !["coop","storage"].includes(kind)) return;
+  if (pending || !state || !["coop","storage","cowshed"].includes(kind)) return;
   const values = state.buildings || {};
   const price = values[kind + "_next_cost"];
   if (price == null) return;
-  const name = kind === "coop" ? "курятник" : "склад";
+  const name = kind === "coop" ? "птичник" : kind==="cowshed"?"коровник":"склад";
   if (!confirm("Улучшить " + name + " за " + number(price) + " монет?")) return;
   await perform("/api/upgrade", {item:kind});
 }
@@ -447,18 +448,18 @@ function marketTab(mode) {
 }
 let selectedResource="eggs";
 let sellingResource=null;
-const systemBuyback={grain:1,chickens:20,geese:80,feathers:5};
+const systemBuyback={grain:1,chickens:20,geese:80,cows:250,feathers:5};
 function openResourceActions(item) {
-  if (!state || !["grain","chickens","geese","feathers","eggs"].includes(item)) return;
+  if (!state || !["grain","chickens","geese","cows","milk","feathers","eggs"].includes(item)) return;
   selectedResource=item;
-  const title={grain:"🌾 Зерно",chickens:"🐔 Куры",geese:"🪿 Гуси",feathers:"🪶 Перья",eggs:"🥚 Яйца"}[item];
+  const title={grain:"🌾 Зерно",chickens:"🐔 Куры",geese:"🪿 Гуси",cows:"🐄 Коровы",milk:"🥛 Молоко",feathers:"🪶 Перья",eggs:"🥚 Яйца"}[item];
   el("resource-action-title").textContent=title;
   el("resource-action-buy").hidden=item==="feathers";
-  el("resource-action-description").textContent=item==="feathers"?"Редкий ресурс гусей. Сохраняй для будущих производств или продай системе по 5 монет за штуку.":item==="eggs"
-    ? "Купи яйца у других фермеров или выставь свои на рынок."
+  el("resource-action-description").textContent=item==="feathers"?"Редкий ресурс гусей. Сохраняй для будущих производств или продай системе по 5 монет за штуку.":["eggs","milk"].includes(item)
+    ? "Купи товар у других фермеров или выставь свой на рынок."
     : "Купи ресурс в магазине или продай его системе с мгновенным начислением монет.";
   el("resource-action-buy").textContent="Купить";
-  el("resource-action-sell").textContent=item==="eggs"?"Выставить на продажу":"Продать системе";
+  el("resource-action-sell").textContent=["eggs","milk"].includes(item)?"Выставить на продажу":"Продать системе";
   el("resource-actions-dialog").showModal();
 }
 function resourceAction(action){
@@ -466,17 +467,17 @@ function resourceAction(action){
  el("resource-actions-dialog").close();
  // A quick action must not navigate away from the original screen.
  if(action==="buy"){
-  if(item==="eggs")selectBuy("eggs");
+  if(["eggs","milk"].includes(item))selectBuy(item);
   else showShop(item);
  }else if(action==="sell"){
-  if(item==="eggs")openSell("eggs");
+  if(["eggs","milk"].includes(item))openSell(item);
   else openSystemSell(item);
  }
 }
 function openSystemSell(item){
- if(!state||!["grain","chickens","geese","feathers"].includes(item)||pending)return;
+ if(!state||!["grain","chickens","geese","cows","feathers"].includes(item)||pending)return;
  sellingResource=item;
- el("system-sell-title").textContent=item==="grain"?"🌾 Продать зерно":item==="geese"?"🪿 Продать гусыню":item==="feathers"?"🪶 Продать перья":"🐔 Продать курицу";
+ el("system-sell-title").textContent=item==="cows"?"🐄 Продать корову":item==="grain"?"🌾 Продать зерно":item==="geese"?"🪿 Продать гусыню":item==="feathers"?"🪶 Продать перья":"🐔 Продать курицу";
  el("system-sell-amount").value="1";
  el("system-sell-amount").max=String(Math.min(10000,state.me[item]));
  systemSellQuote();
@@ -510,9 +511,12 @@ async function confirmSystemSell(){
  }
 }
 function openSell(item) {
- if(item!=="eggs")return openSystemSell(item);
+ if(!["eggs","milk"].includes(item))return openSystemSell(item);
  if(!state||pending)return;
- el("sellitem").value="eggs";
+ el("sellitem").value=item;
+ el("sellprice").value=String(state.shop[item]);
+ el("egg-sale-title").textContent=item==="milk"?"🥛 Выставить молоко":"🥚 Выставить яйца";
+ document.querySelector('label[for="sellnum"]').textContent=item==="milk"?"Количество молока":"Количество яиц";
  el("sellnum").value="1";
  sellType();
  const dialog=el("egg-sale-dialog");
@@ -532,9 +536,9 @@ function marketRows(item) {
     : [];
 }
 function quote(item, n) {
-  if (item === "eggs") {
-    const available = Number(state?.available_eggs ?? 0);
-    return {cost:(state.shop.eggs||1)*n,remaining:Math.max(0,n-available)};
+  if (["eggs","milk"].includes(item)) {
+    const available = Number((item==="milk"?state?.available_milk:state?.available_eggs) ?? 0);
+    return {cost:(state.shop[item]||1)*n,remaining:Math.max(0,n-available)};
   }
   let remaining = n,
     cost = 0;
@@ -552,6 +556,9 @@ function drawPool() {
   const label = el("eggs-available");
   const buy = el("eggs-buy-button");
   if (label) label.textContent = "Доступно для покупки: " + number(available) + " шт.";
+  const milkAvailable=Number(state.available_milk||0);
+  if(el("milk-available"))el("milk-available").textContent="Доступно для покупки: "+number(milkAvailable)+" шт.";
+  if(el("milk-buy-button")){el("milk-buy-button").disabled=milkAvailable<=0;el("milk-buy-button").textContent=milkAvailable>0?"Купить":"Нет в наличии";}
   if (buy) {
     buy.disabled = available <= 0;
     buy.textContent = available > 0 ? "Купить" : "Нет в наличии";
@@ -559,15 +566,15 @@ function drawPool() {
 }
 function selectBuy(item) {
   const rows = marketRows(item);
-  const available = item === "eggs" ? Number(state?.available_eggs ?? 0) : rows.reduce((sum,row) => sum + row.quantity, 0);
+  const available = ["eggs","milk"].includes(item) ? Number((item==="milk"?state?.available_milk:state?.available_eggs) ?? 0) : rows.reduce((sum,row) => sum + row.quantity, 0);
   if (!available) {
-    toast("Сейчас нет яиц в продаже");
+    toast(item==="milk"?"Сейчас нет молока в продаже":"Сейчас нет яиц в продаже");
     return;
   }
   openPurchase({
     kind: "market",
     item,
-    price: item === "eggs" ? (state.shop.eggs||1) : Math.min(...rows.map((x) => x.price)),
+    price: ["eggs","milk"].includes(item) ? (state.shop[item]||1) : Math.min(...rows.map((x) => x.price)),
   });
 }
 function showShop(item) {
@@ -600,7 +607,7 @@ function openPurchase(data) {
   img.src =
     "/assets/" +
     (data.kind === "bundle" ? "redesign/wallet" : art[data.item]) +
-    (data.item==="geese"?"":".webp");
+    (/\.(png|webp|svg)$/.test(art[data.item]||"")?"":".webp");
   el("purchase-amount").value = 1;
   el("purchase-amount").closest(".stepper").hidden = data.kind === "bundle";
   purchaseQuote();
@@ -620,13 +627,13 @@ function purchaseQuote() {
     ? quote(purchase.item, n)
     : { cost: purchase.price * n, remaining: 0 };
   el("purchase-total").textContent = valid ? number(result.cost) : "—";
-  const room = ["chickens","geese"].includes(purchase.item)
+  const room = purchase.item==="cows"?state.buildings.cowshed_capacity-(state.me.cows||0):["chickens","geese"].includes(purchase.item)
     ? state.buildings.coop_capacity - state.me.chickens - (state.me.geese||0)
     : state.buildings.storage_capacity - state.buildings.storage_used;
   const noRoom = purchase.kind !== "bundle" && n > room;
   const expired = purchase.kind === "bundle" && !promotionActive();
   let info = expired ? "Акция завершена"
-    : noRoom ? (["chickens","geese"].includes(purchase.item) ? "В птичнике нет места. Расширь его." : "На складе нет места. Улучши склад.")
+    : noRoom ? (purchase.item==="cows"?"В коровнике нет места. Расширь его.":["chickens","geese"].includes(purchase.item) ? "В птичнике нет места. Расширь его." : "На складе нет места. Улучши склад.")
     : !valid
     ? "Введите целое количество от 1 до 10 000"
     : result.remaining > 0
@@ -658,8 +665,8 @@ async function confirmPurchase() {
 }
 function sellMaximum() {
   if(!state)return;
-  const eggs=Math.min(10000,Math.max(0,Number(state.me.eggs)||0));
-  if(!eggs){toast("Пока нет яиц для продажи");return;}
+  const eggs=Math.min(10000,Math.max(0,Number(state.me[el("sellitem").value])||0));
+  if(!eggs){toast("Пока нет товара для продажи");return;}
   el("sellnum").value=eggs;
   sellQuote();
 }
@@ -672,22 +679,22 @@ function sellQuote() {
   if (!state) return;
   const item = el("sellitem").value,
     n = Number(el("sellnum").value),
-    price = item === "eggs" ? (state.shop.eggs||1) : Number(el("sellprice").value);
+    price = ["eggs","milk"].includes(item) ? state.shop[item] : Number(el("sellprice").value);
   el("myStock").textContent = `На складе: ${number(state.me[item])} шт.`;
   el("sellquote").textContent =
     n > 0 && n <= state.me[item] && price > 0
       ? number(n * price) + " монет"
       : "Недостаточно товара";
   const submit=el("egg-sale-confirm");
-  if(submit)submit.disabled=pending||!Number.isSafeInteger(n)||n<1||n>state.me.eggs;
+  if(submit)submit.disabled=pending||!Number.isSafeInteger(n)||n<1||n>state.me[item];
 }
 async function sellNow() {
   if(pending)return;
   try {
-    const item="eggs",n=amount("sellnum");
-    if(!state||n>state.me.eggs)throw Error("Недостаточно яиц");
+    const item=el("sellitem").value,n=amount("sellnum");
+    if(!state||!["eggs","milk"].includes(item)||n>state.me[item])throw Error("Недостаточно товара");
     const success=await perform("/api/sell",{
-      item,amount:n,price:state.shop.eggs||1,
+      item,amount:n,price:state.shop[item]||1,
     });
     if(success&&el("egg-sale-dialog")?.open)el("egg-sale-dialog").close();
   } catch(error){toast(error.message);}
@@ -724,9 +731,9 @@ function storageFilter(filter, button) {
     .querySelectorAll("button")
     .forEach((x) => x.classList.toggle("active", x === button));
 }
-const logNames = { grain: "Зерно", chickens: "Курицы", geese:"Гуси", feathers:"Перья", eggs: "Яйца" };
+const logNames = { grain: "Зерно", chickens: "Курицы", geese:"Гуси",cows:"Коровы",milk:"Молоко", feathers:"Перья", eggs: "Яйца" };
 function details(text) {
-  return text.replace(/grain|chickens|geese|feathers|eggs/g, (x) => logNames[x]);
+  return text.replace(/grain|chickens|geese|cows|milk|feathers|eggs/g, (x) => logNames[x]);
 }
 async function redeemPromoCode(event) {
   event.preventDefault();
@@ -910,6 +917,7 @@ function render() {
   const farmDailyStats=state.day_stats||{};
   const assignStat=(id,value)=>{const node=el(id);if(node)node.textContent=number(value||0);};
   assignStat("stat-produced",farmDailyStats.eggs);
+  assignStat("stat-milk",farmDailyStats.milk);
   assignStat("stat-sales",farmDailyStats.sales_coins);
   assignStat("stat-feed",farmDailyStats.feed_spent_coins);
   assignStat("stat-margin",farmDailyStats.feed_margin_coins);
@@ -948,7 +956,7 @@ function render() {
   if(guide)guide.hidden=!(Date.now()/1000<(p.created_at||0)+3600 && !storage.getItem("farm_guide_dismissed_"+p.id));
   const tutorial=state.tutorial||{};
   const step=Math.min(3,tutorial.step||0), card=el("tutorial-card");
-  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить на Рынке. Куры едят автоматически раз в 18 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
+  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить на Рынке. Животные едят автоматически раз в 18 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
   const history = el("production-history");
   if (history) history.innerHTML = state.production_history?.length
     ? state.production_history.map(event => `<div class="ledger-row income">${image("redesign/egg")}<div><strong>+${number(event.amount)} яиц</strong><small>${new Date(event.created * 1000).toLocaleString("ru-RU")}</small></div></div>`).join("")
@@ -958,7 +966,7 @@ function render() {
     const value = buildings[node.dataset.building];
     node.textContent = typeof value === "number" ? number(value) : "—";
   });
-  for (const kind of ["coop","storage"]) {
+  for (const kind of ["coop","storage","cowshed"]) {
     const button = el("upgrade-"+kind);
     if (!button) continue;
     const price = buildings[kind+"_next_cost"];
@@ -971,11 +979,11 @@ function render() {
     shopIncubator.disabled = pending || (!inc.owned && p.coins < inc.incubator_price);
   }
   const last = state.last_farm_event;
-  if (last && (last.kind === "eggs_produced" || last.kind === "chick_matured")) {
+  if (last && ["eggs_produced","chick_matured","milk_produced","feathers_collected"].includes(last.kind)) {
     const seenKey = "farm_seen_event_" + p.id;
     if (storage.getItem(seenKey) !== last.id) {
       storage.setItem(seenKey, last.id);
-      toast(last.kind === "chick_matured" ? "Цыплёнок вырос! +1 курица." : last.kind === "feathers_collected" ? "🪶 Собрано перьев: "+number(last.amount)+". Они на складе!" : "Птицы снесли " + number(last.amount) + " яиц! Они уже на складе.");
+      toast(last.kind === "chick_matured" ? "Цыплёнок вырос! +1 курица." : last.kind === "milk_produced" ? "🥛 Получено молока: "+number(last.amount)+". Оно на складе!" : last.kind === "feathers_collected" ? "🪶 Собрано перьев: "+number(last.amount)+". Они на складе!" : "Птицы снесли " + number(last.amount) + " яиц! Они уже на складе.");
     }
   }
   const progression = state.progression || {};
@@ -1037,7 +1045,7 @@ function render() {
   document.querySelectorAll("[data-buy-feed]").forEach(x => x.classList.toggle("needs-feed", f.effective_grain_shortage > 0));
   const storageWarning = el("storage-warning");
   storageWarning.hidden = buildings.storage_used < buildings.storage_capacity;
-  storageWarning.textContent = `Склад заполнен: ${number(buildings.storage_used)} / ${number(buildings.storage_capacity)}. Новые яйца и перья не поместятся. Продай товары или улучши склад.`;
+  storageWarning.textContent = `Склад заполнен: ${number(buildings.storage_used)} / ${number(buildings.storage_capacity)}. Новые яйца, молоко и перья не поместятся. Продай товары или улучши склад.`;
   el("login").hidden = true;
   el("app").hidden = false;
   el("nav").hidden = false;
@@ -1055,10 +1063,10 @@ function render() {
     x.parentElement.setAttribute("aria-valuenow", sat);
     x.style.background = sat < 35 ? "linear-gradient(#ffb65d,#db3b29)" : "";
   });
-  el("feedstock").textContent = p.chickens+(p.geese||0)
+  el("feedstock").textContent = p.chickens+(p.geese||0)+(p.cows||0)
     ? "~"+Math.max(0,Math.floor(state.farm.feed_stock_seconds/3600))+" часов"
-    : "— (нет птицы)";
-  el("warning").textContent = state.farm.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления." : "Кормление раз в 18 часов · курица: 1 зерно, гусыня: 2.";
+    : "— (нет животных)";
+  el("warning").textContent = state.farm.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления." : "Кормление раз в 18 часов · курица: 1 зерно, гусыня: 2, корова: 3.";
   el("warning").dataset.alert = String(state.farm.effective_grain_shortage > 0);
   el("warning").hidden=state.farm.effective_grain_shortage<=0;
 
@@ -1160,12 +1168,16 @@ function countdown() {
   const featherProgress=Math.min(100,100*((state.me.feather_progress||0)+fedGeese*elapsed)/(7*86400));
   document.querySelectorAll('[data-feather-progress]').forEach(x=>{x.setAttribute('aria-valuenow',Math.floor(featherProgress));x.firstElementChild.style.width=featherProgress+'%';});
   document.querySelectorAll('[data-feather-note]').forEach(x=>x.textContent=!gooseCount?'Перья дают гуси. Купи гусыню на рынке — здесь появится время до следующего пера.':warehouseFull?'Освободи место: новые перья не сохраняются.':!fedGeese?'Пока гуси голодны, прогресс пера приостановлен.':'Сытых гусей: '+fedGeese+' из '+gooseCount+'. Один гусь даёт перо за 7 дней сытости. Таймер предполагает постоянный корм.');
+  const milkScheduled=Boolean(state.farm.next_milk_scheduled),milkSeconds=Math.max(0,(state.farm.seconds_to_next_milk||0)-elapsed);
+  document.querySelectorAll('[data-next-milk]').forEach(x=>x.textContent=milkScheduled?clockDuration(milkSeconds):({empty:"Нет коров",needs_feed:"Нужен корм",storage_full:"Склад заполнен"}[state.farm.next_milk_status]||"Ожидаем условия"));
+  document.querySelectorAll('[data-milk-12h]').forEach(x=>x.textContent="+"+number(state.farm.milk_next_12h||0)+" шт.");
+  const milkCard=document.querySelector('[data-milk-card]');if(milkCard)milkCard.hidden=!(state.me.cows>0);
   const nextFeed = Math.max(0,state.farm.seconds_to_next_feed-elapsed);
   document.querySelectorAll("[data-feed-tick]").forEach(x => x.textContent=clockDuration(nextFeed));
   // Reconcile completed timers with the server; the browser never grants resources.
   const completedJobs = jobs.some(j => now >= j.mature_at) && !full;
   const featherDue=state.farm.seconds_to_next_feather>0&&elapsed>=state.farm.seconds_to_next_feather;
-  const expired = (eggScheduled && seconds <= 0) || nextFeed <= 0 || completedJobs || featherDue;
+  const expired = (eggScheduled && seconds <= 0) || nextFeed <= 0 || completedJobs || featherDue || (milkScheduled&&milkSeconds<=0);
   if (expired && !pending && !refreshPromise && elapsed >= 1 && Date.now()-lastTimerRefresh >= 5000 && document.visibilityState === "visible") { lastTimerRefresh=Date.now(); refresh(); }
   if (el("purchase-dialog").open) purchaseQuote();
 }

@@ -16,8 +16,9 @@
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <link rel="stylesheet" href="/assets/stars-mobile.css?v=13" />
     <link rel="stylesheet" href="/assets/market-polish.css?v=1" />
+    <link rel="stylesheet" href="/assets/cattle.css?v=1" />
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=63" defer></script>
+    <script src="/assets/game.js?v=64" defer></script>
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -40,7 +41,7 @@
         <p class="eyebrow">НОВАЯ ЖИЗНЬ</p>
         <h1>Твоя ферма ждёт</h1>
         <p>
-          Выращивай птицу, продавай яйца и развивай хозяйство вместе с
+          Выращивай животных, продавай яйца и молоко и развивай хозяйство вместе с
           другими фермерами.
         </p>
         <p class="starter">
@@ -147,9 +148,9 @@
  <div class="launch-guide-body">
  <button type="button" class="btn alt small" onclick="dismissLaunchGuide()">Скрыть подсказку навсегда</button>
   <p><b>1. Начни с курицы.</b> Сытая курица несёт яйцо каждые 6 часов. С 3-го уровня доступны гуси — яйцо каждые 2 часа.</p>
-  <p><b>2. Следи за кормом.</b> Все птицы едят раз в 18 часов: курице нужно 1 зерно, гусыне — 2. Запас виден на главной.</p>
+  <p><b>2. Следи за кормом.</b> Животные едят раз в 18 часов: курице нужно 1 зерно, гусыне — 2, корове — 3. Запас виден на главной.</p>
   <p><b>3. Продавай яйца.</b> Выставляй их на рынке и получай монеты, когда другие игроки купят товар.</p>
-  <p><b>4. Развивай хозяйство.</b> Покупай птицу, увеличивай склад, выполняй задания и улучшай ферму.</p>
+  <p><b>4. Развивай хозяйство.</b> Покупай животных, увеличивай склад, выполняй задания и улучшай ферму.</p>
   <p><b>5. Переводи заработанное.</b> В кошельке нажми «На баланс бота». Оттуда можно заказать выплату.</p>
  </div>
 </details>
@@ -161,12 +162,14 @@
             <img src="/assets/redesign/hen.webp" class="icon" alt="" decoding="async"/><span>Куры</span><strong data-value="chickens">—</strong>
           </button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('geese')" aria-label="Гуси: купить или продать"><img src="/assets/goose-v2.png" class="icon" alt=""/><span>Гуси</span><strong data-value="geese">0</strong></button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('cows')" aria-label="Коровы: купить или продать"><img src="/assets/cow-v1.webp" class="icon" alt=""/><span>Коровы</span><strong data-value="cows">0</strong></button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('grain')" aria-label="Зерно: купить или продать">
             <img src="/assets/redesign/grain.webp" class="icon" alt="" decoding="async"/><span>Зерно</span><strong data-value="grain">—</strong>
           </button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('eggs')" aria-label="Яйца: купить или выставить на продажу">
             <img src="/assets/redesign/egg.webp" class="icon" alt="" decoding="async"/><span>Яйца</span><strong data-value="eggs">—</strong>
           </button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('milk')" aria-label="Молоко: купить или выставить на продажу"><img src="/assets/milk-v1.webp" class="icon" alt=""/><span>Молоко</span><strong data-value="milk">0</strong></button>
           <button type="button" class="resource resource-link feather-resource" onclick="openResourceActions('feathers')" aria-label="Перья: хранить или продать"><span class="feather-art icon" aria-hidden="true">🪶</span><span>Перья</span><strong data-value="feathers">0</strong></button>
           <button type="button" class="resource resource-link warehouse-resource" onclick="tab('upgrades')" aria-label="Вместимость склада"><img src="/assets/redesign/storage.webp" class="icon" alt=""/><span>Склад</span><strong><span data-building="storage_used">—</span> / <span data-building="storage_capacity">—</span></strong></button>
         </div>
@@ -221,10 +224,21 @@
             <div class="buttons"><button class="btn" onclick="openSystemSell('feathers')">Продать перья</button><button class="btn alt" onclick="showShop('geese')">Купить гусыню</button></div>
           </div>
         </details>
+        <details class="card compact-harvest unified-primary-card forecast-card milk-forecast" data-milk-card hidden>
+          <summary class="forecast-summary">🥛 Ближайший сбор молока</summary>
+          <div class="forecast-details-content">
+            <div class="cattle-preview"><img src="/assets/cow-v1.webp" alt="Корова"><div><span class="muted">Следующее молоко</span><strong data-next-milk>—</strong><small>За 12 часов: <b data-milk-12h>—</b></small></div></div>
+            <div class="forecast-timers"><div><span>Коровник</span><strong><span data-value="cows">0</span> / <span data-building="cowshed_capacity">—</span></strong></div><div><span>Общее кормление</span><strong data-feed-tick>—</strong></div></div>
+            <p class="muted">Корова даёт молоко за 8 часов. Корм: 3 зерна раз в 18 часов. Для сбора нужно место на складе.</p>
+            <div class="buttons"><button class="btn" onclick="openSell('milk')">Продать молоко</button><button class="btn alt" onclick="showShop('cows')">Купить корову</button></div>
+            <details class="farm-explainer"><summary>Окупаемость коровы</summary><p>Цена: 500 монет. При продаже 3 единиц молока в сутки по 11 монет — 33 монеты выручки. Корм в среднем стоит 8 монет в сутки. Чистая выручка — около 25 монет в сутки, окупаемость — около 20 дней. Нужны корм, свободный склад и покупатели на рынке. Расширение построек оплачивается отдельно.</p></details>
+          </div>
+        </details>
         <details class="card farm-day-statistics">
           <summary>📊 Статистика хозяйства за сегодня</summary>
           <div class="farm-stats-grid">
             <div><span>Произведено яиц</span><strong id="stat-produced">—</strong></div>
+            <div><span>Получено молока</span><strong id="stat-milk">—</strong></div>
             <div><span>Выручка от продаж</span><strong id="stat-sales">—</strong></div>
             <div><span>Расходы на зерно</span><strong id="stat-feed">—</strong></div>
             <div><span>Разница</span><strong id="stat-margin">—</strong></div>
@@ -304,6 +318,11 @@
             Улучшить птичник
           </button>
         </div>
+        <div class="card cattle-home">
+          <div class="cattle-preview"><img src="/assets/cow-v1.webp" alt="Корова"><div><h2 class="cardtitle">Коровник</h2><p><b data-value="cows">0</b> / <b data-building="cowshed_capacity">—</b> коров · уровень <b data-building="cowshed_level">1</b></p><strong data-next-milk>—</strong></div></div>
+          <p class="muted">Молоко: <b data-value="milk">0</b> · Корм: 3 зерна на корову каждые 18 часов.</p>
+          <button class="btn small" onclick="tab('upgrades')">Расширить коровник</button>
+        </div>
         <div class="card">
           <h2 class="cardtitle">Производственный цикл</h2>
           <div class="flow">
@@ -334,7 +353,7 @@
               /><span>1 яйцо</span>
             </div>
           </div>
-          <p class="cycle">Курица: яйцо / 6 ч · Гусыня: яйцо / 2 ч</p>
+          <p class="cycle">Курица: яйцо / 6 ч · Гусыня: яйцо / 2 ч · Корова: молоко / 8 ч</p>
           <div class="statsrow"><span>Ближайшее яйцо</span><b data-next-tick>—</b></div>
           <div class="statsrow"><span>Следующее кормление через</span><b data-feed-tick>—</b></div>
           <p id="coop-harvest" class="feature-note">За 6 часов: <b data-eggs-6h>—</b> · За 12 часов: <b data-eggs-12h>—</b></p>
@@ -414,14 +433,16 @@
         
         <div class="card shop-catalog">
           <h2 class="cardtitle">Товары</h2>
-          <p class="compact-trade-hint">Птица, корм и ресурсы твоего хозяйства.</p>
+          <p class="compact-trade-hint">Животные, корм и ресурсы твоего хозяйства.</p>
           <div class="product catalog-row" id="trade-eggs-row"><img src="/assets/redesign/egg.webp" class="product-image" alt="Яйца"><div class="product-copy"><h3>Яйца</h3><small id="eggs-available">Доступно: — шт.</small><small>У других фермеров</small></div><strong class="price">1<img src="/assets/redesign/coin.webp" class="icon" alt="монета"></strong><div class="trade-dual-actions"><button id="eggs-buy-button" class="btn small" onclick="selectBuy('eggs')">Купить</button><button class="btn alt small" onclick="openSell('eggs')">Продать</button></div></div>
-          <div class="product catalog-row"><img src="/assets/redesign/grain.webp" class="product-image" alt="Зерно"><div class="product-copy"><h3>Зерно</h3><small>Корм для птицы</small><small>У системы</small></div><strong class="price">2<img src="/assets/redesign/coin.webp" class="icon" alt="монеты"></strong><div class="trade-dual-actions"><button class="btn small" onclick="showShop('grain')">Купить</button><button class="btn alt small" onclick="openSystemSell('grain')">Продать</button></div></div>
+          <div class="product catalog-row"><img src="/assets/redesign/grain.webp" class="product-image" alt="Зерно"><div class="product-copy"><h3>Зерно</h3><small>Корм для птицы и коров</small><small>У системы</small></div><strong class="price">2<img src="/assets/redesign/coin.webp" class="icon" alt="монеты"></strong><div class="trade-dual-actions"><button class="btn small" onclick="showShop('grain')">Купить</button><button class="btn alt small" onclick="openSystemSell('grain')">Продать</button></div></div>
           <div class="product catalog-row"><img src="/assets/redesign/hen.webp" class="product-image" alt="Курица"><div class="product-copy"><h3>Курица</h3><small>Яйцо / 6 ч</small><small>1 зерно / 18 ч</small></div><strong class="price">40<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" onclick="showShop('chickens')">Купить</button><button class="btn alt small" onclick="openSystemSell('chickens')">Продать</button></div></div>
           <div class="product catalog-row"><img src="/assets/goose-v2.png" class="product-image" alt="Гусыня"><div class="product-copy"><h3>Гусыня</h3><small>Яйцо / 2 ч · с уровня 3</small><small>2 зерна / 18 ч</small></div><strong class="price">160<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button id="goose-buy-button" class="btn small" onclick="showShop('geese')">Купить</button><button class="btn alt small" onclick="openSystemSell('geese')">Продать</button></div></div>
+          <div class="product catalog-row"><img src="/assets/cow-v1.webp" class="product-image" alt="Корова"><div class="product-copy"><h3>Корова</h3><small>Молоко / 8 ч · окупаемость ~20 дней</small><small>3 зерна / 18 ч · живёт в коровнике</small></div><strong class="price">500<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" onclick="showShop('cows')">Купить</button><button class="btn alt small" onclick="openSystemSell('cows')">Продать</button></div></div>
+          <div class="product catalog-row"><img src="/assets/milk-v1.webp" class="product-image" alt="Молоко"><div class="product-copy"><h3>Молоко</h3><small id="milk-available">Доступно: — шт.</small><small>У других фермеров · на складе: <b data-value="milk">0</b></small></div><strong class="price">11<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button id="milk-buy-button" class="btn small" onclick="selectBuy('milk')">Купить</button><button class="btn alt small" onclick="openSell('milk')">Продать</button></div></div>
           <div class="product catalog-row"><span class="product-image feather-art" role="img" aria-label="Перо">🪶</span><div class="product-copy"><h3>Перо</h3><small>На складе: <b data-value="feathers">0</b> шт.</small><small>Советуем сохранить для развития фермы</small></div><strong class="price">5<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn alt small" onclick="openSystemSell('feathers')">Продать</button></div></div>
           <div class="product catalog-row incubator-shop"><img src="/assets/redesign/incubator.webp" class="product-image" alt="Инкубатор"><div class="product-copy"><h3>Инкубатор</h3><small data-incubator-summary>Выведение цыплят</small></div><strong class="price"><span data-incubator-price>120</span><img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить</button></div></div>
-          <details class="catalog-help"><summary>Корм, окупаемость и перья</summary><div><p>Курица: 40 монет, яйцо каждые 6 часов, 1 зерно раз в 18 часов. Гусыня: 160 монет, яйцо каждые 2 часа, 2 зерна раз в 18 часов.</p><p>При постоянном корме и продаже всех яиц по 1 монете: курица окупается примерно за 30 дней, гусыня — за 24 дня. Перья в этот расчёт не входят.</p><p>Гуси дают в среднем одно перо за 7 дней сытости на птицу. Можно копить для будущих производств или продавать системе по 5 монет. Для новых яиц и перьев нужно место на складе.</p></div></details>
+          <details class="catalog-help"><summary>Корм и окупаемость животных</summary><div><p>Курица: 40 монет, яйцо каждые 6 часов, 1 зерно раз в 18 часов. Гусыня: 160 монет, яйцо каждые 2 часа, 2 зерна раз в 18 часов.</p><p>При постоянном корме и продаже всех яиц по 1 монете: курица окупается примерно за 30 дней, гусыня — за 24 дня. Перья в этот расчёт не входят.</p><p>Корова: 500 монет, молоко каждые 8 часов, 3 зерна каждые 18 часов. При продаже молока по 11 монет и зерне по 2 — около 25 монет чистыми в сутки и окупаемость около 20 дней. Продажа зависит от покупателей.</p><p>Гуси дают в среднем одно перо за 7 дней сытости на птицу. Можно копить для будущих производств или продавать системе по 5 монет. Для новых яиц и перьев нужно место на складе.</p></div></details>
         </div>
         <details class="trade-extras"><summary>Ещё возможности: акция и автозакупка</summary>
         <div class="bundle">
@@ -686,7 +707,7 @@
               /><span>Яйца</span><strong data-value="eggs">—</strong>
             </div>
           </div>
-          <p class="profile-flock-caption">Куры: <b data-value="chickens">—</b> · Гуси: <b data-value="geese">—</b> · Перья: <b data-value="feathers">—</b></p>
+          <p class="profile-flock-caption">Куры: <b data-value="chickens">—</b> · Гуси: <b data-value="geese">—</b> · Перья: <b data-value="feathers">—</b> · Коровы: <b data-value="cows">0</b> · Молоко: <b data-value="milk">0</b></p>
         </div>
         <details class="card compact-ranking"><summary>🏆 Рейтинг фермеров</summary><div id="leaders"></div></details>
         <details class="economy-card profile-settings">
@@ -819,18 +840,19 @@
               <button id="upgrade-coop" class="btn small" onclick="upgradeBuilding('coop')">Улучшить</button>
             </div>
           </div>
-          <p class="muted">Следующий уровень добавляет 10 мест. Куры и гуси живут в общем птичнике.</p>
+          <p class="muted">Следующий уровень добавляет 10 мест. До 100 уровней — 1000 птиц. Коровы живут отдельно.</p>
         </div>
         <div class="card">
           <div class="upgrade">
             <img src="/assets/redesign/storage.webp" class="upgrade-art" alt="">
             <div><h2>Склад · уровень <span data-building="storage_level">—</span></h2>
-              <p><strong data-building="storage_used">—</strong> / <strong data-building="storage_capacity">—</strong> мест занято яйцами, зерном и перьями.</p>
+              <p><strong data-building="storage_used">—</strong> / <strong data-building="storage_capacity">—</strong> мест занято яйцами, молоком, зерном и перьями.</p>
               <button id="upgrade-storage" class="btn small" onclick="upgradeBuilding('storage')">Улучшить</button>
             </div>
           </div>
-          <p class="muted">Следующий уровень добавляет 100 мест. Уже имеющиеся ресурсы сохраняются.</p>
+          <p class="muted">Следующий уровень добавляет 100 мест. До 100 уровней — 10 000 ресурсов.</p>
         </div>
+        <div class="card"><div class="upgrade"><img src="/assets/buildings/barn.webp" class="upgrade-art" alt="Коровник"><div><h2>Коровник · уровень <span data-building="cowshed_level">—</span></h2><p><strong data-value="cows">0</strong> / <strong data-building="cowshed_capacity">—</strong> коров</p><button id="upgrade-cowshed" class="btn small" onclick="upgradeBuilding('cowshed')">Улучшить</button></div></div><p class="muted">Каждый уровень добавляет 2 места. До 100 уровней — 200 коров.</p></div>
         <div class="card auto-card">
           <h2 class="cardtitle">
             <img
@@ -912,7 +934,7 @@
             <div class="trade-amount-controls"><input id="sellnum" type="number" inputmode="numeric" min="1" max="10000" value="1" oninput="sellQuote()"/><button type="button" class="btn small" onclick="sellMaximum()">Все</button></div>
             <div class="statsrow"><span>Когда яйца купят</span><b id="sellquote">—</b></div>
             <button class="btn wide" id="egg-sale-confirm" onclick="sellNow()">Выставить на продажу</button>
-            <p class="muted">Яйца попадут на рынок. Монеты придут, когда другой игрок их купит.</p>
+            <p class="muted">Товар попадёт на рынок. Монеты придут, когда другой игрок его купит.</p>
           </div>
 
       <button class="btn alt wide" onclick="document.getElementById('egg-sale-dialog').close()">Отмена</button>
