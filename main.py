@@ -930,7 +930,7 @@ def claim_staged_achievement(q:Request,authorization:str=Header(default="")):
  if track not in achievement_counters.SUPPORTED:
   raise HTTPException(400,"Неизвестное достижение")
  with db() as c:
-  p=person(c,authorization,True)
+  p=advance(c,person(c,authorization,True))
   # Serialize claims per player, including concurrent requests from different devices.
   c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(p["id"],))
   total=achievement_counters.count(c,p["id"],track)
