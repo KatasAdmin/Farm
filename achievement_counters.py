@@ -6,7 +6,7 @@ event exists.
 """
 
 SUPPORTED = ("eggs", "feathers", "milk", "chickens_bought", "geese_bought",
-             "cows_bought", "market_sales", "market_purchases")
+             "cows_bought", "market_sales", "market_purchases", "feeding")
 
 
 def count(c, player_id, track):
@@ -15,8 +15,8 @@ def count(c, player_id, track):
     if track == "eggs":
         sql = "SELECT COALESCE(SUM(eggs_produced),0)::bigint AS n FROM daily_activity WHERE player_id=%s"
         return c.execute(sql, (player_id,)).fetchone()["n"]
-    if track in ("feathers", "milk"):
-        kind = {"feathers": "feathers_collected", "milk": "milk_produced"}[track]
+    if track in ("feathers", "milk", "feeding"):
+        kind = {"feathers": "feathers_collected", "milk": "milk_produced", "feeding": "grain_fed"}[track]
         sql = "SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind=%s"
         return c.execute(sql, (player_id, kind)).fetchone()["n"]
     if track in ("chickens_bought", "geese_bought", "cows_bought"):
