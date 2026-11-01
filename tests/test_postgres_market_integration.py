@@ -29,7 +29,7 @@ class PostgresMarketLedgerTests(unittest.TestCase):
 
     def setUp(self):
         with self.connect() as c:
-            c.execute('DROP TABLE IF EXISTS farm_money_sources, money_log, players, market CASCADE')
+            c.execute('DROP TABLE IF EXISTS referral_codes, referrals, farm_money_sources, money_log, players, market CASCADE')
             c.execute('CREATE TABLE players(id text PRIMARY KEY, coins integer NOT NULL CHECK(coins>=0))')
             c.execute('CREATE TABLE money_log(id text PRIMARY KEY,player_id text NOT NULL,kind text NOT NULL,delta integer NOT NULL,details text,created double precision NOT NULL)')
             c.execute('CREATE TABLE market(id text PRIMARY KEY,seller text NOT NULL,quantity integer NOT NULL CHECK(quantity>=0),price integer NOT NULL CHECK(price>0))')
