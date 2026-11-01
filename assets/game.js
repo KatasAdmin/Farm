@@ -136,7 +136,7 @@ async function upgradeBuilding(kind) {
   const values = state.buildings || {};
   const price = values[kind + "_next_cost"];
   if (price == null) return;
-  const name = kind === "coop" ? "птичник" : kind==="cowshed"?"коровник":"склад";
+  const name = kind === "coop" ? "места для птиц" : kind==="cowshed"?"места для коров":"склад";
   if (!confirm("Улучшить " + name + " за " + number(price) + " монет?")) return;
   await perform("/api/upgrade", {item:kind});
 }
@@ -360,7 +360,7 @@ async function generateRecoveryCode(){
 }
 function tab(id) {
   if(id==="market")id="shop"; // old links
-  if(id==="storage")id="upgrades"; // legacy storage links open storage upgrades
+  if(id==="upgrades")id="storage"; // compatibility with older links
   if (!el(id)?.classList.contains("panel")) return;
   currentTab = id;
   document.body.dataset.screen = id;
@@ -634,7 +634,7 @@ function purchaseQuote() {
   const noRoom = purchase.kind !== "bundle" && n > room;
   const expired = purchase.kind === "bundle" && !promotionActive();
   let info = expired ? "Акция завершена"
-    : noRoom ? (purchase.item==="cows"?"В коровнике нет места. Расширь его.":["chickens","geese"].includes(purchase.item) ? "В птичнике нет места. Расширь его." : "На складе нет места. Улучши склад.")
+    : noRoom ? (purchase.item==="cows"?"В коровнике нет места. Расширь его.":["chickens","geese"].includes(purchase.item) ? "Нет места для птиц. Увеличь вместимость в разделе «Животные»." : "На складе нет места. Улучши склад.")
     : !valid
     ? "Введите целое количество от 1 до 10 000"
     : result.remaining > 0
@@ -902,7 +902,7 @@ function render() {
   const p = state.me;
   for(const node of document.querySelectorAll("[data-system-stock]")){
     const resource=node.dataset.systemStock;
-    node.textContent=(["chickens","geese"].includes(resource)?"В птичнике: ":"На складе: ")+number(p[resource]||0);
+    node.textContent=(["chickens","geese"].includes(resource)?"Птиц: ":"На складе: ")+number(p[resource]||0);
   }
   if(el("system-sell-dialog")?.open)systemSellQuote();
   const isLinked = Boolean(p.telegram_id);
@@ -959,7 +959,7 @@ function render() {
   if(guide)guide.hidden=!(Date.now()/1000<(p.created_at||0)+3600 && !storage.getItem("farm_guide_dismissed_"+p.id));
   const tutorial=state.tutorial||{};
   const step=Math.min(3,tutorial.step||0), card=el("tutorial-card");
-  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить на Рынке. Животные едят автоматически раз в 18 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
+  if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри своих животных и время до следующего яйца.","Зерно можно купить на Рынке. Животные едят автоматически раз в 18 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть животных","Где купить зерно?","Понятно · получить 5 монет"][step];}}
   const history = el("production-history");
   if (history) history.innerHTML = state.production_history?.length
     ? state.production_history.map(event => `<div class="ledger-row income">${image("redesign/egg")}<div><strong>+${number(event.amount)} яиц</strong><small>${new Date(event.created * 1000).toLocaleString("ru-RU")}</small></div></div>`).join("")
@@ -1156,7 +1156,7 @@ function countdown() {
   if(list)list.innerHTML=jobs.map((j,i)=>{
     const hatch=now<j.hatch_at;
     const remaining=(hatch?j.hatch_at:j.mature_at)-now;
-    const label=remaining<=0&&full?"Нужно место в курятнике":remaining<=0?"Завершается…":formatDuration(remaining);
+    const label=remaining<=0&&full?"Нужно свободное место для птицы":remaining<=0?"Завершается…":formatDuration(remaining);
     return '<div class="incubator-job"><strong>'+(hatch?'🥚 Яйцо':'🐣 Цыплёнок')+' №'+(i+1)+'</strong><span>'+safe(label)+'</span></div>';
   }).join("") || '<p class="muted">Все ячейки свободны.</p>';
   document.querySelectorAll("[data-stage]").forEach(x=>x.classList.toggle("active",inc.owned&&jobs.length>0&&x.dataset.stage===(now<jobs[0].hatch_at?"egg":"chick")));

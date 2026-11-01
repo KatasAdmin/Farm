@@ -27,7 +27,7 @@ class UnifiedFarmScreens(unittest.TestCase):
    self.assertEqual(start,end,(name,"details"))
    self.assertEqual(block.count("<div"),block.count("</div>"),(name,"divs"))
  def test_controls_and_bindings_preserved(self):
-  for key in ('id="coop-birds-pane"','id="coop-incubator-pane"','id="nickname-settings"','id="auto-coop"','id="coop-harvest"','id="next-harvest"'):
+  for key in ('id="coop-birds-pane"','id="coop-incubator-pane"','id="nickname-settings"','id="auto-storage"','id="coop-harvest"','id="next-harvest"'):
    self.assertIn(key,self.page)
  def test_canonical_production_copy(self):
   self.assertIn("≈ 30 дней",self.page)

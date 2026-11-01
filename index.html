@@ -16,9 +16,9 @@
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <link rel="stylesheet" href="/assets/stars-mobile.css?v=13" />
     <link rel="stylesheet" href="/assets/market-polish.css?v=1" />
-    <link rel="stylesheet" href="/assets/cattle.css?v=2" />
+    <link rel="stylesheet" href="/assets/cattle.css?v=3" />
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=67" defer></script>
+    <script src="/assets/game.js?v=68" defer></script>
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -110,7 +110,7 @@
         >
       </header>
       <section id="farm" class="panel active unified-farm-panel" aria-label="Ферма">
-        <div id="tutorial-card" class="card tutorial-card" hidden><div class="tutorial-heading"><img src="/assets/redesign/achievement.webp" alt=""><div><strong>Добро пожаловать на ферму!</strong><small id="tutorial-progress">Шаг 1 из 3</small></div></div><p id="tutorial-instruction">Начнём с птичника.</p><button id="tutorial-next" class="btn wide" onclick="completeTutorialStep()">Посмотреть птичник</button><p class="muted">Три подсказки и +5 монет за завершение. Один раз на аккаунт.</p></div>
+        <div id="tutorial-card" class="card tutorial-card" hidden><div class="tutorial-heading"><img src="/assets/redesign/achievement.webp" alt=""><div><strong>Добро пожаловать на ферму!</strong><small id="tutorial-progress">Шаг 1 из 3</small></div></div><p id="tutorial-instruction">Начнём с животных.</p><button id="tutorial-next" class="btn wide" onclick="completeTutorialStep()">Посмотреть животных</button><p class="muted">Три подсказки и +5 монет за завершение. Один раз на аккаунт.</p></div>
         <div class="farm-hero">
           <img
             src="/assets/backgrounds/farm_sunset.webp"
@@ -136,11 +136,11 @@
         <div class="quicknav farm-quicknav" aria-label="Быстрые действия на ферме">
           <button type="button" class="quick" onclick="tab('coop')">
             <span class="nav-art" aria-hidden="true"><img src="/assets/redesign/coop-icon.webp" class="icon" alt="" decoding="async"></span>
-            <span>Птичник</span>
+            <span>Животные</span>
           </button>
-          <button type="button" class="quick" onclick="tab('upgrades')">
+          <button type="button" class="quick" onclick="tab('storage')">
             <span class="nav-art" aria-hidden="true"><img src="/assets/redesign/storage.webp" class="icon" alt="" decoding="async"></span>
-            <span>Улучшить склад</span>
+            <span>Склад</span>
           </button>
         </div>
         <details class="card launch-guide" id="launch-guide" hidden>
@@ -168,7 +168,7 @@
           <button type="button" class="resource resource-link feather-resource" onclick="openResourceActions('feathers')" aria-label="Перья: хранить или продать"><span class="feather-art icon" aria-hidden="true">🪶</span><span>Перья</span><strong data-value="feathers">0</strong></button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('cows')" aria-label="Коровы: купить или продать"><img src="/assets/cow-v1.webp" class="icon" alt=""/><span>Коровы</span><strong data-value="cows">0</strong></button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('milk')" aria-label="Молоко: купить или выставить на продажу"><img src="/assets/milk-v1.webp" class="icon" alt=""/><span>Молоко</span><strong data-value="milk">0</strong></button>
-          <button type="button" class="resource resource-link warehouse-resource" onclick="tab('upgrades')" aria-label="Вместимость склада"><img src="/assets/redesign/storage.webp" class="icon" alt=""/><span>Склад</span><strong><span data-building="storage_used">—</span> / <span data-building="storage_capacity">—</span></strong></button>
+          <button type="button" class="resource resource-link warehouse-resource" onclick="tab('storage')" aria-label="Вместимость склада"><img src="/assets/redesign/storage.webp" class="icon" alt=""/><span>Склад</span><strong><span data-building="storage_used">—</span> / <span data-building="storage_capacity">—</span></strong></button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('grain')" aria-label="Зерно: купить или продать">
             <img src="/assets/redesign/grain.webp" class="icon" alt="" decoding="async"/><span>Зерно</span><strong data-value="grain">—</strong>
           </button>
@@ -247,7 +247,7 @@
           <p class="muted">За текущие сутки по UTC. Разница учитывает только продажи и покупку зерна, без кур, построек и инкубатора. Выставленные яйца ещё не считаются проданными.</p>
         </details>
         <div class="farm-footer-links">
-          <button class="text-button" onclick="tab('upgrades')">
+          <button class="text-button" onclick="tab('storage')">
             <span class="nav-art" aria-hidden="true"
               ><img
                 src="/assets/redesign/upgrade.webp"
@@ -266,7 +266,7 @@
           </button>
         </div>
       </section>
-      <section id="coop" class="panel unified-farm-panel" aria-label="Птичник">
+      <section id="coop" class="panel unified-farm-panel" aria-label="Животные">
         <div class="panelhead">
           <button
             class="back"
@@ -281,11 +281,11 @@
             decoding="async"
           />
           <div>
-            <h1>Птичник</h1>
+            <h1>Животные</h1>
             <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
           </div>
         </div>
-        <div class="switch coop-switch"><button id="coop-tab-birds" class="active" onclick="coopSection('birds')">🐔 Несушки</button><button id="coop-tab-incubator" onclick="coopSection('incubator')">🐣 Инкубатор</button></div>
+        <div class="switch coop-switch"><button id="coop-tab-birds" class="active" onclick="coopSection('birds')">🐄 Животные</button><button id="coop-tab-incubator" onclick="coopSection('incubator')">🐣 Инкубатор</button></div>
         <div id="coop-incubator-pane" hidden>        <div class="card incubator-card">
           <div class="upgrade"><img src="/assets/redesign/incubator.webp" class="upgrade-art" alt=""><div><h2>Инкубатор · уровень <span id="incubator-level">1</span></h2><p id="incubation-status">Загружаем состояние…</p></div></div>
           <div id="incubator-jobs" class="incubator-jobs"></div><button class="btn wide" id="incubator-action" onclick="incubatorAction()">Купить инкубатор</button><button class="btn alt wide" id="incubator-upgrade" onclick="incubatorUpgrade()">Улучшить инкубатор</button>
@@ -294,7 +294,7 @@
             <div data-stage="egg"><img src="/assets/redesign/egg.webp" alt=""><strong>Яйцо</strong><small data-incubate-duration>—</small></div><span>→</span>
             <div data-stage="chick"><img src="/assets/characters/chick_yellow.webp" alt=""><strong>Цыплёнок</strong><small data-grow-duration>—</small></div><span>→</span>
             <div data-stage="hen"><img src="/assets/redesign/hen.webp" alt=""><strong>Курица</strong><small>После взросления</small></div>
-          </div><p class="muted">Курица появится после завершения роста, если в птичнике есть место.</p>
+          </div><p class="muted">Курица появится после завершения роста, если есть свободное место для птицы.</p>
         </div>
 </div>
         <div id="coop-birds-pane">
@@ -302,58 +302,29 @@
           <img
             src="/assets/redesign/coop.webp"
             class="scene-image"
-            alt="Курица и яйца в освещённом деревянном птичнике"
+            alt="Куры и гуси на ферме"
             decoding="async"
           />
         </div>
 
         <div class="card coop-summary unified-primary-card">
-          <h2>Моя птица <span data-sat aria-label="Сытость">—</span></h2>
+          <h2>Куры и гуси <span data-sat aria-label="Сытость">—</span></h2>
           <p class="coop-level">Уровень <b data-building="coop_level">—</b> · Вместимость <b data-birds-total>—</b> / <b data-building="coop_capacity">—</b></p>
           <div class="coop-stock">
             <span>Куриц: <b data-value="chickens">—</b></span><span>Гусей: <b data-value="geese">0</b></span
             ><span>Зерна: <b data-value="grain">—</b></span>
           </div>
           <div class="progress"><span data-sat-bar></span></div>
-          <button class="btn small" onclick="tab('upgrades')">
-            Улучшить птичник
-          </button>
+          <button id="upgrade-coop" class="btn small" onclick="upgradeBuilding('coop')">Добавить места</button><p class="muted">+10 мест за уровень · до 1000 птиц.</p><div class="buttons"><button class="btn small" onclick="showShop('chickens')">Купить курицу</button><button class="btn alt small" onclick="showShop('geese')">Купить гусыню</button></div>
         </div>
         <div class="card cattle-home">
-          <div class="cattle-preview"><img src="/assets/cow-v1.webp" alt="Корова"><div><h2 class="cardtitle">Коровник</h2><p><b data-value="cows">0</b> / <b data-building="cowshed_capacity">—</b> коров · уровень <b data-building="cowshed_level">1</b></p><strong data-next-milk>—</strong></div></div>
+          <div class="cattle-preview"><img src="/assets/cow-v1.webp" alt="Корова"><div><h2 class="cardtitle">Коровы</h2><p><b data-value="cows">0</b> / <b data-building="cowshed_capacity">—</b> коров · уровень <b data-building="cowshed_level">1</b></p><strong data-next-milk>—</strong></div></div>
           <p class="muted">Молоко: <b data-value="milk">0</b> · Корм: 3 зерна на корову каждые 18 часов.</p>
-          <button class="btn small" onclick="tab('upgrades')">Расширить коровник</button>
+          <button id="upgrade-cowshed" class="btn small" onclick="upgradeBuilding('cowshed')">Добавить места</button><p class="muted">+2 места за уровень · до 200 коров.</p><div class="buttons"><button class="btn small" onclick="showShop('cows')">Купить корову</button><button class="btn alt small" onclick="openSell('milk')">Продать молоко</button></div>
         </div>
         <div class="card">
           <h2 class="cardtitle">Производственный цикл</h2>
-          <div class="flow">
-            <div>
-              <img
-                src="/assets/redesign/grain.webp"
-                class="icon"
-                alt=""
-                decoding="async"
-              /><span>1 зерно</span>
-            </div>
-            <span class="arrow">→</span>
-            <div>
-              <img
-                src="/assets/redesign/hen.webp"
-                class="icon"
-                alt=""
-                decoding="async"
-              /><span>1 курица</span>
-            </div>
-            <span class="arrow">→</span>
-            <div>
-              <img
-                src="/assets/redesign/egg.webp"
-                class="icon"
-                alt=""
-                decoding="async"
-              /><span>1 яйцо</span>
-            </div>
-          </div>
+
           <p class="cycle">Курица: яйцо / 6 ч · Гусыня: яйцо / 2 ч · Корова: молоко / 8 ч</p>
           <div class="statsrow"><span>Ближайшее яйцо</span><b data-next-tick>—</b></div>
           <div class="statsrow"><span>Следующее кормление через</span><b data-feed-tick>—</b></div>
@@ -377,45 +348,7 @@
           <span class="calendar">30</span>
           <div>Расчётная окупаемость<strong>Курица ≈ 30 дней · Гусыня ≈ 24 дня</strong></div>
         </div>
-        <details class="card auto-card unified-details"><summary>Автозакупка корма</summary><div class="unified-details-content">
-          <h2 class="cardtitle">
-            <img
-              src="/assets/objects/feed_sack.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            />Автозакупка зерна
-          </h2>
-          <p class="muted">
-            Если корма не хватает, купить зерно перед кормлением каждые 18 часов.
-          </p>
-          <div class="fieldrow">
-            <label for="auto-coop"
-              >Покупать, шт.<input
-                id="auto-coop"
-                type="number"
-                inputmode="numeric"
-                min="1"
-                max="10000"
-                value="20"
-                oninput="autoQuote(this)"
-            /></label>
-            <div class="auto-cost">
-              Стоимость<strong data-auto-cost
-                >40 <span class="coin-symbol">монет</span></strong
-              >
-            </div>
-          </div>
-          <button
-            class="auto-toggle"
-            onclick="toggleAuto('auto-coop')"
-            aria-label="Автозакупка зерна"
-            aria-pressed="false"
-          >
-            <span></span>
-          </button>
-          <p class="muted" data-auto-status>Проверяем настройки…</p>
-        </div></details>
+
         </div>
       </section>
       <section id="shop" class="panel" aria-label="Рынок">
@@ -431,7 +364,7 @@
             <p>Всё для твоей фермы</p>
           </div>
         </div>
-        
+
         <div class="card shop-catalog">
           <h2 class="cardtitle">Товары</h2>
           <p class="compact-trade-hint">Животные, корм и ресурсы твоего хозяйства.</p>
@@ -482,45 +415,7 @@
             </button>
           </div>
         </div>
-        <div class="card auto-card">
-          <h2 class="cardtitle">
-            <img
-              src="/assets/objects/feed_sack.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            />Автозакупка зерна
-          </h2>
-          <p class="muted">
-            Если корма не хватает, купить зерно перед кормлением каждые 18 часов.
-          </p>
-          <div class="fieldrow">
-            <label for="auto-shop"
-              >Покупать, шт.<input
-                id="auto-shop"
-                type="number"
-                inputmode="numeric"
-                min="1"
-                max="10000"
-                value="20"
-                oninput="autoQuote(this)"
-            /></label>
-            <div class="auto-cost">
-              Стоимость<strong data-auto-cost
-                >40 <span class="coin-symbol">монет</span></strong
-              >
-            </div>
-          </div>
-          <button
-            class="auto-toggle"
-            onclick="toggleAuto('auto-shop')"
-            aria-label="Автозакупка зерна"
-            aria-pressed="false"
-          >
-            <span></span>
-          </button>
-          <p class="muted" data-auto-status>Проверяем настройки…</p>
-        </div>
+
         <div class="card">
           <h2 class="cardtitle">
             <img
@@ -531,7 +426,7 @@
             />Развивай хозяйство
           </h2>
           <p class="muted">Новые несушки и запас корма — основа твоей фермы.</p>
-          <button class="btn alt wide" onclick="tab('upgrades')">
+          <button class="btn alt wide" onclick="tab('storage')">
             Улучшения
           </button>
         </div>
@@ -631,7 +526,7 @@
             другими игроками!
           </p>
         </div>
-        
+
         <details class="card stars-orders-card" ontoggle="if(this.open)loadStarsOrders()">
  <summary>⭐ История покупок Stars</summary>
  <div id="stars-order-list"><p class="muted">Откройте раздел для просмотра истории.</p></div>
@@ -768,7 +663,7 @@
       <div><span>Бонус за друзей</span><strong>5 🪙</strong></div>
       <div><span>Уровней</span><strong>7</strong></div>
     </div>
-    <p class="muted">Бонусные ресурсы копятся дробями. Забрать целые можно, когда есть место на складе или в птичнике.</p>
+    <p class="muted">Бонусные ресурсы копятся дробями. Забрать целые можно, когда есть место на складе или среди мест для птиц.</p>
     <div id="referral-resources" aria-live="polite">
       <div class="referral-resource"><span>🥚 Яйца</span><strong id="referral-eggs-available">0</strong><small id="referral-eggs-fraction">0 / 1</small><button class="btn blue" id="referral-eggs-claim" onclick="claimReferralResource('eggs')" disabled>Забрать</button></div>
       <div class="referral-resource"><span>🌾 Зерно</span><strong id="referral-grain-available">0</strong><small id="referral-grain-fraction">0 / 1</small><button class="btn blue" id="referral-grain-claim" onclick="claimReferralResource('grain')" disabled>Забрать</button></div>
@@ -814,7 +709,7 @@
           Вернуться на ферму
         </button>
       </section>
-      <section id="upgrades" class="panel" aria-label="Улучшения">
+      <section id="storage" class="panel" aria-label="Склад">
         <div class="panelhead">
           <button
             class="back"
@@ -829,20 +724,11 @@
             decoding="async"
           />
           <div>
-            <h1>Улучшения</h1>
+            <h1>Склад</h1>
             <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
           </div>
         </div>
-        <div class="card">
-          <div class="upgrade">
-            <img src="/assets/redesign/coop-icon.webp" class="upgrade-art" alt="">
-            <div><h2>Птичник · уровень <span data-building="coop_level">—</span></h2>
-              <p>Место для <strong data-building="coop_capacity">—</strong> птиц. Сейчас: <strong data-birds-total>—</strong>.</p>
-              <button id="upgrade-coop" class="btn small" onclick="upgradeBuilding('coop')">Улучшить</button>
-            </div>
-          </div>
-          <p class="muted">Следующий уровень добавляет 10 мест. До 100 уровней — 1000 птиц. Коровы живут отдельно.</p>
-        </div>
+
         <div class="card">
           <div class="upgrade">
             <img src="/assets/redesign/storage.webp" class="upgrade-art" alt="">
@@ -853,8 +739,8 @@
           </div>
           <p class="muted">Следующий уровень добавляет 100 мест. До 100 уровней — 10 000 ресурсов.</p>
         </div>
-        <div class="card"><div class="upgrade"><img src="/assets/buildings/barn.webp" class="upgrade-art" alt="Коровник"><div><h2>Коровник · уровень <span data-building="cowshed_level">—</span></h2><p><strong data-value="cows">0</strong> / <strong data-building="cowshed_capacity">—</strong> коров</p><button id="upgrade-cowshed" class="btn small" onclick="upgradeBuilding('cowshed')">Улучшить</button></div></div><p class="muted">Каждый уровень добавляет 2 места. До 100 уровней — 200 коров.</p></div>
-        <div class="card auto-card">
+
+        <div class="card warehouse-inventory"><h2 class="cardtitle">На складе</h2><div class="warehouse-items"><button class="resource resource-link" onclick="openResourceActions('grain')"><img src="/assets/redesign/grain.webp" alt=""><span>Зерно</span><strong data-value="grain">—</strong></button><button class="resource resource-link" onclick="openResourceActions('eggs')"><img src="/assets/redesign/egg.webp" alt=""><span>Яйца</span><strong data-value="eggs">—</strong></button><button class="resource resource-link" onclick="openResourceActions('milk')"><img src="/assets/milk-v1.webp" alt=""><span>Молоко</span><strong data-value="milk">—</strong></button><button class="resource resource-link" onclick="openResourceActions('feathers')"><span aria-hidden="true">🪶</span><span>Перья</span><strong data-value="feathers">—</strong></button></div><p class="muted">Общий склад для зерна, яиц, молока и перьев. Нажми на ресурс для покупки или продажи.</p></div><div class="card auto-card">
           <h2 class="cardtitle">
             <img
               src="/assets/objects/feed_sack.webp"
@@ -867,9 +753,9 @@
             Если корма не хватает, купить зерно перед кормлением каждые 18 часов.
           </p>
           <div class="fieldrow">
-            <label for="auto-upgrades"
+            <label for="auto-storage"
               >Покупать, шт.<input
-                id="auto-upgrades"
+                id="auto-storage"
                 type="number"
                 inputmode="numeric"
                 min="1"
@@ -885,7 +771,7 @@
           </div>
           <button
             class="auto-toggle"
-            onclick="toggleAuto('auto-upgrades')"
+            onclick="toggleAuto('auto-storage')"
             aria-label="Автозакупка зерна"
             aria-pressed="false"
           >
@@ -893,7 +779,6 @@
           </button>
           <p class="muted" data-auto-status>Проверяем настройки…</p>
         </div>
-        <button class="btn alt wide" onclick="tab('coop');coopSection('incubator')">🐣 Инкубатор находится в птичнике</button>
       </section>
     </div>
     <nav id="nav" class="bottom" aria-label="Основная навигация" hidden>

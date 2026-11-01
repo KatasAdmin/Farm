@@ -21,6 +21,16 @@ function reset(){run('state=JSON.parse(JSON.stringify(window.fixture));token="qa
 (async()=>{
 reset();
 assert.deepEqual([...d.querySelectorAll('.bird-resources>button')].map(n=>n.querySelector('[data-value]')?.dataset.value||'storage'),['chickens','eggs','geese','feathers','cows','milk','storage','grain']);
+assert.equal(d.querySelector('#upgrade-coop').closest('section').id,'coop');
+assert.equal(d.querySelector('#upgrade-cowshed').closest('section').id,'coop');
+assert.equal(d.querySelector('#upgrade-storage').closest('section').id,'storage');
+assert.equal(d.querySelectorAll('.auto-card').length,1);
+assert.equal(d.querySelector('.auto-card').closest('section').id,'storage');
+assert.equal(d.querySelectorAll('#upgrade-coop,#upgrade-cowshed,#upgrade-storage').length,3);
+assert.equal(d.querySelector('#upgrades'),null);
+run('tab("upgrades")');assert.equal(d.querySelector('.panel.active').id,'storage');
+run('tab("coop");coopSection("incubator")');assert.equal(d.getElementById('coop-incubator-pane').hidden,false);assert.equal(d.getElementById('coop-birds-pane').hidden,true);
+run('coopSection("birds")');assert.equal(d.getElementById('coop-birds-pane').hidden,false);
 const ids=[...d.querySelectorAll('[id]')].map(x=>x.id);assert.equal(new Set(ids).size,ids.length,'duplicate IDs');
 for(const item of ['eggs','milk']){
   reset();click('#'+item+'-buy-button');assert.ok(d.getElementById('purchase-dialog').open);assert.match(d.getElementById('purchase-title').textContent,item==='milk'?/молока/:/яиц/);

@@ -376,7 +376,7 @@ def referral_claim(q:Request,authorization:str=Header(default="")):
   if not available:raise HTTPException(409,"Целых бонусных ресурсов пока нет")
   free=max(0,coop_limit(p)-p["chickens"]-p.get("geese",0)) if item=="chickens" else max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0))
   quantity=min(available,free)
-  if not quantity:raise HTTPException(409,"Освободи место на складе или в курятнике")
+  if not quantity:raise HTTPException(409,"Освободи место на складе или добавь места для птиц в разделе «Животные»")
   c.execute("UPDATE referral_rewards SET "+claimed_field+"="+claimed_field+"+%s WHERE player_id=%s",(quantity,p["id"]))
   if item=="chickens":
    c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(quantity,quantity,p["id"]))
@@ -995,7 +995,7 @@ def shop(q:Request,authorization:str=Header(default="")):
   if q.item=="geese" and q.expected_price!=GOOSE_PRICE:raise HTTPException(409,"Цена гусыни — 160 монет. Обновите игру и подтвердите покупку по новой цене")
   if q.item=="cows" and q.expected_price!=COW_PRICE:raise HTTPException(409,"Цена коровы — 500 монет. Обновите игру")
   if q.item=="cows" and p.get("cows",0)+q.amount>cowshed_limit(p):raise HTTPException(400,"В коровнике нет места. Улучшите коровник")
-  if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"В курятнике нет места. Улучшите курятник")
+  if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"Нет места для птиц. Увеличьте вместимость в разделе «Животные»")
   if q.item=="grain" and p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   if q.item=="chickens":
    # New hens arrive satiated; existing hungry hens are not refed.
@@ -1299,7 +1299,7 @@ def upgrade(q:Request,authorization:str=Header(default="")):
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   c.execute("UPDATE players SET coins=coins-%s,"+key+"="+key+"+1 WHERE id=%s",(cost,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
-  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"upgrade",-cost,"Улучшение "+{"coop":"птичника","storage":"склада","cowshed":"коровника"}[q.item]+" до уровня "+str(level+1),time.time()))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"upgrade",-cost,"Улучшение "+{"coop":"мест для птиц","storage":"склада","cowshed":"коровника"}[q.item]+" до уровня "+str(level+1),time.time()))
  return {"ok":True,"spent":cost,"level":level+1}
 
 @app.post("/api/profile")
@@ -1339,7 +1339,7 @@ def incubator_action(q:Request,authorization:str=Header(default="")):
   if active>=p["incubator_level"]:raise HTTPException(409,"Все места инкубатора заняты")
   if p["eggs"]<12:raise HTTPException(400,"Для выведения курицы нужно 12 яиц")
   if p["coins"]<15:raise HTTPException(400,"Для инкубации нужно 15 монет")
-  if p["chickens"]+p.get("geese",0)+active>=coop_limit(p):raise HTTPException(400,"Расширьте курятник")
+  if p["chickens"]+p.get("geese",0)+active>=coop_limit(p):raise HTTPException(400,"Добавьте места для птиц в разделе «Животные»")
   now=time.time()
   egg_seconds,grow_seconds=incubation_stages(p["incubator_level"])
   c.execute("UPDATE players SET eggs=eggs-12,coins=coins-15 WHERE id=%s",(p["id"],))
