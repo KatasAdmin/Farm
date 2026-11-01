@@ -1030,7 +1030,7 @@ function render() {
   }).join("");
   const stageRows = progression.staged_achievements || [];
   if (achievementList && stageRows.length) {
-    const labels = {eggs:["🥚","Яйца"],feathers:["🪶","Перья"],milk:["🥛","Молоко"],chickens_bought:["🐔","Куплено кур"],geese_bought:["🪿","Куплено гусей"],cows_bought:["🐄","Куплено коров"],market_sales:["📦","Продано товаров"],market_purchases:["🛒","Куплено на рынке"]};
+    const labels = {eggs:["🥚","Яйца"],feathers:["🪶","Перья"],milk:["🥛","Молоко"],chickens_bought:["🐔","Куплено кур"],geese_bought:["🪿","Куплено гусей"],cows_bought:["🐄","Куплено коров"],market_sales:["📦","Продано товаров"],market_purchases:["🛒","Куплено на рынке"],feeding:["🌾","Скормлено зерна"]};
     const rows = stageRows.map(stage => {
       const [emoji,label] = labels[stage.track] || ["🏅","Достижение"];
       const ready = Boolean(stage.claimable);
