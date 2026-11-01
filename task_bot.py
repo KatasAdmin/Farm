@@ -24,6 +24,7 @@ import bot_payouts
 import bot_decisions
 import bot_advertising
 import bot_manual
+import bot_account_controls
 import bot_moderation
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
@@ -364,6 +365,7 @@ def route(c, uid, text, action, message, api, admin):
         change(c, uid, row['amount'], 'payout_cancel', 'Отмена ' + row['id'][:8])
         return cabinet(c, uid)
     if action == 'withdraw':
+        bot_account_controls.require_withdrawal(c,uid)
         state(c, uid, action)
         rules = bot_admin.limits(c)
         return input_prompt(uid, tr('💸 Вывод средств\n\nС баланса: от {v0} до {v1}\nКомиссия: {v2}%\n\nВведи сумму в гривнах. Затем укажешь реквизиты для ручной выплаты.', {'v0': money(rules['withdraw_min']), 'v1': money(rules['withdraw_max']), 'v2': bot_economy.pct(rules['withdraw_fee'])}, section='task_bot'))
@@ -526,6 +528,8 @@ def process_input(c, uid, text, message, current, api):
         return cabinet(c, uid)
     if stage == 'deposit':
         return bot_topups.menu(c, uid)
+    if stage in ('withdraw','destination','payout_confirm'):
+        bot_account_controls.require_withdrawal(c,uid)
     if stage == 'withdraw':
         n = amount(text)
         rules = bot_admin.limits(c)
@@ -644,6 +648,7 @@ def confirmation(c, uid, action):
         if data['kind']=='manual':bot_manual.save(c,tid,data)
         result = say(uid, tr('Задание {v0} создано и ожидает модерации. Бюджет зарезервирован.', {'v0': tid}, html_mode=False, section='task_bot', limit=3000))
     elif action == 'confirm_payout' and current['state'] == 'payout_confirm':
+        bot_account_controls.require_withdrawal(c,uid)
         if c.execute("SELECT 1 FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone():
             raise UserError(tr('У тебя уже есть ожидающая заявка.', html_mode=False, section='task_bot', limit=3000))
         pid = uuid.uuid4().hex[:16]

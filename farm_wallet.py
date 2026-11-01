@@ -1,6 +1,7 @@
 """Earned game coins can be transferred once to the verified user's bot wallet."""
 import time
 import uuid
+import bot_account_controls
 from fastapi import HTTPException
 
 SALE_KINDS={'market_sale','system_sale'}
@@ -34,6 +35,8 @@ def transfer(c, player, amount, key, bot):
         if old['player_id']!=player['id'] or old['telegram_id']!=uid or old['amount']!=amount:
             raise HTTPException(409,'Этот номер перевода уже использован')
         return {'ok':True,'id':key,'status':'credited','amount':amount,'repeated':True}
+    error=bot_account_controls.withdrawal_error(c,uid)
+    if error:raise HTTPException(403,error)
     if c.execute("SELECT 1 FROM withdrawal_requests WHERE player_id=%s AND status='pending'",(player['id'],)).fetchone():
         raise HTTPException(409,'Сначала отмените прежнюю заявку на вывод, чтобы вернуть резерв')
     eligible=available(c,player)

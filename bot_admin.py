@@ -7,6 +7,7 @@ import time
 import uuid
 import bot_payments
 import bot_accounts_admin
+import bot_account_controls
 from bot_release import RELEASE
 LIMITS = {'withdraw_min': 1, 'withdraw_max': 100000000, 'withdraw_fee': 0, 'max_stars': 10000, 'max_executions': 10000, 'card_min': 1, 'card_max': 100000000}
 TITLES = {'withdraw_min': 'Минимальный вывод', 'withdraw_max': 'Максимальный вывод', 'withdraw_fee': 'Комиссия вывода', 'max_stars': 'Максимум Stars за оплату', 'max_executions': 'Выполнений в одном заказе', 'card_min': 'Минимум перевода на карту', 'card_max': 'Максимум перевода на карту'}
@@ -17,6 +18,7 @@ def core():
     return task_bot
 
 def initialize(c):
+    bot_account_controls.initialize(c)
     c.execute('CREATE TABLE IF NOT EXISTS bot_controls(key text PRIMARY KEY,value bigint NOT NULL CHECK(value>=0))')
     c.execute('CREATE TABLE IF NOT EXISTS bot_payout_terms(id text PRIMARY KEY,fee bigint NOT NULL CHECK(fee>=0),net bigint NOT NULL CHECK(net>0))')
     for key, value in LIMITS.items():

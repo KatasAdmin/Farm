@@ -14,13 +14,13 @@ from urllib.request import Request as URLRequest, urlopen
 import psycopg
 from psycopg.rows import dict_row
 from fastapi import FastAPI,HTTPException,Header
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse,JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from production import CYCLE, FEED_EVERY, GRAIN_PRICE, simulate, forecast
 from production_v4 import simulate as simulate_v4, forecast as forecast_v4
-def db():return psycopg.connect(os.environ["DATABASE_URL"],row_factory=dict_row,connect_timeout=10)
+def db():return psycopg.connect(os.environ["DATABASE_URL"],row_factory=dict_row,connect_timeout=10,options="-c statement_timeout=30000 -c lock_timeout=10000 -c idle_in_transaction_session_timeout=30000 -c transaction_timeout=60000")
 @asynccontextmanager
 async def lifespan(app):
  logger.warning("farm_startup_database_connecting release=%s",RELEASE)
@@ -171,6 +171,11 @@ async def lifespan(app):
  finally:
   stop_retention.set()
 app=FastAPI(lifespan=lifespan)
+@app.exception_handler(psycopg.OperationalError)
+async def database_unavailable(request,error):
+ logger.warning("database_request_aborted type=%s",type(error).__name__)
+ return JSONResponse(status_code=503,content={"detail":"Сервис временно занят. Обновите данные и повторите действие."},headers={"Retry-After":"5"})
+
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 class Request(BaseModel):
  name:str=""

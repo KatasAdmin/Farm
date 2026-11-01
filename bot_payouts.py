@@ -1,6 +1,7 @@
 """Manual payouts stay reserved while an administrator performs the bank transfer."""
 import time
 import uuid
+import bot_account_controls as controls
 from bot_copy import tr
 
 
@@ -46,6 +47,9 @@ def view(c,uid,pid):
     active=work(c,pid)
     status='🏦 В работе' if active else {'pending':'⏳ Ожидает проверки','paid':'✅ Выплачено','rejected':'❌ Отклонено','cancelled':'Отменено'}[p['status']]
     text=tr('💸 <b>Заявка на вывод</b>\n\nНомер: <code>{v0}</code>\nИгрок: {v1}\nСтатус: <b>{v2}</b>\nС баланса: {v3}\nК переводу: <b>{v4}</b>\nРеквизиты: {v5}',{'v0':pid,'v1':p['uid'],'v2':status,'v3':b.money(p['amount']),'v4':b.money(b.bot_admin.net(c,p)),'v5':ui.esc(p['destination'])},html_mode=True,section='bot_payouts')
+    control=controls.get(c,p['uid'])
+    if control['withdraw_blocked']:text+='\n\n🔒 <b>Вывод заблокирован</b>\n'+ui.esc(control['block_reason'])+'\nСтарая заявка сохранена. Если перевод уже отправлен, подтверди его; иначе сначала проверь блокировку.'
+    if control['suspicious']:text+='\n\n⚠️ <b>Аккаунт требует проверки</b>\n'+ui.esc(control['flag_reason'])
     account=c.execute('SELECT name FROM bot_accounts WHERE uid=%s',(p['uid'],)).fetchone()
     farm=c.execute('SELECT * FROM players WHERE telegram_id=%s',(p['uid'],)).fetchone()
     text+='\n\n👤 Имя в боте: <b>'+ui.esc(account['name'] if account else '—')+'</b>\nTelegram ID: <code>'+str(p['uid'])+'</code>'
