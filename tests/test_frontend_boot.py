@@ -13,6 +13,17 @@ class FrontendBootSafety(unittest.TestCase):
  def test_javascript_does_not_contain_duplicate_async_declaration(self):
   js=(Path(__file__).resolve().parents[1]/"assets"/"game.js").read_text(encoding="utf-8")
   self.assertNotRegex(js,r"\\basync\\s+async\\s+function\\b")
+ def test_expanded_missions_are_wired_to_server_and_ui(self):
+  root=Path(__file__).resolve().parents[1]
+  main=(root/"main.py").read_text(encoding="utf-8")
+  js=(root/"assets"/"game.js").read_text(encoding="utf-8")
+  html=(root/"index.html").read_text(encoding="utf-8")
+  for key in ("market_buy","buy_chicken","buy_goose","buy_cow"):
+   self.assertIn('"'+key+'":1',main)
+   self.assertIn('"'+key+'"',js)
+  self.assertIn('id="weekly-extra"',html)
+  self.assertIn('weekly.market_purchases',js)
+  self.assertIn('weekly.feathers',js)
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   self.assertIn("/assets/game.js?v=73",html)
