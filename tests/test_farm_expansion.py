@@ -9,7 +9,7 @@ from test_task_bot import Database
 class ExpansionTests(unittest.TestCase):
  def setUp(self):
   class C(Database):
-   def execute(self,sql,args=()):return super().execute(sql.replace('::int',''),args)
+   def execute(self,sql,args=()):return super().execute(sql.replace('::int','').replace('::bigint',''),args)
   self.c=C();c=self.c
   cols=dict(id='p',telegram_id=7,coins=0,chickens=0,geese=0,cows=0,fed_hens=0,fed_geese=0,fed_cows=0,eggs=0,grain=0,milk=0,feathers=0,coop_level=1,cowshed_level=1,storage_level=1,farmer_level=3)
   c.execute('CREATE TABLE players('+','.join(k+(' text PRIMARY KEY' if k=='id' else ' int') for k in cols)+')')
