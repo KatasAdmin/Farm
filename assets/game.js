@@ -1066,9 +1066,8 @@ function render() {
     x.parentElement.setAttribute("aria-valuenow", sat);
     x.style.background = sat < 35 ? "linear-gradient(#ffb65d,#db3b29)" : "";
   });
-  el("feedstock").textContent = p.chickens+(p.geese||0)+(p.cows||0)
-    ? "~"+Math.max(0,Math.floor(state.farm.feed_stock_seconds/3600))+" часов"
-    : "— (нет животных)";
+  const ration=el("feed-ration");
+  if(ration)ration.hidden=!(f.grain_required_next_feed>0);
   el("warning").textContent = state.farm.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления." : "Кормление раз в 18 часов · курица: 1 зерно, гусыня: 2, корова: 3.";
   el("warning").dataset.alert = String(state.farm.effective_grain_shortage > 0);
   el("warning").hidden=state.farm.effective_grain_shortage<=0;
@@ -1081,8 +1080,9 @@ function render() {
       .querySelector(".auto-toggle")
       .setAttribute("aria-pressed", String(p.autobuy_enabled));
     card.querySelector(".auto-toggle").disabled = pending;
+    const shortAfterBuy=Math.max(0,f.grain_required_next_feed-p.grain-p.autobuy_amount);
     card.querySelector("[data-auto-status]").textContent = p.autobuy_enabled
-      ? `Включена · ${p.autobuy_amount} зерна при нехватке корма`
+      ? `Включена · ${p.autobuy_amount} зерна при нехватке корма`+(p.coins<2*p.autobuy_amount?" · не хватает монет на закупку":shortAfterBuy>0?" · для полного кормления не хватит ещё "+number(shortAfterBuy)+" зерна":"")
       : "Автозакупка выключена";
   });
   const weekly=state.weekly||{}, targets=weekly.targets||{};
@@ -1136,6 +1136,10 @@ function promotionActive() {
 function countdown() {
   if (!state) return;
   const elapsed = elapsedSeconds();
+  const reserve=Math.max(0,(state.farm.feed_stock_seconds||0)-elapsed);
+  el("feedstock").textContent=state.farm.grain_required_next_feed>0
+    ? (reserve>=3600?"~"+Math.floor(reserve/3600)+" часов":Math.ceil(reserve/60)+" мин")
+    : "— (нет животных)";
   const promo = state.promotion;
   const promoActive = promotionActive();
   el("promo-status").textContent = promoActive

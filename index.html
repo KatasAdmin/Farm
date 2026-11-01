@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="/assets/market-polish.css?v=1" />
     <link rel="stylesheet" href="/assets/cattle.css?v=2" />
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=66" defer></script>
+    <script src="/assets/game.js?v=67" defer></script>
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -194,10 +194,11 @@
               </div>
             </div>
           </div>
-          <div class="feed-reserve">
+          <div class="feed-reserve" title="Запас корма на складе для всего стада, без будущих автозакупок">
             <span class="clock" aria-hidden="true">◴</span>
             <p>Зерна хватит на <strong id="feedstock">—</strong></p>
           </div>
+          <p class="muted feed-ration" id="feed-ration" hidden>На всё стадо: <b data-feed-required>—</b> зерна / 18 ч</p>
           <p id="warning" class="muted" hidden></p><p id="storage-warning" class="capacity-warning" role="status" hidden></p>
         </div>
         <details class="card compact-harvest unified-primary-card forecast-card">

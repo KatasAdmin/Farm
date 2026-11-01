@@ -9,6 +9,10 @@ MILK_INTERVAL=8*3600
 MILK_PRICE=11
 COW_PRICE=500
 
+def feed_required(p):
+ """Whole grain needed by every animal at a shared 18-hour feeding."""
+ return p["chickens"]+GOOSE_FEED*p.get("geese",0)+COW_FEED*p.get("cows",0)
+
 def simulate(p, now):
  p=dict(p)
  cursor=min(now,p.get("egg_at") or now)
@@ -141,13 +145,13 @@ def forecast(p,now,jobs=()):
  twelve,n12,r12=simulate(p,now+2*CYCLE)
  fed=min(p["chickens"],p["fed_hens"])
  goose_fed=min(p.get("geese",0),p.get("fed_geese",0))
- required=p["chickens"]+GOOSE_FEED*p.get("geese",0)+COW_FEED*p.get("cows",0)
+ required=feed_required(p)
  next_egg=next_egg_delay(p,now)
  egg_status="scheduled" if next_egg is not None else "empty" if not (p["chickens"]+p.get("geese",0)) else "storage_full" if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)>=100*p["storage_level"] else "needs_feed"
  feed_at=p["last_tick"]+(FEED_EVERY-p["feed_phase"])*CYCLE
  next_feed=max(0,feed_at-now)
  after,_,rf=simulate(p,feed_at)
- missing=max(0,after["chickens"]+GOOSE_FEED*after.get("geese",0)-after["fed_hens"]-GOOSE_FEED*after.get("fed_geese",0)+COW_FEED*(after.get("cows",0)-after.get("fed_cows",0)))
+ missing=max(0,feed_required(after)-after["fed_hens"]-GOOSE_FEED*after.get("fed_geese",0)-COW_FEED*after.get("fed_cows",0)-after["grain"])
  notes=[]
  if fed<p["chickens"] or goose_fed<p.get("geese",0):notes.append(f"Сейчас несутся {fed+goose_fed} из {p['chickens']+p.get('geese',0)} птиц.")
  if six["grain"]+six["eggs"]+six.get("feathers",0)+six.get("milk",0)>=100*p["storage_level"]:notes.append("Склад может ограничить сбор.")
@@ -161,6 +165,7 @@ def forecast(p,now,jobs=()):
              next_egg_scheduled=next_egg is not None,next_egg_status=egg_status,
              seconds_to_next_feed=next_feed,grain_required_next_feed=required,
              grain_shortage=max(0,required-p["grain"]),effective_grain_shortage=missing,
+             complete_feeds_available=p["grain"]//required if required else 0,
              autobuy_expected=bool(r6 or r12 or rf),forecast_approximate=bool(future),
              forecast_note=" ".join(notes),feed_stock_seconds=next_feed+18*3600*(p["grain"]//required) if full else 0,
              fed_hens=fed,fed_geese=goose_fed,fed_cows=p.get("fed_cows",0),known_maturing=future,

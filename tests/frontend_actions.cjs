@@ -43,5 +43,8 @@ for(const key of ['coop','storage','cowshed']){reset();run(`state.buildings.${ke
 reset();run('state.me.coins=0;selectBuy("milk")');assert.equal(d.getElementById('purchase-confirm').disabled,true);
 reset();run('state.buildings.storage_used=state.buildings.storage_capacity;selectBuy("milk")');assert.equal(d.getElementById('purchase-confirm').disabled,true);
 reset();run('selectBuy("milk");el("purchase-amount").value="1.5";purchaseQuote()');assert.equal(d.getElementById('purchase-confirm').disabled,true);
+reset();run('state.farm.feed_stock_seconds=3660;refreshedAt=Date.now()-120000;countdown()');assert.equal(d.getElementById('feedstock').textContent,'59 мин');
+reset();run('state.farm.grain_required_next_feed=3;state.me.chickens=0;state.me.geese=0;state.me.cows=1;render()');assert.equal(d.getElementById('feed-ration').hidden,false);assert.match(d.getElementById('feed-ration').textContent,/3/);
+reset();run('state.me.autobuy_enabled=true;state.me.grain=0;state.me.autobuy_amount=1;render()');assert.match(d.querySelector('[data-auto-status]').textContent,/не хватит ещё 29 зерна/);
 await tick();assert.deepEqual(errors,[]);console.log(`OK: ${handlers.length} click handlers; milk/egg buy+sell, all animals/feed, empty market, balance/storage/quantity limits, level caps, DOM IDs.`);dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});
