@@ -1050,6 +1050,10 @@ function render() {
     ["eggs", "Получить 3 яйца от птиц", daily.eggs_produced || 0, 3],
     ["listing", "Выставить яйцо на продажу", daily.eggs_listed || 0, 1],
     ["market_sale", "Продать товар на рынке", daily.market_sale || 0, 1],
+    ["market_buy", "Купить товар у другого игрока", daily.market_buy || 0, 1],
+    ["buy_chicken", "Купить курицу", daily.buy_chicken || 0, 1],
+    ...((p.farmer_level>=3||daily.buy_goose>0)?[["buy_goose", "Купить гуся", daily.buy_goose || 0, 1]]:[]),
+    ...((p.cows>0||daily.buy_cow>0||p.coins>=500)?[["buy_cow", "Купить корову", daily.buy_cow || 0, 1]]:[]),
     ...(((p.chickens||0)+(p.geese||0)+(p.cows||0)>0||daily.feeding>0)?[["feeding","Покормить животных",daily.feeding||0,1]]:[]),
     ...((p.cows>0||daily.milk>0)?[["milk","Собрать молоко",daily.milk||0,1]]:[]),
     ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Выставить молоко на рынок",daily.milk_listing||0,1]]:[]),
@@ -1130,6 +1134,16 @@ function render() {
     if(count)count.textContent=key==="eggs"?Math.min(target,weekly.eggs||0)+" / "+target+" яиц · "+Math.min(3,weekly.milk||0)+" / 3 молока":key==="grain"?Math.min(10,weekly.grain||0)+" / 10 зерна · "+Math.min(5,weekly.feeding||0)+" / 5 скормлено":key==="listed"?Math.min(3,weekly.listed||0)+" / 3 выставлено · "+Math.min(3,weekly.market_sales||0)+" / 3 продано":value+" / "+target;
     if(bar)bar.style.width=(100*value/target)+"%";
     if(status)status.textContent=value>=target?"Готово":"В процессе";
+  }
+  const weeklyExtra=el("weekly-extra");
+  if(weeklyExtra){
+    const objectives=[
+      ["🛒 Купить 3 товара на рынке",weekly.market_purchases||0,3],
+      ["🥛 Собрать 5 единиц молока",weekly.milk||0,5,Boolean(p.cows||weekly.milk)],
+      ["🪶 Получить редкое перо",weekly.feathers||0,1,Boolean(p.geese||weekly.feathers)]
+    ].filter(row=>row.length<4||row[3]);
+    weeklyExtra.innerHTML='<h3>Дополнительные цели недели</h3><p class="muted">Не обязательны для получения основной награды. Редкое перо — случайный дроп.</p>'+
+      objectives.map(([name,value,target])=>'<div class="daily-task"><div><strong>'+name+'</strong><small>'+number(Math.min(value,target))+' / '+target+'</small></div><div class="progress"><span style="width:'+(100*Math.min(value,target)/target)+'%"></span></div></div>').join("");
   }
   const claim=el("weekly-claim");
   if(claim){claim.disabled=pending||!weeklyDone||weekly.claimed;claim.textContent=weekly.claimed?"🏆 Награда получена ✓":"🏆 Забрать награду: +"+(weekly.reward||30)+" монет";}
