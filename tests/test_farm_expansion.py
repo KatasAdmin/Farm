@@ -19,6 +19,7 @@ class ExpansionTests(unittest.TestCase):
   c.execute('CREATE TABLE referral_rewards(player_id text PRIMARY KEY,'+','.join(name+' bigint DEFAULT 0' for name in fields)+')')
   c.execute("INSERT INTO referral_rewards(player_id) VALUES('p')")
   c.execute('CREATE TABLE farm_events(id text,player_id text,kind text,amount int,created real)')
+  c.execute('CREATE TABLE market_trade_audit(id text,buyer_id text,seller_id text,item text,quantity int,coins int,created real)')
   c.execute('CREATE TABLE daily_claims(player_id text,day text,claim text,amount int,PRIMARY KEY(player_id,day,claim))')
   c.execute('CREATE TABLE weekly_claims(player_id text,week text,claimed_at real,amount int,PRIMARY KEY(player_id,week))')
   c.execute('CREATE TABLE daily_activity(player_id text,day text,grain_bought int,eggs_produced int,eggs_listed int)')
