@@ -1320,7 +1320,9 @@ def claim_weekly(authorization:str=Header(default="")):
       COALESCE(SUM(eggs_listed),0)::int AS listed
       FROM daily_activity WHERE player_id=%s AND day>=%s""",(p["id"],week)).fetchone()
   extra=farm_expansion.progress(c,p["id"],week_start,week_start+604800)
-  if total["grain"]<10 or (total["eggs"]<10 and extra.get("milk_produced",0)<3) or total["listed"]+extra.get("milk_listed",0)<3:
+  feeding=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
+  sales=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
+  if (total["grain"]<10 and feeding<5) or (total["eggs"]<10 and extra.get("milk_produced",0)<3) or (total["listed"]+extra.get("milk_listed",0)<3 and sales<3):
    raise HTTPException(409,"Сначала выполни все задания недели")
   inserted=c.execute("INSERT INTO weekly_claims(player_id,week,claimed_at,amount) VALUES(%s,%s,%s,30) ON CONFLICT DO NOTHING RETURNING amount",(p["id"],week,now)).fetchone()
   if not inserted:raise HTTPException(409,"Награда за эту неделю уже получена")
