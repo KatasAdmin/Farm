@@ -431,6 +431,16 @@ def advance(c,p,now=None):
 def index():return HTMLResponse(open("index.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
 @app.get("/health")
 def health():return {"ok":True,"release":RELEASE}
+@app.get("/health/db")
+def health_db():
+ try:
+  with db() as c:
+   c.execute("SELECT 1").fetchone()
+  return {"ok":True,"database":"reachable","release":RELEASE}
+ except Exception:
+  logger.exception("farm_database_readiness_failed")
+  raise HTTPException(503,"Database unavailable")
+
 @app.get("/health/revision/{revision}")
 @app.post("/health/revision/{revision}")
 def revision_health(revision:str):
