@@ -42,3 +42,9 @@ This branch is NOT automatically safe to deploy. Do not merge while checks are m
 - Marketplace still needs concurrent PostgreSQL transaction tests for competing buyers, cancel vs buy, seller payout provenance, and trade audit integrity.
 - Auto-grain purchases still need database tests for exact money-log/treasury reconciliation.
 - Run the full test workflow before claiming the release is ready; a file committed to GitHub is not a passing test.
+
+## Financial provenance change
+- Market receipts now preserve buyer-funded bonus, Stars-purchased and earned categories; only earned-funded sale receipts are marked earned. This intentionally tightens withdrawal eligibility for new trades.
+- Before staging deploy, verify historical market receipts and the current ledger baseline. This change does not retroactively reclassify old money_log entries or undo previous withdrawals.
+- Run tests/test_market_sources.py, then PostgreSQL integration tests for multi-seller rounding, Stars payment retries, seller payout, concurrent buyer/seller operations and bot-transfer idempotency.
+- Review whether legacy players with preexisting earned balances from purchased-funded sales require a controlled reconciliation. Never rewrite financial history without an approved audit and backup.
