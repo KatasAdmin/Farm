@@ -127,6 +127,19 @@ async function perform(path, data) {
     busy(false);
   }
 }
+async function claimAchievement(track) {
+  if (pending || !["eggs","feathers","milk"].includes(track)) return;
+  try {
+    busy(true);
+    const result = await api("/api/achievements/claim",{item:track});
+    toast("Достижение получено: +" + number(result.xp_awarded) + " XP");
+    await refresh();
+  } catch(error) {
+    toast(error.message);
+  } finally {
+    busy(false);
+  }
+}
 async function claimDaily(key) {
   if (pending) return;
   const completed = await perform("/api/claim", {item:key});
@@ -1017,6 +1030,16 @@ function render() {
     const done = earned.has(key);
     return '<div class="achievement-row' + (done?' achievement-done':'') + '"><span class="achievement-emoji">'+image(icon)+'</span><div><strong>'+title+'</strong><small>'+(done?'Получено ✓':number(Math.min(current,target))+' / '+target)+'</small></div><span class="achievement-status">'+(done?'★':'—')+'</span></div>';
   }).join("");
+  const stageRows = progression.staged_achievements || [];
+  if (achievementList && stageRows.length) {
+    const labels = {eggs:["🥚","Яйца"],feathers:["🪶","Перья"],milk:["🥛","Молоко"]};
+    const rows = stageRows.map(stage => {
+      const [emoji,label] = labels[stage.track] || ["🏅","Достижение"];
+      const ready = Boolean(stage.claimable);
+      return '<div class="achievement-row"><span class="achievement-emoji">'+emoji+'</span><div><strong>'+label+': '+number(stage.threshold)+'</strong><small>'+number(stage.progress)+' / '+number(stage.threshold)+' · +'+number(stage.xp)+' XP</small></div><button class="btn small" '+(ready?'':'disabled')+' onclick="claimAchievement(\''+stage.track+'\')">'+(ready?'Получить':'В процессе')+'</button></div>';
+    }).join("");
+    achievementList.insertAdjacentHTML("beforeend",rows);
+  }
   const daily = state.daily || {};
   const claimed = new Set(state.claimed_rewards || []);
   const dailyMissions = [
