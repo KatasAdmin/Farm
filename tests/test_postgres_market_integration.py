@@ -67,5 +67,38 @@ class PostgresMarketLedgerTests(unittest.TestCase):
             self.assertEqual(c.execute("SELECT quantity FROM market WHERE id='listing'").fetchone()['quantity'],0)
 
 
+    def test_autobuy_coin_debit_is_atomic_under_contention(self):
+        with self.connect() as c:
+            c.execute("UPDATE players SET coins=20 WHERE id='buyer'")
+        def buy_grain(_):
+            with self.connect() as c:
+                row=c.execute("SELECT coins FROM players WHERE id='buyer' FOR UPDATE").fetchone()
+                if row["coins"] < 20:
+                    return False
+                changed=c.execute("UPDATE players SET coins=coins-20 WHERE id='buyer' AND coins>=20 RETURNING coins").fetchone()
+                return changed is not None
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results=list(pool.map(buy_grain,range(16)))
+        self.assertEqual(sum(results),1)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],0)
+
+    def test_incubator_slot_claim_is_atomic_under_contention(self):
+        with self.connect() as c:
+            c.execute("CREATE TABLE incubator_jobs(id text PRIMARY KEY,player_id text,slot integer,eggs integer,coins integer,UNIQUE(player_id,slot))")
+        def incubate(i):
+            try:
+                with self.connect() as c:
+                    c.execute("INSERT INTO incubator_jobs VALUES(%s,'buyer',1,12,15)",(str(i),))
+                return True
+            except psycopg.errors.UniqueViolation:
+                return False
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results=list(pool.map(incubate,range(16)))
+        self.assertEqual(sum(results),1)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM incubator_jobs").fetchone()["n"],1)
+
+
 if __name__ == '__main__':
     unittest.main()
