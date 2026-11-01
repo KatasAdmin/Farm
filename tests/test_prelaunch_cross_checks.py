@@ -129,6 +129,37 @@ class PrelaunchCrossChecks(unittest.TestCase):
                 main.claim_staged_achievement(main.Request(item="feathers"), "Bearer p")
         self.assertEqual(db.claimed, {1, 3, 10})
 
+
+    def test_bot_transfer_retry_does_not_double_credit(self):
+        from unittest.mock import Mock
+        from fastapi import HTTPException
+        class Cursor:
+            def __init__(self, row): self.row = row
+            def fetchone(self): return self.row
+        class DB:
+            def __init__(self, record): self.record, self.queries = record, []
+            def execute(self, sql, args=()):
+                self.queries.append(sql)
+                if "FROM farm_bot_transfers WHERE id=" in sql:
+                    return Cursor(self.record)
+                raise AssertionError("Unexpected write on retry: " + sql)
+        player = {"id": "p", "telegram_id": 77}
+        key = "00000000-0000-0000-0000-000000000001"
+        db = DB({"player_id": "p", "telegram_id": 77, "amount": 100})
+        bot = Mock()
+        result = farm_wallet.transfer(db, player, 100, key, bot)
+        self.assertTrue(result["repeated"])
+        self.assertEqual(result["amount"], 100)
+        bot.assert_not_called()
+        self.assertEqual(len(db.queries), 1)
+        for wrong in ({"player_id": "other", "telegram_id": 77, "amount": 100},
+                      {"player_id": "p", "telegram_id": 77, "amount": 101},
+                      {"player_id": "p", "telegram_id": 88, "amount": 100}):
+            with self.subTest(wrong=wrong):
+                with self.assertRaises(HTTPException) as error:
+                    farm_wallet.transfer(DB(wrong), player, 100, key, bot)
+                self.assertEqual(error.exception.status_code, 409)
+
     def test_withdrawal_api_rejects_invalid_amount_and_retry_key_before_db(self):
         from unittest.mock import patch
         import main
