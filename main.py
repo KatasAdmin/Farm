@@ -1235,7 +1235,7 @@ def finance(authorization:str=Header(default=""),offset:int=0,limit:int=10):
 def autobuy(q:Request,authorization:str=Header(default="")):
  if q.item not in ("on","off"):raise HTTPException(400,"Неверное действие")
  check(q.amount)
- if q.amount>2000:raise HTTPException(400,"Слишком большая автозакупка")
+ if q.amount>10000:raise HTTPException(400,"Слишком большая автозакупка")
  with db() as c:
   p=advance(c,person(c,authorization,True))
   c.execute("UPDATE players SET autobuy_enabled=%s,autobuy_amount=%s WHERE id=%s",(q.item=="on",q.amount,p["id"]))

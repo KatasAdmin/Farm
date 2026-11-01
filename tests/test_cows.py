@@ -119,3 +119,14 @@ class HundredLevelTests(unittest.TestCase):
             a,b=main.incubation_stages(level);self.assertGreater(a,0);self.assertGreater(b,0)
         for kind in ('coop','storage','cowshed'):
             self.assertGreater(main.upgrade_cost(kind,99),main.upgrade_cost(kind,9))
+
+    def test_autobuy_can_cover_maximum_mixed_farm(self):
+        # 1000 geese + 200 cows consume 2600 grain per shared feed.
+        self.assertGreater(1000*2+200*3,2000)
+        class C:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def execute(self,*args):return self
+        with patch.object(main,'db',return_value=C()),patch.object(main,'person',return_value={'id':'p'}),patch.object(main,'advance',side_effect=lambda c,p:p):
+            self.assertEqual(main.autobuy(main.Request(item='on',amount=2600),'Bearer p'),{'ok':True})
+        with self.assertRaises(main.HTTPException):main.autobuy(main.Request(item='on',amount=10001),'Bearer p')

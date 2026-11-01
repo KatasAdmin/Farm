@@ -715,7 +715,7 @@ function autoBuy(on, id) {
   try {
     perform("/api/autobuy", {
       item: on ? "on" : "off",
-      amount: amount(id, 2000),
+      amount: amount(id, 10000),
     });
   } catch (error) {
     toast(error.message);
