@@ -21,6 +21,12 @@ function reset(){run('state=JSON.parse(JSON.stringify(window.fixture));token="qa
 (async()=>{
 reset();
 assert.deepEqual([...d.querySelectorAll('.bird-resources>button')].map(n=>n.querySelector('[data-value]')?.dataset.value||'storage'),['chickens','eggs','geese','feathers','cows','milk','storage','grain']);
+for(const animal of ['chickens','geese','cows']){
+ const card=d.querySelector(`[data-animal-card="${animal}"]`);assert.ok(card,animal+' card');
+ const buttons=[...card.querySelectorAll('.buttons>button')];assert.equal(buttons.length,2);
+ assert.equal(buttons[0].getAttribute('onclick'),`showShop('${animal}')`);
+ assert.equal(buttons[1].getAttribute('onclick'),`openSystemSell('${animal}')`);
+}
 assert.equal(d.querySelector('#upgrade-coop').closest('section').id,'coop');
 assert.equal(d.querySelector('#upgrade-cowshed').closest('section').id,'coop');
 assert.equal(d.querySelector('#upgrade-storage').closest('section').id,'storage');

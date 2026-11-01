@@ -1149,7 +1149,7 @@ function countdown() {
   const inc=state.incubator||{}, now=state.now+elapsed;
   const jobs=inc.jobs||[];
   const full=state.me.chickens+(state.me.geese||0)>=state.buildings.coop_capacity;
-  const status=!inc.owned?"Инкубатор ещё не куплен":jobs.length===0?"Свободен · заложи яйцо":jobs.length+" из "+inc.capacity+" мест занято";
+  const status=!inc.owned?"Инкубатор ещё не куплен":jobs.length===0?"Свободен · заложи 12 яиц":jobs.length+" из "+inc.capacity+" мест занято";
   if(el("incubation-status"))el("incubation-status").textContent=status;
   document.querySelectorAll("[data-incubator-summary]").forEach(x=>x.textContent=status);
   const list=el("incubator-jobs");
