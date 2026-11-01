@@ -48,8 +48,8 @@ class PrelaunchCrossChecks(unittest.TestCase):
         self.assertEqual(html.count('id="nearest-harvest"'), 1)
         self.assertIn("Ближайший сбор", html)
         self.assertIn('data-egg-forecast', html)
-        self.assertIn('data-milk-forecast', html)
-        self.assertIn('data-feather-forecast', html)
+        self.assertIn('data-milk-card', html)
+        self.assertIn('data-feather-card', html)
 
     def test_staged_claims_have_database_uniqueness_and_xp_is_counted(self):
         server = (ROOT / "main.py").read_text(encoding="utf8")
