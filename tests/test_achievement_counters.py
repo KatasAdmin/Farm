@@ -35,7 +35,7 @@ class AchievementCounterTest(unittest.TestCase):
 
     def test_unsupported_track_is_rejected(self):
         with self.assertRaises(ValueError):
-            count(Cursor(1), "p", "feeding")
+            count(Cursor(1), "p", "unrecognized")
 
 
 if __name__ == "__main__":
