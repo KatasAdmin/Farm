@@ -262,6 +262,13 @@ def telegram_identity(raw):
 def person(c,h,lock=False):
  p=c.execute("SELECT * FROM players WHERE token=%s"+(" FOR UPDATE" if lock else ""),(h.replace("Bearer ",""),)).fetchone()
  if not p:raise HTTPException(401,"Войдите в игру")
+ if lock:
+  pending=c.execute("""SELECT 1 FROM stars_refund_intents i
+     JOIN star_orders o ON o.id=i.order_id
+     WHERE o.player_id=%s AND i.status IN ('calling','needs_review')
+     LIMIT 1""",(p["id"],)).fetchone()
+  if pending:
+   raise HTTPException(423,"Операции временно заблокированы: возврат Stars ожидает проверки")
  return p
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
