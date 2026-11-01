@@ -1200,7 +1200,7 @@ function countdown() {
   if(featherCard)featherCard.hidden=!gooseCount;
   const featherRemaining=Math.max(0,(state.farm.seconds_to_next_feather||0)-elapsed);
   const warehouseFull=state.buildings.storage_used>=state.buildings.storage_capacity;
-  const featherLabel=!gooseCount?"Нет гусей":warehouseFull?"Склад заполнен":!fedGeese?"Нужен корм":featherRemaining<=0?"Обновляем…":
+  const featherLabel=!gooseCount?"Нет гусей":!state.farm.next_feather_scheduled?(state.farm.next_feather_status==="storage_full"?"Склад заполнен":"Нет доступного сбора — проверь корм"):featherRemaining<=0?"Обновляем…":
     (featherRemaining>=86400?Math.floor(featherRemaining/86400)+" д ":"")+clockDuration(featherRemaining%86400);
   document.querySelectorAll('[data-feather-tick]').forEach(x=>x.textContent=featherLabel);
   const featherProgress=Math.min(100,100*((state.me.feather_progress||0)+fedGeese*elapsed)/(7*86400));
