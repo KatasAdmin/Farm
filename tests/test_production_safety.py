@@ -73,6 +73,28 @@ class ProductionSafetyTest(unittest.TestCase):
         self.assertFalse(forecast(p, 1.0)["next_feather_scheduled"])
         self.assertFalse(forecast(p, 1.0)["next_milk_scheduled"])
 
+    def test_long_absence_is_idempotent(self):
+        now = 1.0 + 45 * 86400
+        first, produced, _ = simulate(player(grain=100, storage_level=2), now)
+        second, again, refills = simulate(first, now)
+        self.assertGreaterEqual(produced, 0)
+        self.assertEqual(again, 0)
+        self.assertEqual(refills, [])
+        self.assertEqual(second["grain"], first["grain"])
+        self.assertEqual(second["eggs"], first["eggs"])
+
+    def test_auto_buy_disabled_by_zero_amount(self):
+        p, _, refills = simulate(player(grain=0, autobuy_enabled=True,
+                                        autobuy_amount=0), 64801.0)
+        self.assertEqual(refills, [])
+        self.assertEqual(p["coins"], 100)
+
+    def test_auto_buy_never_overfills_storage(self):
+        p, _, refills = simulate(player(grain=0, eggs=100, autobuy_enabled=True,
+                                        autobuy_amount=10), 64801.0)
+        self.assertEqual(refills, [])
+        self.assertLessEqual(p["grain"] + p["eggs"] + p["milk"] + p["feathers"], 100)
+
     def test_simulation_does_not_mutate_input(self):
         original = player()
         simulate(original, 21601.0)
