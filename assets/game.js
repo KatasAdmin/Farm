@@ -1015,28 +1015,33 @@ function render() {
   const nextXp = progression.next_level_xp || 25;
   if (farmerXp) farmerXp.textContent = "До следующего уровня: " + number(Math.max(0,nextXp - totalXp)) + " XP";
   if (xpBar) xpBar.style.width = Math.min(100,100*Math.max(0,totalXp-baseXp)/Math.max(1,nextXp-baseXp)) + "%";
-  const earned = new Set(progression.achievements || []);
-  const total = progression.totals || {};
-  const achievements = [
-    ["three_hens","redesign/hen","Три несушки",p.chickens || 0,3],
-    ["first_sale","redesign/shop-icon","Первая продажа яйца",total.eggs_sold || 0,1],
-    ["hundred_sales","redesign/achievement","1200 проданных яиц",total.eggs_sold || 0,1200],
-    ...(progression.extra_achievements||[]).filter(row => !["first_milk","milk_hundred","first_feather","feather_five"].includes(row[0]))
-  ];
+  // The legacy static achievement cards are intentionally not rendered here.
+  // The server returns exactly the next unclaimed cumulative stage per track.
   const achievementList = el("achievements-list");
-  if (achievementList) achievementList.innerHTML = achievements.map(([key,icon,title,current,target]) => {
-    const done = earned.has(key);
-    return '<div class="achievement-row' + (done?' achievement-done':'') + '"><span class="achievement-emoji">'+image(icon)+'</span><div><strong>'+title+'</strong><small>'+(done?'Получено ✓':number(Math.min(current,target))+' / '+target)+'</small></div><span class="achievement-status">'+(done?'★':'—')+'</span></div>';
-  }).join("");
   const stageRows = progression.staged_achievements || [];
-  if (achievementList && stageRows.length) {
-    const labels = {eggs:["🥚","Яйца"],feathers:["🪶","Перья"],milk:["🥛","Молоко"],chickens_bought:["🐔","Куплено кур"],geese_bought:["🪿","Куплено гусей"],cows_bought:["🐄","Куплено коров"],market_sales:["📦","Продано товаров"],market_purchases:["🛒","Куплено на рынке"],feeding:["🌾","Скормлено зерна"]};
-    const rows = stageRows.map(stage => {
-      const [emoji,label] = labels[stage.track] || ["🏅","Достижение"];
+  if (achievementList) {
+    const labels = {
+      eggs:["🥚","яйцо","яйца","яиц"],
+      feathers:["🪶","перо","пера","перьев"],
+      milk:["🥛","единица молока","единицы молока","единиц молока"],
+      chickens_bought:["🐔","курица","курицы","кур"],
+      geese_bought:["🪿","гусь","гуся","гусей"],
+      cows_bought:["🐄","корова","коровы","коров"],
+      market_sales:["📦","продажа","продажи","продаж"],
+      market_purchases:["🛒","покупка","покупки","покупок"],
+      feeding:["🌾","кормление","кормления","кормлений"]
+    };
+    const stageTitle = stage => {
+      const forms = labels[stage.track] || ["🏅","действие","действия","действий"];
+      const n = Number(stage.threshold);
+      const word = n%10===1 && n%100!==11 ? forms[1] : (n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? forms[2] : forms[3]);
+      return n===1 ? "Первое достижение: " + forms[1] : number(n) + " " + word;
+    };
+    achievementList.innerHTML = stageRows.map(stage => {
+      const [emoji] = labels[stage.track] || ["🏅"];
       const ready = Boolean(stage.claimable);
-      return '<div class="achievement-row"><span class="achievement-emoji">'+emoji+'</span><div><strong>'+label+': '+number(stage.threshold)+'</strong><small>'+number(stage.progress)+' / '+number(stage.threshold)+' · +'+number(stage.xp)+' XP</small></div><button class="btn small" '+(ready?'':'disabled')+' onclick="claimAchievement(\''+stage.track+'\')">'+(ready?'Получить':'В процессе')+'</button></div>';
+      return '<div class="achievement-row"><span class="achievement-emoji">'+emoji+'</span><div><strong>'+stageTitle(stage)+'</strong><small>'+number(stage.progress)+' / '+number(stage.threshold)+' · +'+number(stage.xp)+' XP</small></div><button class="btn small" '+(ready?'':'disabled')+' onclick="claimAchievement(\\''+stage.track+'\\')">'+(ready?'Получить':'В процессе')+'</button></div>';
     }).join("");
-    achievementList.insertAdjacentHTML("beforeend",rows);
   }
   const daily = state.daily || {};
   const claimed = new Set(state.claimed_rewards || []);
