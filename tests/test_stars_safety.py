@@ -8,13 +8,21 @@ class Cursor:
  def fetchall(self):return self.row or []
 
 class DB:
- def __init__(self,order):self.order=order;self.calls=[]
+ def __init__(self,order):self.order=order;self.calls=[];self.intent=None
  def __enter__(self):return self
  def __exit__(self,*a):return False
  def execute(self,sql,args=None):
   self.calls.append((sql,args))
   if "SELECT * FROM star_orders WHERE id=" in sql:return Cursor(self.order)
   if "SELECT 1 FROM star_orders WHERE charge_id=" in sql:return Cursor(None)
+  if "SELECT id FROM star_orders WHERE charge_id=" in sql:return Cursor(None)
+  if "SELECT id FROM players WHERE id=" in sql:return Cursor({"id":"player1"})
+  if "SELECT 1 FROM stars_refund_intents" in sql:return Cursor(None)
+  if "SELECT status FROM stars_refund_intents" in sql:return Cursor({"status":self.intent} if self.intent else None)
+  if "INSERT INTO stars_refund_intents" in sql:self.intent="calling"
+  if "UPDATE stars_refund_intents SET status=" in sql:
+   self.intent="confirmed" if "status='confirmed'" in sql else "needs_review"
+  if "SELECT * FROM players WHERE id=" in sql:return Cursor({"coins":25,"purchased_coins":25})
   if "SELECT telegram_id,stars,status,created FROM star_orders" in sql:return Cursor(self.order)
   return Cursor(None)
 
@@ -64,7 +72,7 @@ class StarsSafety(unittest.TestCase):
   db=RefundDB(order)
   with patch.object(main,"db",return_value=db),patch.object(main,"telegram_api") as api:
    result=main.stars_refund_order("a"*32,77)
-  self.assertIn("заблокирован",result)
+  self.assertIn("потрачены",result)
   api.assert_not_called()
   self.assertFalse(any("UPDATE players SET coins=coins-" in q for q,a in db.calls))
  def test_refund_paid_order_calls_telegram_once_and_debits_coins(self):
