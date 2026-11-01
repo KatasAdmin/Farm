@@ -83,6 +83,7 @@ class CowTradingTests(unittest.TestCase):
         for key in ('cows','fed_cows','cow_xp','cowshed_level','chickens','geese'):
             self.c.execute('ALTER TABLE players ADD COLUMN '+key+' int DEFAULT '+('1' if key=='cowshed_level' else '0'))
         self.c.execute('ALTER TABLE players ADD COLUMN milk int DEFAULT 0')
+        self.c.execute('CREATE TABLE farm_events(id text,player_id text,kind text,amount int,created real)')
         self.c.execute('CREATE TABLE economy(id int,treasury int)');self.c.execute('INSERT INTO economy VALUES(1,10000)')
         self.c.raw.commit()
     def test_buy_cow_price_capacity_shared_clock_and_bonus_buyback(self):

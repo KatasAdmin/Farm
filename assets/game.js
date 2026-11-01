@@ -30,6 +30,7 @@ function eggQuantity(n) {
   const v=Math.abs(n)%100, last=v%10;
   return `${number(n)} ${v>=11 && v<=14 ? "яиц" : last===1 ? "яйцо" : last>=2 && last<=4 ? "яйца" : "яиц"}`;
 }
+const referralItems=["eggs","grain","chickens","geese","cows","milk","feathers"];
 const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица", geese:"Гусыня", cows:"Корова",milk:"Молоко", feathers:"Перо" };
 const number = (n) => new Intl.NumberFormat("ru-RU").format(n);
 let token = storage.getItem("farm_token");
@@ -416,7 +417,7 @@ async function loadReferrals(){
     el("referral-link").value=link;
     el("referral-direct").textContent=number(r.counts["1"]||0);
     const resources=r.resources||{};
-    for(const item of ["eggs","grain","chickens"]){
+    for(const item of referralItems){
       const data=resources[item]||{available:0,fraction:0,total:0};
       el("referral-"+item+"-available").textContent=number(data.available);
       el("referral-"+item+"-fraction").textContent="В накоплении "+(data.fraction/10000).toLocaleString("ru-RU",{maximumFractionDigits:4})+" до следующего целого";
@@ -433,13 +434,13 @@ function copyReferralLink(){
 }
 async function claimReferralResource(item){
  if(pending)return;
- if(!["eggs","grain","chickens"].includes(item))return;
+ if(!referralItems.includes(item))return;
  try{
   busy(true);
   const result=await api("/api/referrals/claim",{item});
   await refresh();
   await loadReferrals();
-  const labels={eggs:"яиц",grain:"зерна",chickens:"куриц"};
+  const labels={eggs:"яиц",grain:"зерна",chickens:"куриц",geese:"гусей",cows:"коров",milk:"молока",feathers:"перьев"};
   toast("Получено "+number(result.amount)+" "+labels[item]+" ✓");
  }catch(e){toast(e.message);}finally{busy(false);}
 }
@@ -921,6 +922,7 @@ function render() {
   const assignStat=(id,value)=>{const node=el(id);if(node)node.textContent=number(value||0);};
   assignStat("stat-produced",farmDailyStats.eggs);
   assignStat("stat-milk",farmDailyStats.milk);
+  assignStat("stat-feathers",farmDailyStats.feathers);
   assignStat("stat-sales",farmDailyStats.sales_coins);
   assignStat("stat-feed",farmDailyStats.feed_spent_coins);
   assignStat("stat-margin",farmDailyStats.feed_margin_coins);
@@ -1007,7 +1009,8 @@ function render() {
     ["ten_eggs","redesign/egg","120 произведённых яиц",total.eggs_produced || 0,120],
     ["three_hens","redesign/hen","Три несушки",p.chickens || 0,3],
     ["first_sale","redesign/shop-icon","Первая продажа яйца",total.eggs_sold || 0,1],
-    ["hundred_sales","redesign/achievement","1200 проданных яиц",total.eggs_sold || 0,1200]
+    ["hundred_sales","redesign/achievement","1200 проданных яиц",total.eggs_sold || 0,1200],
+    ...(progression.extra_achievements||[])
   ];
   const achievementList = el("achievements-list");
   if (achievementList) achievementList.innerHTML = achievements.map(([key,icon,title,current,target]) => {
@@ -1018,8 +1021,11 @@ function render() {
   const claimed = new Set(state.claimed_rewards || []);
   const dailyMissions = [
     ["grain", "Купить 5 зерна", daily.grain_bought || 0, 5],
-    ["eggs", "Получить 3 яйца от кур", daily.eggs_produced || 0, 3],
-    ["listing", "Выставить яйцо на продажу", daily.eggs_listed || 0, 1]
+    ["eggs", "Получить 3 яйца от птиц", daily.eggs_produced || 0, 3],
+    ["listing", "Выставить яйцо на продажу", daily.eggs_listed || 0, 1],
+    ...((p.cows>0||daily.milk>0)?[["milk","Собрать молоко",daily.milk||0,1]]:[]),
+    ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Выставить молоко на рынок",daily.milk_listing||0,1]]:[]),
+    ...((p.geese>0||daily.feather>0)?[["feather","Собрать перо",daily.feather||0,1]]:[])
   ];
   const dailyBox = el("daily-tasks");
   if (dailyBox) {
@@ -1088,12 +1094,12 @@ function render() {
   const weekly=state.weekly||{}, targets=weekly.targets||{};
   let weeklyDone=true;
   for (const key of ["grain","eggs","listed"]) {
-    const target=targets[key]||1,value=Math.min(target,weekly[key]||0);
+    const target=targets[key]||1,value=key==="eggs"&&weekly.milk>=3?target:Math.min(target,weekly[key]||0);
     weeklyDone=weeklyDone&&value>=target;
     const count=el("weekly-count-"+key)||document.querySelector(`[data-weekly="${key}"]`);
     const bar=document.querySelector(`[data-weekly-bar="${key}"]`);
     const status=document.querySelector(`[data-weekly-status="${key}"]`);
-    if(count)count.textContent=value+" / "+target;
+    if(count)count.textContent=key==="eggs"?Math.min(target,weekly.eggs||0)+" / "+target+" яиц · "+Math.min(3,weekly.milk||0)+" / 3 молока":value+" / "+target;
     if(bar)bar.style.width=(100*value/target)+"%";
     if(status)status.textContent=value>=target?"Готово":"В процессе";
   }
@@ -1112,7 +1118,7 @@ function render() {
     ? state.my_listings
         .map(
           (x) =>
-            `<div class="product">${image(art[x.item], "product-image")}<div><h3>${itemNames[x.item]}</h3><small>${number(x.quantity)} шт. · ${number(x.price)} монет/шт.</small></div><button class="btn alt small" onclick="cancelLot('${safe(x.id)}')">Вернуть</button></div>`,
+            `<div class="product">${image(art[x.item], "product-image")}<div><h3>${logNames[x.item]||itemNames[x.item]}</h3><small>${number(x.quantity)} шт. · ${number(x.price)} монет/шт.</small></div><button class="btn alt small" onclick="cancelLot('${safe(x.id)}')">Вернуть</button></div>`,
         )
         .join("")
     : '<p class="empty">У тебя нет активных объявлений.</p>';
@@ -1164,6 +1170,8 @@ function countdown() {
   const seconds = Math.max(0,state.farm.seconds_to_next_egg - elapsed);
   const eggLabel=eggScheduled?clockDuration(seconds):({empty:"Нет птицы",storage_full:"Склад заполнен",needs_feed:"Нужен корм"}[state.farm.next_egg_status]||"Ожидаем условия");
   document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = eggLabel);
+  const eggPart=document.querySelector('[data-egg-forecast]');if(eggPart)eggPart.hidden=!(state.me.chickens+(state.me.geese||0)>0);
+  const emptyHarvest=el("harvest-empty");if(emptyHarvest)emptyHarvest.hidden=!!(state.me.chickens+(state.me.geese||0)+(state.me.cows||0));
   const gooseCount=state.me.geese||0, fedGeese=state.farm.fed_geese||0;
   const featherCard=document.querySelector('[data-feather-card]');
   if(featherCard)featherCard.hidden=!gooseCount;

@@ -15,7 +15,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertNotRegex(js,r"\\basync\\s+async\\s+function\\b")
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
-  self.assertIn("/assets/game.js?v=69",html)
+  self.assertIn("/assets/game.js?v=70",html)
  def test_launch_help_and_placeholder_polish(self):
   root=Path(__file__).resolve().parents[1]
   html=(root/"index.html").read_text(encoding="utf-8")
@@ -64,7 +64,7 @@ class FrontendBootSafety(unittest.TestCase):
   html=(root/"index.html").read_text(encoding="utf-8")
   js=(root/"assets"/"game.js").read_text(encoding="utf-8")
   css=(root/"assets"/"stars-mobile.css").read_text(encoding="utf-8")
-  self.assertIn('<summary class="forecast-summary">🥚 Ближайший сбор яиц</summary>',html)
+  self.assertIn('<summary class="forecast-summary">🌾 Ближайший сбор</summary>',html)
   self.assertIn('id="egg-sale-dialog"',html)
   self.assertEqual(html.count('id="egg-sale-form"'),1)
   self.assertIn("if(grainPriceWrap)grainPriceWrap.hidden",js)

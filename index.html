@@ -16,9 +16,9 @@
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <link rel="stylesheet" href="/assets/stars-mobile.css?v=13" />
     <link rel="stylesheet" href="/assets/market-polish.css?v=1" />
-    <link rel="stylesheet" href="/assets/cattle.css?v=4" />
+    <link rel="stylesheet" href="/assets/cattle.css?v=5" />
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=69" defer></script>
+    <script src="/assets/game.js?v=70" defer></script>
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -149,7 +149,7 @@
  <button type="button" class="btn alt small" onclick="dismissLaunchGuide()">Скрыть подсказку навсегда</button>
   <p><b>1. Начни с курицы.</b> Сытая курица несёт яйцо каждые 6 часов. С 3-го уровня доступны гуси — яйцо каждые 2 часа.</p>
   <p><b>2. Следи за кормом.</b> Животные едят раз в 18 часов: курице нужно 1 зерно, гусыне — 2, корове — 3. Запас виден на главной.</p>
-  <p><b>3. Продавай яйца.</b> Выставляй их на рынке и получай монеты, когда другие игроки купят товар.</p>
+  <p><b>3. Продавай продукцию.</b> Выставляй яйца и молоко на рынке. Монеты поступят, когда другие игроки купят товар.</p>
   <p><b>4. Развивай хозяйство.</b> Покупай животных, увеличивай склад, выполняй задания и улучшай ферму.</p>
   <p><b>5. Переводи заработанное.</b> В кошельке нажми «На баланс бота». Оттуда можно заказать выплату.</p>
  </div>
@@ -201,9 +201,7 @@
           <p class="muted feed-ration" id="feed-ration" hidden>На всё стадо: <b data-feed-required>—</b> зерна / 18 ч</p>
           <p id="warning" class="muted" hidden></p><p id="storage-warning" class="capacity-warning" role="status" hidden></p>
         </div>
-        <details class="card compact-harvest unified-primary-card forecast-card">
-          <summary class="forecast-summary">🥚 Ближайший сбор яиц</summary>
-          <div class="forecast-details-content">
+<details class="card compact-harvest unified-primary-card forecast-card" id="nearest-harvest"><summary class="forecast-summary">🌾 Ближайший сбор</summary><div class="forecast-details-content harvest-part" data-egg-forecast><h3>🥚 Яйца</h3>
           <div class="forecast-output"><img src="/assets/redesign/egg.webp" class="icon" alt=""><div>
             <p>Ожидается в ближайшие 6 часов:</p><strong id="next-harvest" data-eggs-6h>—</strong>
             <p class="forecast-secondary" hidden>В ближайшие 12 часов: <b data-eggs-12h>—</b></p>
@@ -212,59 +210,35 @@
           <div class="forecast-timers"><div><span>Следующее яйцо</span><strong data-next-tick>—</strong></div><div><span>Следующее кормление</span><strong data-feed-tick>—</strong></div></div>
           <div class="forecast-feeding" hidden><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><strong>Следующее кормление: −<span data-feed-required>—</span> зерна</strong><p data-feed-status>Проверяем запас…</p></div></div>
           <div class="buttons"><button class="btn" onclick="openSell('eggs')">Продать яйца</button><button class="btn alt" data-buy-feed onclick="tab('shop');showShop('grain')">Купить зерно</button></div>
-          <details class="farm-explainer"><summary>Как рассчитывается прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Сытая курица несёт яйцо за 6 часов, гусыня — за 2 часа. Общее кормление раз в 18 часов: 1 зерно на курицу и 2 на гусыню. Производство всех сытых птиц складывается, поэтому яйца появляются чаще. Прогноз учитывает корм, сытость, автозакупку и место на складе. Гуси также дают редкое перо: около одного за 7 дней сытости на птицу; при заполненном складе новые ресурсы не сохраняются.</p></details>
+          <details class="farm-explainer"><summary>Как рассчитывается прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Сытая курица несёт яйцо за 6 часов, гусыня — за 2 часа. Корова даёт молоко за 8 часов. Общее кормление раз в 18 часов: 1 зерно на курицу, 2 на гуся и 3 на корову. Производство всех сытых птиц складывается, поэтому яйца появляются чаще. Прогноз учитывает корм, сытость, автозакупку и место на складе. Гуси также дают редкое перо: около одного за 7 дней сытости на птицу; при заполненном складе новые ресурсы не сохраняются.</p></details>
           </div>
-        </details>
-        <details class="card compact-harvest unified-primary-card forecast-card feather-forecast" data-feather-card hidden>
-          <summary class="forecast-summary">🪶 Ближайшее перо</summary>
-          <div class="forecast-details-content">
+        <div class="forecast-details-content harvest-part" data-feather-card hidden><h3>🪶 Перья</h3>
             <div class="feather-preview"><span class="feather-art" aria-hidden="true">🪶</span><div><span class="muted">При постоянном кормлении</span><strong data-feather-tick>—</strong></div></div>
             <div class="feather-progress" role="progressbar" aria-label="Прогресс следующего пера" aria-valuemin="0" aria-valuemax="100" data-feather-progress><span></span></div>
             <p class="muted" data-feather-note>Гуси вместе приближают следующее перо.</p>
             <p class="muted feather-save-note">🪶 Советуем сохранить перья — пригодятся для развития фермы.</p>
             <div class="buttons"><button class="btn" onclick="openSystemSell('feathers')">Продать перья</button><button class="btn alt" onclick="showShop('geese')">Купить гусыню</button></div>
           </div>
-        </details>
-        <details class="card compact-harvest unified-primary-card forecast-card milk-forecast" data-milk-card hidden>
-          <summary class="forecast-summary">🥛 Ближайший сбор молока</summary>
-          <div class="forecast-details-content">
+        <div class="forecast-details-content harvest-part" data-milk-card hidden><h3>🥛 Молоко</h3>
             <div class="cattle-preview"><img src="/assets/cow-v1.webp" alt="Корова"><div><span class="muted">Следующее молоко</span><strong data-next-milk>—</strong><small>За 12 часов: <b data-milk-12h>—</b></small></div></div>
             <div class="forecast-timers"><div><span>Коровник</span><strong><span data-value="cows">0</span> / <span data-building="cowshed_capacity">—</span></strong></div><div><span>Общее кормление</span><strong data-feed-tick>—</strong></div></div>
             <p class="muted">Корова даёт молоко за 8 часов. Корм: 3 зерна раз в 18 часов. Для сбора нужно место на складе.</p>
             <div class="buttons"><button class="btn" onclick="openSell('milk')">Продать молоко</button><button class="btn alt" onclick="showShop('cows')">Купить корову</button></div>
             <details class="farm-explainer"><summary>Окупаемость коровы</summary><p>Цена: 500 монет. При продаже 3 единиц молока в сутки по 11 монет — 33 монеты выручки. Корм в среднем стоит 8 монет в сутки. Чистая выручка — около 25 монет в сутки, окупаемость — около 20 дней. Нужны корм, свободный склад и покупатели на рынке. Расширение построек оплачивается отдельно.</p></details>
           </div>
-        </details>
+        <p class="muted" id="harvest-empty" hidden>Купи животных — здесь появится прогноз производства.</p></details>
         <details class="card farm-day-statistics">
           <summary>📊 Статистика хозяйства за сегодня</summary>
           <div class="farm-stats-grid">
             <div><span>Произведено яиц</span><strong id="stat-produced">—</strong></div>
-            <div><span>Получено молока</span><strong id="stat-milk">—</strong></div>
+            <div><span>Получено молока</span><strong id="stat-milk">—</strong></div><div><span>Собрано перьев</span><strong id="stat-feathers">—</strong></div>
             <div><span>Выручка от продаж</span><strong id="stat-sales">—</strong></div>
             <div><span>Расходы на зерно</span><strong id="stat-feed">—</strong></div>
             <div><span>Разница</span><strong id="stat-margin">—</strong></div>
           </div>
-          <p class="muted">За текущие сутки по UTC. Разница учитывает только продажи и покупку зерна, без кур, построек и инкубатора. Выставленные яйца ещё не считаются проданными.</p>
+          <p class="muted">За текущие сутки по UTC. Разница учитывает только продажи и покупку зерна, без покупки животных, построек и инкубатора. Выставленные товары ещё не считаются проданными.</p>
         </details>
-        <div class="farm-footer-links">
-          <button class="text-button" onclick="tab('storage')">
-            <span class="nav-art" aria-hidden="true"
-              ><img
-                src="/assets/redesign/upgrade.webp"
-                class="icon"
-                alt=""
-                decoding="async" /></span
-            >Улучшения</button
-          ><button class="text-button" onclick="tab('wallet')">
-            <span class="nav-art" aria-hidden="true"
-              ><img
-                src="/assets/redesign/statistics.webp"
-                class="icon"
-                alt=""
-                decoding="async" /></span
-            >Экономика
-          </button>
-        </div>
+
       </section>
       <section id="coop" class="panel unified-farm-panel" aria-label="Животные">
         <div class="panelhead">
@@ -365,9 +339,9 @@
           <div class="product catalog-row"><img src="/assets/milk-v1.webp" class="product-image" alt="Молоко"><div class="product-copy"><h3>Молоко</h3><small id="milk-available">Доступно: — шт.</small><small>У других фермеров · на складе: <b data-value="milk">0</b></small></div><strong class="price">11<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button id="milk-buy-button" class="btn small" onclick="selectBuy('milk')">Купить</button><button class="btn alt small" onclick="openSell('milk')">Продать</button></div></div>
           <div class="product catalog-row"><span class="product-image feather-art" role="img" aria-label="Перо">🪶</span><div class="product-copy"><h3>Перо</h3><small>На складе: <b data-value="feathers">0</b> шт.</small><small>Советуем сохранить для развития фермы</small></div><strong class="price">5<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn alt small" onclick="openSystemSell('feathers')">Продать</button></div></div>
           <div class="product catalog-row incubator-shop"><img src="/assets/redesign/incubator.webp" class="product-image" alt="Инкубатор"><div class="product-copy"><h3>Инкубатор</h3><small data-incubator-summary>Выведение цыплят</small></div><strong class="price"><span data-incubator-price>120</span><img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить</button></div></div>
-          <details class="catalog-help"><summary>Корм и окупаемость животных</summary><div><p>Курица: 40 монет, яйцо каждые 6 часов, 1 зерно раз в 18 часов. Гусыня: 160 монет, яйцо каждые 2 часа, 2 зерна раз в 18 часов.</p><p>При постоянном корме и продаже всех яиц по 1 монете: курица окупается примерно за 30 дней, гусыня — за 24 дня. Перья в этот расчёт не входят.</p><p>Корова: 500 монет, молоко каждые 8 часов, 3 зерна каждые 18 часов. При продаже молока по 11 монет и зерне по 2 — около 25 монет чистыми в сутки и окупаемость около 20 дней. Продажа зависит от покупателей.</p><p>Гуси дают в среднем одно перо за 7 дней сытости на птицу. Можно копить для будущих производств или продавать системе по 5 монет. Для новых яиц и перьев нужно место на складе.</p></div></details>
+          <details class="catalog-help"><summary>Корм и окупаемость животных</summary><div><p>Курица: 40 монет, яйцо каждые 6 часов, 1 зерно раз в 18 часов. Гусыня: 160 монет, яйцо каждые 2 часа, 2 зерна раз в 18 часов.</p><p>При постоянном корме и продаже всех яиц по 1 монете: курица окупается примерно за 30 дней, гусыня — за 24 дня. Перья в этот расчёт не входят.</p><p>Корова: 500 монет, молоко каждые 8 часов, 3 зерна каждые 18 часов. При продаже молока по 11 монет и зерне по 2 — около 25 монет чистыми в сутки и окупаемость около 20 дней. Продажа зависит от покупателей.</p><p>Гуси дают в среднем одно перо за 7 дней сытости на птицу. Можно копить для будущих производств или продавать системе по 5 монет. Для новых яиц, молока и перьев нужно место на складе.</p></div></details>
         </div>
-        <details class="trade-extras"><summary>Ещё возможности: акция и автозакупка</summary>
+        <details class="trade-extras"><summary>Набор фермера</summary>
         <div class="bundle">
           <h2>
             <img
@@ -405,24 +379,11 @@
           </div>
         </div>
 
-        <div class="card">
-          <h2 class="cardtitle">
-            <img
-              src="/assets/buildings/farmhouse.webp"
-              class="icon"
-              alt=""
-              decoding="async"
-            />Развивай хозяйство
-          </h2>
-          <p class="muted">Новые несушки и запас корма — основа твоей фермы.</p>
-          <button class="btn alt wide" onclick="tab('storage')">
-            Улучшения
-          </button>
-        </div>
+
 
         </details>
         <details class="card trade-listings"><summary>Мои объявления</summary><div id="mylist"></div></details>
-        <details class="card trade-rules"><summary>Как работает торговля?</summary><p>Птицу и зерно система выкупает сразу по указанной цене. Яйца выставляются на общий рынок: их оплачивают другие игроки.</p><p>Непроданные яйца можно вернуть на склад при наличии свободного места.</p></details>
+        <details class="card trade-rules"><summary>Как работает торговля?</summary><p>Яйца и молоко продаются другим игрокам. Зерно тоже можно выставить на рынок. Животных, зерно и перья система выкупает по указанной цене.</p><p>Непроданный товар можно вернуть на склад, если есть место. Выкуп животных и зерна даёт бонусные монеты для покупок. При оплате на рынке бонусными монетами продавец тоже получает бонусные.</p></details>
       </section>
       <section id="wallet" class="panel" aria-label="Кошелёк">
         <div class="panelhead">
@@ -511,8 +472,7 @@
           />
           <h2>Развивай хозяйство</h2>
           <p>
-            Выращивай кур и гусей, производи яйца,<br />торгуй и зарабатывай вместе<br />с
-            другими игроками!
+            Выращивай животных, собирай яйца, молоко и перья. Торгуй с другими фермерами и развивай хозяйство.
           </p>
         </div>
 
@@ -642,7 +602,7 @@
         <div id="referrals-pane" hidden>
   <div class="card referral-card">
     <h2 class="cardtitle">🐣 Пригласи друга</h2>
-    <p>Приглашай друзей и получай дополнительные яйца, зерно и куриц от их настоящего производства и приобретений. У друга ничего не отнимается.</p>
+    <p>Приглашай друзей и получай дополнительные яйца, зерно, молоко, перья, кур, гусей и коров от их настоящего производства и приобретений. У друга ничего не отнимается.</p>
     <p class="muted">Когда друг подтвердит Telegram, поиграет не меньше суток и самостоятельно произведёт 6 яиц, ты получишь ещё <strong>5 монет</strong> один раз.</p>
     <label for="referral-link">Твоя ссылка для приглашения</label>
     <input id="referral-link" readonly value="Загружаем…" autocomplete="off">
@@ -652,17 +612,21 @@
       <div><span>Бонус за друзей</span><strong>5 🪙</strong></div>
       <div><span>Уровней</span><strong>7</strong></div>
     </div>
-    <p class="muted">Бонусные ресурсы копятся дробями. Забрать целые можно, когда есть место на складе или среди мест для птиц.</p>
+    <p class="muted">Бонусные ресурсы копятся дробями. Забрать целые можно, когда есть место на складе или в местах для соответствующих животных.</p>
     <div id="referral-resources" aria-live="polite">
       <div class="referral-resource"><span>🥚 Яйца</span><strong id="referral-eggs-available">0</strong><small id="referral-eggs-fraction">0 / 1</small><button class="btn blue" id="referral-eggs-claim" onclick="claimReferralResource('eggs')" disabled>Забрать</button></div>
       <div class="referral-resource"><span>🌾 Зерно</span><strong id="referral-grain-available">0</strong><small id="referral-grain-fraction">0 / 1</small><button class="btn blue" id="referral-grain-claim" onclick="claimReferralResource('grain')" disabled>Забрать</button></div>
       <div class="referral-resource"><span>🐔 Курицы</span><strong id="referral-chickens-available">0</strong><small id="referral-chickens-fraction">0 / 1</small><button class="btn blue" id="referral-chickens-claim" onclick="claimReferralResource('chickens')" disabled>Забрать</button></div>
+<div class="referral-resource"><span>🪿 Гуси</span><strong id="referral-geese-available">0</strong><small id="referral-geese-fraction">0 / 1</small><button class="btn blue" id="referral-geese-claim" onclick="claimReferralResource('geese')" disabled>Забрать</button></div>
+<div class="referral-resource"><span>🐄 Коровы</span><strong id="referral-cows-available">0</strong><small id="referral-cows-fraction">0 / 1</small><button class="btn blue" id="referral-cows-claim" onclick="claimReferralResource('cows')" disabled>Забрать</button></div>
+<div class="referral-resource"><span>🥛 Молоко</span><strong id="referral-milk-available">0</strong><small id="referral-milk-fraction">0 / 1</small><button class="btn blue" id="referral-milk-claim" onclick="claimReferralResource('milk')" disabled>Забрать</button></div>
+<div class="referral-resource"><span>🪶 Перья</span><strong id="referral-feathers-available">0</strong><small id="referral-feathers-fraction">0 / 1</small><button class="btn blue" id="referral-feathers-claim" onclick="claimReferralResource('feathers')" disabled>Забрать</button></div>
     </div>
   </div>
   <div class="card referral-card">
     <h2 class="cardtitle">🌿 7 уровней приглашений</h2>
     <div id="referral-levels"></div>
-    <p class="muted">Например, друг 1-го уровня купил 5 куриц — тебе начислится 0,5 курицы в накопление. С 10 яиц — 1 яйцо. Монеты, реферальные бонусы и повторные перепродажи не дают процентов.</p>
+    <p class="muted">Например, друг 1-го уровня купил 5 куриц — тебе начислится 0,5 курицы в накопление. С 10 единиц произведённого молока — 1 единица молока. Те же доли действуют для гусей, коров и перьев. Монеты, реферальные бонусы и повторные перепродажи не дают процентов.</p>
   </div>
 </div>
 <div id="achievement-pane" hidden>
@@ -671,7 +635,7 @@
             <div id="farmer-level" class="farmer-level" aria-live="polite"></div>
             <div class="progress"><span id="farmer-xp-bar"></span></div>
             <p id="farmer-xp-caption" class="muted"></p>
-            <p class="muted">Получай опыт за корм, покупку птицы, производство, продажи, задания и улучшения. Уровень открывает новую птицу: гуси доступны с 3-го уровня. Твой статус растёт от новичка до мастера фермы.</p>
+            <p class="muted">Получай опыт за корм, покупку животных, производство, продажи, задания и улучшения. Гуси доступны с 3-го уровня. Достижения отмечают развитие стада, молочное хозяйство, перья и склад. Твой статус растёт от новичка до мастера фермы.</p>
           </div>
           <div class="card achievements-list" id="achievements-list"></div>
         </div>
@@ -681,7 +645,7 @@
         </p>
         <div class="card" id="daily-task-card">
           <h2 class="cardtitle">☀️ Задания на сегодня</h2>
-          <p class="muted">Обновляются ежедневно по UTC. Получай небольшие монетные награды за выполненные задания. Каждую награду можно забрать только один раз в сутки.</p>
+          <p class="muted">Обновляются ежедневно по UTC. Получай бонусные монеты для покупок. Молочные задания появляются при наличии коров или молока, задание на перо — при наличии гусей. Каждую награду можно забрать только один раз в сутки.</p>
           <div id="daily-tasks" aria-live="polite"></div>
         </div>
         <h2 class="section-title">📅 Задания недели</h2>
@@ -689,8 +653,8 @@
           <p class="muted">Новая неделя начинается в понедельник (00:00 UTC). Выполни все три задания и забери особую награду — <b>30 монет</b>!</p>
           <p class="weekly-deadline" id="weekly-deadline">До конца недели: —</p>
           <div class="task-row"><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><h3>Купить 10 зерна</h3><span data-weekly="grain">0 / 10</span><div class="progress"><span data-weekly-bar="grain"></span></div></div><strong data-weekly-status="grain">В процессе</strong></div>
-          <div class="task-row"><img src="/assets/redesign/egg.webp" class="icon" alt=""><div><h3>Собрать 10 яиц</h3><span data-weekly="eggs">0 / 10</span><div class="progress"><span data-weekly-bar="eggs"></span></div></div><strong data-weekly-status="eggs">В процессе</strong></div>
-          <div class="task-row"><img src="/assets/redesign/storage.webp" class="icon" alt=""><div><h3>Выставить 3 яйца на рынок</h3><span data-weekly="listed">0 / 3</span><div class="progress"><span data-weekly-bar="listed"></span></div></div><strong data-weekly-status="listed">В процессе</strong></div>
+          <div class="task-row"><img src="/assets/redesign/egg.webp" class="icon" alt=""><div><h3>Собрать 10 яиц или 3 молока</h3><span data-weekly="eggs">0 / 10</span><div class="progress"><span data-weekly-bar="eggs"></span></div></div><strong data-weekly-status="eggs">В процессе</strong></div>
+          <div class="task-row"><img src="/assets/redesign/storage.webp" class="icon" alt=""><div><h3>Выставить 3 ед. яиц или молока</h3><span data-weekly="listed">0 / 3</span><div class="progress"><span data-weekly-bar="listed"></span></div></div><strong data-weekly-status="listed">В процессе</strong></div>
           <button id="weekly-claim" class="btn wide" disabled onclick="claimWeekly()">🏆 Забрать награду: +30 монет</button>
         </div>
         </div>

@@ -1,3 +1,4 @@
+import farm_expansion
 import release_grants
 import farm_wallet
 import referral_bridge
@@ -125,6 +126,7 @@ async def lifespan(app):
   c.execute("ALTER TABLE referral_rewards ADD COLUMN IF NOT EXISTS claimed_chickens bigint NOT NULL DEFAULT 0")
 
 
+  farm_expansion.initialize(c)
   c.execute("CREATE TABLE IF NOT EXISTS player_achievements(player_id text NOT NULL,achievement text NOT NULL,unlocked_at double precision NOT NULL,PRIMARY KEY(player_id,achievement))")
   c.execute("CREATE TABLE IF NOT EXISTS promo_codes(code_hash text PRIMARY KEY,amount integer NOT NULL CHECK(amount>0),redeemed_by text,redeemed_at double precision)")
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("2fd7af1234b12ab6eea8f3317fedea22d7d579ec4ca6a88ec021c6a985374ca8",))
@@ -308,8 +310,8 @@ def award_referral_resource(c,child,item,amount):
  """Exact fractional bonuses from legitimate own resource acquisition only.
  Never invoked for awarded referral resources or coins.
  """
- if item not in ("grain","eggs","chickens") or amount<=0 or not child.get("telegram_id"):return
- field={"eggs":"earned_units","grain":"earned_grain_units","chickens":"earned_chickens_units"}[item]
+ if item not in farm_expansion.REFERRAL_FIELDS or amount<=0 or not child.get("telegram_id"):return
+ field=farm_expansion.REFERRAL_FIELDS[item][0]
  ancestor=child["id"]
  for rate in REFERRAL_RATES:
   row=c.execute("SELECT parent_id FROM referrals WHERE child_id=%s",(ancestor,)).fetchone()
@@ -355,31 +357,31 @@ def referral_info(authorization:str=Header(default="")):
  return {"code":code["code"],"rates":list(REFERRAL_RATES),"counts":{str(x["level"]):x["n"] for x in counts},
     "qualified_direct":qualified,"available_eggs":max(0,earned["earned_units"]//10000-earned["claimed_eggs"]),
     "fraction_units":earned["earned_units"]%10000,"total_eggs":earned["earned_units"]//10000,
-    "resources":{
-      "eggs":{"available":max(0,earned["earned_units"]//10000-earned["claimed_eggs"]),"fraction":earned["earned_units"]%10000,"total":earned["earned_units"]//10000},
-      "grain":{"available":max(0,earned["earned_grain_units"]//10000-earned["claimed_grain"]),"fraction":earned["earned_grain_units"]%10000,"total":earned["earned_grain_units"]//10000},
-      "chickens":{"available":max(0,earned["earned_chickens_units"]//10000-earned["claimed_chickens"]),"fraction":earned["earned_chickens_units"]%10000,"total":earned["earned_chickens_units"]//10000}
-    }}
+    "resources":farm_expansion.resources(earned)}
 
 @app.post("/api/referrals/claim")
 def referral_claim(q:Request,authorization:str=Header(default="")):
  item=q.item or "eggs"
- if item not in ("eggs","grain","chickens"):raise HTTPException(400,"Неизвестный бонусный ресурс")
- fields={"eggs":("earned_units","claimed_eggs"),"grain":("earned_grain_units","claimed_grain"),"chickens":("earned_chickens_units","claimed_chickens")}
+ if item not in farm_expansion.REFERRAL_FIELDS:raise HTTPException(400,"Неизвестный бонусный ресурс")
+ fields=farm_expansion.REFERRAL_FIELDS
  earned_field,claimed_field=fields[item]
  with db() as c:
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
-  p=person(c,authorization,True)
+  p=advance(c,person(c,authorization,True))
+  if item=="geese" and p.get("farmer_level",1)<GOOSE_MIN_LEVEL:raise HTTPException(403,"Гуси доступны с 3-го уровня")
   reward=c.execute("SELECT * FROM referral_rewards WHERE player_id=%s FOR UPDATE",(p["id"],)).fetchone()
   if not reward:raise HTTPException(409,"Пока нет заработанных ресурсов")
   available=max(0,reward[earned_field]//10000-reward[claimed_field])
   if not available:raise HTTPException(409,"Целых бонусных ресурсов пока нет")
-  free=max(0,coop_limit(p)-p["chickens"]-p.get("geese",0)) if item=="chickens" else max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0))
+  free=max(0,coop_limit(p)-p["chickens"]-p.get("geese",0)) if item in ("chickens","geese") else max(0,cowshed_limit(p)-p.get("cows",0)) if item=="cows" else max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0))
   quantity=min(available,free)
-  if not quantity:raise HTTPException(409,"Освободи место на складе или добавь места для птиц в разделе «Животные»")
+  if not quantity:raise HTTPException(409,"Освободи место на складе или добавь места для соответствующих животных")
   c.execute("UPDATE referral_rewards SET "+claimed_field+"="+claimed_field+"+%s WHERE player_id=%s",(quantity,p["id"]))
   if item=="chickens":
    c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(quantity,quantity,p["id"]))
+  elif item in ("geese","cows"):
+   fed_field="fed_geese" if item=="geese" else "fed_cows"
+   c.execute("UPDATE players SET "+item+"="+item+"+%s,"+fed_field+"="+fed_field+"+%s WHERE id=%s",(quantity,quantity,p["id"]))
   else:
    c.execute("UPDATE players SET "+item+"="+item+"+%s WHERE id=%s",(quantity,p["id"]))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"referral_"+item,quantity,time.time()))
@@ -400,9 +402,11 @@ def advance(c,p,now=None):
    award_referrals(c,p,produced,now)
   milk_gain=result.get("milk",0)-p.get("milk",0)
   if milk_gain:
+   award_referral_resource(c,p,"milk",milk_gain)
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"milk_produced",milk_gain,now))
   feather_gain=result.get("feathers",0)-p.get("feathers",0)
   if feather_gain:
+   award_referral_resource(c,p,"feathers",feather_gain)
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"feathers_collected",feather_gain,now))
   keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress","geese","fed_geese","feathers","feather_progress","cows","fed_cows","milk","milk_progress")
   c.execute("UPDATE players SET "+",".join(k+"=%s" for k in keys)+" WHERE id=%s",tuple(result[k] for k in keys)+(p["id"],))
@@ -931,6 +935,11 @@ def state(authorization:str=Header(default="")):
   milk_day=c.execute("SELECT COALESCE(SUM(amount),0)::int AS n FROM farm_events WHERE player_id=%s AND kind='milk_produced' AND created>=%s",(p["id"],day_start)).fetchone()["n"]
   day_stats={"eggs":activity["eggs_produced"],"milk":milk_day,"grain_bought":activity["grain_bought"],"eggs_listed":activity["eggs_listed"],"sales_coins":cash["sales"],"feed_spent_coins":cash["feed_spent"],"feed_margin_coins":cash["sales"]-cash["feed_spent"]}
 
+  extra_daily=farm_expansion.progress(c,p["id"],day_start,day_start+86400)
+  day_stats["feathers"]=extra_daily.get("feathers_collected",0)
+  activity.update({key:extra_daily.get(kind,0) for key,(kind,target) in farm_expansion.EXTRA_MISSIONS.items()})
+  extra_totals=farm_expansion.progress(c,p["id"])
+  extra_achievements=farm_expansion.achievement_rows(p,extra_totals)
   claims=[x["claim"] for x in c.execute("SELECT claim FROM daily_claims WHERE player_id=%s AND day=%s",(p["id"],day)).fetchall()]
   # Weekly reset is Monday 00:00 UTC; rewards are unique per player and week.
   week_start=int((time.time()+3*86400)//604800)*604800-3*86400
@@ -940,6 +949,8 @@ def state(authorization:str=Header(default="")):
       COALESCE(SUM(eggs_produced),0)::int AS eggs,
       COALESCE(SUM(eggs_listed),0)::int AS listed
       FROM daily_activity WHERE player_id=%s AND day>=%s""",(p["id"],week)).fetchone()
+  weekly_extra=farm_expansion.progress(c,p["id"],week_start,week_start+604800)
+  weekly_stats["listed"]+=weekly_extra.get("milk_listed",0)
   weekly_claimed=bool(c.execute("SELECT 1 FROM weekly_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
   totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
@@ -969,6 +980,7 @@ def state(authorization:str=Header(default="")):
    "first_sale":sold>=1,
    "hundred_sales":sold>=1200
   }
+  unlocked.update({row[0]:row[3]>=row[4] for row in extra_achievements})
   for key,yes in unlocked.items():
    if yes:c.execute("INSERT INTO player_achievements(player_id,achievement,unlocked_at) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING",(p["id"],key,time.time()))
   achievements=[x["achievement"] for x in c.execute("SELECT achievement FROM player_achievements WHERE player_id=%s",(p["id"],)).fetchall()]
@@ -982,7 +994,7 @@ def state(authorization:str=Header(default="")):
   prediction=forecast_v4(p,observed_at,jobs) if p.get('production_model',3)>=4 else forecast(p,observed_at,jobs)
   expected_eggs=min(p["fed_hens"]+3*p.get("fed_geese",0),max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0)))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":p.get("cows",0),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":{"bonus":2,"grain":1,"eggs":1,"listing":1},"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
+  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":p.get("cows",0),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -1084,6 +1096,8 @@ def sell(q:Request,authorization:str=Header(default="")):
   c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s WHERE id=%s",(q.amount,p["id"]))
   price=EGG_PRICE if q.item=="eggs" else MILK_PRICE if q.item=="milk" else q.price
   c.execute("INSERT INTO market VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],q.item,q.amount,price))
+  if q.item=="milk":
+   c.execute("INSERT INTO farm_events VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"milk_listed",q.amount,time.time()))
   if q.item=="eggs":
    day=time.strftime("%Y-%m-%d",time.gmtime())
    c.execute("INSERT INTO daily_activity(player_id,day,eggs_listed) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_listed=daily_activity.eggs_listed+EXCLUDED.eggs_listed",(p["id"],day,q.amount))
@@ -1244,7 +1258,7 @@ def autobuy(q:Request,authorization:str=Header(default="")):
  return {"ok":True}
 
 # Small fixed daily grants. Minted rewards are recorded separately from the original 10,000-coin treasury.
-REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1}
+REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1,"milk":1,"milk_listing":1,"feather":1}
 @app.post("/api/weekly/claim")
 def claim_weekly(authorization:str=Header(default="")):
  with db() as c:
@@ -1258,7 +1272,8 @@ def claim_weekly(authorization:str=Header(default="")):
       COALESCE(SUM(eggs_produced),0)::int AS eggs,
       COALESCE(SUM(eggs_listed),0)::int AS listed
       FROM daily_activity WHERE player_id=%s AND day>=%s""",(p["id"],week)).fetchone()
-  if total["grain"]<10 or total["eggs"]<10 or total["listed"]<3:
+  extra=farm_expansion.progress(c,p["id"],week_start,week_start+604800)
+  if total["grain"]<10 or (total["eggs"]<10 and extra.get("milk_produced",0)<3) or total["listed"]+extra.get("milk_listed",0)<3:
    raise HTTPException(409,"Сначала выполни все задания недели")
   inserted=c.execute("INSERT INTO weekly_claims(player_id,week,claimed_at,amount) VALUES(%s,%s,%s,30) ON CONFLICT DO NOTHING RETURNING amount",(p["id"],week,now)).fetchone()
   if not inserted:raise HTTPException(409,"Награда за эту неделю уже получена")
@@ -1274,7 +1289,12 @@ def claim_reward(q:Request,authorization:str=Header(default="")):
  day=time.strftime("%Y-%m-%d",time.gmtime())
  with db() as c:
   p=advance(c,person(c,authorization,True))
-  if key!="bonus":
+  if key in farm_expansion.EXTRA_MISSIONS:
+   start=time.time()//86400*86400
+   counts=farm_expansion.progress(c,p["id"],start,start+86400)
+   kind,target=farm_expansion.EXTRA_MISSIONS[key]
+   if counts.get(kind,0)<target:raise HTTPException(400,"Задание ещё не выполнено")
+  elif key!="bonus":
    activity=c.execute("SELECT grain_bought,eggs_listed,eggs_produced FROM daily_activity WHERE player_id=%s AND day=%s",(p["id"],day)).fetchone()
    if not activity:raise HTTPException(400,"Задание ещё не выполнено")
    field={"grain":"grain_bought","eggs":"eggs_produced","listing":"eggs_listed"}[key]
