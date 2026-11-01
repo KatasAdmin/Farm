@@ -29,7 +29,7 @@ class PostgresMarketLedgerTests(unittest.TestCase):
 
     def setUp(self):
         with self.connect() as c:
-            c.execute('DROP TABLE IF EXISTS daily_claims, weekly_claims, daily_activity, farm_events, market_trade_audit, reward_emission, incubator_jobs, farm_bot_transfers, star_orders, referral_codes, referrals, farm_money_sources, money_log, players, market CASCADE')
+            c.execute('DROP TABLE IF EXISTS staged_achievement_claims, daily_claims, weekly_claims, daily_activity, farm_events, market_trade_audit, reward_emission, incubator_jobs, farm_bot_transfers, star_orders, referral_codes, referrals, farm_money_sources, money_log, players, market CASCADE')
             c.execute('CREATE TABLE players(id text PRIMARY KEY, coins integer NOT NULL CHECK(coins>=0))')
             c.execute('CREATE TABLE money_log(id text PRIMARY KEY,player_id text NOT NULL,kind text NOT NULL,delta integer NOT NULL,details text,created double precision NOT NULL)')
             c.execute('CREATE TABLE market(id text PRIMARY KEY,seller text NOT NULL,quantity integer NOT NULL CHECK(quantity>=0),price integer NOT NULL CHECK(price>0))')
@@ -175,6 +175,28 @@ class PostgresMarketLedgerTests(unittest.TestCase):
         self.assertEqual(sum(results),1)
 
 
+
+
+    def test_actual_achievement_claim_handler_is_exactly_once_under_contention(self):
+        import main
+        from unittest.mock import patch
+        with self.connect() as c:
+            c.execute("CREATE TABLE staged_achievement_claims(player_id text,track text,threshold integer,xp integer,claimed_at double precision,PRIMARY KEY(player_id,track,threshold))")
+        def run_claim(_):
+            try:
+                return main.claim_staged_achievement(main.Request(item="feathers"),"Bearer test")["xp_awarded"]
+            except main.HTTPException as exc:
+                if exc.status_code == 409:
+                    return 0
+                raise
+        with patch.object(main, "db", side_effect=self.connect), patch.object(main, "person", side_effect=lambda c,*a: {"id":"buyer"}), patch.object(main, "advance", side_effect=lambda c,p:p), patch.object(main.achievement_counters, "count", return_value=1):
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                results=list(pool.map(run_claim,range(12)))
+        self.assertEqual(sum(results),10)
+        self.assertEqual(results.count(10),1)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM staged_achievement_claims").fetchone()["n"],1)
+            self.assertEqual(c.execute("SELECT SUM(xp) AS n FROM staged_achievement_claims").fetchone()["n"],10)
 
     def test_actual_daily_claim_handler_is_exactly_once_under_contention(self):
         import main
