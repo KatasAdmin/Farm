@@ -31,6 +31,24 @@ class MarketSourceTests(unittest.TestCase):
         self.assertEqual(sum(result["a"].values()), 10)
         self.assertEqual(sum(result["b"].values()), 40)
 
+    def test_many_small_sellers_preserve_every_source(self):
+        # Regression for largest-remainder rounding across three source pools.
+        for n in range(1, 16):
+            receipts = [(str(i), i + 1) for i in range(n)]
+            total = sum(amount for _, amount in receipts)
+            for bonus in range(total + 1):
+                purchased = (total - bonus) // 2
+                earned = total - bonus - purchased
+                result = split_market_sources(
+                    receipts, {"bonus": bonus, "purchased": purchased,
+                               "earned": earned}, total)
+                self.assertEqual(sum(v["bonus"] for v in result.values()), bonus)
+                self.assertEqual(sum(v["purchased"] for v in result.values()), purchased)
+                self.assertEqual(sum(v["earned"] for v in result.values()), earned)
+                for key, amount in receipts:
+                    self.assertEqual(sum(result[key].values()), amount)
+                    self.assertTrue(all(value >= 0 for value in result[key].values()))
+
     def test_rejects_unfunded_payment(self):
         with self.assertRaises(ValueError):
             split_market_sources([("a", 10)], {"bonus": 1, "purchased": 1, "earned": 1}, 10)
