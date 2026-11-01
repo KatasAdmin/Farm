@@ -315,6 +315,9 @@ def referral_units(produced,level):return max(0,int(produced))*REFERRAL_RATES[le
 
 def register_referral(c,child_id,code,now):
  if not isinstance(code,str) or len(code)!=16 or any(ch not in "0123456789abcdef" for ch in code):return False
+ # Serialize parent assignments so reciprocal concurrent registrations cannot
+ # both pass the cycle check on separate transaction snapshots.
+ c.execute("SELECT pg_advisory_xact_lock(1984533)")
  parent=c.execute("SELECT player_id FROM referral_codes WHERE code=%s",(code,)).fetchone()
  if not parent or parent["player_id"]==child_id:return False
  # Referrals must form a directed acyclic graph: an existing descendant
