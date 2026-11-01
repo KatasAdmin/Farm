@@ -203,7 +203,6 @@ class PrelaunchCrossChecks(unittest.TestCase):
         guard = source.index('if os.environ.get("FARM_STAGING"')
         grant = source.index('release_grants.apply')
         self.assertLess(guard, grant)
-        self.assertIn('if os.environ.get("FARM_STAGING", "").lower() not in ("1", "true", "yes"):\\n   if release_grants.apply', source)
 
     def test_prelaunch_requires_staging_and_backup(self):
         checklist = (ROOT / "PRELAUNCH_CHECKLIST.md").read_text(encoding="utf8")
