@@ -1018,12 +1018,10 @@ function render() {
   const earned = new Set(progression.achievements || []);
   const total = progression.totals || {};
   const achievements = [
-    ["first_egg","redesign/egg","Первое яйцо",total.eggs_produced || 0,1],
-    ["ten_eggs","redesign/egg","120 произведённых яиц",total.eggs_produced || 0,120],
     ["three_hens","redesign/hen","Три несушки",p.chickens || 0,3],
     ["first_sale","redesign/shop-icon","Первая продажа яйца",total.eggs_sold || 0,1],
     ["hundred_sales","redesign/achievement","1200 проданных яиц",total.eggs_sold || 0,1200],
-    ...(progression.extra_achievements||[])
+    ...(progression.extra_achievements||[]).filter(row => !["first_milk","milk_hundred","first_feather","feather_five"].includes(row[0]))
   ];
   const achievementList = el("achievements-list");
   if (achievementList) achievementList.innerHTML = achievements.map(([key,icon,title,current,target]) => {
