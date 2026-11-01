@@ -617,6 +617,7 @@ def stars_refund_order(order_id,admin_id):
  # Phase 1: persist a single non-retryable intent BEFORE the external call.
  # No second admin request may invoke refundStarPayment for this order.
  with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   order=c.execute("SELECT * FROM star_orders WHERE id=%s FOR UPDATE",(order_id,)).fetchone()
   if not order:return "Заказ не найден."
   if order["status"]=="refunded":return "Заказ уже возвращён."
@@ -1220,6 +1221,15 @@ def buy(q:Request,authorization:str=Header(default="")):
   cost=sum(x["price"]*n for x,n in chosen)
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
+  # Prevent crediting sellers whose Stars refund is being reconciled.
+  # Lock every seller in a stable order before any buyer debit or seller credit.
+  for seller_id in sorted({x["seller"] for x,n in chosen}):
+   seller=c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(seller_id,)).fetchone()
+   if not seller:raise HTTPException(409,"Продавец больше не существует")
+   pending=c.execute("""SELECT 1 FROM stars_refund_intents i
+     JOIN star_orders o ON o.id=i.order_id
+     WHERE o.player_id=%s AND i.status IN ('calling','needs_review') LIMIT 1""",(seller_id,)).fetchone()
+   if pending:raise HTTPException(409,"Объявление продавца временно недоступно")
   sources=farm_wallet.balances(c,p)
   source_shares=farm_wallet.split_market_sources([(x['id'],x['price']*n) for x,n in chosen],sources,cost)
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
