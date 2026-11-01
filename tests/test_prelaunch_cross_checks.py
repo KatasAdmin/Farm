@@ -97,6 +97,37 @@ class PrelaunchCrossChecks(unittest.TestCase):
                 main.claim_staged_achievement(main.Request(item="feathers"), "Bearer p")
         self.assertEqual(db.claimed, {1})
 
+
+    def test_withdrawal_api_rejects_invalid_amount_and_retry_key_before_db(self):
+        from unittest.mock import patch
+        import main
+        with patch.object(main, "db", side_effect=AssertionError("DB must not be opened")):
+            for amount, key in [(99, "00000000-0000-0000-0000-000000000001"),
+                                (1000001, "00000000-0000-0000-0000-000000000001"),
+                                (100, "not-a-uuid")]:
+                with self.subTest(amount=amount, key=key):
+                    with self.assertRaises(main.HTTPException):
+                        main.request_withdrawal(main.Request(amount=amount, transfer_id=key), "Bearer p")
+
+    def test_withdrawal_api_preserves_retry_key_for_transfer_ledger(self):
+        from unittest.mock import patch
+        import main
+        from uuid import UUID
+        key = "00000000-0000-0000-0000-000000000001"
+        class DB:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def execute(self, sql, args=()):
+                self.last_sql = sql
+                return self
+        db = DB()
+        with patch.object(main, "db", return_value=db), patch.object(main, "person", return_value={"id": "p"}), patch.object(main, "advance", side_effect=lambda c,p:p), patch.object(main.farm_wallet, "transfer", return_value={"ok": True}) as transfer, patch.object(main.task_bot.bot_notifications, "wake"):
+            self.assertEqual(main.request_withdrawal(main.Request(amount=100, transfer_id=key), "Bearer p"), {"ok": True})
+            transfer.assert_called_once()
+            args = transfer.call_args.args
+            self.assertEqual(args[2], 100)
+            self.assertEqual(args[3], str(UUID(key)))
+
     def test_prelaunch_requires_staging_and_backup(self):
         checklist = (ROOT / "PRELAUNCH_CHECKLIST.md").read_text(encoding="utf8")
         self.assertIn("backup", checklist.lower())
