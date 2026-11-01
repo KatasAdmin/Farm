@@ -65,3 +65,8 @@ This branch is NOT automatically safe to deploy. Do not merge while checks are m
 - Player mutations that call person(c, authorization, True) now reject unresolved Stars refund intents with HTTP 423. Read-only account views remain accessible.
 - Audit all bot-side, background, admin and webhook player balance mutations separately; the authorization guard is NOT a universal database-level freeze.
 - Test concurrent refund vs market purchase, feed autobuy, withdrawal transfer, incubator and Stars webhook on a dedicated staging PostgreSQL instance before any live use.
+
+## Stars webhook concurrency
+- Stars successful-payment webhook now locks the target player row before crediting and rejects a credit while any refund intent for that player is calling/needs_review. Telegram should retry a failed webhook; verify provider retry behavior and arrange manual reconciliation if it does not.
+- A missing player triggers a transaction rollback rather than silently marking an order paid. Reused charge IDs are logged and rejected.
+- Run staging concurrency tests of two different Stars orders for the same player, webhook vs refund intent, and a webhook after manual reconciliation. Verify exact-once credit and no lost payments.
