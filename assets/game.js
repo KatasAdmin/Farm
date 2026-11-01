@@ -128,7 +128,7 @@ async function perform(path, data) {
   }
 }
 async function claimAchievement(track) {
-  if (pending || !["eggs","feathers","milk"].includes(track)) return;
+  if (pending || !["eggs","feathers","milk","chickens_bought","geese_bought","cows_bought","market_sales","market_purchases","feeding"].includes(track)) return;
   try {
     busy(true);
     const result = await api("/api/achievements/claim",{item:track});
@@ -1035,12 +1035,12 @@ function render() {
       const forms = labels[stage.track] || ["🏅","действие","действия","действий"];
       const n = Number(stage.threshold);
       const word = n%10===1 && n%100!==11 ? forms[1] : (n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? forms[2] : forms[3]);
-      return n===1 ? "Первое достижение: " + forms[1] : number(n) + " " + word;
+      return n===1 ? "Первое: " + forms[1] : number(n) + " " + word;
     };
     achievementList.innerHTML = stageRows.map(stage => {
       const [emoji] = labels[stage.track] || ["🏅"];
       const ready = Boolean(stage.claimable);
-      return '<div class="achievement-row"><span class="achievement-emoji">'+emoji+'</span><div><strong>'+stageTitle(stage)+'</strong><small>'+number(stage.progress)+' / '+number(stage.threshold)+' · +'+number(stage.xp)+' XP</small></div><button class="btn small" '+(ready?'':'disabled')+' onclick="claimAchievement(\''+stage.track+'\')">'+(ready?'Получить':'В процессе')+'</button></div>';
+      return '<div class="achievement-row"><span class="achievement-emoji">'+emoji+'</span><div><strong>'+stageTitle(stage)+'</strong><small>'+number(stage.progress)+' / '+number(stage.threshold)+' · +'+number(stage.xp)+' XP</small></div><button class="btn small" '+(ready?'':'disabled')+' onclick="claimAchievement(\''+stage.track+'\')">'+(ready?'Получить XP':'Ещё не выполнено')+'</button></div>';
     }).join("");
   }
   const daily = state.daily || {};
