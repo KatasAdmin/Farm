@@ -11,6 +11,13 @@ class MarketSourceTests(unittest.TestCase):
         result = split_market_sources([("a", 10)], {"bonus": 10, "purchased": 0, "earned": 0}, 10)
         self.assertEqual(result["a"], {"bonus": 10, "purchased": 0, "earned": 0})
 
+    def test_mixed_bonus_and_earned_without_stars(self):
+        result = split_market_sources([("a", 10), ("b", 40)],
+                                      {"bonus": 12, "purchased": 0, "earned": 38}, 50)
+        self.assertEqual(sum(v["purchased"] for v in result.values()), 0)
+        self.assertEqual(sum(v["bonus"] for v in result.values()), 12)
+        self.assertEqual(sum(v["earned"] for v in result.values()), 38)
+
     def test_earned_coins_remain_earned(self):
         result = split_market_sources([("a", 10)], {"bonus": 0, "purchased": 0, "earned": 10}, 10)
         self.assertEqual(result["a"], {"bonus": 0, "purchased": 0, "earned": 10})
