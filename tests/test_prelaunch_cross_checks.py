@@ -190,6 +190,21 @@ class PrelaunchCrossChecks(unittest.TestCase):
             self.assertEqual(args[2], 100)
             self.assertEqual(args[3], str(UUID(key)))
 
+
+    def test_staging_cannot_execute_production_owner_grant(self):
+        from unittest.mock import patch
+        import main
+        import release_grants
+        import inspect
+        source = inspect.getsource(main.lifespan)
+        self.assertIn('FARM_STAGING', source)
+        self.assertIn('release_grants.apply', source)
+        # Verify the grant call is guarded, not merely mentioned elsewhere.
+        guard = source.index('if os.environ.get("FARM_STAGING"')
+        grant = source.index('release_grants.apply')
+        self.assertLess(guard, grant)
+        self.assertEqual(source[guard:grant].count('if '), 1)
+
     def test_prelaunch_requires_staging_and_backup(self):
         checklist = (ROOT / "PRELAUNCH_CHECKLIST.md").read_text(encoding="utf8")
         self.assertIn("backup", checklist.lower())
