@@ -1119,6 +1119,17 @@ function countdown() {
   const seconds = Math.max(0,state.farm.seconds_to_next_egg - elapsed);
   const eggLabel=eggScheduled?clockDuration(seconds):({empty:"Нет птицы",storage_full:"Склад заполнен",needs_feed:"Нужен корм"}[state.farm.next_egg_status]||"Ожидаем условия");
   document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = eggLabel);
+  const gooseCount=state.me.geese||0, fedGeese=state.farm.fed_geese||0;
+  const featherCard=document.querySelector('[data-feather-card]');
+  if(featherCard)featherCard.hidden=!gooseCount;
+  const featherRemaining=Math.max(0,(state.farm.seconds_to_next_feather||0)-elapsed);
+  const warehouseFull=state.buildings.storage_used>=state.buildings.storage_capacity;
+  const featherLabel=warehouseFull?"Склад заполнен":!fedGeese?"Нужен корм":featherRemaining<=0?"Обновляем…":
+    (featherRemaining>=86400?Math.floor(featherRemaining/86400)+" д ":"")+clockDuration(featherRemaining%86400);
+  document.querySelectorAll('[data-feather-tick]').forEach(x=>x.textContent=featherLabel);
+  const featherProgress=Math.min(100,100*((state.me.feather_progress||0)+fedGeese*elapsed)/(7*86400));
+  document.querySelectorAll('[data-feather-progress]').forEach(x=>{x.setAttribute('aria-valuenow',Math.floor(featherProgress));x.firstElementChild.style.width=featherProgress+'%';});
+  document.querySelectorAll('[data-feather-note]').forEach(x=>x.textContent=warehouseFull?'Освободи место: новые перья не сохраняются.':!fedGeese?'Пока гуси голодны, прогресс пера приостановлен.':'Сытых гусей: '+fedGeese+' из '+gooseCount+'. Один гусь даёт перо за 7 дней сытости. Таймер предполагает постоянный корм.');
   const nextFeed = Math.max(0,state.farm.seconds_to_next_feed-elapsed);
   document.querySelectorAll("[data-feed-tick]").forEach(x => x.textContent=clockDuration(nextFeed));
   // Reconcile completed timers with the server; the browser never grants resources.

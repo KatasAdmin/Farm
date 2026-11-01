@@ -69,13 +69,21 @@ class SafetyAuditTests(unittest.TestCase):
         self.assertIsNone(bot.bot_payouts.work(self.c,pid))
         self.assertEqual(self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount'],500)
 
-    def test_processing_allocations_cannot_promise_same_cash_twice(self):
+    def test_manual_payouts_can_be_processed_despite_low_cash_accounting(self):
         self.credit(2,'5','deposit-two');self.credit(3,'5','deposit-three')
         p2=self.payout(2);p3=self.payout(3)
         self.c.execute('UPDATE bot_cash_pool SET amount=500');self.c.raw.commit()
         self.send(1,action='admin:payref:'+p2)
-        self.assertIn('Недостаточно',self.send(1,action='admin:payref:'+p3)['text'])
-        self.assertIsNone(bot.bot_payouts.work(self.c,p3))
+        self.send(1,action='admin:payref:'+p3)
+        self.assertIsNotNone(bot.bot_payouts.work(self.c,p3))
+        self.c.execute('UPDATE bot_cash_pool SET amount=0');self.c.raw.commit()
+        self.send(1,action='admin:payrecord:'+p3);self.send(1,'external-paid-ref')
+        self.send(1,action='admin:payconfirm')
+        self.assertEqual(self.row('bot_payouts',"id='"+p3+"'")['status'],'paid')
+        self.assertEqual(self.row('bot_cash_pool')['amount'],0)
+        self.assertEqual(self.balance(3),0)
+        self.send(1,action='admin:payconfirm')
+        self.assertEqual(self.c.execute("SELECT count(*) AS n FROM bot_ledger WHERE kind='payout_paid'").fetchone()['n'],1)
         self.assertIsNotNone(bot.bot_payouts.work(self.c,p2))
 
     def test_payout_reason_preview_cancellation_and_exactly_one_refund(self):

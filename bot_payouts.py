@@ -33,9 +33,6 @@ def claim(c,pid,uid):
     if current:
         require(c,pid,uid)
         return p
-    cash=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
-    allocated=c.execute("SELECT coalesce(sum(coalesce(t.net,p.amount)),0) AS n FROM bot_payouts p JOIN bot_payout_work w ON w.id=p.id LEFT JOIN bot_payout_terms t ON t.id=p.id WHERE p.status='pending' AND w.phase='working'").fetchone()['n']
-    if cash-allocated<b.bot_admin.net(c,p):raise b.UserError('Недостаточно свободного резерва: часть средств уже выделена выплатам в работе.')
     c.execute("INSERT INTO bot_payout_work VALUES(%s,%s,%s,%s,'working')",(pid,uid,uuid.uuid4().hex[:12],time.time()))
     c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_processing',%s,%s)",(uuid.uuid4().hex,p['uid'],'В работе · '+pid,time.time()))
     b.bot_notifications.enqueue(c,'payout-working:'+pid,tr('🏦 Заявка {v0} взята в работу. Средства остаются зарезервированы. Отмена недоступна до решения администратора.',{'v0':pid},section='notifications'),recipient=p['uid'])
@@ -49,10 +46,14 @@ def view(c,uid,pid):
     active=work(c,pid)
     status='🏦 В работе' if active else {'pending':'⏳ Ожидает проверки','paid':'✅ Выплачено','rejected':'❌ Отклонено','cancelled':'Отменено'}[p['status']]
     text=tr('💸 <b>Заявка на вывод</b>\n\nНомер: <code>{v0}</code>\nИгрок: {v1}\nСтатус: <b>{v2}</b>\nС баланса: {v3}\nК переводу: <b>{v4}</b>\nРеквизиты: {v5}',{'v0':pid,'v1':p['uid'],'v2':status,'v3':b.money(p['amount']),'v4':b.money(b.bot_admin.net(c,p)),'v5':ui.esc(p['destination'])},html_mode=True,section='bot_payouts')
+    account=c.execute('SELECT name FROM bot_accounts WHERE uid=%s',(p['uid'],)).fetchone()
+    farm=c.execute('SELECT * FROM players WHERE telegram_id=%s',(p['uid'],)).fetchone()
+    text+='\n\n👤 Имя в боте: <b>'+ui.esc(account['name'] if account else '—')+'</b>\nTelegram ID: <code>'+str(p['uid'])+'</code>'
+    if farm:text+='\nНик фермы: <b>'+ui.esc(farm.get('name','—'))+'</b>\nID фермы: <code>'+ui.esc(farm['id'])+'</code>'
     debt=c.execute('SELECT amount FROM bot_debts WHERE uid=%s',(p['uid'],)).fetchone()
     if debt and debt['amount']:
         text+=tr('\n\n⚠️ Задолженность получателя: {v0}. Проверь, выполнен ли уже банковский перевод. Не подтверждай отказ, если перевод отправлен или его результат неизвестен.',{'v0':b.money(debt['amount'])},html_mode=True,section='bot_payouts')
-    rows=[]
+    rows=[[b.button('👤 Открыть аккаунт игрока','admin:account:'+str(p['uid']))]]
     if p['status']=='pending':
         if active:
             require(c,pid,uid)

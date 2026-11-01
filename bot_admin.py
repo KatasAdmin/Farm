@@ -6,6 +6,7 @@ import re
 import time
 import uuid
 import bot_payments
+import bot_accounts_admin
 from bot_release import RELEASE
 LIMITS = {'withdraw_min': 1, 'withdraw_max': 100000000, 'withdraw_fee': 0, 'max_stars': 10000, 'max_executions': 10000, 'card_min': 1, 'card_max': 100000000}
 TITLES = {'withdraw_min': 'Минимальный вывод', 'withdraw_max': 'Максимальный вывод', 'withdraw_fee': 'Комиссия вывода', 'max_stars': 'Максимум Stars за оплату', 'max_executions': 'Выполнений в одном заказе', 'card_min': 'Минимум перевода на карту', 'card_max': 'Максимум перевода на карту'}
@@ -47,6 +48,7 @@ def panel(c, uid):
         [b.button('💳 Пополнения','admin:cardtopups'),b.button('🆘 Обращения','admin:tickets')],
         [b.button('📊 Статистика','admin:statistics'),b.button('🧾 История оплат','admin:payments:all:0')],
         [{'text':'⭐ Stars','callback_data':'adm:stars'},{'text':'🐔 Ферма','callback_data':'adm:farm'}],
+        [b.button('👥 Аккаунты игроков','admin:accounts:0')],
         [b.button('🔄 Обновить','admin'),b.button('⬅️ Мой кабинет','cabinet')]])
 
 
@@ -208,6 +210,8 @@ def copy_entry(c, uid, key):
 def admin(c, uid, text, action, api):
     b = core()
     ui = b.bot_ui
+    accounts=bot_accounts_admin.route(c,uid,action)
+    if accounts is not None:return accounts
     moderation=b.bot_moderation.route(c,uid,action)
     if moderation is not None:return moderation
     if action=='admin:statistics':
@@ -317,6 +321,8 @@ def input_text(c, uid, text, message, current, api):
     ui = b.bot_ui
     stage = current['state']
     data = current['data']
+    if stage.startswith('admin_account_'):
+        return bot_accounts_admin.input_text(c,uid,text,current)
     if stage.startswith('admin_task_'):
         return b.bot_moderation.input_text(c,uid,text,current)
     if stage in ('admin_rejection_reason','admin_rejection_confirm'):

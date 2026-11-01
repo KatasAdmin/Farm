@@ -750,9 +750,8 @@ def _administration(c, uid, text, action, api):
             raise UserError(tr('Эта банковская операция уже использована для выплаты.', html_mode=False, section='task_bot', limit=3000))
         c.execute("UPDATE bot_payouts SET status='paid',reference=%s WHERE id=%s", (data['reference'], p['id']))
         c.execute("UPDATE bot_payout_work SET phase='paid' WHERE id=%s",(p['id'],))
-        row = c.execute('UPDATE bot_cash_pool SET amount=amount-%s WHERE id=1 AND amount>=%s RETURNING amount', (bot_admin.net(c, p), bot_admin.net(c, p))).fetchone()
-        if not row:
-            raise UserError(tr('Недостаточно учтённого резерва. Проверь учёт фактических поступлений.', html_mode=False, section='task_bot', limit=3000))
+        # Record an already completed external transfer even when cash accounting lags.
+        c.execute('UPDATE bot_cash_pool SET amount=CASE WHEN amount>=%s THEN amount-%s ELSE 0 END WHERE id=1', (bot_admin.net(c, p), bot_admin.net(c, p)))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)", (uuid.uuid4().hex, p['uid'], 'Выплачено ' + money(bot_admin.net(c, p)) + ' · ' + p['id'], time.time()))
         bot_notifications.enqueue(c,'payout-paid:'+p['id'],tr('✅ Выплата выполнена\n\nСумма: {v0}\nЗаявка: {v1}', {'v0': money(bot_admin.net(c, p)), 'v1': p['id']}, section='notifications'),recipient=p['uid'])
         state(c, uid, 'clear')

@@ -280,3 +280,11 @@ nav#nav.bottom .nav-button>span:last-child {
 #shop .compact-trade-hint {margin:4px 0 9px;font-size:13px;line-height:1.4;}
 #shop .shop-catalog .product {padding-top:11px;padding-bottom:11px;}
 #shop .trade-listings,#shop .trade-rules {margin:12px 9px;max-width:calc(100% - 18px);box-sizing:border-box;}
+
+#farm .feather-forecast[hidden]{display:none!important}
+.feather-preview{display:flex;align-items:center;gap:14px;margin:8px 0 14px}
+.feather-preview>.feather-art{font-size:46px;width:56px;text-align:center}
+.feather-preview>div{display:grid;gap:6px;min-width:0}
+.feather-preview strong{font-size:25px;font-variant-numeric:tabular-nums;color:#e4f5ff}
+.feather-progress{height:8px;border-radius:8px;background:#071f4980;overflow:hidden;margin-bottom:12px}
+.feather-progress>span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#69b9ff,#d9f3ff);transition:width 1s linear}

@@ -14,10 +14,10 @@
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/birds.css?v=2" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
-    <link rel="stylesheet" href="/assets/stars-mobile.css?v=12" />
+    <link rel="stylesheet" href="/assets/stars-mobile.css?v=13" />
     <link rel="stylesheet" href="/assets/market-polish.css?v=1" />
     <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=59" defer></script>
+    <script src="/assets/game.js?v=60" defer></script>
   </head>
   <body>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
@@ -201,6 +201,15 @@
           <div class="forecast-feeding" hidden><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><strong>Следующее кормление: −<span data-feed-required>—</span> зерна</strong><p data-feed-status>Проверяем запас…</p></div></div>
           <div class="buttons"><button class="btn" onclick="openSell('eggs')">Продать яйца</button><button class="btn alt" data-buy-feed onclick="tab('shop');showShop('grain')">Купить зерно</button></div>
           <details class="farm-explainer"><summary>Как рассчитывается прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Сытая курица несёт яйцо за 6 часов, гусыня — за 2 часа. Общее кормление раз в 18 часов: 1 зерно на курицу и 2 на гусыню. Производство всех сытых птиц складывается, поэтому яйца появляются чаще. Прогноз учитывает корм, сытость, автозакупку и место на складе. Гуси также дают редкое перо: около одного за 7 дней сытости на птицу; при заполненном складе новые ресурсы не сохраняются.</p></details>
+          </div>
+        </details>
+        <details class="card compact-harvest unified-primary-card forecast-card feather-forecast" data-feather-card hidden>
+          <summary class="forecast-summary">🪶 Ближайшее перо</summary>
+          <div class="forecast-details-content">
+            <div class="feather-preview"><span class="feather-art" aria-hidden="true">🪶</span><div><span class="muted">При постоянном кормлении</span><strong data-feather-tick>—</strong></div></div>
+            <div class="feather-progress" role="progressbar" aria-label="Прогресс следующего пера" aria-valuemin="0" aria-valuemax="100" data-feather-progress><span></span></div>
+            <p class="muted" data-feather-note>Гуси вместе приближают следующее перо.</p>
+            <div class="buttons"><button class="btn" onclick="openSystemSell('feathers')">Продать перья</button><button class="btn alt" onclick="tab('shop');showShop('grain')">Купить зерно</button></div>
           </div>
         </details>
         <details class="card farm-day-statistics">
