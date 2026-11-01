@@ -29,7 +29,7 @@ class PostgresMarketLedgerTests(unittest.TestCase):
 
     def setUp(self):
         with self.connect() as c:
-            c.execute('DROP TABLE IF EXISTS referral_codes, referrals, farm_money_sources, money_log, players, market CASCADE')
+            c.execute('DROP TABLE IF EXISTS daily_claims, weekly_claims, daily_activity, farm_events, market_trade_audit, reward_emission, incubator_jobs, farm_bot_transfers, star_orders, referral_codes, referrals, farm_money_sources, money_log, players, market CASCADE')
             c.execute('CREATE TABLE players(id text PRIMARY KEY, coins integer NOT NULL CHECK(coins>=0))')
             c.execute('CREATE TABLE money_log(id text PRIMARY KEY,player_id text NOT NULL,kind text NOT NULL,delta integer NOT NULL,details text,created double precision NOT NULL)')
             c.execute('CREATE TABLE market(id text PRIMARY KEY,seller text NOT NULL,quantity integer NOT NULL CHECK(quantity>=0),price integer NOT NULL CHECK(price>0))')
@@ -174,6 +174,36 @@ class PostgresMarketLedgerTests(unittest.TestCase):
         # The handler returns True for the successful registration only.
         self.assertEqual(sum(results),1)
 
+
+
+    def test_actual_daily_claim_handler_is_exactly_once_under_contention(self):
+        import main
+        from unittest.mock import patch
+        with self.connect() as c:
+            c.execute("CREATE TABLE daily_claims(player_id text,day text,claim text,amount integer,PRIMARY KEY(player_id,day,claim))")
+            c.execute("CREATE TABLE daily_activity(player_id text,day text,grain_bought integer,eggs_produced integer,eggs_listed integer)")
+            c.execute("CREATE TABLE reward_emission(id integer PRIMARY KEY,total_minted integer)")
+            c.execute("INSERT INTO reward_emission VALUES(1,0)")
+            c.execute("INSERT INTO daily_activity VALUES('buyer',CURRENT_DATE::text,5,0,0)")
+            c.execute("UPDATE players SET coins=0 WHERE id='buyer'")
+        def run_claim(_):
+            try:
+                return main.claim_reward(main.Request(item="grain"), "Bearer test")["awarded"]
+            except main.HTTPException as exc:
+                if exc.status_code == 409:
+                    return 0
+                raise
+        with patch.object(main, "db", side_effect=self.connect), patch.object(main, "person", side_effect=lambda c,*a: {"id":"buyer"}), patch.object(main, "advance", side_effect=lambda c,p:p):
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                results=list(pool.map(run_claim, range(12)))
+        amount = main.REWARD_AMOUNTS["grain"]
+        self.assertEqual(sum(results),amount)
+        self.assertEqual(results.count(amount),1)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],amount)
+            self.assertEqual(c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"],amount)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM daily_claims").fetchone()["n"],1)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM money_log WHERE kind='daily_reward'").fetchone()["n"],1)
 
     def test_actual_weekly_claim_handler_is_exactly_once_under_contention(self):
         import main
