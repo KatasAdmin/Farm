@@ -913,6 +913,29 @@ def set_nickname(q:Request,authorization:str=Header(default="")):
  return {"ok":True,"name":name}
 
 
+@app.post("/api/achievements/claim")
+def claim_staged_achievement(q:Request,authorization:str=Header(default="")):
+ track=q.item
+ if track not in ("eggs","feathers","milk"):
+  raise HTTPException(400,"Неизвестное достижение")
+ with db() as c:
+  p=person(c,authorization,True)
+  # Serialize claims per player, including concurrent requests from different devices.
+  c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(p["id"],))
+  if track=="eggs":
+   total=c.execute("SELECT COALESCE(SUM(eggs_produced),0)::int AS n FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()["n"]
+  else:
+   event_kind={"feathers":"feathers_collected","milk":"milk_produced"}[track]
+   total=c.execute("SELECT COALESCE(SUM(amount),0)::int AS n FROM farm_events WHERE player_id=%s AND kind=%s",(p["id"],event_kind)).fetchone()["n"]
+  claimed={row["threshold"] for row in c.execute("SELECT threshold FROM staged_achievement_claims WHERE player_id=%s AND track=%s",(p["id"],track)).fetchall()}
+  stage=achievement_stages.current_stage(track,total,claimed)
+  if not stage or not stage["claimable"]:
+   raise HTTPException(409,"Награда пока недоступна")
+  c.execute("INSERT INTO staged_achievement_claims(player_id,track,threshold,xp,claimed_at) VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING threshold",(p["id"],track,stage["threshold"],stage["xp"],time.time()))
+  if not c.fetchone():
+   raise HTTPException(409,"Награда уже получена")
+  return {"ok":True,"track":track,"threshold":stage["threshold"],"xp_awarded":stage["xp"]}
+
 @app.get("/api/state")
 def state(authorization:str=Header(default="")):
  with db() as c:
