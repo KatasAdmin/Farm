@@ -54,5 +54,26 @@ class MarketSourceTests(unittest.TestCase):
             split_market_sources([("a", 10)], {"bonus": 1, "purchased": 1, "earned": 1}, 10)
 
 
+    def test_bonus_cannot_be_laundered_through_seven_referral_levels(self):
+        # Each referral hop may exchange goods, but it cannot create
+        # withdrawable earnings from an originally non-withdrawable reward.
+        for source in ("bonus", "purchased"):
+            funds = {"bonus": 0, "purchased": 0, "earned": 0}
+            funds[source] = 101
+            for level in range(1, 8):
+                receipt = split_market_sources(
+                    [("level-" + str(level), 101)], funds, 101)
+                funds = receipt["level-" + str(level)]
+                self.assertEqual(funds["earned"], 0)
+                self.assertEqual(sum(funds.values()), 101)
+
+    def test_genuine_earnings_remain_withdrawable_after_seven_trades(self):
+        funds = {"bonus": 0, "purchased": 0, "earned": 101}
+        for level in range(1, 8):
+            funds = split_market_sources(
+                [("level-" + str(level), 101)], funds, 101)["level-" + str(level)]
+        self.assertEqual(funds, {"bonus": 0, "purchased": 0, "earned": 101})
+
+
 if __name__ == "__main__":
     unittest.main()
