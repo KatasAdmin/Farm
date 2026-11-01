@@ -2,6 +2,7 @@
 import datetime as dt
 import uuid
 import bot_account_controls as controls
+import bot_account_details as details
 from zoneinfo import ZoneInfo
 
 
@@ -23,7 +24,7 @@ def page_number(raw):
 
 
 def get(c,target):
-    row=core().account(c,target)
+    row=c.execute('SELECT * FROM bot_accounts WHERE uid=%s',(target,)).fetchone()
     if not row:raise core().UserError('Аккаунт не найден. Пользователь должен сначала открыть бота.')
     return row
 
@@ -32,10 +33,12 @@ def date(value):
     return dt.datetime.fromtimestamp(value,ZoneInfo('Europe/Kyiv')).strftime('%d.%m.%Y %H:%M')
 
 
-def listing(c,uid,page=0,query='',review=False):
+def listing(c,uid,page=0,query='',review=False,flock=False):
     b=core();b.state(c,uid,'clear')
     if not 0<=page<=100000:raise b.UserError('Неизвестная страница.')
-    if review:
+    if flock:
+        rows=c.execute('SELECT a.*,p.chickens+coalesce(p.geese,0) AS birds FROM bot_accounts a JOIN players p ON p.telegram_id=a.uid ORDER BY birds DESC,a.uid LIMIT 9 OFFSET %s',(page*8,)).fetchall()
+    elif review:
         rows=c.execute('SELECT a.* FROM bot_accounts a JOIN bot_account_controls k ON k.uid=a.uid WHERE k.suspicious=1 OR k.withdraw_blocked=1 ORDER BY k.updated DESC,a.uid LIMIT 9 OFFSET %s',(page*8,)).fetchall()
     elif query:
         # Exact IDs or a literal name fragment; no wildcard interpolation.
@@ -43,17 +46,19 @@ def listing(c,uid,page=0,query='',review=False):
             target=target_id(query)
             rows=c.execute('SELECT * FROM bot_accounts WHERE uid=%s',(target,)).fetchall()
         else:
-            rows=c.execute("SELECT * FROM bot_accounts WHERE lower(name) LIKE %s ESCAPE '!' ORDER BY created DESC,uid LIMIT 21",('%'+query.lower().replace('!','!!').replace('%','!%').replace('_','!_')+'%',)).fetchall()
+            pattern='%'+query.lower().replace('!','!!').replace('%','!%').replace('_','!_')+'%'
+            rows=c.execute("SELECT DISTINCT a.* FROM bot_accounts a LEFT JOIN players p ON p.telegram_id=a.uid WHERE lower(a.name) LIKE %s ESCAPE '!' OR lower(p.name) LIKE %s ESCAPE '!' OR p.id=%s ORDER BY a.created DESC,a.uid LIMIT 21",(pattern,pattern,query)).fetchall()
     else:
         rows=c.execute('SELECT * FROM bot_accounts ORDER BY created DESC,uid LIMIT 9 OFFSET %s',(page*8,)).fetchall()
     limit=20 if query else 8
-    buttons=[[b.button(r['name'][:24]+' · '+str(r['uid']),'admin:account:'+str(r['uid']))] for r in rows[:limit]]
+    buttons=[[b.button(r['name'][:24]+(' · '+str(r['birds'])+' птиц' if flock else '')+' · '+str(r['uid']),'admin:account:'+str(r['uid']))] for r in rows[:limit]]
     nav=[]
-    prefix='admin:accountreviews:' if review else 'admin:accounts:'
+    prefix='admin:accountflock:' if flock else 'admin:accountreviews:' if review else 'admin:accounts:'
     if not query:
         if page:nav.append(b.button('⬅️ Назад',prefix+str(page-1)))
         if len(rows)>limit:nav.append(b.button('Далее ➡️',prefix+str(page+1)))
     if nav:buttons.append(nav)
+    buttons.append([b.button('🐔 По размеру стада','admin:accountflock:0')])
     buttons.append([b.button('👥 Все аккаунты' if review else '⚠️ Отмеченные и заблокированные','admin:accounts:0' if review else 'admin:accountreviews:0')])
     buttons.extend([[b.button('🔎 Найти по ID или имени','admin:accountsearch')],[b.button('⬅️ Админ-панель','admin')]])
     return b.bot_ui.screen(uid,('⚠️ <b>Отмеченные и заблокированные</b>\n\n' if review else '👥 <b>Аккаунты игроков</b>\n\n')+('Выбери аккаунт. Поиск по Telegram ID точный.' if rows else 'Аккаунты не найдены.'),buttons)
@@ -71,14 +76,17 @@ def card(c,uid,target):
     else:text+='\n\n🐔 Привязанной фермы нет.'
     control=controls.get(c,target)
     text+='\n\n🔒 Вывод: <b>'+('заблокирован' if control['withdraw_blocked'] else 'разрешён')+'</b>'
-    if control['withdraw_blocked']:text+='\nПричина блокировки: '+esc(control['block_reason'])
+    if control['withdraw_blocked']:text+='\nПричина блокировки: '+esc(control['block_reason'][:120])
     text+='\n🔎 Проверка: <b>'+('требует проверки' if control['suspicious'] else 'без отметки')+'</b>'
-    if control['suspicious']:text+='\nЗаметка администратора: '+esc(control['flag_reason'])
+    if control['suspicious']:text+='\nЗаметка администратора: '+esc(control['flag_reason'][:120])
     payouts=c.execute('SELECT * FROM bot_payouts WHERE uid=%s ORDER BY created DESC,id LIMIT 5',(target,)).fetchall()
     labels={'pending':'ожидает','paid':'выплачено','rejected':'отклонено','cancelled':'отменено'}
     buttons=[[{'text':'↗️ Профиль Telegram','url':'tg://user?id='+str(target)}],
              [b.button('➕ Начислить в бот','admin:accountop:credit:'+str(target)),b.button('➖ Списать из бота','admin:accountop:debit:'+str(target))],
              [b.button('🧾 Операции баланса','admin:accountledger:'+str(target)+':0')]]
+    for pair in (('farm','finance'),('payments','payouts'),('referrals','tasks'),('farmledger','activity'),('market','incubator')):
+        buttons.append([b.button(details.TITLES[k],'admin:accountdetail:'+k+':'+str(target)+':0') for k in pair])
+    buttons.append([b.button(details.TITLES['support'],'admin:accountdetail:support:'+str(target)+':0')])
     buttons.append([b.button('🔓 Разблокировать вывод' if control['withdraw_blocked'] else '🔒 Заблокировать вывод','admin:accountcontrol:'+('unblock' if control['withdraw_blocked'] else 'block')+':'+str(target))])
     buttons.append([b.button('✅ Снять отметку' if control['suspicious'] else '⚠️ Требует проверки','admin:accountcontrol:'+('unflag' if control['suspicious'] else 'flag')+':'+str(target))])
     buttons.append([b.button('🛡 История проверок и блокировок','admin:accountaudit:'+str(target))])
@@ -104,17 +112,28 @@ def ledger(c,uid,target,page):
 
 def route(c,uid,action):
     b=core()
+    if action.startswith('admin:accountdetail:'):
+        parts=action.split(':')
+        if len(parts)!=5:raise b.UserError('Неизвестная страница.')
+        return details.screen(c,uid,target_id(parts[3]),parts[2],page_number(parts[4]))
+    if action.startswith('admin:accountflock:'):return listing(c,uid,page_number(action.split(':')[-1]),flock=True)
     if action.startswith('admin:accountreviews:'):return listing(c,uid,page_number(action.split(':')[-1]),review=True)
     if action.startswith('admin:accountaudit:'):
-        target=target_id(action.split(':')[-1]);get(c,target);b.state(c,uid,'clear')
-        rows=c.execute('SELECT * FROM bot_account_control_audit WHERE uid=%s ORDER BY created DESC,id LIMIT 8',(target,)).fetchall()
+        parts=action.split(':')
+        if len(parts) not in (3,4):raise b.UserError('Неизвестная страница.')
+        target=target_id(parts[2]);page=page_number(parts[3]) if len(parts)==4 else 0
+        get(c,target);b.state(c,uid,'clear')
+        rows=c.execute('SELECT * FROM bot_account_control_audit WHERE uid=%s ORDER BY created DESC,id LIMIT 3 OFFSET %s',(target,page*2)).fetchall()
         labels={'block':'🔒 Вывод заблокирован','unblock':'🔓 Вывод разрешён','flag':'⚠️ Требует проверки','unflag':'✅ Отметка снята'}
-        lines=[date(r['created'])+' · '+labels[r['operation']]+'\nАдмин '+str(r['actor'])+'\n'+b.bot_ui.esc(r['reason']) for r in rows]
-        return b.bot_ui.screen(uid,'🛡 <b>Последние изменения</b>\nTelegram ID: '+str(target)+'\n\n'+('\n\n'.join(lines) or 'История пуста.'),[[b.button('⬅️ Аккаунт','admin:account:'+str(target))]])
+        lines=[date(r['created'])+' · '+labels[r['operation']]+'\nАдмин '+str(r['actor'])+'\n'+b.bot_ui.esc(r['reason']) for r in rows[:2]]
+        nav=[]
+        if page:nav.append(b.button('⬅️ Назад','admin:accountaudit:'+str(target)+':'+str(page-1)))
+        if len(rows)>2:nav.append(b.button('Далее ➡️','admin:accountaudit:'+str(target)+':'+str(page+1)))
+        return b.bot_ui.screen(uid,'🛡 <b>История изменений</b>\nTelegram ID: '+str(target)+'\n\n'+('\n\n'.join(lines) or 'История пуста.'),([nav] if nav else [])+[[b.button('⬅️ Аккаунт','admin:account:'+str(target))]])
     if action.startswith('admin:accounts:'):return listing(c,uid,page_number(action.split(':')[-1]))
     if action=='admin:accountsearch':
         b.state(c,uid,'admin_account_search')
-        return b.bot_ui.input_screen(uid,'🔎 Пришли Telegram ID или имя пользователя в боте.')
+        return b.bot_ui.input_screen(uid,'🔎 Пришли Telegram ID, имя в боте, ник или ID фермы.')
     if action.startswith('admin:account:'):return card(c,uid,target_id(action.split(':')[-1]))
     if action.startswith('admin:accountledger:'):
         parts=action.split(':');return ledger(c,uid,target_id(parts[2]),page_number(parts[3]))
