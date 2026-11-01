@@ -328,8 +328,8 @@ def register_referral(c,child_id,code,now):
    SELECT r.child_id FROM referrals r JOIN descendants d ON r.parent_id=d.id
  ) SELECT 1 FROM descendants WHERE id=%s LIMIT 1""",(child_id,parent["player_id"])).fetchone()
  if cycle:return False
- c.execute("INSERT INTO referrals(child_id,parent_id,created) VALUES(%s,%s,%s) ON CONFLICT(child_id) DO NOTHING",(child_id,parent["player_id"],now))
- return True
+ inserted=c.execute("INSERT INTO referrals(child_id,parent_id,created) VALUES(%s,%s,%s) ON CONFLICT(child_id) DO NOTHING RETURNING child_id",(child_id,parent["player_id"],now)).fetchone()
+ return bool(inserted)
 
 def award_referral_resource(c,child,item,amount):
  """Exact fractional bonuses from legitimate own resource acquisition only.
