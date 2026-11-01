@@ -3,6 +3,7 @@ import datetime as dt
 import uuid
 import bot_account_controls as controls
 import bot_account_details as details
+import bot_identity
 from zoneinfo import ZoneInfo
 
 
@@ -41,13 +42,20 @@ def listing(c,uid,page=0,query='',review=False,flock=False):
     elif review:
         rows=c.execute('SELECT a.* FROM bot_accounts a JOIN bot_account_controls k ON k.uid=a.uid WHERE k.suspicious=1 OR k.withdraw_blocked=1 ORDER BY k.updated DESC,a.uid LIMIT 9 OFFSET %s',(page*8,)).fetchall()
     elif query:
-        # Exact IDs or a literal name fragment; no wildcard interpolation.
-        if query.isdecimal():
-            target=target_id(query)
+        kind,value=bot_identity.parse_query(query)
+        if kind=='invalid':raise b.UserError('Пришли ник, ID, Telegram-ссылку, @username или телефон.')
+        if kind=='uid':
+            target=target_id(value)
             rows=c.execute('SELECT * FROM bot_accounts WHERE uid=%s',(target,)).fetchall()
+            if not rows:
+                normalized=bot_identity.phone(value)
+                rows=c.execute('SELECT a.* FROM bot_accounts a JOIN bot_identities i ON i.uid=a.uid WHERE i.phone=%s ORDER BY a.uid',(normalized or '',)).fetchall()
+        elif kind in ('username','phone'):
+            field='username' if kind=='username' else 'phone'
+            rows=c.execute('SELECT a.* FROM bot_accounts a JOIN bot_identities i ON i.uid=a.uid WHERE i.'+field+'=%s ORDER BY a.uid',(value,)).fetchall()
         else:
-            pattern='%'+query.lower().replace('!','!!').replace('%','!%').replace('_','!_')+'%'
-            rows=c.execute("SELECT DISTINCT a.* FROM bot_accounts a LEFT JOIN players p ON p.telegram_id=a.uid WHERE lower(a.name) LIKE %s ESCAPE '!' OR lower(p.name) LIKE %s ESCAPE '!' OR p.id=%s ORDER BY a.created DESC,a.uid LIMIT 21",(pattern,pattern,query)).fetchall()
+            pattern='%'+value.lower().replace('!','!!').replace('%','!%').replace('_','!_')+'%'
+            rows=c.execute("SELECT DISTINCT a.* FROM bot_accounts a LEFT JOIN players p ON p.telegram_id=a.uid LEFT JOIN bot_identities i ON i.uid=a.uid WHERE lower(a.name) LIKE %s ESCAPE '!' OR lower(p.name) LIKE %s ESCAPE '!' OR p.id=%s OR i.username=%s ORDER BY a.created DESC,a.uid LIMIT 21",(pattern,pattern,value,value.lower())).fetchall()
     else:
         rows=c.execute('SELECT * FROM bot_accounts ORDER BY created DESC,uid LIMIT 9 OFFSET %s',(page*8,)).fetchall()
     limit=20 if query else 8
@@ -60,7 +68,7 @@ def listing(c,uid,page=0,query='',review=False,flock=False):
     if nav:buttons.append(nav)
     buttons.append([b.button('🐔 По размеру стада','admin:accountflock:0')])
     buttons.append([b.button('👥 Все аккаунты' if review else '⚠️ Отмеченные и заблокированные','admin:accounts:0' if review else 'admin:accountreviews:0')])
-    buttons.extend([[b.button('🔎 Найти по ID или имени','admin:accountsearch')],[b.button('⬅️ Админ-панель','admin')]])
+    buttons.extend([[b.button('🔎 Поиск игрока','admin:accountsearch')],[b.button('⬅️ Админ-панель','admin')]])
     return b.bot_ui.screen(uid,('⚠️ <b>Отмеченные и заблокированные</b>\n\n' if review else '👥 <b>Аккаунты игроков</b>\n\n')+('Выбери аккаунт. Поиск по Telegram ID точный.' if rows else 'Аккаунты не найдены.'),buttons)
 
 
@@ -74,6 +82,9 @@ def card(c,uid,target):
         text+='\n\n🐔 <b>Привязанная ферма</b>\nНик: '+esc(farm.get('name','—'))+'\nID фермы: <code>'+esc(farm['id'])+'</code>\nМонеты в игре: '+str(farm['coins'])
         text+='\nКуры: '+str(farm.get('chickens',0))+' · Гуси: '+str(farm.get('geese',0))+'\nЯйца: '+str(farm.get('eggs',0))+' · Перья: '+str(farm.get('feathers',0))
     else:text+='\n\n🐔 Привязанной фермы нет.'
+    identity=c.execute('SELECT username,phone FROM bot_identities WHERE uid=%s',(target,)).fetchone()
+    if identity:
+        text+='\n\nTelegram: '+esc('@'+identity['username'] if identity['username'] else 'username не указан')+'\nТелефон: '+esc(identity['phone'] or 'не передан пользователем')
     control=controls.get(c,target)
     text+='\n\n🔒 Вывод: <b>'+('заблокирован' if control['withdraw_blocked'] else 'разрешён')+'</b>'
     if control['withdraw_blocked']:text+='\nПричина блокировки: '+esc(control['block_reason'][:120])
@@ -133,7 +144,7 @@ def route(c,uid,action):
     if action.startswith('admin:accounts:'):return listing(c,uid,page_number(action.split(':')[-1]))
     if action=='admin:accountsearch':
         b.state(c,uid,'admin_account_search')
-        return b.bot_ui.input_screen(uid,'🔎 Пришли Telegram ID, имя в боте, ник или ID фермы.')
+        return b.bot_ui.input_screen(uid,'🔎 Пришли ник, ID, @username, ссылку Telegram или номер телефона (+380… / 06…). По телефону найдём только тех, кто сам поделился своим номером с ботом.')
     if action.startswith('admin:account:'):return card(c,uid,target_id(action.split(':')[-1]))
     if action.startswith('admin:accountledger:'):
         parts=action.split(':');return ledger(c,uid,target_id(parts[2]),page_number(parts[3]))

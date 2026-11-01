@@ -56,7 +56,8 @@ def screen(c,uid,target,section,page=0):
         for r in c.execute('SELECT status,count(*) AS n,sum(amount) AS total FROM bot_payouts WHERE uid=%s GROUP BY status',(target,)).fetchall():
             lines.append('Выплаты · '+esc(r['status'])+': '+str(r['n'])+' шт. / '+b.money(r['total'])+' с баланса')
         if farm:
-            lines.append('Монеты фермы: <b>'+str(farm['coins'])+'</b>\nДоступно из продаж: '+str(farm_wallet.available(c,farm))+' монет')
+            sources=farm_wallet.balances(c,farm)
+            lines.append('Монеты фермы: <b>'+str(farm['coins'])+'</b>\nБонусные: '+str(sources['bonus'])+'\nПополненные: '+str(sources['purchased'])+'\nВыручка к переводу: '+str(sources['earned'])+' монет')
             groups=c.execute('SELECT kind,count(*) AS n,sum(delta) AS total FROM money_log WHERE player_id=%s GROUP BY kind ORDER BY kind',(pid,)).fetchall()
             lines.append('Категории операций фермы:\n'+('\n'.join(esc(r['kind'])+': '+str(r['total'])+' монет · '+str(r['n'])+' оп.' for r in groups[:16]) or 'Нет операций.'))
         buttons.append([b.button('🧾 Баланс бота','admin:accountledger:'+str(target)+':0'),b.button(TITLES['farmledger'],'admin:accountdetail:farmledger:'+str(target)+':0')])
@@ -100,10 +101,12 @@ def screen(c,uid,target,section,page=0):
     elif section in ('farmledger','activity'):
         if farm:
             table='money_log' if section=='farmledger' else 'farm_events'
-            rows=c.execute('SELECT * FROM '+table+' WHERE player_id=%s ORDER BY created DESC,id LIMIT 4 OFFSET %s',(pid,page*3)).fetchall()
+            if section=='farmledger':
+                rows=c.execute('SELECT m.*,s.bonus AS source_bonus,s.earned AS source_earned FROM money_log m LEFT JOIN farm_money_sources s ON s.log_id=m.id WHERE m.player_id=%s ORDER BY m.created DESC,m.id DESC LIMIT 4 OFFSET %s',(pid,page*3)).fetchall()
+            else:rows=c.execute('SELECT * FROM '+table+' WHERE player_id=%s ORDER BY created DESC,id LIMIT 4 OFFSET %s',(pid,page*3)).fetchall()
             for r in rows[:3]:
                 value=r['delta'] if section=='farmledger' else r['amount']
-                lines.append(stamp(r['created'])+' · <b>'+('+' if value>0 else '')+str(value)+'</b>\n'+esc(r['kind'])+('\n'+esc(r['details'][:180]) if section=='farmledger' else ''))
+                lines.append(stamp(r['created'])+' · <b>'+('+' if value>0 else '')+str(value)+'</b>\n'+esc(r['kind'])+('\n'+esc(r['details'][:180]) if section=='farmledger' else '')+('\nБонусные: '+str(r['source_bonus'])+' · Выручка: '+str(r['source_earned']) if r.get('source_bonus') is not None else ''))
         else:lines.append('Привязанной фермы нет.')
     elif section=='market':
         if farm:

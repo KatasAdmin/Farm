@@ -495,7 +495,7 @@ function systemSellQuote(){
  const price=systemBuyback[sellingResource];
  el("system-sell-stock").textContent="У тебя: "+number(stock)+" шт. · выкуп: "+price+" монет / шт.";
  el("system-sell-total").textContent=valid?number(qty*price):"—";
- el("system-sell-feedback").textContent=valid?"Монеты поступят сразу после продажи.":"Укажи целое количество в пределах своего запаса.";
+ el("system-sell-feedback").textContent=valid?(sellingResource==="feathers"?"Монеты поступят сразу после продажи.":"Начислим бонусные монеты: на покупки, без вывода."):"Укажи целое количество в пределах своего запаса.";
  el("system-sell-confirm").disabled=pending||!valid;
 }
 async function confirmSystemSell(){
@@ -506,7 +506,7 @@ async function confirmSystemSell(){
  const success=await perform("/api/shop/sell",{item,amount:qty});
  if(success){
   el("system-sell-dialog").close();
-  toast("Продано системе: "+qty+" шт. · +"+number(qty*systemBuyback[item])+" монет");
+  toast("Продано системе: "+qty+" шт. · +"+number(qty*systemBuyback[item])+(item==="feathers"?" монет":" бонусных монет"));
  }
 }
 function openSell(item) {
@@ -766,7 +766,7 @@ async function loadHistory(append=false) {
  try {
   const value=await api("/api/finance?offset="+historyOffset+"&limit=10");
   const rows=value.entries.map(x=>
-   `<div class="ledger-row ${x.delta>0?"income":""}"><span aria-hidden="true">${x.delta>=0?"↗":"↙"}</span><div><strong>${safe(details(x.details))}</strong><small>${new Date(x.created*1000).toLocaleString("ru-RU")}</small></div><b>${x.delta>0?"+":""}${number(x.delta)}</b></div>`
+   `<div class="ledger-row ${x.delta>0?"income":""}"><span aria-hidden="true">${x.delta>=0?"↗":"↙"}</span><div><strong>${safe(details(x.details))}</strong><small>${x.bonus!=null?"Бонусные: "+number(x.bonus)+" · Выручка: "+number(x.earned)+" · ":""}${new Date(x.created*1000).toLocaleString("ru-RU")}</small></div><b>${x.delta>0?"+":""}${number(x.delta)}</b></div>`
   ).join("");
   const holder=el("history");
   if(append)holder.insertAdjacentHTML("beforeend",rows);
@@ -786,7 +786,8 @@ async function loadWithdrawalStatus() {
     const request=value.request;
     const cancelButton=el("withdrawal-cancel");
     if(cancelButton)cancelButton.hidden=!request||request.status!=="pending";
-    note.textContent="Доступно для перевода: "+number(value.available||0)+" монет. "+(request
+    const sources=value.sources||{};
+    note.textContent="Бонусные: "+number(sources.bonus||0)+" · Пополненные: "+number(sources.purchased||0)+" · Выручка: "+number(value.available||0)+" монет. "+(request
       ? "Последняя заявка: "+number(request.amount)+" монет · "+
         (request.status==="pending"?"ожидает ручной проверки":request.status==="rejected"?"отклонена":"статус: "+request.status)
       : "Бонусы и промокоды переводить нельзя.");

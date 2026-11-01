@@ -5,6 +5,7 @@ import main
 class Cursor:
  def __init__(self,row=None):self.row=row
  def fetchone(self):return self.row
+ def fetchall(self):return self.row or []
 
 class DB:
  def __init__(self,order):self.order=order;self.calls=[]
@@ -73,6 +74,7 @@ class StarsSafety(unittest.TestCase):
     if "SELECT coins,purchased_coins FROM players" in sql:
      self.calls.append((sql,args))
      return Cursor({"coins":25,"purchased_coins":25})
+    if "SELECT m.kind,m.delta" in sql:return Cursor([{'kind':'stars_purchase','delta':25,'bonus':None,'purchased':None,'earned':None}])
     return super().execute(sql,args)
   db=RefundDB(order)
   with patch.object(main,"db",return_value=db),patch.object(main,"telegram_api",return_value=True) as api:

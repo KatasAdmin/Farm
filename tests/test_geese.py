@@ -62,6 +62,7 @@ class GooseTradingTests(unittest.TestCase):
         self.c.execute('CREATE TABLE economy(id int PRIMARY KEY,treasury int)')
         self.c.execute('INSERT INTO economy VALUES(1,1000)')
         self.c.execute('CREATE TABLE money_log(id text,player_id text,kind text,delta int,details text,created double precision)')
+        main.farm_wallet.initialize_sources(self.c)
         self.c.raw.commit()
     def player(self,*args):return self.c.execute("SELECT * FROM players WHERE id='p'").fetchone()
     def test_purchase_and_sale_adjust_correct_species_fed_count_coins_and_audit(self):
@@ -72,6 +73,8 @@ class GooseTradingTests(unittest.TestCase):
             main.sell_to_system(main.Request(item='geese',amount=2),'Bearer p')
             p=self.player()
             self.assertEqual((p['coins'],p['chickens'],p['geese'],p['fed_geese'],p['goose_xp']),(340,2,1,1,40))
+            self.assertEqual(main.farm_wallet.available(self.c,p),0)
+            self.assertEqual(self.c.execute('SELECT bonus FROM farm_money_sources').fetchone()['bonus'],160)
             with self.assertRaises(HTTPException):main.sell_to_system(main.Request(item='geese',amount=2),'Bearer p')
         self.assertEqual(len(self.c.execute('SELECT * FROM money_log').fetchall()),2)
         self.assertEqual(self.c.execute('SELECT treasury FROM economy').fetchone()['treasury'],1160)

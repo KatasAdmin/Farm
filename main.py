@@ -578,6 +578,8 @@ def stars_refund_order(order_id,admin_id):
     return "Игрок не найден. Автовозврат заблокирован, требуется ручная проверка."
   elif player["coins"]<order["coins"] or player["purchased_coins"]<order["coins"]:
    return "Автовозврат заблокирован: монеты уже потрачены или переданы. Нужна ручная проверка."
+  if player is not None and farm_wallet.balances(c,{**player,'id':order['player_id']})['purchased']<order['coins']:
+   return "Автовозврат заблокирован: оплаченные монеты потрачены или переданы. Бонусы не заменяют оплаченный остаток."
   # Hold the order/player row locks while contacting Telegram; reject concurrent purchases
   # and inventory changes until the result is recorded.
   try:
@@ -1023,7 +1025,11 @@ def sell_to_system(q:Request,authorization:str=Header(default="")):
   else:
    c.execute("UPDATE players SET grain=grain-%s,coins=coins+%s WHERE id=%s",(q.amount,payout,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury-%s WHERE id=1",(payout,))
-  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"system_sale",payout,"Продажа системе: "+q.item+" x"+str(q.amount),time.time()))
+  log_id=uuid.uuid4().hex
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(log_id,p["id"],"system_sale",payout,"Продажа системе: "+q.item+" x"+str(q.amount),time.time()))
+  # Grain/bird buybacks are purchasing credit, preventing gift/promo stock
+  # or bonus-funded market stock from being converted to withdrawable money.
+  if q.item!="feathers":c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,0)",(log_id,payout))
  return {"ok":True,"received":payout,"unit_price":unit_price}
 
 @app.post("/api/bundle")
@@ -1091,11 +1097,17 @@ def buy(q:Request,authorization:str=Header(default="")):
   cost=sum(x["price"]*n for x,n in chosen)
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if p["grain"]+p["eggs"]+p.get("feathers",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
+  sources=farm_wallet.balances(c,p)
+  bonus_spent=min(cost,sources['bonus'])
+  bonus_shares=farm_wallet.split_receipts([(x['id'],x['price']*n) for x,n in chosen],bonus_spent)
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   for x,n in chosen:
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
-   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,x["seller"],"market_sale",x["price"]*n,q.item+" x"+str(n),time.time()))
+   log_id=uuid.uuid4().hex
+   receipt=x["price"]*n;receipt_bonus=bonus_shares[x['id']]
+   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(log_id,x["seller"],"market_sale",receipt,q.item+" x"+str(n),time.time()))
+   c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,%s)",(log_id,receipt_bonus,receipt-receipt_bonus))
    trade_at=time.time()
    count=c.execute("SELECT COUNT(*)::int AS n FROM market_trade_audit WHERE buyer_id=%s AND seller_id=%s AND created>%s",(p["id"],x["seller"],trade_at-86400)).fetchone()["n"]
    c.execute("INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,trade_at))
@@ -1175,8 +1187,9 @@ def withdrawal_status(authorization:str=Header(default="")):
  with db() as c:
   p=person(c,authorization)
   last=c.execute("SELECT id,amount,status,created,reserved FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
-  eligible=farm_wallet.available(c,p)
- return {"minimum":100,"request":last,"payouts_enabled":True,"available":eligible,"rate":1,"message":"Перевод на баланс бота · 1 монета = 1 грн"}
+  money_sources=farm_wallet.balances(c,p)
+  eligible=money_sources["earned"]
+ return {"sources":money_sources,"minimum":100,"request":last,"payouts_enabled":True,"available":eligible,"rate":1,"message":"Перевод на баланс бота · 1 монета = 1 грн"}
 
 @app.post("/api/promo/redeem")
 def redeem_promo(q:Request,authorization:str=Header(default="")):
@@ -1201,7 +1214,7 @@ def finance(authorization:str=Header(default=""),offset:int=0,limit:int=10):
  if offset<0 or offset>100000 or limit<1 or limit>50:raise HTTPException(400,"Некорректная страница истории")
  with db() as c:
   p=person(c,authorization)
-  logs=c.execute("SELECT kind,delta,details,created FROM money_log WHERE player_id=%s ORDER BY created DESC,id DESC LIMIT %s OFFSET %s",(p["id"],limit+1,offset)).fetchall()
+  logs=c.execute("SELECT m.kind,m.delta,m.details,m.created,s.bonus,s.purchased,s.earned FROM money_log m LEFT JOIN farm_money_sources s ON s.log_id=m.id WHERE m.player_id=%s ORDER BY m.created DESC,m.id DESC LIMIT %s OFFSET %s",(p["id"],limit+1,offset)).fetchall()
  return {"entries":logs[:limit],"has_more":len(logs)>limit,"next_offset":offset+limit}
 @app.post("/api/autobuy")
 def autobuy(q:Request,authorization:str=Header(default="")):
