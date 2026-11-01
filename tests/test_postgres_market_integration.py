@@ -100,5 +100,38 @@ class PostgresMarketLedgerTests(unittest.TestCase):
             self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM incubator_jobs").fetchone()["n"],1)
 
 
+    def test_transfer_retry_key_is_unique_under_concurrency(self):
+        with self.connect() as c:
+            c.execute("CREATE TABLE farm_bot_transfers(id text PRIMARY KEY,player_id text,amount integer)")
+        def transfer(_):
+            try:
+                with self.connect() as c:
+                    c.execute("INSERT INTO farm_bot_transfers VALUES('same-request','buyer',100)")
+                return True
+            except psycopg.errors.UniqueViolation:
+                return False
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results=list(pool.map(transfer,range(16)))
+        self.assertEqual(sum(results),1)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM farm_bot_transfers").fetchone()["n"],1)
+
+    def test_stars_charge_cannot_be_assigned_to_two_orders(self):
+        with self.connect() as c:
+            c.execute("CREATE TABLE star_orders(id text PRIMARY KEY,charge_id text UNIQUE)")
+        def credit(i):
+            try:
+                with self.connect() as c:
+                    c.execute("INSERT INTO star_orders VALUES(%s,'same-telegram-charge')",(str(i),))
+                return True
+            except psycopg.errors.UniqueViolation:
+                return False
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results=list(pool.map(credit,range(16)))
+        self.assertEqual(sum(results),1)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM star_orders").fetchone()["n"],1)
+
+
 if __name__ == '__main__':
     unittest.main()
