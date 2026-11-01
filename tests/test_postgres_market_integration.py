@@ -175,5 +175,48 @@ class PostgresMarketLedgerTests(unittest.TestCase):
         self.assertEqual(sum(results),1)
 
 
+    def test_actual_weekly_claim_handler_is_exactly_once_under_contention(self):
+        import main
+        from unittest.mock import patch
+        with self.connect() as c:
+            c.execute("CREATE TABLE weekly_claims(player_id text,week text,claimed_at double precision,amount integer,PRIMARY KEY(player_id,week))")
+            c.execute("CREATE TABLE daily_activity(player_id text,day text,grain_bought integer,eggs_produced integer,eggs_listed integer)")
+            c.execute("CREATE TABLE farm_events(player_id text,kind text,amount integer,created double precision)")
+            c.execute("CREATE TABLE market_trade_audit(seller_id text,quantity integer,created double precision)")
+            c.execute("CREATE TABLE reward_emission(id integer PRIMARY KEY,total_minted integer)")
+            c.execute("INSERT INTO reward_emission VALUES(1,0)")
+            c.execute("INSERT INTO daily_activity VALUES('buyer',CURRENT_DATE::text,10,10,3)")
+            c.execute("UPDATE players SET coins=0 WHERE id='buyer'")
+        def claim(_):
+            def isolated_db():
+                return self.connect()
+            with patch.object(main, "db", side_effect=isolated_db), patch.object(main, "person", side_effect=lambda c,*a: {"id":"buyer"}), patch.object(main.farm_expansion, "progress", return_value={}):
+                try:
+                    return main.claim_weekly("Bearer test")["awarded"]
+                except main.HTTPException as exc:
+                    if exc.status_code == 409:
+                        return 0
+                    raise
+        # Patching module globals is process-wide; run workers with the same
+        # stable patch, not overlapping per-thread patch contexts.
+        def run_claim(_):
+            try:
+                return main.claim_weekly("Bearer test")["awarded"]
+            except main.HTTPException as exc:
+                if exc.status_code == 409:
+                    return 0
+                raise
+        with patch.object(main, "db", side_effect=self.connect), patch.object(main, "person", side_effect=lambda c,*a: {"id":"buyer"}), patch.object(main.farm_expansion, "progress", return_value={}):
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                results=list(pool.map(run_claim, range(12)))
+        self.assertEqual(sum(results),30)
+        self.assertEqual(results.count(30),1)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],30)
+            self.assertEqual(c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"],30)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM weekly_claims").fetchone()["n"],1)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM money_log WHERE kind='weekly_reward'").fetchone()["n"],1)
+
+
 if __name__ == '__main__':
     unittest.main()
