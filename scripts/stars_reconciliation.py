@@ -10,6 +10,13 @@ from psycopg.rows import dict_row
 
 
 QUERIES = {
+    "refunds_needing_review": """
+        SELECT i.order_id,i.status,i.created,i.updated,o.status AS order_status,
+               o.stars,o.coins
+        FROM stars_refund_intents i JOIN star_orders o ON o.id=i.order_id
+        WHERE i.status='needs_review' OR (i.status='calling' AND i.created<EXTRACT(EPOCH FROM now())-300)
+        ORDER BY i.created DESC LIMIT 100
+    """,
     "paid_without_charge": """
         SELECT id,player_id,stars,coins,status
         FROM star_orders WHERE status='paid' AND (charge_id IS NULL OR charge_id='')
