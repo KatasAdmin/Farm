@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="/assets/market-polish.css?v=1" />
     <link rel="stylesheet" href="/assets/cattle.css?v=5" />
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=72" defer></script>
+    <script src="/assets/game.js?v=73" defer></script>
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -645,6 +645,7 @@
           <div class="task-row"><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><h3>Купить 10 зерна или скормить 5</h3><span data-weekly="grain">0 / 10</span><div class="progress"><span data-weekly-bar="grain"></span></div></div><strong data-weekly-status="grain">В процессе</strong></div>
           <div class="task-row"><img src="/assets/redesign/egg.webp" class="icon" alt=""><div><h3>Собрать 10 яиц или 3 молока</h3><span data-weekly="eggs">0 / 10</span><div class="progress"><span data-weekly-bar="eggs"></span></div></div><strong data-weekly-status="eggs">В процессе</strong></div>
           <div class="task-row"><img src="/assets/redesign/storage.webp" class="icon" alt=""><div><h3>Выставить 3 ед. товара или продать 3</h3><span data-weekly="listed">0 / 3</span><div class="progress"><span data-weekly-bar="listed"></span></div></div><strong data-weekly-status="listed">В процессе</strong></div>
+          <div id="weekly-extra" class="weekly-extra"></div>
           <button id="weekly-claim" class="btn wide" disabled onclick="claimWeekly()">🏆 Забрать награду: +30 монет</button>
         </div>
         </div>
