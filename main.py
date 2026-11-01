@@ -976,6 +976,7 @@ def state(authorization:str=Header(default="")):
   extra_daily=farm_expansion.progress(c,p["id"],day_start,day_start+86400)
   day_stats["feathers"]=extra_daily.get("feathers_collected",0)
   activity.update({key:extra_daily.get(kind,0) for key,(kind,target) in farm_expansion.EXTRA_MISSIONS.items()})
+  activity["feeding"]=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],day_start,day_start+86400)).fetchone()["n"]
   activity["market_sale"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],day_start,day_start+86400)).fetchone()["n"]
   extra_totals=farm_expansion.progress(c,p["id"])
   extra_achievements=farm_expansion.achievement_rows(p,extra_totals)
