@@ -16,9 +16,9 @@
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <link rel="stylesheet" href="/assets/stars-mobile.css?v=13" />
     <link rel="stylesheet" href="/assets/market-polish.css?v=1" />
-    <link rel="stylesheet" href="/assets/cattle.css?v=1" />
+    <link rel="stylesheet" href="/assets/cattle.css?v=2" />
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=65" defer></script>
+    <script src="/assets/game.js?v=66" defer></script>
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -161,17 +161,17 @@
           <button type="button" class="resource resource-link" onclick="openResourceActions('chickens')" aria-label="Куры: купить или продать">
             <img src="/assets/redesign/hen.webp" class="icon" alt="" decoding="async"/><span>Куры</span><strong data-value="chickens">—</strong>
           </button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('geese')" aria-label="Гуси: купить или продать"><img src="/assets/goose-v2.png" class="icon" alt=""/><span>Гуси</span><strong data-value="geese">0</strong></button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('cows')" aria-label="Коровы: купить или продать"><img src="/assets/cow-v1.webp" class="icon" alt=""/><span>Коровы</span><strong data-value="cows">0</strong></button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('grain')" aria-label="Зерно: купить или продать">
-            <img src="/assets/redesign/grain.webp" class="icon" alt="" decoding="async"/><span>Зерно</span><strong data-value="grain">—</strong>
-          </button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('eggs')" aria-label="Яйца: купить или выставить на продажу">
             <img src="/assets/redesign/egg.webp" class="icon" alt="" decoding="async"/><span>Яйца</span><strong data-value="eggs">—</strong>
           </button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('milk')" aria-label="Молоко: купить или выставить на продажу"><img src="/assets/milk-v1.webp" class="icon" alt=""/><span>Молоко</span><strong data-value="milk">0</strong></button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('geese')" aria-label="Гуси: купить или продать"><img src="/assets/goose-v2.png" class="icon" alt=""/><span>Гуси</span><strong data-value="geese">0</strong></button>
           <button type="button" class="resource resource-link feather-resource" onclick="openResourceActions('feathers')" aria-label="Перья: хранить или продать"><span class="feather-art icon" aria-hidden="true">🪶</span><span>Перья</span><strong data-value="feathers">0</strong></button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('cows')" aria-label="Коровы: купить или продать"><img src="/assets/cow-v1.webp" class="icon" alt=""/><span>Коровы</span><strong data-value="cows">0</strong></button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('milk')" aria-label="Молоко: купить или выставить на продажу"><img src="/assets/milk-v1.webp" class="icon" alt=""/><span>Молоко</span><strong data-value="milk">0</strong></button>
           <button type="button" class="resource resource-link warehouse-resource" onclick="tab('upgrades')" aria-label="Вместимость склада"><img src="/assets/redesign/storage.webp" class="icon" alt=""/><span>Склад</span><strong><span data-building="storage_used">—</span> / <span data-building="storage_capacity">—</span></strong></button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('grain')" aria-label="Зерно: купить или продать">
+            <img src="/assets/redesign/grain.webp" class="icon" alt="" decoding="async"/><span>Зерно</span><strong data-value="grain">—</strong>
+          </button>
         </div>
         <div class="card herd compact-herd">
           <div class="health-line">

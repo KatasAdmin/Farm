@@ -558,16 +558,17 @@ function drawPool() {
   if (label) label.textContent = "Доступно для покупки: " + number(available) + " шт.";
   const milkAvailable=Number(state.available_milk||0);
   if(el("milk-available"))el("milk-available").textContent="Доступно для покупки: "+number(milkAvailable)+" шт.";
-  if(el("milk-buy-button")){el("milk-buy-button").disabled=milkAvailable<=0;el("milk-buy-button").textContent=milkAvailable>0?"Купить":"Нет в наличии";}
+  if(el("milk-buy-button")){el("milk-buy-button").disabled=pending;el("milk-buy-button").textContent="Купить";}
   if (buy) {
-    buy.disabled = available <= 0;
-    buy.textContent = available > 0 ? "Купить" : "Нет в наличии";
+    buy.disabled = pending;
+    buy.textContent = "Купить";
   }
 }
 function selectBuy(item) {
+  if (!state || pending) return;
   const rows = marketRows(item);
   const available = ["eggs","milk"].includes(item) ? Number((item==="milk"?state?.available_milk:state?.available_eggs) ?? 0) : rows.reduce((sum,row) => sum + row.quantity, 0);
-  if (!available) {
+  if (!available && !["eggs","milk"].includes(item)) {
     toast(item==="milk"?"Сейчас нет молока в продаже":"Сейчас нет яиц в продаже");
     return;
   }
@@ -593,7 +594,7 @@ function openPurchase(data) {
   purchase = data;
   el("purchase-title").textContent =
     data.kind === "market"
-      ? "Покупка яиц"
+      ? (data.item === "milk" ? "Покупка молока" : "Покупка яиц")
       : data.kind === "bundle"
         ? "Набор фермера"
         : "Покупка товара";
@@ -637,11 +638,13 @@ function purchaseQuote() {
     : !valid
     ? "Введите целое количество от 1 до 10 000"
     : result.remaining > 0
-      ? "Доступного количества недостаточно"
+      ? (market && ["eggs","milk"].includes(purchase.item) && Number(state[purchase.item==="milk"?"available_milk":"available_eggs"]||0)===0
+          ? (purchase.item==="milk"?"Молока пока нет в продаже. Оно появится, когда другие фермеры выставят его на рынок.":"Яиц пока нет в продаже. Они появятся, когда другие фермеры выставят их на рынок.")
+          : "Доступного количества недостаточно")
       : result.cost > state.me.coins
         ? "Недостаточно монет на балансе"
         : market
-          ? "Покупка яиц у других игроков."
+          ? (purchase.item==="milk"?"Покупка молока у других игроков.":"Покупка яиц у других игроков.")
           : "Монеты поступят в игровую казну.";
   el("purchase-availability").textContent = info;
   el("purchase-confirm").disabled =
