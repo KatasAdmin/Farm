@@ -128,5 +128,39 @@ class ProductionSafetyTest(unittest.TestCase):
         self.assertEqual(original["egg_at"], 1.0)
 
 
+    def test_thirty_day_mixed_farm_production_and_coin_conservation(self):
+        # One of each animal, full feed supplied in advance, daily sales
+        # to prevent warehouse capacity from distorting production.
+        day = 86400
+        p = player(chickens=1, fed_hens=1, geese=1, fed_geese=1,
+                   cows=1, fed_cows=1, grain=250, coins=0,
+                   storage_level=10)
+        eggs = milk = feathers = 0
+        for d in range(1, 31):
+            p, made, refills = simulate(p, 1.0 + d * day)
+            self.assertEqual(refills, [])
+            self.assertEqual(made, p["eggs"])
+            eggs += p["eggs"]
+            milk += p["milk"]
+            feathers += p["feathers"]
+            self.assertLessEqual(
+                p["grain"] + p["eggs"] + p["milk"] + p["feathers"],
+                100 * p["storage_level"])
+            p["eggs"] = p["milk"] = p["feathers"] = 0
+        self.assertEqual(eggs, 480)
+        self.assertEqual(milk, 90)
+        self.assertEqual(feathers, 4)
+        self.assertEqual(p["grain"], 10)
+        self.assertEqual(p["chickens"], 1)
+        self.assertEqual(p["geese"], 1)
+        self.assertEqual(p["cows"], 1)
+        # At base prices: eggs 1, milk 11, feathers 5, grain 2.
+        revenue = eggs + milk * 11 + feathers * 5
+        consumed_grain = 250 - p["grain"]
+        self.assertEqual(revenue, 1490)
+        self.assertEqual(consumed_grain, 240)
+        self.assertEqual(revenue - consumed_grain * 2, 1010)
+
+
 if __name__ == "__main__":
     unittest.main()
