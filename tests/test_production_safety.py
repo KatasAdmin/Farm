@@ -162,5 +162,22 @@ class ProductionSafetyTest(unittest.TestCase):
         self.assertEqual(revenue - consumed_grain * 2, 1010)
 
 
+    def test_thirty_day_catchup_matches_daily_visits(self):
+        start = player(chickens=1, fed_hens=1, geese=1, fed_geese=1,
+                       cows=1, fed_cows=1, grain=250, coins=0,
+                       storage_level=10)
+        daily = start
+        daily_eggs = 0
+        for day in range(1, 31):
+            daily, produced, _ = simulate(daily, 1.0 + day * 86400)
+            daily_eggs += produced
+        once, once_eggs, _ = simulate(start, 1.0 + 30 * 86400)
+        self.assertEqual(daily_eggs, once_eggs)
+        for key in ("eggs", "milk", "feathers", "grain", "coins",
+                    "fed_hens", "fed_geese", "fed_cows", "last_tick",
+                    "chickens", "geese", "cows"):
+            self.assertEqual(daily[key], once[key], key)
+
+
 if __name__ == "__main__":
     unittest.main()
