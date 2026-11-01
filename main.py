@@ -1326,7 +1326,11 @@ def claim_reward(q:Request,authorization:str=Header(default="")):
  day=time.strftime("%Y-%m-%d",time.gmtime())
  with db() as c:
   p=advance(c,person(c,authorization,True))
-  if key in farm_expansion.EXTRA_MISSIONS:
+  if key=="market_sale":
+   start=int(time.time()//86400)*86400
+   count=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],start,start+86400)).fetchone()["n"]
+   if count<1:raise HTTPException(400,"Задание ещё не выполнено")
+  elif key in farm_expansion.EXTRA_MISSIONS:
    start=time.time()//86400*86400
    counts=farm_expansion.progress(c,p["id"],start,start+86400)
    kind,target=farm_expansion.EXTRA_MISSIONS[key]
