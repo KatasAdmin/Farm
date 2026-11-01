@@ -1044,6 +1044,7 @@ function render() {
     ["grain", "Купить 5 зерна", daily.grain_bought || 0, 5],
     ["eggs", "Получить 3 яйца от птиц", daily.eggs_produced || 0, 3],
     ["listing", "Выставить яйцо на продажу", daily.eggs_listed || 0, 1],
+    ["market_sale", "Продать товар на рынке", daily.market_sale || 0, 1],
     ...((p.cows>0||daily.milk>0)?[["milk","Собрать молоко",daily.milk||0,1]]:[]),
     ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Выставить молоко на рынок",daily.milk_listing||0,1]]:[]),
     ...((daily.feather>0||claimed.has("feather"))?[["feather","Собрать редкое перо",daily.feather||0,1]]:[])
