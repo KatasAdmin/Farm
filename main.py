@@ -4,6 +4,7 @@ import achievement_counters
 import weekly_missions
 import market_allocation
 import incubation_rules
+import stars_validation
 import release_grants
 import farm_wallet
 import referral_bridge
@@ -679,7 +680,7 @@ def stars_payment_received(message):
  with db() as c:
   x=c.execute("SELECT * FROM star_orders WHERE id=%s FOR UPDATE",(order_id,)).fetchone()
   if not x or x["status"]=="paid":return {"ok":True}
-  if (x["status"]!="created" or x["telegram_id"]!=message.get("from",{}).get("id") or paid.get("currency")!="XTR" or paid.get("total_amount")!=x["stars"]):
+  if not stars_validation.matches_order(x,message):
    logger.error("stars_payment_mismatch_order")
    return {"ok":True}
   if c.execute("SELECT 1 FROM star_orders WHERE charge_id=%s",(charge,)).fetchone():return {"ok":True}
