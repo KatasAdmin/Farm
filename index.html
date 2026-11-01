@@ -16,10 +16,18 @@
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
     <link rel="stylesheet" href="/assets/stars-mobile.css?v=13" />
     <link rel="stylesheet" href="/assets/market-polish.css?v=1" />
-    <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-    <script src="/assets/game.js?v=61" defer></script>
+    <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
+    <script src="/assets/game.js?v=62" defer></script>
   </head>
   <body>
+    <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
+      <h1 style="font-size:30px">🐔 Ферма</h1>
+      <p id="boot-status">Загружаем ферму…</p>
+      <button type="button" style="margin-top:16px;padding:14px 24px;border-radius:14px;border:1px solid #80d6ff;background:#1267b8;color:white;font-size:17px" onclick="if(window.retryFarmStartup)retryFarmStartup();else location.reload()">Повторить загрузку</button>
+      <noscript>Для запуска игры необходимо включить JavaScript.</noscript>
+    </section>
+    <style>#boot-screen[hidden]{display:none!important}</style>
+    <script>window.addEventListener('error',function(e){var s=document.getElementById('boot-screen'),p=document.getElementById('boot-status');if(s&&!s.hidden&&p)p.textContent='Не удалось загрузить игру. Нажми «Повторить загрузку».';},true);</script>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
     <section id="login" class="login" hidden>
       <img
@@ -203,7 +211,7 @@
           <details class="farm-explainer"><summary>Как рассчитывается прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Сытая курица несёт яйцо за 6 часов, гусыня — за 2 часа. Общее кормление раз в 18 часов: 1 зерно на курицу и 2 на гусыню. Производство всех сытых птиц складывается, поэтому яйца появляются чаще. Прогноз учитывает корм, сытость, автозакупку и место на складе. Гуси также дают редкое перо: около одного за 7 дней сытости на птицу; при заполненном складе новые ресурсы не сохраняются.</p></details>
           </div>
         </details>
-        <details class="card compact-harvest unified-primary-card forecast-card feather-forecast" data-feather-card>
+        <details class="card compact-harvest unified-primary-card forecast-card feather-forecast" data-feather-card hidden>
           <summary class="forecast-summary">🪶 Ближайшее перо</summary>
           <div class="forecast-details-content">
             <div class="feather-preview"><span class="feather-art" aria-hidden="true">🪶</span><div><span class="muted">При постоянном кормлении</span><strong data-feather-tick>—</strong></div></div>

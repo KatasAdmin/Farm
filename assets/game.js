@@ -1,5 +1,24 @@
 "use strict";
 const el = (id) => document.getElementById(id);
+// iOS WebViews may deny persistent storage. Keep this session usable regardless.
+const storage = (() => {
+  const memory = new Map();
+  return {
+    getItem(key) { if(memory.has(key))return memory.get(key); try { return window.localStorage.getItem(key); } catch (_) { return null; } },
+    setItem(key,value) { memory.set(key,String(value)); try { window.localStorage.setItem(key,String(value)); } catch (_) {} },
+    removeItem(key) { memory.delete(key); try { window.localStorage.removeItem(key); } catch (_) {} }
+  };
+})();
+function showStartupError() {
+  const screen=el("boot-screen");
+  if(screen) {screen.hidden=false;el("boot-status").textContent="Не удалось загрузить ферму. Проверь соединение и повтори попытку.";}
+}
+function retryFarmStartup() {
+  if(el("boot-status"))el("boot-status").textContent="Загружаем ферму…";
+  if(token)refresh();else showLogin();
+}
+function hideStartup() { const screen=el("boot-screen");if(screen)screen.hidden=true; }
+
 const art = {
   grain: "redesign/grain",
   eggs: "redesign/egg",
@@ -12,7 +31,7 @@ function eggQuantity(n) {
 }
 const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица", geese:"Гусыня", feathers:"Перо" };
 const number = (n) => new Intl.NumberFormat("ru-RU").format(n);
-let token = localStorage.getItem("farm_token");
+let token = storage.getItem("farm_token");
 let state = null,
   pending = false,
   chosenFilter = "all",
@@ -40,16 +59,20 @@ function toast(message) {
   toast.timer = setTimeout(() => (el("toast").hidden = true), 4500);
 }
 async function api(path, payload) {
-  const response = await fetch(path, {
-    method: payload === undefined ? "GET" : "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + (token || ""),
-    },
-    body: payload === undefined ? undefined : JSON.stringify(payload),
-    cache: "no-store",
-  });
-  const value = await response.json();
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),payload===undefined?15000:45000);
+  let response,value;
+  try {
+    response=await fetch(path, {
+      method: payload === undefined ? "GET" : "POST",
+      headers: {"Content-Type":"application/json",Authorization:"Bearer "+(token||"")},
+      body:payload===undefined?undefined:JSON.stringify(payload),cache:"no-store",signal:controller.signal
+    });
+    value=await response.json();
+  } catch(error) {
+    if(error.name==="AbortError")throw Error("Сервер не ответил вовремя. Обнови данные перед повтором действия.");
+    throw error;
+  } finally {clearTimeout(timer);}
   if (!response.ok) {
     const error = Error(
       typeof value.detail === "string"
@@ -208,10 +231,14 @@ async function completeTutorialStep() {
     else toast("Обучение завершено! Получено 5 монет.");
   }
 }
-function tgInitData() {return window.Telegram?.WebApp?.initData || "";}
+function tgInitData() {
+ const sdk=window.Telegram?.WebApp?.initData;
+ if(sdk)return sdk;
+ return new URLSearchParams(location.hash.slice(1)).get("tgWebAppData") || "";
+}
 async function useLoginResult(result) {
   token=result.token;
-  localStorage.setItem("farm_token",token);
+  storage.setItem("farm_token",token);
   await refresh();
 }
 async function telegramLogin() {
@@ -272,7 +299,8 @@ async function setAccountNickname(){
 }
 function showLogin() {
   token = null;
-  localStorage.removeItem("farm_token");
+  storage.removeItem("farm_token");
+  hideStartup();
   el("login").hidden = false;
   el("app").hidden = true;
   el("nav").hidden = true;
@@ -285,7 +313,7 @@ el("join-form").addEventListener("submit", async (event) => {
   try {
     const result = await api("/api/join", { name: el("name").value.trim(), gender: el("join-gender").value, password: el("register-password").value, referral: incomingReferralCode() });
     token = result.token;
-    localStorage.setItem("farm_token", token);
+    storage.setItem("farm_token", token);
     await refresh();
     el("register-password").value="";
   } catch (error) {
@@ -307,7 +335,7 @@ el("recover-form").addEventListener("submit",async event=>{
   try {
     const result=await api("/api/recovery/login",{name:el("recover-name").value.trim(),code:el("recover-code").value.trim()});
     token=result.token;
-    localStorage.setItem("farm_token",token);
+    storage.setItem("farm_token",token);
     el("recover-code").value="";
     await refresh();
     toast("Доступ к ферме восстановлен");
@@ -349,7 +377,7 @@ function tab(id) {
 }
 function dismissLaunchGuide(){
  if(!state?.me?.id)return;
- localStorage.setItem("farm_guide_dismissed_"+state.me.id,"1");
+ storage.setItem("farm_guide_dismissed_"+state.me.id,"1");
  const guide=el("launch-guide");
  if(guide)guide.hidden=true;
 }
@@ -916,7 +944,7 @@ function render() {
     button.textContent=!inc.owned?"Купить · "+number(inc.incubator_price)+" монет":"Заложить 12 яиц + 15 монет";
     button.disabled=pending||(!inc.owned?p.coins<inc.incubator_price:full||p.eggs<12||p.coins<15||p.chickens+(p.geese||0)+jobs.length>=state.buildings.coop_capacity);}
   const guide=el("launch-guide");
-  if(guide)guide.hidden=!(Date.now()/1000<(p.created_at||0)+3600 && !localStorage.getItem("farm_guide_dismissed_"+p.id));
+  if(guide)guide.hidden=!(Date.now()/1000<(p.created_at||0)+3600 && !storage.getItem("farm_guide_dismissed_"+p.id));
   const tutorial=state.tutorial||{};
   const step=Math.min(3,tutorial.step||0), card=el("tutorial-card");
   if(card){card.hidden=step>=3;if(step<3){el("tutorial-progress").textContent="Шаг "+(step+1)+" из 3";el("tutorial-instruction").textContent=["Посмотри, где живут твои курицы и когда они несут яйца.","Зерно можно купить на Рынке. Куры едят автоматически раз в 18 часов.","Из яиц можно вырастить кур в инкубаторе или продать их игрокам."][step];el("tutorial-next").textContent=["Посмотреть курятник","Где купить зерно?","Понятно · получить 5 монет"][step];}}
@@ -944,8 +972,8 @@ function render() {
   const last = state.last_farm_event;
   if (last && (last.kind === "eggs_produced" || last.kind === "chick_matured")) {
     const seenKey = "farm_seen_event_" + p.id;
-    if (localStorage.getItem(seenKey) !== last.id) {
-      localStorage.setItem(seenKey, last.id);
+    if (storage.getItem(seenKey) !== last.id) {
+      storage.setItem(seenKey, last.id);
       toast(last.kind === "chick_matured" ? "Цыплёнок вырос! +1 курица." : last.kind === "feathers_collected" ? "🪶 Собрано перьев: "+number(last.amount)+". Они на складе!" : "Птицы снесли " + number(last.amount) + " яиц! Они уже на складе.");
     }
   }
@@ -1012,6 +1040,7 @@ function render() {
   el("login").hidden = true;
   el("app").hidden = false;
   el("nav").hidden = false;
+  hideStartup();
   document.querySelectorAll("[data-value]").forEach((x) => {
     const v = p[x.dataset.value];
     x.textContent = typeof v === "number" ? number(v) : v;
@@ -1121,7 +1150,7 @@ function countdown() {
   document.querySelectorAll("[data-next-tick]").forEach(x => x.textContent = eggLabel);
   const gooseCount=state.me.geese||0, fedGeese=state.farm.fed_geese||0;
   const featherCard=document.querySelector('[data-feather-card]');
-  if(featherCard)featherCard.hidden=false;
+  if(featherCard)featherCard.hidden=!gooseCount;
   const featherRemaining=Math.max(0,(state.farm.seconds_to_next_feather||0)-elapsed);
   const warehouseFull=state.buildings.storage_used>=state.buildings.storage_capacity;
   const featherLabel=!gooseCount?"Нет гусей":warehouseFull?"Склад заполнен":!fedGeese?"Нужен корм":featherRemaining<=0?"Обновляем…":
@@ -1148,6 +1177,7 @@ async function refresh() {
       render();
     } catch (error) {
       if (error.status === 401) showLogin();
+      else if(el("app").hidden)showStartupError();
       else toast("Не удалось обновить данные: " + error.message);
     } finally {
       refreshPromise = null;
@@ -1180,9 +1210,9 @@ setInterval(() => {
 setInterval(countdown, 1000);
 tab("farm");
 if (token) refresh();
-else el("login").hidden = false;
+else showLogin();
 
-document.addEventListener("DOMContentLoaded",async ()=>{
+async function configureTelegramEntry(){
   const init=Boolean(tgInitData());
   let enabled=false;
   if(init) {
@@ -1190,7 +1220,11 @@ document.addEventListener("DOMContentLoaded",async ()=>{
     catch(e){enabled=false;}
   }
   document.querySelectorAll(".telegram-entry").forEach(x=>x.hidden=!(init&&enabled));
-});
+  window.Telegram?.WebApp?.ready?.();
+}
+configureTelegramEntry();
+window.addEventListener("telegram-sdk-ready",configureTelegramEntry);
+
 
 function openBotWallet(){
  const url="https://t.me/Farmlife2026bot?start=wallet";
@@ -1203,7 +1237,7 @@ function celebrateLevel(playerId,level){
  if(!playerId)return;
  const key="farm_seen_level_"+playerId;
  let previous=0;
- try{previous=Number(localStorage.getItem(key)||0);localStorage.setItem(key,String(Math.max(previous,level)));}catch(e){return;}
+ try{previous=Number(storage.getItem(key)||0);storage.setItem(key,String(Math.max(previous,level)));}catch(e){return;}
  if(!previous||level<=previous)return;
  const dialog=el("level-up-dialog");
  if(!dialog)return;

@@ -414,7 +414,7 @@ def advance(c,p,now=None):
  c.execute("UPDATE players SET coins=%s,grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,fed_hens=%s,feed_phase=%s,last_tick=%s WHERE id=%s",tuple(result[k] for k in ("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick"))+(p["id"],))
  return upgrade_production(c,update_incubation(c,result,now),now)
 @app.get("/",response_class=HTMLResponse)
-def index():return open("index.html",encoding="utf8").read()
+def index():return HTMLResponse(open("index.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
 @app.get("/health")
 def health():return {"ok":True,"release":RELEASE}
 @app.get("/health/revision/{revision}")
