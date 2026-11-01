@@ -1,0 +1,36 @@
+# Prelaunch deployment checklist — Farm
+
+This branch is NOT automatically safe to deploy. Do not merge while checks are missing.
+
+## Before deploying
+1. Confirm the exact commit in PR #40, review changes, and ensure GitHub Actions checks pass.
+2. Create a PostgreSQL backup using Railway's supported backup/export workflow. Record the backup timestamp and verify that the backup is restorable in an isolated database. Never test restore against production.
+3. Record counts and aggregate balances before deployment:
+   - players, market listings, farm events, withdrawal requests
+   - sum of player coins and withdrawable ledger amounts
+4. Verify Railway environment variables are present without copying secrets into logs or GitHub.
+5. Deploy first to a separate Railway service with a disposable PostgreSQL database; run migrations and smoke tests there.
+6. Verify auth, Telegram login, purchase, feed, collection, market, achievement claims, daily/weekly claims, and withdrawals using test accounts.
+7. Test duplicate/concurrent claims and webhook replay on staging.
+8. Only then merge and deploy during a monitored window; compare counts/balances after deployment.
+
+## Smoke tests
+- GET /health should return ok and release.
+- GET /api/state with a test account must return progression.staged_achievements.
+- POST /api/achievements/claim with item=eggs should award XP only after threshold.
+- Repeating the same claim must not award the same stage twice; if progress already covers the next stage, that next stage may legitimately be claimed.
+- Confirm level progression updates after the next state refresh.
+- Ensure players without geese/cows do not see unavailable forecast sections.
+- Test market purchases and withdrawals with separate test accounts, never live player funds.
+
+## Rollback
+- Retain the pre-deploy commit SHA and verified DB backup.
+- Application rollback does not undo committed database migrations or money movements.
+- New staged_achievement_claims table is additive; never drop it as a rollback shortcut.
+- If payment accounting differs, stop withdrawals and investigate before restoring or replaying events.
+
+## Current limitations
+- New mission-selection helper is not wired into daily/weekly claims.
+- Full financial security review and concurrency tests have not been completed.
+- GitHub Actions only checks syntax and unit tests, not PostgreSQL or Railway integration.
+- No production backup or staging restore has been verified.
