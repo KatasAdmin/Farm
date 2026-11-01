@@ -17,14 +17,12 @@ DAILY = (
     Mission("feeding", 1, "daily"),
     Mission("market_sales", 1, "daily"),
     Mission("milk_produced", 1, "daily"),
-    Mission("feathers_collected", 1, "daily"),
 )
 WEEKLY = (
     Mission("eggs_produced", 12, "weekly"),
     Mission("feeding", 5, "weekly"),
     Mission("market_sales", 3, "weekly"),
     Mission("milk_produced", 5, "weekly"),
-    Mission("feathers_collected", 2, "weekly"),
 )
 
 def eligible(mission, chickens=0, geese=0, cows=0):
