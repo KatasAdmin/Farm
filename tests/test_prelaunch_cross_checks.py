@@ -58,6 +58,45 @@ class PrelaunchCrossChecks(unittest.TestCase):
         self.assertIn("SUM(xp)", server)
         self.assertIn("pg_advisory_xact_lock(1984533)", server)
 
+
+    def test_actual_achievement_claim_endpoint_rejects_replay(self):
+        from unittest.mock import patch
+        import main
+        class Cursor:
+            def __init__(self, row=None, rows=None):
+                self.row = row
+                self.rows = rows or []
+            def fetchone(self):
+                return self.row
+            def fetchall(self):
+                return self.rows
+        class DB:
+            def __init__(self):
+                self.claimed = set()
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def execute(self, sql, args=()):
+                if "SELECT id FROM players" in sql:
+                    return Cursor({"id": "p"})
+                if "SELECT threshold FROM staged_achievement_claims" in sql:
+                    return Cursor(rows=[{"threshold": t} for t in self.claimed])
+                if "INSERT INTO staged_achievement_claims" in sql:
+                    threshold = args[2]
+                    if threshold in self.claimed:
+                        return Cursor()
+                    self.claimed.add(threshold)
+                    return Cursor({"threshold": threshold})
+                raise AssertionError("Unexpected query: " + sql)
+        db = DB()
+        with patch.object(main, "db", return_value=db), patch.object(main, "person", return_value={"id": "p"}), patch.object(main, "advance", side_effect=lambda c,p:p), patch.object(main.achievement_counters, "count", return_value=1):
+            result = main.claim_staged_achievement(main.Request(item="feathers"), "Bearer p")
+            self.assertEqual((result["threshold"], result["xp_awarded"]), (1, 10))
+            with self.assertRaises(main.HTTPException):
+                main.claim_staged_achievement(main.Request(item="feathers"), "Bearer p")
+        self.assertEqual(db.claimed, {1})
+
     def test_prelaunch_requires_staging_and_backup(self):
         checklist = (ROOT / "PRELAUNCH_CHECKLIST.md").read_text(encoding="utf8")
         self.assertIn("backup", checklist.lower())
