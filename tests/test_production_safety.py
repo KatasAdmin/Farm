@@ -95,6 +95,32 @@ class ProductionSafetyTest(unittest.TestCase):
         self.assertEqual(refills, [])
         self.assertLessEqual(p["grain"] + p["eggs"] + p["milk"] + p["feathers"], 100)
 
+    def test_feeding_happens_once_at_boundary(self):
+        first, _, _ = simulate(player(chickens=2, fed_hens=2, grain=10), 64801.0)
+        self.assertEqual(first["grain"], 8)
+        second, produced, refills = simulate(first, 64801.0)
+        self.assertEqual(second["grain"], 8)
+        self.assertEqual(produced, 0)
+        self.assertEqual(refills, [])
+
+    def test_auto_buy_spends_exactly_once(self):
+        base = player(grain=0, eggs=0, fed_hens=0,
+                      autobuy_enabled=True, autobuy_amount=4)
+        first, _, refills = simulate(base, 64801.0)
+        self.assertEqual(refills, [4])
+        self.assertEqual(first["coins"], 92)
+        self.assertEqual(first["grain"], 3)
+        second, _, repeat = simulate(first, 64801.0)
+        self.assertEqual(repeat, [])
+        self.assertEqual(second["coins"], 92)
+
+    def test_no_feed_no_new_production_after_boundary(self):
+        base = player(grain=0, chickens=1, fed_hens=1)
+        first, _, _ = simulate(base, 64801.0)
+        self.assertEqual(first["fed_hens"], 0)
+        second, produced, _ = simulate(first, 86401.0)
+        self.assertEqual(produced, 0)
+
     def test_simulation_does_not_mutate_input(self):
         original = player()
         simulate(original, 21601.0)
