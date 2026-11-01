@@ -931,8 +931,8 @@ def claim_staged_achievement(q:Request,authorization:str=Header(default="")):
   stage=achievement_stages.current_stage(track,total,claimed)
   if not stage or not stage["claimable"]:
    raise HTTPException(409,"Награда пока недоступна")
-  c.execute("INSERT INTO staged_achievement_claims(player_id,track,threshold,xp,claimed_at) VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING threshold",(p["id"],track,stage["threshold"],stage["xp"],time.time()))
-  if not c.fetchone():
+  inserted=c.execute("INSERT INTO staged_achievement_claims(player_id,track,threshold,xp,claimed_at) VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING threshold",(p["id"],track,stage["threshold"],stage["xp"],time.time())).fetchone()
+  if not inserted:
    raise HTTPException(409,"Награда уже получена")
   return {"ok":True,"track":track,"threshold":stage["threshold"],"xp_awarded":stage["xp"]}
 
