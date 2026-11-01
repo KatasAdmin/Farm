@@ -156,5 +156,24 @@ class PostgresMarketLedgerTests(unittest.TestCase):
             self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM referrals").fetchone()["n"],1)
 
 
+    def test_actual_referral_handler_rejects_concurrent_reciprocal_links(self):
+        import main
+        with self.connect() as c:
+            c.execute("CREATE TABLE referral_codes(player_id text PRIMARY KEY,code text UNIQUE NOT NULL)")
+            c.execute("CREATE TABLE referrals(child_id text PRIMARY KEY,parent_id text NOT NULL,created double precision)")
+            c.execute("INSERT INTO referral_codes VALUES('a','aaaaaaaaaaaaaaaa'),('b','bbbbbbbbbbbbbbbb')")
+        def register(args):
+            child,code=args
+            with self.connect() as c:
+                return main.register_referral(c,child,code,1.0)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results=list(pool.map(register,[('a','bbbbbbbbbbbbbbbb'),('b','aaaaaaaaaaaaaaaa')]))
+        with self.connect() as c:
+            links=c.execute("SELECT child_id,parent_id FROM referrals").fetchall()
+        self.assertEqual(len(links),1)
+        # The handler returns True for the successful registration only.
+        self.assertEqual(sum(results),1)
+
+
 if __name__ == '__main__':
     unittest.main()
