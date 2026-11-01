@@ -1040,7 +1040,7 @@ function render() {
     achievementList.innerHTML = stageRows.map(stage => {
       const [emoji] = labels[stage.track] || ["🏅"];
       const ready = Boolean(stage.claimable);
-      return '<div class="achievement-row"><span class="achievement-emoji">'+emoji+'</span><div><strong>'+stageTitle(stage)+'</strong><small>'+number(stage.progress)+' / '+number(stage.threshold)+' · +'+number(stage.xp)+' XP</small></div><button class="btn small" '+(ready?'':'disabled')+' onclick="claimAchievement(\\''+stage.track+'\\')">'+(ready?'Получить':'В процессе')+'</button></div>';
+      return '<div class="achievement-row"><span class="achievement-emoji">'+emoji+'</span><div><strong>'+stageTitle(stage)+'</strong><small>'+number(stage.progress)+' / '+number(stage.threshold)+' · +'+number(stage.xp)+' XP</small></div><button class="btn small" '+(ready?'':'disabled')+' onclick="claimAchievement(\''+stage.track+'\')">'+(ready?'Получить':'В процессе')+'</button></div>';
     }).join("");
   }
   const daily = state.daily || {};
