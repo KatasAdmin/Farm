@@ -34,3 +34,11 @@ This branch is NOT automatically safe to deploy. Do not merge while checks are m
 - Full financial security review and concurrency tests have not been completed.
 - GitHub Actions only checks syntax and unit tests, not PostgreSQL or Railway integration.
 - No production backup or staging restore has been verified.
+
+## Economy and production test matrix (2026-11-02)
+- Unit coverage added: chicken/goose/cow cycles, shared feeding, storage caps, zero-quantity autobuy, 45-day catch-up, truthful feather forecast, deterministic proportional market allocation, ROI.
+- Theoretical no-bottleneck payback: chicken 30 days, goose 24 days, cow 20 days. This is NOT a guaranteed cash return or marketplace sale.
+- Incubation still needs database-backed integration tests: one slot per incubator level, 12 eggs + 15 coins consumed atomically, maturity only once, coop-full jobs remain pending, no duplicate referral awards.
+- Marketplace still needs concurrent PostgreSQL transaction tests for competing buyers, cancel vs buy, seller payout provenance, and trade audit integrity.
+- Auto-grain purchases still need database tests for exact money-log/treasury reconciliation.
+- Run the full test workflow before claiming the release is ready; a file committed to GitHub is not a passing test.
