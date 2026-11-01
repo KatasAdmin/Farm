@@ -66,7 +66,7 @@ def simulate(p, now):
   if feed_at>now:break
   accrue(feed_at)
   refill=p["autobuy_amount"]
-  if p["autobuy_enabled"] and grain<hens+GOOSE_FEED*geese+COW_FEED*cows and coins>=GRAIN_PRICE*refill and grain+eggs+feathers+milk+refill<=capacity:
+  if p["autobuy_enabled"] and refill>0 and grain<hens+GOOSE_FEED*geese+COW_FEED*cows and coins>=GRAIN_PRICE*refill and grain+eggs+feathers+milk+refill<=capacity:
    coins-=GRAIN_PRICE*refill
    grain+=refill
    refills.append(refill)
@@ -139,9 +139,32 @@ def next_milk_delay(p,now):
   else:low=mid+1
  return low
 
+def next_feather_delay(p, now):
+ """First feather that actually fits in storage, including future feeding."""
+ if not p.get("geese", 0):
+  return None
+ fed=min(p.get("geese",0),p.get("fed_geese",0))
+ if fed:
+  candidate=max(0,(FEATHER_INTERVAL-p.get("feather_progress",0))/fed)
+  if simulate(p,now+candidate)[0].get("feathers",0)>p.get("feathers",0):
+   return candidate
+ feed_at=p["last_tick"]+(FEED_EVERY-p["feed_phase"])*CYCLE
+ high=math.ceil(max(0,feed_at-now)+2*FEATHER_INTERVAL+FEED_EVERY*CYCLE)
+ if simulate(p,now+high)[0].get("feathers",0)<=p.get("feathers",0):
+  return None
+ low=0
+ while low<high:
+  mid=(low+high)//2
+  if simulate(p,now+mid)[0].get("feathers",0)>p.get("feathers",0):
+   high=mid
+  else:
+   low=mid+1
+ return low
+
 def forecast(p,now,jobs=()):
  six,n6,r6=simulate(p,now+CYCLE)
  next_milk=next_milk_delay(p,now)
+ next_feather=next_feather_delay(p,now)
  twelve,n12,r12=simulate(p,now+2*CYCLE)
  fed=min(p["chickens"],p["fed_hens"])
  goose_fed=min(p.get("geese",0),p.get("fed_geese",0))
@@ -173,4 +196,5 @@ def forecast(p,now,jobs=()):
              next_milk_scheduled=next_milk is not None,seconds_to_next_milk=next_milk or 0,
              next_milk_status="scheduled" if next_milk is not None else "empty" if not p.get("cows",0) else "storage_full" if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)>=100*p["storage_level"] else "needs_feed",
              feathers_next_6h=six["feathers"]-p.get("feathers",0),
-             seconds_to_next_feather=(FEATHER_INTERVAL-p.get("feather_progress",0))/goose_fed if goose_fed else 0)
+             seconds_to_next_feather=next_feather or 0,next_feather_scheduled=next_feather is not None,
+             next_feather_status="scheduled" if next_feather is not None else "empty" if not p.get("geese",0) else "storage_full" if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)>=100*p["storage_level"] else "needs_feed")

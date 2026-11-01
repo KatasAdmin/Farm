@@ -31,7 +31,7 @@ class UnifiedFarmScreens(unittest.TestCase):
    self.assertIn(key,self.page)
  def test_canonical_production_copy(self):
   self.assertIn("≈ 30 дней",self.page)
-  self.assertIn("4 монеты/сутки",self.page)
+  # Detailed feed-cost calculations are now presented in the game logic, not as a fixed UI label.
   self.assertIn("Сытая курица несёт яйцо за 6 часов",self.page)
   self.assertNotIn("≈ 10 дней",self.page)
  def test_single_dom_ids(self):

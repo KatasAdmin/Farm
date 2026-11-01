@@ -30,8 +30,8 @@ def simulate(player, now):
         if phase:
             continue
         refill = p['autobuy_amount']
-        if (p['autobuy_enabled'] and grain < hens
-                and coins >= GRAIN_PRICE * max(1, refill)
+        if (p['autobuy_enabled'] and refill > 0 and grain < hens
+                and coins >= GRAIN_PRICE * refill
                 and grain + eggs + refill <= capacity):
             coins -= GRAIN_PRICE * refill
             grain += refill

@@ -9,7 +9,7 @@ from test_task_bot import Database
 class ExpansionTests(unittest.TestCase):
  def setUp(self):
   class C(Database):
-   def execute(self,sql,args=()):return super().execute(sql.replace('::int',''),args)
+   def execute(self,sql,args=()):return super().execute(sql.replace('::int','').replace('::bigint',''),args)
   self.c=C();c=self.c
   cols=dict(id='p',telegram_id=7,coins=0,chickens=0,geese=0,cows=0,fed_hens=0,fed_geese=0,fed_cows=0,eggs=0,grain=0,milk=0,feathers=0,coop_level=1,cowshed_level=1,storage_level=1,farmer_level=3)
   c.execute('CREATE TABLE players('+','.join(k+(' text PRIMARY KEY' if k=='id' else ' int') for k in cols)+')')
@@ -19,6 +19,7 @@ class ExpansionTests(unittest.TestCase):
   c.execute('CREATE TABLE referral_rewards(player_id text PRIMARY KEY,'+','.join(name+' bigint DEFAULT 0' for name in fields)+')')
   c.execute("INSERT INTO referral_rewards(player_id) VALUES('p')")
   c.execute('CREATE TABLE farm_events(id text,player_id text,kind text,amount int,created real)')
+  c.execute('CREATE TABLE market_trade_audit(id text,buyer_id text,seller_id text,item text,quantity int,coins int,created real)')
   c.execute('CREATE TABLE daily_claims(player_id text,day text,claim text,amount int,PRIMARY KEY(player_id,day,claim))')
   c.execute('CREATE TABLE weekly_claims(player_id text,week text,claimed_at real,amount int,PRIMARY KEY(player_id,week))')
   c.execute('CREATE TABLE daily_activity(player_id text,day text,grain_bought int,eggs_produced int,eggs_listed int)')
@@ -75,6 +76,49 @@ class ExpansionTests(unittest.TestCase):
    for i,rate in enumerate(main.REFERRAL_RATES,1):
     self.assertEqual(self.c.execute('SELECT '+field+' AS n FROM referral_rewards WHERE player_id=%s',(str(i),)).fetchone()['n'],rate)
    self.assertIsNone(self.c.execute("SELECT * FROM referral_rewards WHERE player_id='8'").fetchone())
+
+ def test_referral_seven_levels_do_not_duplicate_after_replay(self):
+  for i in range(8):
+   self.c.execute('INSERT INTO referrals VALUES(%s,%s)',('child' if i==0 else str(i),str(i+1)))
+  self.c.raw.commit()
+  # Exactly one organic award event must yield exactly seven downstream credits.
+  main.award_referral_resource(self.c,{'id':'child','telegram_id':7},'feathers',1)
+  field=feature.REFERRAL_FIELDS['feathers'][0]
+  first=[self.c.execute('SELECT '+field+' AS n FROM referral_rewards WHERE player_id=%s',(str(i),)).fetchone()['n'] for i in range(1,8)]
+  self.assertEqual(first,list(main.REFERRAL_RATES))
+  self.assertIsNone(self.c.execute("SELECT * FROM referral_rewards WHERE player_id='8'").fetchone())
+  # A second *independent* organic unit must add one more proportional share,
+  # without awarding any eighth-level commission.
+  main.award_referral_resource(self.c,{'id':'child','telegram_id':7},'feathers',1)
+  second=[self.c.execute('SELECT '+field+' AS n FROM referral_rewards WHERE player_id=%s',(str(i),)).fetchone()['n'] for i in range(1,8)]
+  self.assertEqual(second,[2*x for x in main.REFERRAL_RATES])
+  self.assertIsNone(self.c.execute("SELECT * FROM referral_rewards WHERE player_id='8'").fetchone())
+  self.assertEqual(self.p()['coins'],0)
+
+
+ def test_replayed_production_cursor_does_not_duplicate_referral_rewards(self):
+  from test_cows import dairy
+  initial=dairy(telegram_id=7,cows=1,fed_cows=1,geese=1,fed_geese=1,
+                chickens=1,fed_hens=1,grain=100,storage_level=10)
+  initial['id']='child'
+  initial['last_tick']=100000
+  initial['created_at']=0
+  class C:
+   def __init__(self):self.calls=[];self.row=None
+   def execute(self,sql,args=()):
+    self.calls.append((sql,args))
+    self.row={'parent_id':'parent'} if 'SELECT parent_id FROM referrals' in sql and args[0]=='child' else None
+    return self
+   def fetchone(self):return self.row
+  c=C()
+  with patch.object(main,'update_incubation',side_effect=lambda c,p,now:p):
+   first=main.advance(c,initial,100000+86400)
+   before=len([1 for sql,args in c.calls if 'INSERT INTO referral_rewards' in sql])
+   main.advance(c,first,100000+86400)
+   after=len([1 for sql,args in c.calls if 'INSERT INTO referral_rewards' in sql])
+  self.assertGreater(before,0)
+  self.assertEqual(after,before)
+
  def test_claimed_resources_do_not_immediately_pay_upline(self):
   self.c.execute("INSERT INTO referrals VALUES('p','parent')");self.grant('cows',10000)
   with self.context():main.referral_claim(main.Request(item='cows'),'')

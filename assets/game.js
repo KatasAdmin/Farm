@@ -127,6 +127,19 @@ async function perform(path, data) {
     busy(false);
   }
 }
+async function claimAchievement(track) {
+  if (pending || !["eggs","feathers","milk"].includes(track)) return;
+  try {
+    busy(true);
+    const result = await api("/api/achievements/claim",{item:track});
+    toast("Достижение получено: +" + number(result.xp_awarded) + " XP");
+    await refresh();
+  } catch(error) {
+    toast(error.message);
+  } finally {
+    busy(false);
+  }
+}
 async function claimDaily(key) {
   if (pending) return;
   const completed = await perform("/api/claim", {item:key});
@@ -1005,27 +1018,37 @@ function render() {
   const earned = new Set(progression.achievements || []);
   const total = progression.totals || {};
   const achievements = [
-    ["first_egg","redesign/egg","Первое яйцо",total.eggs_produced || 0,1],
-    ["ten_eggs","redesign/egg","120 произведённых яиц",total.eggs_produced || 0,120],
     ["three_hens","redesign/hen","Три несушки",p.chickens || 0,3],
     ["first_sale","redesign/shop-icon","Первая продажа яйца",total.eggs_sold || 0,1],
     ["hundred_sales","redesign/achievement","1200 проданных яиц",total.eggs_sold || 0,1200],
-    ...(progression.extra_achievements||[])
+    ...(progression.extra_achievements||[]).filter(row => !["first_milk","milk_hundred","first_feather","feather_five"].includes(row[0]))
   ];
   const achievementList = el("achievements-list");
   if (achievementList) achievementList.innerHTML = achievements.map(([key,icon,title,current,target]) => {
     const done = earned.has(key);
     return '<div class="achievement-row' + (done?' achievement-done':'') + '"><span class="achievement-emoji">'+image(icon)+'</span><div><strong>'+title+'</strong><small>'+(done?'Получено ✓':number(Math.min(current,target))+' / '+target)+'</small></div><span class="achievement-status">'+(done?'★':'—')+'</span></div>';
   }).join("");
+  const stageRows = progression.staged_achievements || [];
+  if (achievementList && stageRows.length) {
+    const labels = {eggs:["🥚","Яйца"],feathers:["🪶","Перья"],milk:["🥛","Молоко"],chickens_bought:["🐔","Куплено кур"],geese_bought:["🪿","Куплено гусей"],cows_bought:["🐄","Куплено коров"],market_sales:["📦","Продано товаров"],market_purchases:["🛒","Куплено на рынке"],feeding:["🌾","Скормлено зерна"]};
+    const rows = stageRows.map(stage => {
+      const [emoji,label] = labels[stage.track] || ["🏅","Достижение"];
+      const ready = Boolean(stage.claimable);
+      return '<div class="achievement-row"><span class="achievement-emoji">'+emoji+'</span><div><strong>'+label+': '+number(stage.threshold)+'</strong><small>'+number(stage.progress)+' / '+number(stage.threshold)+' · +'+number(stage.xp)+' XP</small></div><button class="btn small" '+(ready?'':'disabled')+' onclick="claimAchievement(\''+stage.track+'\')">'+(ready?'Получить':'В процессе')+'</button></div>';
+    }).join("");
+    achievementList.insertAdjacentHTML("beforeend",rows);
+  }
   const daily = state.daily || {};
   const claimed = new Set(state.claimed_rewards || []);
   const dailyMissions = [
     ["grain", "Купить 5 зерна", daily.grain_bought || 0, 5],
     ["eggs", "Получить 3 яйца от птиц", daily.eggs_produced || 0, 3],
     ["listing", "Выставить яйцо на продажу", daily.eggs_listed || 0, 1],
+    ["market_sale", "Продать товар на рынке", daily.market_sale || 0, 1],
+    ...(((p.chickens||0)+(p.geese||0)+(p.cows||0)>0||daily.feeding>0)?[["feeding","Покормить животных",daily.feeding||0,1]]:[]),
     ...((p.cows>0||daily.milk>0)?[["milk","Собрать молоко",daily.milk||0,1]]:[]),
     ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Выставить молоко на рынок",daily.milk_listing||0,1]]:[]),
-    ...((p.geese>0||daily.feather>0)?[["feather","Собрать перо",daily.feather||0,1]]:[])
+    ...((daily.feather>0||claimed.has("feather"))?[["feather","Собрать редкое перо",daily.feather||0,1]]:[])
   ];
   const dailyBox = el("daily-tasks");
   if (dailyBox) {
@@ -1094,12 +1117,12 @@ function render() {
   const weekly=state.weekly||{}, targets=weekly.targets||{};
   let weeklyDone=true;
   for (const key of ["grain","eggs","listed"]) {
-    const target=targets[key]||1,value=key==="eggs"&&weekly.milk>=3?target:Math.min(target,weekly[key]||0);
+    const target=targets[key]||1,value=key==="eggs"&&weekly.milk>=3?target:key==="grain"&&weekly.feeding>=5?target:key==="listed"&&weekly.market_sales>=3?target:Math.min(target,weekly[key]||0);
     weeklyDone=weeklyDone&&value>=target;
     const count=el("weekly-count-"+key)||document.querySelector(`[data-weekly="${key}"]`);
     const bar=document.querySelector(`[data-weekly-bar="${key}"]`);
     const status=document.querySelector(`[data-weekly-status="${key}"]`);
-    if(count)count.textContent=key==="eggs"?Math.min(target,weekly.eggs||0)+" / "+target+" яиц · "+Math.min(3,weekly.milk||0)+" / 3 молока":value+" / "+target;
+    if(count)count.textContent=key==="eggs"?Math.min(target,weekly.eggs||0)+" / "+target+" яиц · "+Math.min(3,weekly.milk||0)+" / 3 молока":key==="grain"?Math.min(10,weekly.grain||0)+" / 10 зерна · "+Math.min(5,weekly.feeding||0)+" / 5 скормлено":key==="listed"?Math.min(3,weekly.listed||0)+" / 3 выставлено · "+Math.min(3,weekly.market_sales||0)+" / 3 продано":value+" / "+target;
     if(bar)bar.style.width=(100*value/target)+"%";
     if(status)status.textContent=value>=target?"Готово":"В процессе";
   }
@@ -1177,7 +1200,7 @@ function countdown() {
   if(featherCard)featherCard.hidden=!gooseCount;
   const featherRemaining=Math.max(0,(state.farm.seconds_to_next_feather||0)-elapsed);
   const warehouseFull=state.buildings.storage_used>=state.buildings.storage_capacity;
-  const featherLabel=!gooseCount?"Нет гусей":warehouseFull?"Склад заполнен":!fedGeese?"Нужен корм":featherRemaining<=0?"Обновляем…":
+  const featherLabel=!gooseCount?"Нет гусей":!state.farm.next_feather_scheduled?(state.farm.next_feather_status==="storage_full"?"Склад заполнен":"Нет доступного сбора — проверь корм"):featherRemaining<=0?"Обновляем…":
     (featherRemaining>=86400?Math.floor(featherRemaining/86400)+" д ":"")+clockDuration(featherRemaining%86400);
   document.querySelectorAll('[data-feather-tick]').forEach(x=>x.textContent=featherLabel);
   const featherProgress=Math.min(100,100*((state.me.feather_progress||0)+fedGeese*elapsed)/(7*86400));

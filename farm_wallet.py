@@ -69,7 +69,34 @@ def split_receipts(receipts,bonus):
     return shares
 
 
+def split_market_sources(receipts, balances_before, cost):
+    """Preserve non-withdrawable provenance through player-to-player trades.
+
+    Shop/market spending consumes bonus, then purchased, then earned.
+    Market sellers receive earned only for the buyer's earned-funded share.
+    """
+    if cost != sum(value for _, value in receipts) or cost < 0:
+        raise ValueError('Invalid market receipt total')
+    bonus=min(cost, balances_before['bonus'])
+    purchased=min(cost-bonus, balances_before['purchased'])
+    earned=cost-bonus-purchased
+    if earned>balances_before['earned']:
+        raise ValueError('Market payment exceeds available funds')
+    bonus_parts=split_receipts(receipts,bonus)
+    purchased_parts=split_receipts(receipts,purchased)
+    # Integer rounding can cause two independently rounded shares to exceed
+    # one seller's receipt. Allocate purchased from remaining per-seller space.
+    capacity=[(key,amount-bonus_parts[key]) for key,amount in receipts]
+    purchased_parts=split_receipts(capacity,purchased) if purchased else {key:0 for key,_ in receipts}
+    return {key: {'bonus':bonus_parts[key], 'purchased':purchased_parts[key],
+                  'earned':amount-bonus_parts[key]-purchased_parts[key]}
+            for key,amount in receipts}
+
 def transfer(c, player, amount, key, bot):
+    if type(amount) is not int or not 100 <= amount <= 1000000:
+        raise HTTPException(400, 'Допустимый перевод — от 100 до 1000000 монет')
+    if not isinstance(key, str) or len(key) > 128 or not key:
+        raise HTTPException(400, 'Некорректный номер перевода')
     uid=player['telegram_id']
     if not uid:raise HTTPException(403,'Сначала привяжите Telegram в профиле игры')
     old=c.execute('SELECT player_id,telegram_id,amount FROM farm_bot_transfers WHERE id=%s',(key,)).fetchone()

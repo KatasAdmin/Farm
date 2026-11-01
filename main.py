@@ -1,4 +1,10 @@
 import farm_expansion
+import achievement_stages
+import achievement_counters
+import weekly_missions
+import market_allocation
+import incubation_rules
+import stars_validation
 import release_grants
 import farm_wallet
 import referral_bridge
@@ -81,6 +87,7 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS telegram_processed_updates(update_id bigint PRIMARY KEY,received_at double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS telegram_processed_messages(chat_id bigint NOT NULL,message_id bigint NOT NULL,received_at double precision NOT NULL,PRIMARY KEY(chat_id,message_id))")
   c.execute("CREATE TABLE IF NOT EXISTS star_orders(id text PRIMARY KEY,player_id text NOT NULL,telegram_id bigint NOT NULL,coins integer NOT NULL CHECK(coins>0),stars integer NOT NULL CHECK(stars>0),status text NOT NULL DEFAULT 'created',created double precision NOT NULL,charge_id text UNIQUE)")
+  c.execute("CREATE TABLE IF NOT EXISTS stars_refund_intents(order_id text PRIMARY KEY,charge_id text NOT NULL,telegram_id bigint NOT NULL,status text NOT NULL CHECK(status IN ('calling','confirmed','needs_review')),created double precision NOT NULL,updated double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS farm_launch_resets(run_id text PRIMARY KEY,reset_at timestamptz NOT NULL DEFAULT now(),prior_player_count integer NOT NULL,preserved_payment_count integer NOT NULL)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS purchased_coins bigint NOT NULL DEFAULT 0")
   c.execute("CREATE INDEX IF NOT EXISTS star_orders_player ON star_orders(player_id,created)")
@@ -127,6 +134,7 @@ async def lifespan(app):
 
 
   farm_expansion.initialize(c)
+  c.execute("CREATE TABLE IF NOT EXISTS staged_achievement_claims(player_id text NOT NULL, track text NOT NULL, threshold integer NOT NULL, xp integer NOT NULL CHECK(xp>0), claimed_at double precision NOT NULL, PRIMARY KEY(player_id,track,threshold))")
   c.execute("CREATE TABLE IF NOT EXISTS player_achievements(player_id text NOT NULL,achievement text NOT NULL,unlocked_at double precision NOT NULL,PRIMARY KEY(player_id,achievement))")
   c.execute("CREATE TABLE IF NOT EXISTS promo_codes(code_hash text PRIMARY KEY,amount integer NOT NULL CHECK(amount>0),redeemed_by text,redeemed_at double precision)")
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("2fd7af1234b12ab6eea8f3317fedea22d7d579ec4ca6a88ec021c6a985374ca8",))
@@ -144,8 +152,9 @@ async def lifespan(app):
   task_bot.initialize(c)
   logger.warning("farm_startup_bot_schema_ready")
   farm_wallet.initialize(c)
-  if release_grants.apply(c,task_bot):
-   logger.warning("one_time_wallet_grant_applied uid=%s kopeks=%s",release_grants.UID,release_grants.AMOUNT)
+  if os.environ.get("FARM_STAGING", "").lower() not in ("1", "true", "yes"):
+   if release_grants.apply(c,task_bot):
+    logger.warning("one_time_wallet_grant_applied uid=%s kopeks=%s",release_grants.UID,release_grants.AMOUNT)
  logger.warning("farm_startup_schema_committed")
  # Register this dedicated farm bot's webhook without blocking game startup on Telegram outages.
  try:
@@ -254,6 +263,13 @@ def telegram_identity(raw):
 def person(c,h,lock=False):
  p=c.execute("SELECT * FROM players WHERE token=%s"+(" FOR UPDATE" if lock else ""),(h.replace("Bearer ",""),)).fetchone()
  if not p:raise HTTPException(401,"Войдите в игру")
+ if lock:
+  pending=c.execute("""SELECT 1 FROM stars_refund_intents i
+     JOIN star_orders o ON o.id=i.order_id
+     WHERE o.player_id=%s AND i.status IN ('calling','needs_review')
+     LIMIT 1""",(p["id"],)).fetchone()
+  if pending:
+   raise HTTPException(423,"Операции временно заблокированы: возврат Stars ожидает проверки")
  return p
 def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
@@ -280,8 +296,7 @@ def cowshed_limit(p):return 2*p.get("cowshed_level",1)
 def upgrade_cost(kind,level):return {"coop":40,"storage":30,"cowshed":50}[kind]*level
 def update_incubation(c,p,now):
  jobs=c.execute("SELECT id FROM incubation_jobs WHERE player_id=%s AND mature_at<=%s ORDER BY mature_at,id FOR UPDATE",(p["id"],now)).fetchall()
- free=max(0,coop_limit(p)-p["chickens"]-p.get("geese",0))
- matured=min(len(jobs),free)
+ matured=incubation_rules.available_maturity_slots(coop_limit(p),p["chickens"],p.get("geese",0),len(jobs))
  if matured:
   for row in jobs[:matured]:c.execute("DELETE FROM incubation_jobs WHERE id=%s",(row["id"],))
   c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(matured,matured,p["id"]))
@@ -301,10 +316,21 @@ def referral_units(produced,level):return max(0,int(produced))*REFERRAL_RATES[le
 
 def register_referral(c,child_id,code,now):
  if not isinstance(code,str) or len(code)!=16 or any(ch not in "0123456789abcdef" for ch in code):return False
+ # Serialize parent assignments so reciprocal concurrent registrations cannot
+ # both pass the cycle check on separate transaction snapshots.
+ c.execute("SELECT pg_advisory_xact_lock(1984533)")
  parent=c.execute("SELECT player_id FROM referral_codes WHERE code=%s",(code,)).fetchone()
  if not parent or parent["player_id"]==child_id:return False
- c.execute("INSERT INTO referrals(child_id,parent_id,created) VALUES(%s,%s,%s) ON CONFLICT(child_id) DO NOTHING",(child_id,parent["player_id"],now))
- return True
+ # Referrals must form a directed acyclic graph: an existing descendant
+ # cannot later become this player's parent.
+ cycle=c.execute("""WITH RECURSIVE descendants(id) AS (
+   SELECT child_id FROM referrals WHERE parent_id=%s
+   UNION
+   SELECT r.child_id FROM referrals r JOIN descendants d ON r.parent_id=d.id
+ ) SELECT 1 FROM descendants WHERE id=%s LIMIT 1""",(child_id,parent["player_id"])).fetchone()
+ if cycle:return False
+ inserted=c.execute("INSERT INTO referrals(child_id,parent_id,created) VALUES(%s,%s,%s) ON CONFLICT(child_id) DO NOTHING RETURNING child_id",(child_id,parent["player_id"],now)).fetchone()
+ return bool(inserted)
 
 def award_referral_resource(c,child,item,amount):
  """Exact fractional bonuses from legitimate own resource acquisition only.
@@ -408,6 +434,9 @@ def advance(c,p,now=None):
   if feather_gain:
    award_referral_resource(c,p,"feathers",feather_gain)
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"feathers_collected",feather_gain,now))
+  fed_grain=max(0,p["grain"]+sum(refills)-result["grain"])
+  if fed_grain:
+   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"grain_fed",fed_grain,now))
   keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress","geese","fed_geese","feathers","feather_progress","cows","fed_cows","milk","milk_progress")
   c.execute("UPDATE players SET "+",".join(k+"=%s" for k in keys)+" WHERE id=%s",tuple(result[k] for k in keys)+(p["id"],))
   return update_incubation(c,result,now)
@@ -423,12 +452,25 @@ def advance(c,p,now=None):
   c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,produced))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
   award_referrals(c,p,produced,now)
+ fed_grain=max(0,p["grain"]+sum(refills)-result["grain"])
+ if fed_grain:
+  c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"grain_fed",fed_grain,now))
  c.execute("UPDATE players SET coins=%s,grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,fed_hens=%s,feed_phase=%s,last_tick=%s WHERE id=%s",tuple(result[k] for k in ("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick"))+(p["id"],))
  return upgrade_production(c,update_incubation(c,result,now),now)
 @app.get("/",response_class=HTMLResponse)
 def index():return HTMLResponse(open("index.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
 @app.get("/health")
 def health():return {"ok":True,"release":RELEASE}
+@app.get("/health/db")
+def health_db():
+ try:
+  with db() as c:
+   c.execute("SELECT 1").fetchone()
+  return {"ok":True,"database":"reachable","release":RELEASE}
+ except Exception:
+  logger.exception("farm_database_readiness_failed")
+  raise HTTPException(503,"Database unavailable")
+
 @app.get("/health/revision/{revision}")
 @app.post("/health/revision/{revision}")
 def revision_health(revision:str):
@@ -576,33 +618,58 @@ def farm_admin_star_orders(chat_id):
 def stars_refund_order(order_id,admin_id):
  if not isinstance(order_id,str) or len(order_id)!=32 or any(ch not in "0123456789abcdef" for ch in order_id):
   return "Неверный номер заказа."
+ # Phase 1: persist a single non-retryable intent BEFORE the external call.
+ # No second admin request may invoke refundStarPayment for this order.
  with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   order=c.execute("SELECT * FROM star_orders WHERE id=%s FOR UPDATE",(order_id,)).fetchone()
   if not order:return "Заказ не найден."
   if order["status"]=="refunded":return "Заказ уже возвращён."
   if order["status"]!="paid" or not order["charge_id"]:return "Заказ не оплачен."
+  intent=c.execute("SELECT status FROM stars_refund_intents WHERE order_id=%s FOR UPDATE",(order_id,)).fetchone()
+  if intent:
+   return "Возврат уже обрабатывался ("+intent["status"]+"). Повторный запрос в Telegram запрещён; требуется проверка."
   player=c.execute("SELECT coins,purchased_coins FROM players WHERE id=%s FOR UPDATE",(order["player_id"],)).fetchone()
   archived=False
   if player is None:
    reset=c.execute("SELECT EXTRACT(EPOCH FROM reset_at) AS ts FROM farm_launch_resets WHERE run_id=%s",("prelaunch-2026-10-30-final",)).fetchone()
    archived=bool(reset and order["created"]<=reset["ts"])
-   if not archived:
-    return "Игрок не найден. Автовозврат заблокирован, требуется ручная проверка."
+   if not archived:return "Игрок не найден. Требуется ручная проверка."
   elif player["coins"]<order["coins"] or player["purchased_coins"]<order["coins"]:
-   return "Автовозврат заблокирован: монеты уже потрачены или переданы. Нужна ручная проверка."
+   return "Монеты уже потрачены или переданы. Нужна ручная проверка."
   if player is not None and farm_wallet.balances(c,{**player,'id':order['player_id']})['purchased']<order['coins']:
-   return "Автовозврат заблокирован: оплаченные монеты потрачены или переданы. Бонусы не заменяют оплаченный остаток."
-  # Hold the order/player row locks while contacting Telegram; reject concurrent purchases
-  # and inventory changes until the result is recorded.
-  try:
-   telegram_api("refundStarPayment",{"user_id":order["telegram_id"],"telegram_payment_charge_id":order["charge_id"]})
-  except Exception:
-   logger.exception("telegram_stars_refund_failed")
-   return "Telegram не подтвердил возврат. Баланс игры не менялся; проверьте транзакцию."
-  c.execute("UPDATE star_orders SET status='refunded' WHERE id=%s AND status='paid'",(order_id,))
-  if not archived:
-   c.execute("UPDATE players SET coins=coins-%s,purchased_coins=purchased_coins-%s WHERE id=%s",(order["coins"],order["coins"],order["player_id"]))
-   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,order["player_id"],"stars_refund",-order["coins"],"Возврат покупки — "+str(order["stars"])+" ⭐",time.time()))
+   return "Оплаченный остаток недостаточен. Нужна ручная проверка."
+  c.execute("INSERT INTO stars_refund_intents(order_id,charge_id,telegram_id,status,created,updated) VALUES(%s,%s,%s,'calling',%s,%s)",(order_id,order["charge_id"],order["telegram_id"],time.time(),time.time()))
+ # Phase 2: external effect. Any exception is ambiguous; never auto-retry.
+ try:
+  telegram_api("refundStarPayment",{"user_id":order["telegram_id"],"telegram_payment_charge_id":order["charge_id"]})
+ except Exception:
+  logger.exception("telegram_stars_refund_unknown_outcome order=%s",order_id)
+  with db() as c:
+   c.execute("UPDATE stars_refund_intents SET status='needs_review',updated=%s WHERE order_id=%s AND status='calling'",(time.time(),order_id))
+  return "Результат возврата Telegram неизвестен. Повтор заблокирован, нужна ручная сверка."
+ # Phase 3: record confirmation and ledger debit atomically.
+ try:
+  with db() as c:
+   intent=c.execute("SELECT status FROM stars_refund_intents WHERE order_id=%s FOR UPDATE",(order_id,)).fetchone()
+   current=c.execute("SELECT * FROM star_orders WHERE id=%s FOR UPDATE",(order_id,)).fetchone()
+   if not intent or intent["status"]!="calling" or not current or current["status"]!="paid":
+    raise RuntimeError("Refund state changed during external call")
+   current_player=c.execute("SELECT coins,purchased_coins FROM players WHERE id=%s FOR UPDATE",(order["player_id"],)).fetchone()
+   if not archived:
+    if not current_player or current_player["coins"]<order["coins"] or current_player["purchased_coins"]<order["coins"]:
+     raise RuntimeError("Insufficient balance after Telegram refund")
+    if farm_wallet.balances(c,{**current_player,'id':order['player_id']})['purchased']<order['coins']:
+     raise RuntimeError("Insufficient purchased provenance after Telegram refund")
+    c.execute("UPDATE players SET coins=coins-%s,purchased_coins=purchased_coins-%s WHERE id=%s",(order["coins"],order["coins"],order["player_id"]))
+    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,order["player_id"],"stars_refund",-order["coins"],"Возврат покупки — "+str(order["stars"])+" ⭐",time.time()))
+   c.execute("UPDATE star_orders SET status='refunded' WHERE id=%s",(order_id,))
+   c.execute("UPDATE stars_refund_intents SET status='confirmed',updated=%s WHERE order_id=%s",(time.time(),order_id))
+ except Exception:
+  logger.exception("telegram_stars_refund_ledger_reconciliation_required order=%s",order_id)
+  with db() as c:
+   c.execute("UPDATE stars_refund_intents SET status='needs_review',updated=%s WHERE order_id=%s AND status='calling'",(time.time(),order_id))
+  return "Telegram подтвердил возврат, но запись в игре требует ручной сверки. Повтор запрещён."
  return "✅ Возврат "+str(order["stars"])+" ⭐ подтверждён; архивный аккаунт ранее удалён." if archived else "✅ Telegram подтвердил возврат "+str(order["stars"])+" ⭐; списано "+str(order["coins"])+" игровых монет."
 
 def farm_admin_refund_prompt(chat_id,order_id):
@@ -650,12 +717,27 @@ def stars_payment_received(message):
  with db() as c:
   x=c.execute("SELECT * FROM star_orders WHERE id=%s FOR UPDATE",(order_id,)).fetchone()
   if not x or x["status"]=="paid":return {"ok":True}
-  if (x["status"]!="created" or x["telegram_id"]!=message.get("from",{}).get("id") or paid.get("currency")!="XTR" or paid.get("total_amount")!=x["stars"]):
+  if not stars_validation.matches_order(x,message):
    logger.error("stars_payment_mismatch_order")
    return {"ok":True}
-  if c.execute("SELECT 1 FROM star_orders WHERE charge_id=%s",(charge,)).fetchone():return {"ok":True}
+  prior=c.execute("SELECT id FROM star_orders WHERE charge_id=%s",(charge,)).fetchone()
+  if prior:
+   logger.error("stars_charge_reused charge_order=%s incoming_order=%s",prior["id"],order_id)
+   return {"ok":True}
+  # Lock the player before crediting. The refund flow locks its order and
+  # player, and a pending refund intent must not silently admit new funds.
+  owner=c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(x["player_id"],)).fetchone()
+  if not owner:
+   raise RuntimeError("Stars payment player missing; do not mark charge paid")
+  unresolved=c.execute("""SELECT 1 FROM stars_refund_intents i
+      JOIN star_orders o ON o.id=i.order_id
+      WHERE o.player_id=%s AND i.status IN ('calling','needs_review') LIMIT 1""",(x["player_id"],)).fetchone()
+  if unresolved:
+   raise RuntimeError("Stars payment deferred: refund reconciliation pending")
   c.execute("UPDATE star_orders SET status='paid',charge_id=%s WHERE id=%s",(charge,order_id))
-  c.execute("UPDATE players SET coins=coins+%s,purchased_coins=purchased_coins+%s WHERE id=%s",(x["coins"],x["coins"],x["player_id"]))
+  credited=c.execute("UPDATE players SET coins=coins+%s,purchased_coins=purchased_coins+%s WHERE id=%s RETURNING id",(x["coins"],x["coins"],x["player_id"])).fetchone()
+  if not credited:
+   raise RuntimeError("Stars payment cannot be credited: player is missing; transaction rolled back")
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,x["player_id"],"stars_purchase",x["coins"],"Покупка за "+str(x["stars"])+" Stars",time.time()))
   task_bot.bot_notifications.enqueue(c,"farm-stars-paid:"+order_id,tr('✅ Оплата Stars в ферме\n\nИгрок: {v0}\nОплачено: {v1} Stars\nНачислено: {v2} монет', {'v0': str(x['telegram_id']), 'v1': str(x['stars']), 'v2': str(x['coins'])}, section='notifications'),"admin:payments:farm:0",subject=x["telegram_id"])
  task_bot.bot_notifications.wake()
@@ -911,6 +993,25 @@ def set_nickname(q:Request,authorization:str=Header(default="")):
  return {"ok":True,"name":name}
 
 
+@app.post("/api/achievements/claim")
+def claim_staged_achievement(q:Request,authorization:str=Header(default="")):
+ track=q.item
+ if track not in achievement_counters.SUPPORTED:
+  raise HTTPException(400,"Неизвестное достижение")
+ with db() as c:
+  p=advance(c,person(c,authorization,True))
+  # Serialize claims per player, including concurrent requests from different devices.
+  c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(p["id"],))
+  total=achievement_counters.count(c,p["id"],track)
+  claimed={row["threshold"] for row in c.execute("SELECT threshold FROM staged_achievement_claims WHERE player_id=%s AND track=%s",(p["id"],track)).fetchall()}
+  stage=achievement_stages.current_stage(track,total,claimed)
+  if not stage or not stage["claimable"]:
+   raise HTTPException(409,"Награда пока недоступна")
+  inserted=c.execute("INSERT INTO staged_achievement_claims(player_id,track,threshold,xp,claimed_at) VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING threshold",(p["id"],track,stage["threshold"],stage["xp"],time.time())).fetchone()
+  if not inserted:
+   raise HTTPException(409,"Награда уже получена")
+  return {"ok":True,"track":track,"threshold":stage["threshold"],"xp_awarded":stage["xp"]}
+
 @app.get("/api/state")
 def state(authorization:str=Header(default="")):
  with db() as c:
@@ -938,6 +1039,8 @@ def state(authorization:str=Header(default="")):
   extra_daily=farm_expansion.progress(c,p["id"],day_start,day_start+86400)
   day_stats["feathers"]=extra_daily.get("feathers_collected",0)
   activity.update({key:extra_daily.get(kind,0) for key,(kind,target) in farm_expansion.EXTRA_MISSIONS.items()})
+  activity["feeding"]=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],day_start,day_start+86400)).fetchone()["n"]
+  activity["market_sale"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],day_start,day_start+86400)).fetchone()["n"]
   extra_totals=farm_expansion.progress(c,p["id"])
   extra_achievements=farm_expansion.achievement_rows(p,extra_totals)
   claims=[x["claim"] for x in c.execute("SELECT claim FROM daily_claims WHERE player_id=%s AND day=%s",(p["id"],day)).fetchall()]
@@ -951,6 +1054,8 @@ def state(authorization:str=Header(default="")):
       FROM daily_activity WHERE player_id=%s AND day>=%s""",(p["id"],week)).fetchone()
   weekly_extra=farm_expansion.progress(c,p["id"],week_start,week_start+604800)
   weekly_stats["listed"]+=weekly_extra.get("milk_listed",0)
+  weekly_stats["feeding"]=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
+  weekly_stats["market_sales"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
   weekly_claimed=bool(c.execute("SELECT 1 FROM weekly_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
   totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
@@ -966,7 +1071,8 @@ def state(authorization:str=Header(default="")):
   egg_xp=5*old_eggs+5*((max(0,totals["eggs_produced"]-old_eggs)+11)//12)
   listing_xp=2*old_listed+2*((max(0,totals["eggs_listed"]-old_listed)+11)//12)
   sales_xp=3*old_sold+3*((max(0,sold-old_sold)+11)//12)
-  xp=totals["grain_bought"]+egg_xp+listing_xp+sales_xp+10*hens_bought+15*missions+20*upgrades+25*hatched+20*packs+p.get("goose_xp",0)+p.get("cow_xp",0)
+  staged_xp=c.execute("SELECT COALESCE(SUM(xp),0)::int AS xp FROM staged_achievement_claims WHERE player_id=%s",(p["id"],)).fetchone()["xp"]
+  xp=totals["grain_bought"]+egg_xp+listing_xp+sales_xp+10*hens_bought+15*missions+20*upgrades+25*hatched+20*packs+p.get("goose_xp",0)+p.get("cow_xp",0)+staged_xp
   import math
   level=max(p.get("farmer_level",1),1+math.isqrt(xp//25))
   if level>p.get("farmer_level",1):
@@ -984,6 +1090,10 @@ def state(authorization:str=Header(default="")):
   for key,yes in unlocked.items():
    if yes:c.execute("INSERT INTO player_achievements(player_id,achievement,unlocked_at) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING",(p["id"],key,time.time()))
   achievements=[x["achievement"] for x in c.execute("SELECT achievement FROM player_achievements WHERE player_id=%s",(p["id"],)).fetchall()]
+  staged_claims=c.execute("SELECT track,threshold FROM staged_achievement_claims WHERE player_id=%s",(p["id"],)).fetchall()
+  staged_claimed={track:{row['threshold'] for row in staged_claims if row['track']==track} for track in achievement_stages.TRACKS}
+  staged_totals={track:achievement_counters.count(c,p['id'],track) for track in achievement_counters.SUPPORTED}
+  staged_achievements=[stage for track,total in staged_totals.items() if (stage:=achievement_stages.current_stage(track,total,staged_claimed[track])) is not None]
   promotion={"active":time.time()<p["created_at"]+PROMO_SECONDS and p["bundle_uses"]<5,"seconds_left":max(0,int(p["created_at"]+PROMO_SECONDS-time.time())),"used":p["bundle_uses"],"limit":5,"price":PROMO_PRICE,"value":600}
   jobs=c.execute("SELECT id,started,hatch_at,mature_at FROM incubation_jobs WHERE player_id=%s ORDER BY started,id",(p["id"],)).fetchall()
   stage_seconds=incubation_stages(p["incubator_level"])
@@ -994,7 +1104,7 @@ def state(authorization:str=Header(default="")):
   prediction=forecast_v4(p,observed_at,jobs) if p.get('production_model',3)>=4 else forecast(p,observed_at,jobs)
   expected_eggs=min(p["fed_hens"]+3*p.get("fed_geese",0),max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0)))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":p.get("cows",0),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
+  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":p.get("cows",0),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -1111,34 +1221,29 @@ def buy(q:Request,authorization:str=Header(default="")):
   p=advance(c,person(c,authorization,True))
   rows=c.execute("SELECT * FROM market WHERE item=%s AND seller<>%s AND quantity>0 ORDER BY price,id FOR UPDATE",(q.item,p["id"])).fetchall()
   if sum(x["quantity"] for x in rows)<q.amount:raise HTTPException(400,"Недостаточно товара на рынке")
-  remaining=q.amount;chosen=[]
-  for price in sorted(set(x["price"] for x in rows)):
-   group=[x for x in rows if x["price"]==price]
-   available=sum(x["quantity"] for x in group)
-   target=min(remaining,available)
-   weights=[(x,target*x["quantity"]//available,(target*x["quantity"])%available) for x in group]
-   extra=target-sum(z[1] for z in weights)
-   weights.sort(key=lambda z:(-z[2],z[0]["id"]))
-   for x,n,_ in weights:
-    allocated=n+(1 if extra>0 else 0)
-    if extra>0:extra-=1
-    if allocated:chosen.append((x,allocated))
-   remaining-=target
-   if remaining==0:break
+  chosen=market_allocation.allocate(rows,q.amount)
   cost=sum(x["price"]*n for x,n in chosen)
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
+  # Prevent crediting sellers whose Stars refund is being reconciled.
+  # Lock every seller in a stable order before any buyer debit or seller credit.
+  for seller_id in sorted({x["seller"] for x,n in chosen}):
+   seller=c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(seller_id,)).fetchone()
+   if not seller:raise HTTPException(409,"Продавец больше не существует")
+   pending=c.execute("""SELECT 1 FROM stars_refund_intents i
+     JOIN star_orders o ON o.id=i.order_id
+     WHERE o.player_id=%s AND i.status IN ('calling','needs_review') LIMIT 1""",(seller_id,)).fetchone()
+   if pending:raise HTTPException(409,"Объявление продавца временно недоступно")
   sources=farm_wallet.balances(c,p)
-  bonus_spent=min(cost,sources['bonus'])
-  bonus_shares=farm_wallet.split_receipts([(x['id'],x['price']*n) for x,n in chosen],bonus_spent)
+  source_shares=farm_wallet.split_market_sources([(x['id'],x['price']*n) for x,n in chosen],sources,cost)
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   for x,n in chosen:
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
    log_id=uuid.uuid4().hex
-   receipt=x["price"]*n;receipt_bonus=bonus_shares[x['id']]
+   receipt=x["price"]*n;receipt_sources=source_shares[x['id']]
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(log_id,x["seller"],"market_sale",receipt,q.item+" x"+str(n),time.time()))
-   c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,%s)",(log_id,receipt_bonus,receipt-receipt_bonus))
+   c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,%s,%s)",(log_id,receipt_sources['bonus'],receipt_sources['purchased'],receipt_sources['earned']))
    trade_at=time.time()
    count=c.execute("SELECT COUNT(*)::int AS n FROM market_trade_audit WHERE buyer_id=%s AND seller_id=%s AND created>%s",(p["id"],x["seller"],trade_at-86400)).fetchone()["n"]
    c.execute("INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,trade_at))
@@ -1258,7 +1363,7 @@ def autobuy(q:Request,authorization:str=Header(default="")):
  return {"ok":True}
 
 # Small fixed daily grants. Minted rewards are recorded separately from the original 10,000-coin treasury.
-REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1,"milk":1,"milk_listing":1,"feather":1}
+REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1,"milk":1,"milk_listing":1,"feather":1,"market_sale":1,"feeding":1}
 @app.post("/api/weekly/claim")
 def claim_weekly(authorization:str=Header(default="")):
  with db() as c:
@@ -1273,7 +1378,9 @@ def claim_weekly(authorization:str=Header(default="")):
       COALESCE(SUM(eggs_listed),0)::int AS listed
       FROM daily_activity WHERE player_id=%s AND day>=%s""",(p["id"],week)).fetchone()
   extra=farm_expansion.progress(c,p["id"],week_start,week_start+604800)
-  if total["grain"]<10 or (total["eggs"]<10 and extra.get("milk_produced",0)<3) or total["listed"]+extra.get("milk_listed",0)<3:
+  feeding=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
+  sales=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
+  if not weekly_missions.complete(total["grain"],feeding,total["eggs"],extra.get("milk_produced",0),total["listed"]+extra.get("milk_listed",0),sales):
    raise HTTPException(409,"Сначала выполни все задания недели")
   inserted=c.execute("INSERT INTO weekly_claims(player_id,week,claimed_at,amount) VALUES(%s,%s,%s,30) ON CONFLICT DO NOTHING RETURNING amount",(p["id"],week,now)).fetchone()
   if not inserted:raise HTTPException(409,"Награда за эту неделю уже получена")
@@ -1289,7 +1396,15 @@ def claim_reward(q:Request,authorization:str=Header(default="")):
  day=time.strftime("%Y-%m-%d",time.gmtime())
  with db() as c:
   p=advance(c,person(c,authorization,True))
-  if key in farm_expansion.EXTRA_MISSIONS:
+  if key=="feeding":
+   start=int(time.time()//86400)*86400
+   count=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],start,start+86400)).fetchone()["n"]
+   if count<1:raise HTTPException(400,"Задание ещё не выполнено")
+  elif key=="market_sale":
+   start=int(time.time()//86400)*86400
+   count=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],start,start+86400)).fetchone()["n"]
+   if count<1:raise HTTPException(400,"Задание ещё не выполнено")
+  elif key in farm_expansion.EXTRA_MISSIONS:
    start=time.time()//86400*86400
    counts=farm_expansion.progress(c,p["id"],start,start+86400)
    kind,target=farm_expansion.EXTRA_MISSIONS[key]
@@ -1359,7 +1474,7 @@ def incubator_action(q:Request,authorization:str=Header(default="")):
   if active>=p["incubator_level"]:raise HTTPException(409,"Все места инкубатора заняты")
   if p["eggs"]<12:raise HTTPException(400,"Для выведения курицы нужно 12 яиц")
   if p["coins"]<15:raise HTTPException(400,"Для инкубации нужно 15 монет")
-  if p["chickens"]+p.get("geese",0)+active>=coop_limit(p):raise HTTPException(400,"Добавьте места для птиц в разделе «Животные»")
+  if not incubation_rules.can_start_incubation(coop_limit(p),p["chickens"],p.get("geese",0),active,p["incubator_level"]):raise HTTPException(400,"Добавьте места для птиц в разделе «Животные»")
   now=time.time()
   egg_seconds,grow_seconds=incubation_stages(p["incubator_level"])
   c.execute("UPDATE players SET eggs=eggs-12,coins=coins-15 WHERE id=%s",(p["id"],))
