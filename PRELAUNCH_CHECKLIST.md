@@ -60,3 +60,8 @@ This branch is NOT automatically safe to deploy. Do not merge while checks are m
 - No automatic retry is allowed for any existing intent. An operator must independently verify Telegram payment/refund status before reconciliation.
 - Run scripts/stars_reconciliation.py and investigate all needs_review and stale calling intents.
 - **Important**: The refund intent prevents duplicate external calls but does not make Telegram and PostgreSQL atomic. A concurrent purchase between intent creation and ledger debit can still require manual intervention. Do not enable refunds for live funds before a staging fault-injection test of network timeouts, DB failures, and concurrent purchases.
+
+## Refund freeze coverage
+- Player mutations that call person(c, authorization, True) now reject unresolved Stars refund intents with HTTP 423. Read-only account views remain accessible.
+- Audit all bot-side, background, admin and webhook player balance mutations separately; the authorization guard is NOT a universal database-level freeze.
+- Test concurrent refund vs market purchase, feed autobuy, withdrawal transfer, incubator and Stars webhook on a dedicated staging PostgreSQL instance before any live use.
