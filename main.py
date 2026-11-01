@@ -1,5 +1,6 @@
 import farm_expansion
 import achievement_stages
+import achievement_counters
 import release_grants
 import farm_wallet
 import referral_bridge
@@ -926,17 +927,13 @@ def set_nickname(q:Request,authorization:str=Header(default="")):
 @app.post("/api/achievements/claim")
 def claim_staged_achievement(q:Request,authorization:str=Header(default="")):
  track=q.item
- if track not in ("eggs","feathers","milk"):
+ if track not in achievement_counters.SUPPORTED:
   raise HTTPException(400,"Неизвестное достижение")
  with db() as c:
   p=person(c,authorization,True)
   # Serialize claims per player, including concurrent requests from different devices.
   c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(p["id"],))
-  if track=="eggs":
-   total=c.execute("SELECT COALESCE(SUM(eggs_produced),0)::int AS n FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()["n"]
-  else:
-   event_kind={"feathers":"feathers_collected","milk":"milk_produced"}[track]
-   total=c.execute("SELECT COALESCE(SUM(amount),0)::int AS n FROM farm_events WHERE player_id=%s AND kind=%s",(p["id"],event_kind)).fetchone()["n"]
+  total=achievement_counters.count(c,p["id"],track)
   claimed={row["threshold"] for row in c.execute("SELECT threshold FROM staged_achievement_claims WHERE player_id=%s AND track=%s",(p["id"],track)).fetchall()}
   stage=achievement_stages.current_stage(track,total,claimed)
   if not stage or not stage["claimable"]:
@@ -1022,7 +1019,7 @@ def state(authorization:str=Header(default="")):
   achievements=[x["achievement"] for x in c.execute("SELECT achievement FROM player_achievements WHERE player_id=%s",(p["id"],)).fetchall()]
   staged_claims=c.execute("SELECT track,threshold FROM staged_achievement_claims WHERE player_id=%s",(p["id"],)).fetchall()
   staged_claimed={track:{row['threshold'] for row in staged_claims if row['track']==track} for track in achievement_stages.TRACKS}
-  staged_totals={'eggs':totals['eggs_produced'],'feathers':extra_totals.get('feathers_collected',0),'milk':extra_totals.get('milk_produced',0)}
+  staged_totals={track:achievement_counters.count(c,p['id'],track) for track in achievement_counters.SUPPORTED}
   staged_achievements=[stage for track,total in staged_totals.items() if (stage:=achievement_stages.current_stage(track,total,staged_claimed[track])) is not None]
   promotion={"active":time.time()<p["created_at"]+PROMO_SECONDS and p["bundle_uses"]<5,"seconds_left":max(0,int(p["created_at"]+PROMO_SECONDS-time.time())),"used":p["bundle_uses"],"limit":5,"price":PROMO_PRICE,"value":600}
   jobs=c.execute("SELECT id,started,hatch_at,mature_at FROM incubation_jobs WHERE player_id=%s ORDER BY started,id",(p["id"],)).fetchall()
