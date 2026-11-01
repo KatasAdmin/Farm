@@ -68,7 +68,7 @@ class ProductionSafetyTest(unittest.TestCase):
 
     def test_full_storage_blocks_milk_and_feathers(self):
         p = player(chickens=0, fed_hens=0, geese=1, fed_geese=1,
-                   cows=1, fed_cows=1, grain=100, feather_progress=FEATHER_INTERVAL - 3600,
+                   cows=1, fed_cows=1, grain=0, eggs=100, feather_progress=FEATHER_INTERVAL - 3600,
                    milk_progress=MILK_INTERVAL - 3600)
         self.assertFalse(forecast(p, 1.0)["next_feather_scheduled"])
         self.assertFalse(forecast(p, 1.0)["next_milk_scheduled"])
