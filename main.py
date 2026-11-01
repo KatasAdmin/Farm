@@ -87,6 +87,7 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS telegram_processed_updates(update_id bigint PRIMARY KEY,received_at double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS telegram_processed_messages(chat_id bigint NOT NULL,message_id bigint NOT NULL,received_at double precision NOT NULL,PRIMARY KEY(chat_id,message_id))")
   c.execute("CREATE TABLE IF NOT EXISTS star_orders(id text PRIMARY KEY,player_id text NOT NULL,telegram_id bigint NOT NULL,coins integer NOT NULL CHECK(coins>0),stars integer NOT NULL CHECK(stars>0),status text NOT NULL DEFAULT 'created',created double precision NOT NULL,charge_id text UNIQUE)")
+  c.execute("CREATE TABLE IF NOT EXISTS stars_refund_intents(order_id text PRIMARY KEY,charge_id text NOT NULL,telegram_id bigint NOT NULL,status text NOT NULL CHECK(status IN ('calling','confirmed','needs_review')),created double precision NOT NULL,updated double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS farm_launch_resets(run_id text PRIMARY KEY,reset_at timestamptz NOT NULL DEFAULT now(),prior_player_count integer NOT NULL,preserved_payment_count integer NOT NULL)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS purchased_coins bigint NOT NULL DEFAULT 0")
   c.execute("CREATE INDEX IF NOT EXISTS star_orders_player ON star_orders(player_id,created)")
@@ -606,33 +607,57 @@ def farm_admin_star_orders(chat_id):
 def stars_refund_order(order_id,admin_id):
  if not isinstance(order_id,str) or len(order_id)!=32 or any(ch not in "0123456789abcdef" for ch in order_id):
   return "Неверный номер заказа."
+ # Phase 1: persist a single non-retryable intent BEFORE the external call.
+ # No second admin request may invoke refundStarPayment for this order.
  with db() as c:
   order=c.execute("SELECT * FROM star_orders WHERE id=%s FOR UPDATE",(order_id,)).fetchone()
   if not order:return "Заказ не найден."
   if order["status"]=="refunded":return "Заказ уже возвращён."
   if order["status"]!="paid" or not order["charge_id"]:return "Заказ не оплачен."
+  intent=c.execute("SELECT status FROM stars_refund_intents WHERE order_id=%s FOR UPDATE",(order_id,)).fetchone()
+  if intent:
+   return "Возврат уже обрабатывался ("+intent["status"]+"). Повторный запрос в Telegram запрещён; требуется проверка."
   player=c.execute("SELECT coins,purchased_coins FROM players WHERE id=%s FOR UPDATE",(order["player_id"],)).fetchone()
   archived=False
   if player is None:
    reset=c.execute("SELECT EXTRACT(EPOCH FROM reset_at) AS ts FROM farm_launch_resets WHERE run_id=%s",("prelaunch-2026-10-30-final",)).fetchone()
    archived=bool(reset and order["created"]<=reset["ts"])
-   if not archived:
-    return "Игрок не найден. Автовозврат заблокирован, требуется ручная проверка."
+   if not archived:return "Игрок не найден. Требуется ручная проверка."
   elif player["coins"]<order["coins"] or player["purchased_coins"]<order["coins"]:
-   return "Автовозврат заблокирован: монеты уже потрачены или переданы. Нужна ручная проверка."
+   return "Монеты уже потрачены или переданы. Нужна ручная проверка."
   if player is not None and farm_wallet.balances(c,{**player,'id':order['player_id']})['purchased']<order['coins']:
-   return "Автовозврат заблокирован: оплаченные монеты потрачены или переданы. Бонусы не заменяют оплаченный остаток."
-  # Hold the order/player row locks while contacting Telegram; reject concurrent purchases
-  # and inventory changes until the result is recorded.
-  try:
-   telegram_api("refundStarPayment",{"user_id":order["telegram_id"],"telegram_payment_charge_id":order["charge_id"]})
-  except Exception:
-   logger.exception("telegram_stars_refund_failed")
-   return "Telegram не подтвердил возврат. Баланс игры не менялся; проверьте транзакцию."
-  c.execute("UPDATE star_orders SET status='refunded' WHERE id=%s AND status='paid'",(order_id,))
-  if not archived:
-   c.execute("UPDATE players SET coins=coins-%s,purchased_coins=purchased_coins-%s WHERE id=%s",(order["coins"],order["coins"],order["player_id"]))
-   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,order["player_id"],"stars_refund",-order["coins"],"Возврат покупки — "+str(order["stars"])+" ⭐",time.time()))
+   return "Оплаченный остаток недостаточен. Нужна ручная проверка."
+  c.execute("INSERT INTO stars_refund_intents(order_id,charge_id,telegram_id,status,created,updated) VALUES(%s,%s,%s,'calling',%s,%s)",(order_id,order["charge_id"],order["telegram_id"],time.time(),time.time()))
+ # Phase 2: external effect. Any exception is ambiguous; never auto-retry.
+ try:
+  telegram_api("refundStarPayment",{"user_id":order["telegram_id"],"telegram_payment_charge_id":order["charge_id"]})
+ except Exception:
+  logger.exception("telegram_stars_refund_unknown_outcome order=%s",order_id)
+  with db() as c:
+   c.execute("UPDATE stars_refund_intents SET status='needs_review',updated=%s WHERE order_id=%s AND status='calling'",(time.time(),order_id))
+  return "Результат возврата Telegram неизвестен. Повтор заблокирован, нужна ручная сверка."
+ # Phase 3: record confirmation and ledger debit atomically.
+ try:
+  with db() as c:
+   intent=c.execute("SELECT status FROM stars_refund_intents WHERE order_id=%s FOR UPDATE",(order_id,)).fetchone()
+   current=c.execute("SELECT * FROM star_orders WHERE id=%s FOR UPDATE",(order_id,)).fetchone()
+   if not intent or intent["status"]!="calling" or not current or current["status"]!="paid":
+    raise RuntimeError("Refund state changed during external call")
+   current_player=c.execute("SELECT coins,purchased_coins FROM players WHERE id=%s FOR UPDATE",(order["player_id"],)).fetchone()
+   if not archived:
+    if not current_player or current_player["coins"]<order["coins"] or current_player["purchased_coins"]<order["coins"]:
+     raise RuntimeError("Insufficient balance after Telegram refund")
+    if farm_wallet.balances(c,{**current_player,'id':order['player_id']})['purchased']<order['coins']:
+     raise RuntimeError("Insufficient purchased provenance after Telegram refund")
+    c.execute("UPDATE players SET coins=coins-%s,purchased_coins=purchased_coins-%s WHERE id=%s",(order["coins"],order["coins"],order["player_id"]))
+    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,order["player_id"],"stars_refund",-order["coins"],"Возврат покупки — "+str(order["stars"])+" ⭐",time.time()))
+   c.execute("UPDATE star_orders SET status='refunded' WHERE id=%s",(order_id,))
+   c.execute("UPDATE stars_refund_intents SET status='confirmed',updated=%s WHERE order_id=%s",(time.time(),order_id))
+ except Exception:
+  logger.exception("telegram_stars_refund_ledger_reconciliation_required order=%s",order_id)
+  with db() as c:
+   c.execute("UPDATE stars_refund_intents SET status='needs_review',updated=%s WHERE order_id=%s AND status='calling'",(time.time(),order_id))
+  return "Telegram подтвердил возврат, но запись в игре требует ручной сверки. Повтор запрещён."
  return "✅ Возврат "+str(order["stars"])+" ⭐ подтверждён; архивный аккаунт ранее удалён." if archived else "✅ Telegram подтвердил возврат "+str(order["stars"])+" ⭐; списано "+str(order["coins"])+" игровых монет."
 
 def farm_admin_refund_prompt(chat_id,order_id):
