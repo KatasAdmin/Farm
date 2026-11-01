@@ -133,5 +133,28 @@ class PostgresMarketLedgerTests(unittest.TestCase):
             self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM star_orders").fetchone()["n"],1)
 
 
+    def test_concurrent_reciprocal_referrals_cannot_form_cycle(self):
+        with self.connect() as c:
+            c.execute("CREATE TABLE referrals(child_id text PRIMARY KEY,parent_id text NOT NULL)")
+        def link(pair):
+            child, parent = pair
+            with self.connect() as c:
+                c.execute("SELECT pg_advisory_xact_lock(1984533)")
+                cycle=c.execute("""WITH RECURSIVE descendants(id) AS (
+                    SELECT child_id FROM referrals WHERE parent_id=%s
+                    UNION SELECT r.child_id FROM referrals r
+                    JOIN descendants d ON r.parent_id=d.id
+                ) SELECT 1 FROM descendants WHERE id=%s LIMIT 1""",
+                    (child,parent)).fetchone()
+                if cycle:return False
+                c.execute("INSERT INTO referrals VALUES(%s,%s)",(child,parent))
+                return True
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes=list(pool.map(link,[("a","b"),("b","a")]))
+        self.assertEqual(sum(outcomes),1)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM referrals").fetchone()["n"],1)
+
+
 if __name__ == '__main__':
     unittest.main()
