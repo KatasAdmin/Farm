@@ -20,13 +20,16 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from production import CYCLE, FEED_EVERY, GRAIN_PRICE, simulate, forecast
 from production_v4 import simulate as simulate_v4, forecast as forecast_v4
-def db():return psycopg.connect(os.environ["DATABASE_URL"],row_factory=dict_row)
+def db():return psycopg.connect(os.environ["DATABASE_URL"],row_factory=dict_row,connect_timeout=10)
 @asynccontextmanager
 async def lifespan(app):
+ logger.warning("farm_startup_database_connecting release=%s",RELEASE)
  with db() as c:
+  logger.warning("farm_startup_database_connected")
   # Match request lock order before DDL takes exclusive table locks.
   # Otherwise a live webhook can hold this lock while waiting on our tables.
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  logger.warning("farm_startup_migration_lock_acquired")
   c.execute("CREATE TABLE IF NOT EXISTS players(id text primary key,name text unique,token text unique,coins int default 10,grain int default 5,chickens int default 1,eggs int default 0,last_feed float default 0)")
   c.execute("CREATE TABLE IF NOT EXISTS market(id text primary key,seller text,item text,quantity int,price int)")
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
@@ -131,10 +134,13 @@ async def lifespan(app):
   c.execute("UPDATE market SET price=1 WHERE item='eggs' AND price<>1")
   # Preserve resources and balances; reset only the clock on the new production schedule.
   c.execute("UPDATE players SET production_model=3,last_tick=%s WHERE production_model<3",(time.time(),))
+  logger.warning("farm_startup_game_schema_ready")
   task_bot.initialize(c)
+  logger.warning("farm_startup_bot_schema_ready")
   farm_wallet.initialize(c)
   if release_grants.apply(c,task_bot):
    logger.warning("one_time_wallet_grant_applied uid=%s kopeks=%s",release_grants.UID,release_grants.AMOUNT)
+ logger.warning("farm_startup_schema_committed")
  # Register this dedicated farm bot's webhook without blocking game startup on Telegram outages.
  try:
   token=os.environ.get("TELEGRAM_BOT_TOKEN","")
