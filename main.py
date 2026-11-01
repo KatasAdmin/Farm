@@ -308,6 +308,14 @@ def register_referral(c,child_id,code,now):
  if not isinstance(code,str) or len(code)!=16 or any(ch not in "0123456789abcdef" for ch in code):return False
  parent=c.execute("SELECT player_id FROM referral_codes WHERE code=%s",(code,)).fetchone()
  if not parent or parent["player_id"]==child_id:return False
+ # Referrals must form a directed acyclic graph: an existing descendant
+ # cannot later become this player's parent.
+ cycle=c.execute("""WITH RECURSIVE descendants(id) AS (
+   SELECT child_id FROM referrals WHERE parent_id=%s
+   UNION
+   SELECT r.child_id FROM referrals r JOIN descendants d ON r.parent_id=d.id
+ ) SELECT 1 FROM descendants WHERE id=%s LIMIT 1""",(child_id,parent["player_id"])).fetchone()
+ if cycle:return False
  c.execute("INSERT INTO referrals(child_id,parent_id,created) VALUES(%s,%s,%s) ON CONFLICT(child_id) DO NOTHING",(child_id,parent["player_id"],now))
  return True
 
