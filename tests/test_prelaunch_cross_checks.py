@@ -98,6 +98,37 @@ class PrelaunchCrossChecks(unittest.TestCase):
         self.assertEqual(db.claimed, {1})
 
 
+
+    def test_achievement_api_unlocks_next_stage_without_resetting_total(self):
+        from unittest.mock import patch
+        import main
+        class Cursor:
+            def __init__(self, row=None, rows=()):
+                self.row, self.rows = row, rows
+            def fetchone(self): return self.row
+            def fetchall(self): return self.rows
+        class DB:
+            claimed = set()
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def execute(self, sql, args=()):
+                if "SELECT id FROM players" in sql:
+                    return Cursor({"id": "p"})
+                if "SELECT threshold FROM staged_achievement_claims" in sql:
+                    return Cursor(rows=[{"threshold": t} for t in self.claimed])
+                if "INSERT INTO staged_achievement_claims" in sql:
+                    self.claimed.add(args[2])
+                    return Cursor({"threshold": args[2]})
+                raise AssertionError(sql)
+        db = DB()
+        with patch.object(main, "db", return_value=db), patch.object(main, "person", return_value={"id": "p"}), patch.object(main, "advance", side_effect=lambda c,p:p), patch.object(main.achievement_counters, "count", return_value=10):
+            awards = [main.claim_staged_achievement(main.Request(item="feathers"), "Bearer p") for _ in range(3)]
+            self.assertEqual([x["threshold"] for x in awards], [1, 3, 10])
+            self.assertEqual([x["xp_awarded"] for x in awards], [10, 20, 30])
+            with self.assertRaises(main.HTTPException):
+                main.claim_staged_achievement(main.Request(item="feathers"), "Bearer p")
+        self.assertEqual(db.claimed, {1, 3, 10})
+
     def test_withdrawal_api_rejects_invalid_amount_and_retry_key_before_db(self):
         from unittest.mock import patch
         import main
