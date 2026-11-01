@@ -152,8 +152,9 @@ async def lifespan(app):
   task_bot.initialize(c)
   logger.warning("farm_startup_bot_schema_ready")
   farm_wallet.initialize(c)
-  if release_grants.apply(c,task_bot):
-   logger.warning("one_time_wallet_grant_applied uid=%s kopeks=%s",release_grants.UID,release_grants.AMOUNT)
+  if os.environ.get("FARM_STAGING", "").lower() not in ("1", "true", "yes"):
+   if release_grants.apply(c,task_bot):
+    logger.warning("one_time_wallet_grant_applied uid=%s kopeks=%s",release_grants.UID,release_grants.AMOUNT)
  logger.warning("farm_startup_schema_committed")
  # Register this dedicated farm bot's webhook without blocking game startup on Telegram outages.
  try:
