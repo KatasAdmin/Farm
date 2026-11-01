@@ -991,6 +991,8 @@ def state(authorization:str=Header(default="")):
       FROM daily_activity WHERE player_id=%s AND day>=%s""",(p["id"],week)).fetchone()
   weekly_extra=farm_expansion.progress(c,p["id"],week_start,week_start+604800)
   weekly_stats["listed"]+=weekly_extra.get("milk_listed",0)
+  weekly_stats["feeding"]=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
+  weekly_stats["market_sales"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
   weekly_claimed=bool(c.execute("SELECT 1 FROM weekly_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
   totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
