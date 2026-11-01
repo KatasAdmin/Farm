@@ -3,6 +3,7 @@ import achievement_stages
 import achievement_counters
 import weekly_missions
 import market_allocation
+import incubation_rules
 import release_grants
 import farm_wallet
 import referral_bridge
@@ -285,8 +286,7 @@ def cowshed_limit(p):return 2*p.get("cowshed_level",1)
 def upgrade_cost(kind,level):return {"coop":40,"storage":30,"cowshed":50}[kind]*level
 def update_incubation(c,p,now):
  jobs=c.execute("SELECT id FROM incubation_jobs WHERE player_id=%s AND mature_at<=%s ORDER BY mature_at,id FOR UPDATE",(p["id"],now)).fetchall()
- free=max(0,coop_limit(p)-p["chickens"]-p.get("geese",0))
- matured=min(len(jobs),free)
+ matured=incubation_rules.available_maturity_slots(coop_limit(p),p["chickens"],p.get("geese",0),len(jobs))
  if matured:
   for row in jobs[:matured]:c.execute("DELETE FROM incubation_jobs WHERE id=%s",(row["id"],))
   c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(matured,matured,p["id"]))
@@ -1405,7 +1405,7 @@ def incubator_action(q:Request,authorization:str=Header(default="")):
   if active>=p["incubator_level"]:raise HTTPException(409,"Все места инкубатора заняты")
   if p["eggs"]<12:raise HTTPException(400,"Для выведения курицы нужно 12 яиц")
   if p["coins"]<15:raise HTTPException(400,"Для инкубации нужно 15 монет")
-  if p["chickens"]+p.get("geese",0)+active>=coop_limit(p):raise HTTPException(400,"Добавьте места для птиц в разделе «Животные»")
+  if not incubation_rules.can_start_incubation(coop_limit(p),p["chickens"],p.get("geese",0),active,p["incubator_level"]):raise HTTPException(400,"Добавьте места для птиц в разделе «Животные»")
   now=time.time()
   egg_seconds,grow_seconds=incubation_stages(p["incubator_level"])
   c.execute("UPDATE players SET eggs=eggs-12,coins=coins-15 WHERE id=%s",(p["id"],))
