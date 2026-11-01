@@ -23,6 +23,7 @@ class DB:
   if "UPDATE stars_refund_intents SET status=" in sql:
    self.intent="confirmed" if "status='confirmed'" in sql else "needs_review"
   if "SELECT * FROM players WHERE id=" in sql:return Cursor({"coins":25,"purchased_coins":25})
+  if "UPDATE players SET coins=coins+" in sql:return Cursor({"id":"player1"})
   if "SELECT telegram_id,stars,status,created FROM star_orders" in sql:return Cursor(self.order)
   return Cursor(None)
 
