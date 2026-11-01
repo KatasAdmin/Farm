@@ -1167,16 +1167,15 @@ def buy(q:Request,authorization:str=Header(default="")):
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   sources=farm_wallet.balances(c,p)
-  bonus_spent=min(cost,sources['bonus'])
-  bonus_shares=farm_wallet.split_receipts([(x['id'],x['price']*n) for x,n in chosen],bonus_spent)
+  source_shares=farm_wallet.split_market_sources([(x['id'],x['price']*n) for x,n in chosen],sources,cost)
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   for x,n in chosen:
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
    log_id=uuid.uuid4().hex
-   receipt=x["price"]*n;receipt_bonus=bonus_shares[x['id']]
+   receipt=x["price"]*n;receipt_sources=source_shares[x['id']]
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(log_id,x["seller"],"market_sale",receipt,q.item+" x"+str(n),time.time()))
-   c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,%s)",(log_id,receipt_bonus,receipt-receipt_bonus))
+   c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,%s,%s)",(log_id,receipt_sources['bonus'],receipt_sources['purchased'],receipt_sources['earned']))
    trade_at=time.time()
    count=c.execute("SELECT COUNT(*)::int AS n FROM market_trade_audit WHERE buyer_id=%s AND seller_id=%s AND created>%s",(p["id"],x["seller"],trade_at-86400)).fetchone()["n"]
    c.execute("INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,trade_at))
