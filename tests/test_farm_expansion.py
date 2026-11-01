@@ -95,6 +95,30 @@ class ExpansionTests(unittest.TestCase):
   self.assertIsNone(self.c.execute("SELECT * FROM referral_rewards WHERE player_id='8'").fetchone())
   self.assertEqual(self.p()['coins'],0)
 
+
+ def test_replayed_production_cursor_does_not_duplicate_referral_rewards(self):
+  from test_cows import dairy
+  initial=dairy(telegram_id=7,cows=1,fed_cows=1,geese=1,fed_geese=1,
+                chickens=1,fed_hens=1,grain=100,storage_level=10)
+  initial['id']='child'
+  initial['last_tick']=100000
+  initial['created_at']=0
+  class C:
+   def __init__(self):self.calls=[];self.row=None
+   def execute(self,sql,args=()):
+    self.calls.append((sql,args))
+    self.row={'parent_id':'parent'} if 'SELECT parent_id FROM referrals' in sql and args[0]=='child' else None
+    return self
+   def fetchone(self):return self.row
+  c=C()
+  with patch.object(main,'update_incubation',side_effect=lambda c,p,now:p):
+   first=main.advance(c,initial,100000+86400)
+   before=len([1 for sql,args in c.calls if 'INSERT INTO referral_rewards' in sql])
+   main.advance(c,first,100000+86400)
+   after=len([1 for sql,args in c.calls if 'INSERT INTO referral_rewards' in sql])
+  self.assertGreater(before,0)
+  self.assertEqual(after,before)
+
  def test_claimed_resources_do_not_immediately_pay_upline(self):
   self.c.execute("INSERT INTO referrals VALUES('p','parent')");self.grant('cows',10000)
   with self.context():main.referral_claim(main.Request(item='cows'),'')
