@@ -2,6 +2,7 @@ import farm_expansion
 import achievement_stages
 import achievement_counters
 import weekly_missions
+import market_allocation
 import release_grants
 import farm_wallet
 import referral_bridge
@@ -1159,20 +1160,7 @@ def buy(q:Request,authorization:str=Header(default="")):
   p=advance(c,person(c,authorization,True))
   rows=c.execute("SELECT * FROM market WHERE item=%s AND seller<>%s AND quantity>0 ORDER BY price,id FOR UPDATE",(q.item,p["id"])).fetchall()
   if sum(x["quantity"] for x in rows)<q.amount:raise HTTPException(400,"Недостаточно товара на рынке")
-  remaining=q.amount;chosen=[]
-  for price in sorted(set(x["price"] for x in rows)):
-   group=[x for x in rows if x["price"]==price]
-   available=sum(x["quantity"] for x in group)
-   target=min(remaining,available)
-   weights=[(x,target*x["quantity"]//available,(target*x["quantity"])%available) for x in group]
-   extra=target-sum(z[1] for z in weights)
-   weights.sort(key=lambda z:(-z[2],z[0]["id"]))
-   for x,n,_ in weights:
-    allocated=n+(1 if extra>0 else 0)
-    if extra>0:extra-=1
-    if allocated:chosen.append((x,allocated))
-   remaining-=target
-   if remaining==0:break
+  chosen=market_allocation.allocate(rows,q.amount)
   cost=sum(x["price"]*n for x,n in chosen)
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
