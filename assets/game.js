@@ -1046,7 +1046,7 @@ function render() {
     ["listing", "Выставить яйцо на продажу", daily.eggs_listed || 0, 1],
     ...((p.cows>0||daily.milk>0)?[["milk","Собрать молоко",daily.milk||0,1]]:[]),
     ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Выставить молоко на рынок",daily.milk_listing||0,1]]:[]),
-    ...((p.geese>0||daily.feather>0)?[["feather","Собрать перо",daily.feather||0,1]]:[])
+    ...((daily.feather>0||claimed.has("feather"))?[["feather","Собрать редкое перо",daily.feather||0,1]]:[])
   ];
   const dailyBox = el("daily-tasks");
   if (dailyBox) {
