@@ -76,6 +76,25 @@ class ExpansionTests(unittest.TestCase):
    for i,rate in enumerate(main.REFERRAL_RATES,1):
     self.assertEqual(self.c.execute('SELECT '+field+' AS n FROM referral_rewards WHERE player_id=%s',(str(i),)).fetchone()['n'],rate)
    self.assertIsNone(self.c.execute("SELECT * FROM referral_rewards WHERE player_id='8'").fetchone())
+
+ def test_referral_seven_levels_do_not_duplicate_after_replay(self):
+  for i in range(8):
+   self.c.execute('INSERT INTO referrals VALUES(%s,%s)',('child' if i==0 else str(i),str(i+1)))
+  self.c.raw.commit()
+  # Exactly one organic award event must yield exactly seven downstream credits.
+  main.award_referral_resource(self.c,{'id':'child','telegram_id':7},'feathers',1)
+  field=feature.REFERRAL_FIELDS['feathers'][0]
+  first=[self.c.execute('SELECT '+field+' AS n FROM referral_rewards WHERE player_id=%s',(str(i),)).fetchone()['n'] for i in range(1,8)]
+  self.assertEqual(first,list(main.REFERRAL_RATES))
+  self.assertIsNone(self.c.execute("SELECT * FROM referral_rewards WHERE player_id='8'").fetchone())
+  # A second *independent* organic unit must add one more proportional share,
+  # without awarding any eighth-level commission.
+  main.award_referral_resource(self.c,{'id':'child','telegram_id':7},'feathers',1)
+  second=[self.c.execute('SELECT '+field+' AS n FROM referral_rewards WHERE player_id=%s',(str(i),)).fetchone()['n'] for i in range(1,8)]
+  self.assertEqual(second,[2*x for x in main.REFERRAL_RATES])
+  self.assertIsNone(self.c.execute("SELECT * FROM referral_rewards WHERE player_id='8'").fetchone())
+  self.assertEqual(self.p()['coins'],0)
+
  def test_claimed_resources_do_not_immediately_pay_upline(self):
   self.c.execute("INSERT INTO referrals VALUES('p','parent')");self.grant('cows',10000)
   with self.context():main.referral_claim(main.Request(item='cows'),'')
