@@ -2,6 +2,14 @@
 
 This branch is NOT automatically safe to deploy. Do not merge while checks are missing.
 
+## Consolidated five-track audit (2026-11-02)
+- **#1 Achievements:** cumulative stage helper and database uniqueness implemented; staged XP is included in level calculation. Full authenticated API claim/replay test on staging is still required.
+- **#2 Daily/weekly missions:** existing claims use server-side farm events and weekly aggregation. Rare feathers are intentionally not mandatory recurring tasks. Verify client/server mission lists match and rewards are atomic under concurrency.
+- **#4 Finance:** Stars validation/refund intent, market source provenance, transfer uniqueness patterns, and seven-level referral tests exist. Real webhook/transfer concurrency, historical ledger reconciliation, and referral event replay still require staging verification.
+- **#5 UI:** generic nearest-harvest section with egg, feather and milk panels exists; ensure panels hide for unowned species. Manual phone viewport and navigation testing remain.
+- **#6 Safety:** ephemeral PostgreSQL CI runs, health endpoints, and prelaunch checks exist. No isolated Railway staging deployment, verified backup restore, or real-money smoke test has been completed.
+- **Release gate:** all CI checks green, isolated staging DB smoke tests, verified backup/restore, payment reconciliation, and explicit owner approval. Do not merge or deploy from this audit alone.
+
 ## Before deploying
 1. Confirm the exact commit in PR #40, review changes, and ensure GitHub Actions checks pass.
 2. Create a PostgreSQL backup using Railway's supported backup/export workflow. Record the backup timestamp and verify that the backup is restorable in an isolated database. Never test restore against production.
@@ -32,7 +40,7 @@ This branch is NOT automatically safe to deploy. Do not merge while checks are m
 ## Current limitations
 - New mission-selection helper is not wired into daily/weekly claims.
 - Full financial security review and concurrency tests have not been completed.
-- GitHub Actions only checks syntax and unit tests, not PostgreSQL or Railway integration.
+- GitHub Actions now includes ephemeral PostgreSQL concurrency tests, but does not exercise a full Railway staging deployment.
 - No production backup or staging restore has been verified.
 
 ## Economy and production test matrix (2026-11-02)
