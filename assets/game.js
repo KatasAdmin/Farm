@@ -1045,7 +1045,7 @@ function render() {
     ["eggs", "Получить 3 яйца от птиц", daily.eggs_produced || 0, 3],
     ["listing", "Выставить яйцо на продажу", daily.eggs_listed || 0, 1],
     ["market_sale", "Продать товар на рынке", daily.market_sale || 0, 1],
-    ...((p.chickens+p.geese+p.cows>0||daily.feeding>0)?[["feeding","Покормить животных",daily.feeding||0,1]]:[]),
+    ...(((p.chickens||0)+(p.geese||0)+(p.cows||0)>0||daily.feeding>0)?[["feeding","Покормить животных",daily.feeding||0,1]]:[]),
     ...((p.cows>0||daily.milk>0)?[["milk","Собрать молоко",daily.milk||0,1]]:[]),
     ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Выставить молоко на рынок",daily.milk_listing||0,1]]:[]),
     ...((daily.feather>0||claimed.has("feather"))?[["feather","Собрать редкое перо",daily.feather||0,1]]:[])
@@ -1122,7 +1122,7 @@ function render() {
     const count=el("weekly-count-"+key)||document.querySelector(`[data-weekly="${key}"]`);
     const bar=document.querySelector(`[data-weekly-bar="${key}"]`);
     const status=document.querySelector(`[data-weekly-status="${key}"]`);
-    if(count)count.textContent=key==="eggs"?Math.min(target,weekly.eggs||0)+" / "+target+" яиц · "+Math.min(3,weekly.milk||0)+" / 3 молока":value+" / "+target;
+    if(count)count.textContent=key==="eggs"?Math.min(target,weekly.eggs||0)+" / "+target+" яиц · "+Math.min(3,weekly.milk||0)+" / 3 молока":key==="grain"?Math.min(10,weekly.grain||0)+" / 10 зерна · "+Math.min(5,weekly.feeding||0)+" / 5 скормлено":key==="listed"?Math.min(3,weekly.listed||0)+" / 3 выставлено · "+Math.min(3,weekly.market_sales||0)+" / 3 продано":value+" / "+target;
     if(bar)bar.style.width=(100*value/target)+"%";
     if(status)status.textContent=value>=target?"Готово":"В процессе";
   }
