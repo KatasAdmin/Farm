@@ -676,7 +676,9 @@ def stars_payment_received(message):
    return {"ok":True}
   if c.execute("SELECT 1 FROM star_orders WHERE charge_id=%s",(charge,)).fetchone():return {"ok":True}
   c.execute("UPDATE star_orders SET status='paid',charge_id=%s WHERE id=%s",(charge,order_id))
-  c.execute("UPDATE players SET coins=coins+%s,purchased_coins=purchased_coins+%s WHERE id=%s",(x["coins"],x["coins"],x["player_id"]))
+  credited=c.execute("UPDATE players SET coins=coins+%s,purchased_coins=purchased_coins+%s WHERE id=%s RETURNING id",(x["coins"],x["coins"],x["player_id"])).fetchone()
+  if not credited:
+   raise RuntimeError("Stars payment cannot be credited: player is missing; transaction rolled back")
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,x["player_id"],"stars_purchase",x["coins"],"Покупка за "+str(x["stars"])+" Stars",time.time()))
   task_bot.bot_notifications.enqueue(c,"farm-stars-paid:"+order_id,tr('✅ Оплата Stars в ферме\n\nИгрок: {v0}\nОплачено: {v1} Stars\nНачислено: {v2} монет', {'v0': str(x['telegram_id']), 'v1': str(x['stars']), 'v2': str(x['coins'])}, section='notifications'),"admin:payments:farm:0",subject=x["telegram_id"])
  task_bot.bot_notifications.wake()
