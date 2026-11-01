@@ -87,7 +87,7 @@ def split_market_sources(receipts, balances_before, cost):
     # Integer rounding can cause two independently rounded shares to exceed
     # one seller's receipt. Allocate purchased from remaining per-seller space.
     capacity=[(key,amount-bonus_parts[key]) for key,amount in receipts]
-    purchased_parts=split_receipts(capacity,purchased)
+    purchased_parts=split_receipts(capacity,purchased) if purchased else {key:0 for key,_ in receipts}
     return {key: {'bonus':bonus_parts[key], 'purchased':purchased_parts[key],
                   'earned':amount-bonus_parts[key]-purchased_parts[key]}
             for key,amount in receipts}
