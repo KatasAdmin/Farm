@@ -1,6 +1,7 @@
 import farm_expansion
 import achievement_stages
 import achievement_counters
+import weekly_missions
 import release_grants
 import farm_wallet
 import referral_bridge
@@ -1322,7 +1323,7 @@ def claim_weekly(authorization:str=Header(default="")):
   extra=farm_expansion.progress(c,p["id"],week_start,week_start+604800)
   feeding=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
   sales=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
-  if (total["grain"]<10 and feeding<5) or (total["eggs"]<10 and extra.get("milk_produced",0)<3) or (total["listed"]+extra.get("milk_listed",0)<3 and sales<3):
+  if not weekly_missions.complete(total["grain"],feeding,total["eggs"],extra.get("milk_produced",0),total["listed"]+extra.get("milk_listed",0),sales):
    raise HTTPException(409,"Сначала выполни все задания недели")
   inserted=c.execute("INSERT INTO weekly_claims(player_id,week,claimed_at,amount) VALUES(%s,%s,%s,30) ON CONFLICT DO NOTHING RETURNING amount",(p["id"],week,now)).fetchone()
   if not inserted:raise HTTPException(409,"Награда за эту неделю уже получена")
