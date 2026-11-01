@@ -1,0 +1,21 @@
+name: Farm prelaunch checks
+on:
+  pull_request:
+    paths:
+      - '**.py'
+      - '.github/workflows/farm-prelaunch-checks.yml'
+  push:
+    branches:
+      - farm-prelaunch-2026-11-01
+jobs:
+  python-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile Python modules
+        run: python -m compileall -q .
+      - name: Unit tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
