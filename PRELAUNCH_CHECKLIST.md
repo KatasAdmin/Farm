@@ -54,3 +54,9 @@ This branch is NOT automatically safe to deploy. Do not merge while checks are m
 - A Telegram refund is an external side effect and is not atomic with PostgreSQL. A timeout or database commit failure after Telegram confirms a refund creates an ambiguous state. Do NOT retry automatically or debit/credit the player until Telegram payment status is independently verified.
 - Before enabling automated refunds, implement a durable refund intent/outbox with a unique order key and an operator reconciliation path for unknown external outcomes. Existing refund flow does not provide this guarantee.
 - Payment notification validation tests cover mismatched sender, order, currency, amount and replay, but must run in CI and be backed by a staging webhook integration test.
+
+## Durable Stars refund intent
+- The new stars_refund_intents table records 'calling' before contacting Telegram, then 'confirmed' on atomic ledger commit or 'needs_review' after ambiguous failure.
+- No automatic retry is allowed for any existing intent. An operator must independently verify Telegram payment/refund status before reconciliation.
+- Run scripts/stars_reconciliation.py and investigate all needs_review and stale calling intents.
+- **Important**: The refund intent prevents duplicate external calls but does not make Telegram and PostgreSQL atomic. A concurrent purchase between intent creation and ledger debit can still require manual intervention. Do not enable refunds for live funds before a staging fault-injection test of network timeouts, DB failures, and concurrent purchases.
