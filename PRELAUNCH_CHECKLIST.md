@@ -48,3 +48,9 @@ This branch is NOT automatically safe to deploy. Do not merge while checks are m
 - Before staging deploy, verify historical market receipts and the current ledger baseline. This change does not retroactively reclassify old money_log entries or undo previous withdrawals.
 - Run tests/test_market_sources.py, then PostgreSQL integration tests for multi-seller rounding, Stars payment retries, seller payout, concurrent buyer/seller operations and bot-transfer idempotency.
 - Review whether legacy players with preexisting earned balances from purchased-funded sales require a controlled reconciliation. Never rewrite financial history without an approved audit and backup.
+
+## Stars refund reconciliation (mandatory before live refunds)
+- Run scripts/stars_reconciliation.py against a restored staging database first. It is read-only; matching amounts and timestamps are heuristic, so inspect flagged rows manually.
+- A Telegram refund is an external side effect and is not atomic with PostgreSQL. A timeout or database commit failure after Telegram confirms a refund creates an ambiguous state. Do NOT retry automatically or debit/credit the player until Telegram payment status is independently verified.
+- Before enabling automated refunds, implement a durable refund intent/outbox with a unique order key and an operator reconciliation path for unknown external outcomes. Existing refund flow does not provide this guarantee.
+- Payment notification validation tests cover mismatched sender, order, currency, amount and replay, but must run in CI and be backed by a staging webhook integration test.
