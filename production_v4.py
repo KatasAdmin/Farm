@@ -66,7 +66,7 @@ def simulate(p, now):
   if feed_at>now:break
   accrue(feed_at)
   refill=p["autobuy_amount"]
-  if p["autobuy_enabled"] and grain<hens+GOOSE_FEED*geese+COW_FEED*cows and coins>=GRAIN_PRICE*refill and grain+eggs+feathers+milk+refill<=capacity:
+  if p["autobuy_enabled"] and refill>0 and grain<hens+GOOSE_FEED*geese+COW_FEED*cows and coins>=GRAIN_PRICE*refill and grain+eggs+feathers+milk+refill<=capacity:
    coins-=GRAIN_PRICE*refill
    grain+=refill
    refills.append(refill)
