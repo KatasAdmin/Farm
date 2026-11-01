@@ -70,6 +70,10 @@ def split_receipts(receipts,bonus):
 
 
 def transfer(c, player, amount, key, bot):
+    if type(amount) is not int or not 100 <= amount <= 1000000:
+        raise HTTPException(400, 'Допустимый перевод — от 100 до 1000000 монет')
+    if not isinstance(key, str) or len(key) > 128 or not key:
+        raise HTTPException(400, 'Некорректный номер перевода')
     uid=player['telegram_id']
     if not uid:raise HTTPException(403,'Сначала привяжите Telegram в профиле игры')
     old=c.execute('SELECT player_id,telegram_id,amount FROM farm_bot_transfers WHERE id=%s',(key,)).fetchone()
