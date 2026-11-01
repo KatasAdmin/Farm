@@ -1117,7 +1117,7 @@ function render() {
   const weekly=state.weekly||{}, targets=weekly.targets||{};
   let weeklyDone=true;
   for (const key of ["grain","eggs","listed"]) {
-    const target=targets[key]||1,value=key==="eggs"&&weekly.milk>=3?target:Math.min(target,weekly[key]||0);
+    const target=targets[key]||1,value=key==="eggs"&&weekly.milk>=3?target:key==="grain"&&weekly.feeding>=5?target:key==="listed"&&weekly.market_sales>=3?target:Math.min(target,weekly[key]||0);
     weeklyDone=weeklyDone&&value>=target;
     const count=el("weekly-count-"+key)||document.querySelector(`[data-weekly="${key}"]`);
     const bar=document.querySelector(`[data-weekly-bar="${key}"]`);
