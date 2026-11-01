@@ -85,5 +85,5 @@ class MarketProvenanceTests(unittest.TestCase):
         self.c.execute("INSERT INTO star_orders VALUES(%s,'a',2,100,200,'paid','charge-ref',1)",('f'*32,));self.c.raw.commit()
         with patch.object(main,'db',return_value=self.c),patch.object(main,'telegram_api') as api:
             result=main.stars_refund_order('f'*32,1)
-        self.assertIn('заблокирован',result);api.assert_not_called()
+        self.assertIn('недостаточен',result);api.assert_not_called()
         self.assertEqual(self.p('a')['coins'],100)
