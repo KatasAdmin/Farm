@@ -1041,6 +1041,9 @@ def state(authorization:str=Header(default="")):
   activity.update({key:extra_daily.get(kind,0) for key,(kind,target) in farm_expansion.EXTRA_MISSIONS.items()})
   activity["feeding"]=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],day_start,day_start+86400)).fetchone()["n"]
   activity["market_sale"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],day_start,day_start+86400)).fetchone()["n"]
+  activity["market_buy"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE buyer_id=%s AND created>=%s AND created<%s",(p["id"],day_start,day_start+86400)).fetchone()["n"]
+  for mission,item in (("buy_chicken","chickens"),("buy_goose","geese"),("buy_cow","cows")):
+   activity[mission]=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::bigint),0)::bigint AS n FROM money_log WHERE player_id=%s AND kind='shop' AND details ~ %s AND created>=%s AND created<%s",(p["id"],"^"+item+r" x[0-9]+$",day_start,day_start+86400)).fetchone()["n"]
   extra_totals=farm_expansion.progress(c,p["id"])
   extra_achievements=farm_expansion.achievement_rows(p,extra_totals)
   claims=[x["claim"] for x in c.execute("SELECT claim FROM daily_claims WHERE player_id=%s AND day=%s",(p["id"],day)).fetchall()]
@@ -1055,6 +1058,9 @@ def state(authorization:str=Header(default="")):
   weekly_extra=farm_expansion.progress(c,p["id"],week_start,week_start+604800)
   weekly_stats["listed"]+=weekly_extra.get("milk_listed",0)
   weekly_stats["feeding"]=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
+  weekly_stats["market_purchases"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE buyer_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
+  weekly_stats["feathers"]=weekly_extra.get("feathers_collected",0)
+  weekly_stats["milk"]=weekly_extra.get("milk_produced",0)
   weekly_stats["market_sales"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
   weekly_claimed=bool(c.execute("SELECT 1 FROM weekly_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
@@ -1104,7 +1110,7 @@ def state(authorization:str=Header(default="")):
   prediction=forecast_v4(p,observed_at,jobs) if p.get('production_model',3)>=4 else forecast(p,observed_at,jobs)
   expected_eggs=min(p["fed_hens"]+3*p.get("fed_geese",0),max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0)))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":p.get("cows",0),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
+  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":p.get("cows",0),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"market_purchases":weekly_stats["market_purchases"],"feathers":weekly_stats["feathers"],"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -1363,7 +1369,7 @@ def autobuy(q:Request,authorization:str=Header(default="")):
  return {"ok":True}
 
 # Small fixed daily grants. Minted rewards are recorded separately from the original 10,000-coin treasury.
-REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1,"milk":1,"milk_listing":1,"feather":1,"market_sale":1,"feeding":1}
+REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1,"milk":1,"milk_listing":1,"feather":1,"market_sale":1,"feeding":1,"market_buy":1,"buy_chicken":1,"buy_goose":1,"buy_cow":1}
 @app.post("/api/weekly/claim")
 def claim_weekly(authorization:str=Header(default="")):
  with db() as c:
@@ -1403,6 +1409,15 @@ def claim_reward(q:Request,authorization:str=Header(default="")):
   elif key=="market_sale":
    start=int(time.time()//86400)*86400
    count=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],start,start+86400)).fetchone()["n"]
+   if count<1:raise HTTPException(400,"Задание ещё не выполнено")
+  elif key=="market_buy":
+   start=int(time.time()//86400)*86400
+   count=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE buyer_id=%s AND created>=%s AND created<%s",(p["id"],start,start+86400)).fetchone()["n"]
+   if count<1:raise HTTPException(400,"Задание ещё не выполнено")
+  elif key in ("buy_chicken","buy_goose","buy_cow"):
+   start=int(time.time()//86400)*86400
+   item={"buy_chicken":"chickens","buy_goose":"geese","buy_cow":"cows"}[key]
+   count=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::bigint),0)::bigint AS n FROM money_log WHERE player_id=%s AND kind='shop' AND details ~ %s AND created>=%s AND created<%s",(p["id"],"^"+item+r" x[0-9]+$",start,start+86400)).fetchone()["n"]
    if count<1:raise HTTPException(400,"Задание ещё не выполнено")
   elif key in farm_expansion.EXTRA_MISSIONS:
    start=time.time()//86400*86400
