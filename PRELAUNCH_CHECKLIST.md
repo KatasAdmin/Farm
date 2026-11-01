@@ -7,10 +7,10 @@ This branch is NOT automatically safe to deploy. Do not merge while checks are m
 - **#2 Daily/weekly missions:** existing claims use server-side farm events and weekly aggregation. Rare feathers are intentionally not mandatory recurring tasks. Verify client/server mission lists match and rewards are atomic under concurrency.
 - **#4 Finance:** Stars validation/refund intent, market source provenance, transfer uniqueness patterns, and seven-level referral tests exist. Real webhook/transfer concurrency, historical ledger reconciliation, and referral event replay still require staging verification.
 - **#5 UI:** generic nearest-harvest section with egg, feather and milk panels exists; ensure panels hide for unowned species. Manual phone viewport and navigation testing remain.
-- **#6 Safety:** ephemeral PostgreSQL CI runs, health endpoints, and prelaunch checks exist. No isolated Railway staging deployment, verified backup restore, or real-money smoke test has been completed.
+- **#6 Safety:** ephemeral PostgreSQL CI runs, health endpoints, and prelaunch checks exist. An isolated Railway staging project and PostgreSQL have been deployed; first API startup succeeded. No verified backup restore, authenticated staging E2E, or real-money smoke test has been completed.
 - **Release gate:** all CI checks green, isolated staging DB smoke tests, verified backup/restore, payment reconciliation, and explicit owner approval. Do not merge or deploy from this audit alone.
 
-## Before deploying
+## Isolated staging status (2026-11-02)\n- Railway project: `Farm-Prelaunch-Staging` (`053a5b44-a119-40e3-a766-f3b6028a4560`), environment `staging`, database service `Postgres`, API service `Farm-API-Staging`. Separate from the production Railway project.\n- API source branch: `farm-prelaunch-2026-11-01`. `DATABASE_URL` references the staging PostgreSQL service. `FARM_STAGING=true`; Stars payments explicitly disabled. No Telegram bot token copied.\n- PostgreSQL deployment succeeded and the API logged database connection, schema initialization and Uvicorn startup. The first API attempt crashed before the DB reference was set; a later deployment succeeded.\n- **Staging-only issue found:** the pre-existing one-time owner wallet grant ran during the first staging startup. Commit `46443fceb66fef8f6b5302a60b8aaef48d3795b7` prevents subsequent staging grants; this does not reverse the initial staging-only credit. Do not use staging balances for financial reconciliation until test data is reset.\n- Still pending: authenticated smoke test, concurrent claim tests against staging, backup-and-restore drill, historical ledger audit, and manual mobile UI review.\n\n## Before deploying
 1. Confirm the exact commit in PR #40, review changes, and ensure GitHub Actions checks pass.
 2. Create a PostgreSQL backup using Railway's supported backup/export workflow. Record the backup timestamp and verify that the backup is restorable in an isolated database. Never test restore against production.
 3. Record counts and aggregate balances before deployment:
@@ -40,7 +40,7 @@ This branch is NOT automatically safe to deploy. Do not merge while checks are m
 ## Current limitations
 - New mission-selection helper is not wired into daily/weekly claims.
 - Full financial security review and concurrency tests have not been completed.
-- GitHub Actions now includes ephemeral PostgreSQL concurrency tests, but does not exercise a full Railway staging deployment.
+- GitHub Actions includes ephemeral PostgreSQL concurrency tests. A separate Railway staging deployment now exists, but CI does not run authenticated end-to-end tests against it.
 - No production backup or staging restore has been verified.
 
 ## Economy and production test matrix (2026-11-02)
