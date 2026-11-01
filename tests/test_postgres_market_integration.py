@@ -187,16 +187,6 @@ class PostgresMarketLedgerTests(unittest.TestCase):
             c.execute("INSERT INTO reward_emission VALUES(1,0)")
             c.execute("INSERT INTO daily_activity VALUES('buyer',CURRENT_DATE::text,10,10,3)")
             c.execute("UPDATE players SET coins=0 WHERE id='buyer'")
-        def claim(_):
-            def isolated_db():
-                return self.connect()
-            with patch.object(main, "db", side_effect=isolated_db), patch.object(main, "person", side_effect=lambda c,*a: {"id":"buyer"}), patch.object(main.farm_expansion, "progress", return_value={}):
-                try:
-                    return main.claim_weekly("Bearer test")["awarded"]
-                except main.HTTPException as exc:
-                    if exc.status_code == 409:
-                        return 0
-                    raise
         # Patching module globals is process-wide; run workers with the same
         # stable patch, not overlapping per-thread patch contexts.
         def run_claim(_):
