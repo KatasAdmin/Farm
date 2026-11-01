@@ -715,7 +715,20 @@ def stars_payment_received(message):
   if not stars_validation.matches_order(x,message):
    logger.error("stars_payment_mismatch_order")
    return {"ok":True}
-  if c.execute("SELECT 1 FROM star_orders WHERE charge_id=%s",(charge,)).fetchone():return {"ok":True}
+  prior=c.execute("SELECT id FROM star_orders WHERE charge_id=%s",(charge,)).fetchone()
+  if prior:
+   logger.error("stars_charge_reused charge_order=%s incoming_order=%s",prior["id"],order_id)
+   return {"ok":True}
+  # Lock the player before crediting. The refund flow locks its order and
+  # player, and a pending refund intent must not silently admit new funds.
+  owner=c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(x["player_id"],)).fetchone()
+  if not owner:
+   raise RuntimeError("Stars payment player missing; do not mark charge paid")
+  unresolved=c.execute("""SELECT 1 FROM stars_refund_intents i
+      JOIN star_orders o ON o.id=i.order_id
+      WHERE o.player_id=%s AND i.status IN ('calling','needs_review') LIMIT 1""",(x["player_id"],)).fetchone()
+  if unresolved:
+   raise RuntimeError("Stars payment deferred: refund reconciliation pending")
   c.execute("UPDATE star_orders SET status='paid',charge_id=%s WHERE id=%s",(charge,order_id))
   credited=c.execute("UPDATE players SET coins=coins+%s,purchased_coins=purchased_coins+%s WHERE id=%s RETURNING id",(x["coins"],x["coins"],x["player_id"])).fetchone()
   if not credited:
