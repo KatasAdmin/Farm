@@ -17,5 +17,10 @@ jobs:
           python-version: '3.11'
       - name: Compile Python modules
         run: python -m compileall -q .
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax check
+        run: node --check assets/game.js
       - name: Unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
