@@ -23,6 +23,17 @@ CHECKS = {
     ) duplicates""",
     "invalid_staged_xp": "SELECT COUNT(*) AS n FROM staged_achievement_claims WHERE xp <= 0",
     "negative_treasury": "SELECT COUNT(*) AS n FROM economy WHERE treasury < 0",
+    "invalid_money_source_allocations": """SELECT COUNT(*) AS n
+        FROM farm_money_sources s JOIN money_log m ON m.id=s.log_id
+        WHERE s.bonus + s.purchased + s.earned <> m.delta""",
+    "orphan_money_sources": """SELECT COUNT(*) AS n FROM farm_money_sources s
+        LEFT JOIN money_log m ON m.id=s.log_id WHERE m.id IS NULL""",
+    "orphan_farm_bot_transfers": """SELECT COUNT(*) AS n FROM farm_bot_transfers t
+        LEFT JOIN players p ON p.id=t.player_id WHERE p.id IS NULL""",
+    "invalid_farm_bot_transfers": """SELECT COUNT(*) AS n
+        FROM farm_bot_transfers WHERE amount < 100""",
+    "orphan_staged_claims": """SELECT COUNT(*) AS n FROM staged_achievement_claims a
+        LEFT JOIN players p ON p.id=a.player_id WHERE p.id IS NULL""",
     "pending_withdrawals": "SELECT COUNT(*) AS n FROM withdrawal_requests WHERE status = 'pending'",
 }
 
@@ -43,7 +54,7 @@ def main():
                     count = cursor.fetchone()["n"]
                     cursor.execute("RELEASE SAVEPOINT audit_check")
                     print(f"{name}: {count}")
-                    if name.startswith(("negative_", "invalid_", "duplicate_")) and count:
+                    if name.startswith(("negative_", "invalid_", "duplicate_", "orphan_")) and count:
                         errors.append(f"{name}: {count}")
                 except psycopg.Error as exc:
                     cursor.execute("ROLLBACK TO SAVEPOINT audit_check")
