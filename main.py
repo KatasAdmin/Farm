@@ -142,6 +142,7 @@ async def lifespan(app):
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("e2739a80cd19af51123e8668ce152a5acc9c624734e4c5bfae38bdaee7b471ee",))
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("20a55ce3600686c91ce06d27bee89b766dbb913aa9df210aa8d521f19416efba",))
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("7960a2fde9eff70fa62ffd9db94581da971b69188f17d60bdc3805e9e4f750e9",))
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("08d38f2ed9c32a780af77de096d60936f1bff93abd706d799067d4a8cfd06109",))
   c.execute("CREATE TABLE IF NOT EXISTS reward_emission(id int PRIMARY KEY,total_minted bigint NOT NULL DEFAULT 0)")
   c.execute("INSERT INTO reward_emission(id,total_minted) VALUES(1,0) ON CONFLICT(id) DO NOTHING")
   c.execute("UPDATE players SET last_tick=%s WHERE last_tick IS NULL",(time.time(),))
