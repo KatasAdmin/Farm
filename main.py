@@ -5,6 +5,7 @@ import weekly_missions
 import market_allocation
 import incubation_rules
 import stars_validation
+import monetag_ads
 import release_grants
 import farm_wallet
 import referral_bridge
@@ -22,7 +23,7 @@ from urllib.parse import parse_qsl
 from urllib.request import Request as URLRequest, urlopen
 import psycopg
 from psycopg.rows import dict_row
-from fastapi import FastAPI,HTTPException,Header
+from fastapi import FastAPI,HTTPException,Header,Request as HTTPRequest
 from fastapi.responses import HTMLResponse,JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -45,6 +46,7 @@ async def lifespan(app):
   c.execute("CREATE INDEX IF NOT EXISTS monetag_ad_attempts_player_idx ON monetag_ad_attempts(player_id,created_at)")
   c.execute("CREATE TABLE IF NOT EXISTS monetag_reward_grants(id text PRIMARY KEY,player_id text NOT NULL,item text NOT NULL,quantity integer NOT NULL CHECK(quantity>0),created double precision NOT NULL,claimed_at double precision)")
   c.execute("CREATE INDEX IF NOT EXISTS monetag_reward_grants_player_idx ON monetag_reward_grants(player_id,claimed_at)")
+  monetag_ads.initialize(c)
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS satiety integer NOT NULL DEFAULT 100")
@@ -464,81 +466,75 @@ def advance(c,p,now=None):
  return upgrade_production(c,update_incubation(c,result,now),now)
 @app.get("/",response_class=HTMLResponse)
 def index():return HTMLResponse(open("index.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
-# Monetag rewarded advertising: fail closed until a private postback secret is configured.
-# Rewarded ads are disabled until a verified Monetag postback secret is configured.
-MONETAG_REWARDS={"grain":(1,2),"eggs":(2,2),"milk":(5,1),"chickens":(20,1)}
-def monetag_enabled():
- return bool(os.environ.get("MONETAG_POSTBACK_SECRET")) and os.environ.get("MONETAG_REWARDS_ENABLED")=="1"
+# No raw postback secrets in application access logs. Railway edge logging must
+# also keep query strings disabled; see docs/MONETAG_AUDIT.md.
+class PostbackSecretRedaction:
+ def __init__(self,app):self.app=app
+ async def __call__(self,scope,receive,send):
+  if scope.get("type")=="http" and scope.get("path")=="/api/ads/monetag/postback":
+   from urllib.parse import parse_qsl,urlencode
+   params=parse_qsl(scope.get("query_string",b"").decode("utf-8",errors="replace"),keep_blank_values=True)
+   values=[v for k,v in params if k=="secret"]
+   scope.setdefault("state",{})["monetag_secret"]=values[0] if len(values)==1 else ""
+   scope["query_string"]=urlencode([(k,v) for k,v in params if k!="secret"]).encode()
+  await self.app(scope,receive,send)
+app.add_middleware(PostbackSecretRedaction)
+
+MONETAG_REWARDS=monetag_ads.REWARDS
+monetag_enabled=monetag_ads.enabled
+
+def ads_platform(p,raw):
+ if not raw:return "web"
+ uid=telegram_identity(raw)
+ if not p.get("telegram_id") or uid!=p["telegram_id"]:raise HTTPException(403,"Telegram не совпадает с аккаунтом фермы")
+ return "telegram"
+
+def deliver_ads(c,p):return monetag_ads.deliver(c,p,advance,coop_limit,storage_limit)
 
 @app.get("/api/ads/monetag/status")
-def monetag_status(authorization:str=Header(default="")):
+def monetag_status(authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
  with db() as c:
-  p=person(c,authorization)
-  rows=c.execute("SELECT placement,count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s AND rewarded_at IS NOT NULL GROUP BY placement",(p["id"],)).fetchall()
-  totals={x["placement"]:x["n"] for x in rows}
-  attempts=c.execute("SELECT placement,count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s GROUP BY placement",(p["id"],)).fetchall()
-  attempted={x["placement"]:x["n"] for x in attempts}
- return {"enabled":monetag_enabled(),"zone_id":12193261,"rewards":{k:{"views":v[0],"quantity":v[1],"progress":totals.get(k+"_reward",0)%v[0],"attempts":attempted.get(k+"_reward",0),"confirmed":totals.get(k+"_reward",0)} for k,v in MONETAG_REWARDS.items()}}
+  monetag_ads.lock(c)
+  p=person(c,authorization,True)
+  platform=ads_platform(p,telegram_data)
+  delivered=deliver_ads(c,p)
+  return dict(monetag_ads.status(c,p,platform),**delivered)
 
 @app.post("/api/ads/monetag/prepare")
-def monetag_prepare(q:dict,authorization:str=Header(default="")):
- if not monetag_enabled():raise HTTPException(503,"Рекламные награды пока настраиваются")
- kind=q.get("item","grain")
- if kind not in MONETAG_REWARDS:raise HTTPException(400,"Награда не найдена")
- now=time.time()
+def monetag_prepare(q:dict,authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
  with db() as c:
+  monetag_ads.lock(c)
   p=person(c,authorization,True)
-  ymid="farm_"+secrets.token_hex(20)
-  c.execute("INSERT INTO monetag_ad_attempts(ymid,player_id,created_at,zone_id,placement) VALUES(%s,%s,%s,%s,%s)",(ymid,p["id"],now,12193261,kind+"_reward"))
- return {"ymid":ymid,"zone_id":12193261,"item":kind}
+  return monetag_ads.prepare(c,p,q.get("item","grain"),ads_platform(p,telegram_data))
+
+@app.post("/api/ads/monetag/event")
+def monetag_event(q:dict,authorization:str=Header(default="")):
+ with db() as c:
+  monetag_ads.lock(c)
+  p=person(c,authorization,True)
+  return monetag_ads.report(c,p,str(q.get("ymid","")),str(q.get("event","")),str(q.get("result","")),str(q.get("error","")))
 
 @app.post("/api/ads/monetag/claim")
 def monetag_claim(authorization:str=Header(default="")):
- if not monetag_enabled():raise HTTPException(503,"Рекламные награды пока настраиваются")
  with db() as c:
-  p=person(c,authorization,True)
-  p=advance(c,p)
-  rewards=c.execute("SELECT * FROM monetag_reward_grants WHERE player_id=%s AND claimed_at IS NULL ORDER BY created,id FOR UPDATE",(p["id"],)).fetchall()
-  granted=[]
-  for reward in rewards:
-   item=reward["item"];quantity=reward["quantity"]
-   if item=="chickens":
-    if p["chickens"]+p.get("geese",0)+quantity>coop_limit(p):continue
-    c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(quantity,quantity,p["id"]))
-   elif item in ("grain","eggs","milk"):
-    if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+quantity>storage_limit(p):continue
-    c.execute("UPDATE players SET "+item+"="+item+"+%s WHERE id=%s",(quantity,p["id"]))
-   else:continue
-   p={**p,item:p[item]+quantity}
-   c.execute("UPDATE monetag_reward_grants SET claimed_at=%s WHERE id=%s",(time.time(),reward["id"]))
-   granted.append({"item":item,"quantity":quantity})
- return {"ok":True,"granted":granted,"pending":len(rewards)-len(granted)}
+  monetag_ads.lock(c)
+  return deliver_ads(c,person(c,authorization,True))
 
 @app.get("/api/ads/monetag/postback")
-def monetag_postback(secret:str="",ymid:str="",zone_id:int=0,sub_zone_id:int=0,event_type:str="",reward_event_type:str="",request_var:str="",telegram_id:str="",estimated_price:str=""):
- configured=os.environ.get("MONETAG_POSTBACK_SECRET","")
- if not monetag_enabled() or not secret or not hmac.compare_digest(secret,configured):raise HTTPException(403,"Forbidden")
- if not ymid.startswith("farm_") or len(ymid)!=45 or not all(x in "0123456789abcdef" for x in ymid[5:]):raise HTTPException(400,"Invalid event")
- if zone_id!=12193261 or sub_zone_id!=12193261:raise HTTPException(400,"Wrong zone")
- if event_type not in ("impression","click") or reward_event_type not in ("valued","non_valued"):raise HTTPException(400,"Invalid event")
- if event_type=="click":return {"ok":True,"rewarded":False,"reason":"click_not_rewardable"}
+def monetag_postback(request:HTTPRequest,ymid:str="",zone_id:int=0,sub_zone_id:int=0,event_type:str="",reward_event_type:str="",request_var:str="",telegram_id:str="",estimated_price:str=""):
  with db() as c:
-  row=c.execute("SELECT * FROM monetag_ad_attempts WHERE ymid=%s FOR UPDATE",(ymid,)).fetchone()
-  if not row or row["rewarded_at"] is not None:return {"ok":True,"rewarded":False}
-  if request_var!=row["placement"] or row["placement"] not in [k+"_reward" for k in MONETAG_REWARDS]:raise HTTPException(400,"Wrong placement")
-  if reward_event_type!="valued" or time.time()-row["created_at"]>48*3600:return {"ok":True,"rewarded":False}
-  c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(row["player_id"],))
-  kind=row["placement"][:-7]
-  views,qty=MONETAG_REWARDS[kind]
-  count=c.execute("SELECT count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s AND placement=%s AND rewarded_at IS NOT NULL",(row["player_id"],row["placement"])).fetchone()["n"]
-  c.execute("UPDATE monetag_ad_attempts SET rewarded_at=%s WHERE ymid=%s",(time.time(),ymid))
-  if (count+1)%views==0:
-   # A completed set of paid views creates a durable claim. Never lose rewards
-   # when the warehouse or coop is full; do not touch money balances.
-   c.execute("INSERT INTO monetag_reward_grants(id,player_id,item,quantity,created) VALUES(%s,%s,%s,%s,%s)",(ymid,row["player_id"],kind,qty,time.time()))
-   return {"ok":True,"rewarded":True,"item":kind,"quantity":qty,"claim_required":True}
+  monetag_ads.lock(c)
+  result=monetag_ads.postback(c,getattr(request.state,"monetag_secret",""),ymid,zone_id,sub_zone_id,event_type,reward_event_type,request_var,telegram_id,estimated_price)
+  pid=result.pop("player_id",None)
+  if pid:
+   p=c.execute("SELECT * FROM players WHERE id=%s FOR UPDATE",(pid,)).fetchone()
+   result.update(deliver_ads(c,p))
+  return result
 
- return {"ok":True,"rewarded":False,"progress":(count+1)%views}
+@app.get("/api/admin/ads")
+def admin_ads(authorization:str=Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:return monetag_ads.statistics(c)
 
 @app.get("/health")
 def health():return {"ok":True,"release":RELEASE}
