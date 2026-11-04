@@ -479,14 +479,34 @@ function openResourceActions(item) {
   el("resource-action-sell").textContent=["eggs","milk"].includes(item)?"Выставить на продажу":"Продать системе";
   el("resource-actions-dialog").showModal();
 }
+const adRewards={grain:[1,2,"🌾"],eggs:[2,2,"🥚"],milk:[5,1,"🥛"],chickens:[20,1,"🐔"]};
+let selectedAdReward="grain";
+let adProgress={};
+function selectAdReward(item){
+ if(!adRewards[item])return;
+ selectedAdReward=item;
+ const [views,quantity,emoji]=adRewards[item];
+ const label=el("ad-reward-selection");
+ if(label)label.textContent=emoji+" "+(adProgress[item]||0)+" из "+views+" просмотров · награда "+quantity+" шт.";
+}
+async function loadAdRewardStatus(){
+ try{
+  const status=await api("/api/ads/monetag/status");
+  adProgress=Object.fromEntries(Object.entries(status.rewards||{}).map(([key,value])=>[key,value.progress]));
+  selectAdReward(selectedAdReward);
+  const btn=el("ad-reward-watch");
+  if(btn){btn.disabled=!status.enabled;btn.textContent=status.enabled?"🎬 Смотреть рекламу":"Реклама пока настраивается";}
+ }catch(_){}
+}
 function openFreeResourceReward(item){
  const dialog=el("resource-actions-dialog");
  if(dialog?.open)dialog.close();
  tab("farm");
- const card=el("rewarded-ad-card");
- if(card)card.scrollIntoView({behavior:"smooth",block:"center"});
- toast("Рекламные награды появятся после подключения Monetag.");
+ selectAdReward(adRewards[item]?item:"grain");
+ el("rewarded-ad-card")?.scrollIntoView({behavior:"smooth",block:"center"});
+ loadAdRewardStatus();
 }
+
 function resourceAction(action){
  const item=selectedResource;
  el("resource-actions-dialog").close();
@@ -1290,7 +1310,7 @@ setInterval(() => {
 }, 60000);
 setInterval(countdown, 1000);
 tab("farm");
-if (token) refresh();
+if (token) {refresh();loadAdRewardStatus();}
 else showLogin();
 
 async function configureTelegramEntry(){
