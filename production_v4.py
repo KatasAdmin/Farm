@@ -1,5 +1,6 @@
 """Continuous eggs for production model 4, with feed events every 18 hours."""
 import math
+import ad_inventory
 from production import CYCLE, FEED_EVERY, GRAIN_PRICE
 GOOSE_CYCLE=2*3600
 GOOSE_FEED=2
@@ -15,6 +16,11 @@ def feed_required(p):
 
 def simulate(p, now):
  p=dict(p)
+ tagged=ad_inventory.active(p)
+ ad_hens=p.get("ad_chickens",0);ad_geese=p.get("ad_geese",0);ad_cows=p.get("ad_cows",0)
+ ad_fed=min(p.get("ad_fed_hens",0),p["fed_hens"]);ad_goose_fed=min(p.get("ad_fed_geese",0),p.get("fed_geese",0));ad_cow_fed=min(p.get("ad_fed_cows",0),p.get("fed_cows",0))
+ ad_grain=p.get("ad_grain",0);ad_eggs=p.get("ad_eggs",0);ad_milk=p.get("ad_milk",0);ad_feathers=p.get("ad_feathers",0)
+ ad_ep=p.get("ad_egg_progress",0.0);ad_mp=p.get("ad_milk_progress",0.0);ad_fp=p.get("ad_feather_progress",0.0);ad_credit=p.get("_ad_credit_balance",0)
  cursor=min(now,p.get("egg_at") or now)
  progress=float(p.get("egg_progress") or 0)
  feather_progress=float(p.get("feather_progress") or 0)
@@ -38,28 +44,46 @@ def simulate(p, now):
  produced=0
  refills=[]
  def accrue(until):
-  nonlocal cursor,progress,eggs,produced,feathers,feather_progress,milk,milk_progress
+  nonlocal cursor,progress,eggs,produced,feathers,feather_progress,milk,milk_progress,ad_ep,ad_mp,ad_fp,ad_eggs,ad_milk,ad_feathers
   # Interleave feather events and egg production by time, so polling cannot
   # change which resource occupies the last warehouse slot. Eggs win ties.
   while until>cursor:
    step=min(until,cursor+(FEATHER_INTERVAL-feather_progress)/fed_geese) if fed_geese else until
    if fed_cows:step=min(step,cursor+(MILK_INTERVAL-milk_progress)/fed_cows)
    elapsed=max(0,step-cursor)
-   total=progress+(fed/CYCLE+fed_geese/GOOSE_CYCLE)*elapsed
+   before_progress=progress
+   rate=fed/CYCLE+fed_geese/GOOSE_CYCLE
+   total=progress+rate*elapsed
    whole=math.floor(total+1e-10)
    progress=max(0,min(.999999999,total-whole))
    laid=min(whole,max(0,capacity-grain-eggs-feathers-milk))
    eggs+=laid
    produced+=laid
+   if tagged:
+    ad_rate=ad_fed/CYCLE+ad_goose_fed/GOOSE_CYCLE
+    # Classify at each egg's creation time, not at the end of a polling span.
+    # The closed form counts restricted units among the first storable eggs.
+    at_last=lambda count:ad_ep+ad_rate*max(0,(count-before_progress)/rate) if rate and count else ad_ep
+    stored_ad=min(laid,max(0,math.ceil(at_last(laid)-1e-10))) if laid else 0
+    generated_ad=min(whole,max(0,math.ceil(at_last(whole)-1e-10))) if whole else 0
+    ad_ep+=ad_rate*elapsed-generated_ad
+    ad_eggs+=stored_ad
+    ad_mp+=ad_cow_fed*elapsed;ad_fp+=ad_goose_fed*elapsed
    feather_progress+=fed_geese*elapsed
    milk_progress+=fed_cows*elapsed
    cursor=step
    if feather_progress>=FEATHER_INTERVAL-1e-7:
     feather_progress=max(0,feather_progress-FEATHER_INTERVAL)
-    if grain+eggs+feathers+milk<capacity:feathers+=1
+    if grain+eggs+feathers+milk<capacity:
+     feathers+=1
+     if tagged and ad_fp>1e-7:ad_feathers+=1
+    if tagged and ad_fp>1e-7:ad_fp-=FEATHER_INTERVAL
    if milk_progress>=MILK_INTERVAL-1e-7:
     milk_progress=max(0,milk_progress-MILK_INTERVAL)
-    if grain+eggs+feathers+milk<capacity:milk+=1
+    if grain+eggs+feathers+milk<capacity:
+     milk+=1
+     if tagged and ad_mp>1e-7:ad_milk+=1
+    if tagged and ad_mp>1e-7:ad_mp-=MILK_INTERVAL
 
  feed_at=tick+(FEED_EVERY-phase)*CYCLE
  for _ in range(146000):
@@ -70,12 +94,23 @@ def simulate(p, now):
    coins-=GRAIN_PRICE*refill
    grain+=refill
    refills.append(refill)
+   if tagged:
+    ad_grain+=ad_inventory.funded_units(ad_credit,GRAIN_PRICE*refill,refill)
+    ad_credit=max(0,ad_credit-GRAIN_PRICE*refill)
+  grain_before_feed=grain
   fed=min(grain,hens)
   grain-=fed
   fed_geese=min(geese,grain//GOOSE_FEED)
   grain-=GOOSE_FEED*fed_geese
   fed_cows=min(cows,grain//COW_FEED)
   grain-=COW_FEED*fed_cows
+  if tagged:
+   used=min(ad_grain,grain_before_feed-grain);ad_grain-=used
+   hen_feed=min(used,fed);used-=hen_feed
+   goose_feed=min(used,GOOSE_FEED*fed_geese);used-=goose_feed
+   ad_fed=min(fed,max(ad_hens,hen_feed))
+   ad_goose_fed=min(fed_geese,max(ad_geese,math.ceil(goose_feed/GOOSE_FEED)))
+   ad_cow_fed=min(fed_cows,max(ad_cows,math.ceil(used/COW_FEED)))
   if fed==hens and fed_geese==geese and fed_cows==cows:
    sat=min(100,sat+3)
    critical=0
@@ -94,6 +129,9 @@ def simulate(p, now):
     fed_cows=min(fed_cows,cows)
     critical=0
     sat=20 if hens or geese or cows else 0
+    if tagged:
+     ad_hens=min(ad_hens,hens);ad_geese=min(ad_geese,geese);ad_cows=min(ad_cows,cows)
+     ad_fed=min(ad_fed,fed);ad_goose_fed=min(ad_goose_fed,fed_geese);ad_cow_fed=min(ad_cow_fed,fed_cows)
   tick=feed_at
   phase=0
   feed_at+=FEED_EVERY*CYCLE
@@ -101,6 +139,7 @@ def simulate(p, now):
  p.update(egg_at=cursor,egg_progress=progress,last_tick=tick,feed_phase=phase,
           eggs=eggs,milk=milk,milk_progress=milk_progress,cows=cows,fed_cows=fed_cows,feathers=feathers,feather_progress=feather_progress,grain=grain,coins=coins,chickens=hens,fed_hens=fed,geese=geese,fed_geese=fed_geese,
           satiety=sat,critical_cycles=critical)
+ if tagged:p.update(ad_grain=ad_grain,ad_eggs=ad_eggs,ad_milk=ad_milk,ad_feathers=ad_feathers,ad_chickens=ad_hens,ad_geese=ad_geese,ad_cows=ad_cows,ad_fed_hens=ad_fed,ad_fed_geese=ad_goose_fed,ad_fed_cows=ad_cow_fed,ad_egg_progress=ad_ep,ad_milk_progress=ad_mp,ad_feather_progress=ad_fp)
  return p,produced,refills
 
 def next_egg_delay(p,now):

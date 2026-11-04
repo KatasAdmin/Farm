@@ -9,6 +9,7 @@ from unittest.mock import patch
 import psycopg
 from psycopg.rows import dict_row
 import monetag_ads as ads
+import ad_inventory
 from test_monetag_rewards import schema,SECRET
 
 DSN=os.getenv('TEST_DATABASE_URL')
@@ -39,7 +40,7 @@ class MonetagPostgres(unittest.TestCase):
   with ThreadPoolExecutor(max_workers=5) as pool:results=list(pool.map(claim,range(10)))
   self.assertEqual(sum(len(x['granted']) for x in results),1)
   with self.connect() as c:
-   p=c.execute("SELECT * FROM players WHERE id='p'").fetchone();self.assertEqual((p['grain'],p['coins']),(2,100));self.assertEqual(ads.statistics(c)['estimated_usd'],'0.0037000')
+   p=c.execute("SELECT * FROM players WHERE id='p'").fetchone();self.assertEqual((p['grain'],p['coins'],p['ad_grain']),(2,100,2));self.assertEqual(ads.statistics(c)['estimated_usd'],'0.0037000')
  def test_schema_upgrade_preserves_legacy_progress_and_grants(self):
   with self.connect() as c:
    for field in ads.FIELDS:c.execute('ALTER TABLE monetag_ad_attempts DROP COLUMN '+field)
@@ -49,3 +50,10 @@ class MonetagPostgres(unittest.TestCase):
    p=c.execute("SELECT * FROM players WHERE id='p'").fetchone();s=ads.status(c,p,'web')
    self.assertEqual(s['rewards']['eggs']['progress'],1)
    self.assertEqual(ads.deliver(c,p,lambda c,p:p,lambda p:10,lambda p:100)['granted'],[{'item':'grain','quantity':2}])
+
+ def test_ad_provenance_migration_is_repeatable_and_preserves_ordinary_and_tagged_stock(self):
+  with self.connect() as c:
+   c.execute("UPDATE players SET grain=20,ad_grain=2 WHERE id='p'")
+   ad_inventory.initialize(c);ad_inventory.initialize(c)
+   p=c.execute("SELECT * FROM players WHERE id='p'").fetchone()
+   self.assertEqual((p['grain'],p['ad_grain'],p['coins']),(20,2,100))

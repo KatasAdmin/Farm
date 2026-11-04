@@ -2,6 +2,7 @@
 Client reports are telemetry, never payment evidence. No coin/XP/referral writes.
 """
 import hmac
+import ad_inventory
 import os
 import re
 import secrets
@@ -117,8 +118,9 @@ def postback(c,secret,ymid,zone_id,sub_zone_id,event_type,reward_event_type,requ
  if reward_event_type=='non_valued':
   c.execute('UPDATE monetag_ad_attempts SET non_valued_at=COALESCE(non_valued_at,%s) WHERE ymid=%s',(now,ymid))
   return {'ok':True,'rewarded':False,'reason':'non_valued'}
- if event_type=='impression':c.execute('UPDATE monetag_ad_attempts SET valued_at=COALESCE(valued_at,%s) WHERE ymid=%s',(now,ymid))
- if event_type!='impression' or row['rewarded_at'] is not None:return {'ok':True,'rewarded':False,'reason':'click_or_duplicate'}
+ c.execute('UPDATE monetag_ad_attempts SET valued_at=COALESCE(valued_at,%s) WHERE ymid=%s',(now,ymid))
+ # Monetag's popup contract: one reward per ymid for ANY valued event.
+ if row['rewarded_at'] is not None:return {'ok':True,'rewarded':False,'reason':'duplicate'}
  if row['blocked_at'] is not None or now-row['created_at']>POSTBACK_TTL:return {'ok':True,'rewarded':False,'reason':'expired_or_limited'}
  # A forged SDK callback cannot bypass these limits. Late legitimate postbacks
  # use the attempt's original UTC day, rather than resetting yesterday's budget.
@@ -138,6 +140,7 @@ def deliver(c,p,advance,coop_limit,storage_limit):
  rewards=c.execute('SELECT * FROM monetag_reward_grants WHERE player_id=%s AND claimed_at IS NULL ORDER BY created,id FOR UPDATE',(p['id'],)).fetchall()
  granted=[]
  for r in rewards:
+  if not ad_inventory.active(p):raise RuntimeError('Advertising provenance migration is required before delivery')
   item=r['item'];n=r['quantity']
   if item=='chickens':
    if p['chickens']+p.get('geese',0)+n>coop_limit(p):continue
@@ -146,6 +149,7 @@ def deliver(c,p,advance,coop_limit,storage_limit):
    if sum(p.get(k,0) for k in ('grain','eggs','milk','feathers'))+n>storage_limit(p):continue
    c.execute('UPDATE players SET '+item+'='+item+'+%s WHERE id=%s',(n,p['id']))
   else:continue
+  ad_inventory.add(c,p,item,n)
   p={**p,item:p.get(item,0)+n}
   c.execute('UPDATE monetag_reward_grants SET claimed_at=%s WHERE id=%s AND claimed_at IS NULL',(time.time(),r['id']))
   granted.append({'item':item,'quantity':n})
@@ -176,7 +180,7 @@ def status(c,p,platform,now=None):
 def statistics(c):
  attempts=c.execute('SELECT * FROM monetag_ad_attempts').fetchall()
  grants=c.execute('SELECT item,quantity,claimed_at FROM monetag_reward_grants').fetchall()
- events=c.execute("SELECT ymid,estimated_usd FROM monetag_postback_events WHERE event_type='impression' AND reward_event_type='valued'").fetchall()
+ events=c.execute("SELECT ymid,estimated_usd FROM monetag_postback_events WHERE reward_event_type='valued'").fetchall()
  # Once per show; do not double count retry, click, or multiple popup sub-zones.
  prices={}
  for e in events:

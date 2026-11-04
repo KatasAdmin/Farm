@@ -59,7 +59,7 @@ async function reserve(){
 }
 function historyUI(data){
  let holder=el('ad-history');
- if(!holder){const wallet=el('wallet');if(!wallet)return;holder=document.createElement('details');holder.id='ad-history';holder.className='card';const title=document.createElement('summary');title.textContent='🎬 История рекламы';holder.appendChild(title);const body=document.createElement('div');body.className='ad-history-rows';holder.appendChild(body);wallet.appendChild(holder);}
+ if(!holder){const wallet=el('wallet');if(!wallet)return;holder=document.createElement('details');holder.id='ad-history';holder.className='card';const title=document.createElement('summary');title.textContent='🎬 История рекламы';holder.appendChild(title);const note=document.createElement('p');note.className='muted';note.textContent='Рекламные товары и доход от них — только для покупок, без вывода.';holder.appendChild(note);const body=document.createElement('div');body.className='ad-history-rows';holder.appendChild(body);wallet.appendChild(holder);}
  const body=holder.querySelector('.ad-history-rows');body.replaceChildren();
  (data.history||[]).forEach(row=>{const node=document.createElement('p');node.className='muted';node.textContent=new Date(row.created_at*1000).toLocaleString('ru-RU')+' · '+(labels[row.item]||row.item)+' · '+(row.state==='credited'?(row.reward_quantity?(row.reward_claimed?'Награда получена':'Награда сохранена, нужно свободное место'):'Просмотр засчитан'):states[row.state]||row.state);body.appendChild(node);});
  if(!data.history?.length){const node=document.createElement('p');node.textContent='Пока нет запусков рекламы';body.appendChild(node);}

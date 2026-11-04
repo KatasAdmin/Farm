@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 from fastapi import HTTPException
 import monetag_ads as ads
+import ad_inventory
 import main
 from test_task_bot import Database
 
@@ -22,6 +23,11 @@ def schema(c):
  c.execute('CREATE TABLE players(id text PRIMARY KEY,telegram_id bigint,coins int,grain int,eggs int,milk int,feathers int,chickens int,fed_hens int,geese int,coop_level int,storage_level int)')
  c.execute("INSERT INTO players VALUES('p',7,100,0,0,0,0,0,0,0,1,1)")
  c.execute("INSERT INTO players VALUES('other',8,100,0,0,0,0,0,0,0,1,1)")
+ for key in ad_inventory.INTS:c.execute('ALTER TABLE players ADD COLUMN '+key+' integer NOT NULL DEFAULT '+('1' if key=='ad_stock_version' else '0'))
+ for key in ad_inventory.FLOATS:c.execute('ALTER TABLE players ADD COLUMN '+key+' double precision NOT NULL DEFAULT 0')
+ c.execute('CREATE TABLE farm_ad_money(log_id text PRIMARY KEY,amount integer)')
+ c.execute('CREATE TABLE farm_ad_listings(id text PRIMARY KEY,quantity integer)')
+ c.execute('CREATE TABLE farm_ad_incubations(id text PRIMARY KEY)')
  c.execute('CREATE TABLE monetag_ad_attempts(ymid text PRIMARY KEY,player_id text,created_at double precision,rewarded_at double precision,zone_id int,placement text,'+','.join(k+' '+v for k,v in ads.FIELDS.items())+')')
  c.execute('CREATE TABLE monetag_reward_grants(id text PRIMARY KEY,player_id text,item text,quantity int,created real,claimed_at real)')
  c.execute('CREATE TABLE monetag_postback_events(ymid text,event_type text,sub_zone_id int,reward_event_type text,estimated_usd numeric,received_at real,PRIMARY KEY(ymid,event_type,sub_zone_id,reward_event_type))')
@@ -69,7 +75,7 @@ class MonetagRewardsTests(AdFixture):
    with self.subTest(changes=changes),self.assertRaises(HTTPException):self.post(a,**changes)
   self.assertEqual(self.c.execute('SELECT count(*) AS n FROM monetag_postback_events').fetchone()['n'],0)
  def test_click_and_multiple_subzones_never_duplicate_reward_or_revenue(self):
-  a=self.prepare();self.post(a,event_type='click');self.assertEqual(self.deliver()['granted'],[])
+  a=self.prepare();self.post(a,event_type='click');self.assertEqual(self.deliver()['granted'],[{'item':'grain','quantity':2}])
   self.post(a);self.post(a,sub_zone_id=1000);self.deliver()
   self.assertEqual(self.p()['grain'],2)
   self.assertEqual(ads.statistics(self.c)['estimated_usd'],'0.0037')

@@ -17,8 +17,8 @@ No passwords or real postback secrets belong in this document, GitHub, client JS
 Railway HTTP log sample on audit day contained 29 postback requests: 22 HTTP 200,
 6 HTTP 400 and 1 HTTP 422. This supports rejected callbacks, not proof of a paid
 impression or an explanation of the publisher dashboard's zero. Dashboard ownership,
-zone enablement, traffic eligibility and actual event parameters require private
-Monetag inspection. A successful Promise or HTTP 200 is never counted as revenue.
+zone enablement, traffic eligibility and actual event parameters required private
+Monetag inspection. See the verified follow-up below. A successful Promise or HTTP 200 is never counted as revenue.
 
 ## Reward policy and limits
 
@@ -30,8 +30,9 @@ Monetag inspection. A successful Promise or HTTP 200 is never counted as revenue
 | Chicken | 20 | 1 |
 
 SDK reports are telemetry only, including a forged `valued` result. Only a secret-
-authenticated `valued` impression tied to a random server-issued account/placement/
-zone token credits progress. A click, duplicate or non_valued event never does.
+authenticated `valued` event tied to a random server-issued account/placement/
+zone token credits progress. A duplicate or non_valued event never does. Official popup docs allow one credit
+per ymid for any valued event_type, including a valued click from a linked zone.
 The official docs recommend postbacks for reward/accounting integrity; there is
 no safe way for this server to authenticate a browser Promise on its own.
 
@@ -52,20 +53,28 @@ an advertising hen is added, avoiding retroactive eggs. Reload/status automatica
 delivers eligible grants once there is room. No coin, real-money, XP, referral or
 organic-production activity is awarded by the ad delivery itself.
 
-### Economy boundary / release gate
+### Advertising provenance (follow-up authorized 2026-11-05)
 
-Normal market, feeding, production, referrals and withdrawal formulas are unchanged.
-Existing system buybacks for grain/birds are nonwithdrawable purchasing credit;
-existing player-market receipts inherit the buyer's bonus/purchased/earned source.
-**The current game does not track the provenance of individual inventory units.**
-Therefore advertising eggs/milk sold to a buyer paying earned coins can currently
-produce an earned seller receipt; ad hens' subsequent production is also ordinary
-production. This is a pre-existing inventory provenance gap, not solved by an ad
-callback signature. If the requirement forbids even such indirect conversion,
-**do not enable/release these rewards** until ad inventory/listing/production
-provenance is designed and tested. Do not claim that “no direct coin write” proves
-full economic isolation. Expanding provenance changes market/animal mechanisms and
-must be reconciled with the requested prohibition on changing them.
+The original inventory provenance gap has been addressed for newly delivered ad
+rewards: a server-side subset counter tags inventory, animals and their production.
+Tags survive listings, partial purchases, returns, incubation and feed use. Ordinary
+quantities, prices, timing and market allocation are unchanged. Integer production
+classification carries fractional debt across polling, rounds toward restriction
+and cannot create a new unrestricted fraction by refreshing. Partial ad funding of
+an indivisible animal tags the whole animal; any ad funding in a promo package or
+incubation tags that indivisible result. Restricted stock is spent first.
+
+Sales of tagged goods become purchasing credit, including an earned-funded buyer's
+payment. A separate receipt ledger tracks this advertising subset of bonus money;
+subsequent animal/grain purchases and automatic feed buys inherit the tag. Ad-only
+production/acquisition does not generate untagged referral resource commissions.
+Existing earned balances and ordinary inventory are not retroactively reclassified.
+No per-coin hash is needed: transactional quantities and source amounts conserve
+both total goods and money. Historical claimed ad rewards cannot safely be
+retagged without original provenance; the inspected real callbacks were all unpaid.
+
+Current release gates: green PostgreSQL CI for these new paths, staging/manual
+paid event verification and publisher traffic classification review.
 
 ## Private publisher configuration required
 
@@ -112,8 +121,8 @@ impressions are generated in automation.
 Manual release gates:
 
 * Review publisher settings above, compare actual callbacks with accepted schema.
-* Resolve the economy provenance boundary above without reclassifying existing
-  players' legitimately earned money.
+* Review and test the advertising provenance changes above. Existing players'
+  ordinary inventory and earned money must remain unchanged.
 * Run CI with isolated PostgreSQL. Never point TEST_DATABASE_URL at Railway.
 * On a staging deployment, use your own consenting test account, mobile Telegram
   Mini App and normal browser. Verify supported formats, progress after reload,
@@ -128,3 +137,39 @@ Manual release gates:
 * https://docs.monetag.com/docs/postbacks/configuration/
 * https://docs.monetag.com/docs/postbacks/macroses/
 * https://docs.monetag.com/docs/postbacks/
+
+## Verified publisher follow-up — 2026-11-05 (Kyiv)
+
+Safe user login succeeded. Actual cabinet confirms Farmlife2026bot / App 3563430,
+popup SDK zone 12193261, and postback endpoint with all nine expected parameters,
+including estimated_price. Secret presence/length were checked without logging it.
+The dashboard showed zero impressions/profit for the selected date range.
+
+Latest available runtime logs contained 34 postback requests: one unresolved-macro
+422, and **33 non_valued events** (27 HTTP 200, six HTTP 400); no valued event was
+observed. Placement counts: grain 20, eggs 8, chickens 5. This directly explains
+why these particular callbacks provided no paid credit. Provider documentation
+includes fraud/fallback under non_valued; logs do not reveal the exact classifier
+reason. Do not claim the user committed fraud. Changing phones is not evidence
+that integration is fixed or a way to evade traffic filtering. No self-click ad
+traffic was generated during this audit.
+
+There were no website properties. Added only the actual Farm production hostname
+as website **3563620**, pending ownership verification; no web ad zone activated.
+The cabinet supports verification-file or HTML-tag methods. Browser download did
+not yield a file and the copy-code clipboard API did not yield usable content;
+verification is not complete. Do not create duplicate sites or pretend verified.
+No production application code or Railway variables have been changed.
+
+### Support inquiry prepared (not sent)
+
+Please review App 3563430, SDK zone 12193261 (Farmlife2026bot). All 33 received
+real postbacks in our available logs on Nov 4–5 were reward_event_type=non_valued;
+the publisher dashboard reports zero impressions and profit. The postback URL is
+configured with ymid, zone_id, sub_zone_id, event_type, reward_event_type,
+estimated_price, request_var and telegram_id. Please explain whether these are
+fallback, traffic-quality filtering, zone restrictions or another classification,
+and confirm whether the zone is enabled for paid traffic. We will not generate
+self-click traffic for testing. Please also confirm an approved rewarded format
+and SDK/postback configuration for our ordinary web version (website 3563620).
+No secret URL, user IDs or private credentials are included in this inquiry.
