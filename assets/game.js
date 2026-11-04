@@ -1378,4 +1378,6 @@ function celebrateLevel(playerId,level){
 }
 
 function farmerTitle(level){return level>=15?"Хозяин фермы":level>=10?"Мастер фермы":level>=5?"Фермер":level>=3?"Птицевод":"Новичок";}
-\nconst farmAdButton=el("ad-reward-watch");if(farmAdButton)farmAdButton.addEventListener("click",watchAdReward);\n
+
+const farmAdButton=el("ad-reward-watch");
+if(farmAdButton)farmAdButton.addEventListener("click",watchAdReward);
