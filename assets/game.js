@@ -1133,6 +1133,8 @@ function render() {
   el("warning").textContent = state.farm.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления." : "Кормление раз в 18 часов · курица: 1 зерно, гусыня: 2, корова: 3.";
   el("warning").dataset.alert = String(state.farm.effective_grain_shortage > 0);
   el("warning").hidden=state.farm.effective_grain_shortage<=0;
+  const feedAlert=el("feed-alert");
+  if(feedAlert)feedAlert.hidden=!(state.farm.effective_grain_shortage>0);
 
   document.querySelectorAll(".auto-card").forEach((card) => {
     const input = card.querySelector("input");
@@ -1177,7 +1179,7 @@ function render() {
   el("leaders").innerHTML = state.top.slice(0,5)
     .map(
       (x, i) =>
-        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>Основной уровень ${number(x.farmer_level||1)}</small></div><b>Ур. ${number(x.farmer_level||1)}</b></div>`,
+        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>Основной уровень</small></div><b>Ур. ${number(x.farmer_level||1)}</b></div>`,
     )
     .join("");
   if(el("my-rank"))el("my-rank").textContent="Ваше место: "+(state.my_rank?number(state.my_rank):"—");

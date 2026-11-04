@@ -50,3 +50,4 @@ jobs:
         run: |
           npm install --prefix /tmp/farm-ad-ui --no-package-lock --ignore-scripts jsdom@26.1.0
           NODE_PATH=/tmp/farm-ad-ui/node_modules node tests/monetag_frontend.cjs
+          NODE_PATH=/tmp/farm-ad-ui/node_modules node tests/frontend_actions.cjs
