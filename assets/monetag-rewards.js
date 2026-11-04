@@ -15,13 +15,13 @@ function itemButton(item){
 }
 function decorate(){
  // Advertising purchasing credit can pay for any existing purchase or upgrade.
- document.querySelectorAll("[onclick^=\"upgradeBuilding(\"],#incubator-action,#incubator-upgrade,#bundle-buy").forEach(b=>{if(!b.nextElementSibling?.matches('[data-ad-free]'))b.insertAdjacentElement('afterend',itemButton('coins'));});
+ document.querySelectorAll('[onclick]').forEach(b=>{if(!(b.getAttribute('onclick')||'').startsWith('upgradeBuilding(')&&!['incubator-action','incubator-upgrade','bundle-buy'].includes(b.id))return;if(!b.nextElementSibling?.matches('[data-ad-free="coins"]'))b.insertAdjacentElement('afterend',itemButton('coins'));});
 
  document.querySelectorAll('[data-ad-progress]').forEach(n=>n.textContent=(adProgress[n.dataset.adProgress]||0)+'/'+(adRewards[n.dataset.adProgress]?.[0]||1));
  const rp=el('resource-action-ad-progress');if(rp&&adRewards[selectedResource])rp.textContent=(adProgress[selectedResource]||0)+'/'+adRewards[selectedResource][0]+' подтверждённых просмотров';
  document.querySelectorAll('#shop .product,#coop [data-animal-card]').forEach(card=>{
   const buy=[...card.querySelectorAll('[onclick]')].map(n=>(n.getAttribute('onclick')||'').match(/(?:showShop|selectBuy)\('([a-z]+)'\)/)).find(m=>m&&adRewards[m[1]]);
-  if(buy&&!card.querySelector('[data-ad-free]'))(card.querySelector('.trade-dual-actions,.buttons')||card).appendChild(itemButton(buy[1]));
+  if(buy&&!card.querySelector('[data-ad-free="'+buy[1]+'"]'))(card.querySelector('.trade-dual-actions,.buttons')||card).appendChild(itemButton(buy[1]));
  });
  const warning=el('warning');
  if(warning&&!el('free-grain-shortage')){const button=itemButton('grain');button.id='free-grain-shortage';warning.insertAdjacentElement('afterend',button);}
