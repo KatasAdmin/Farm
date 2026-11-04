@@ -498,6 +498,20 @@ async function loadAdRewardStatus(){
   if(btn){btn.disabled=!status.enabled;btn.textContent=status.enabled?"🎬 Смотреть рекламу":"Реклама пока настраивается";}
  }catch(_){}
 }
+async function claimAdRewards(){
+ if(pending)return;
+ busy(true);
+ try{
+  const result=await api("/api/ads/monetag/claim",{});
+  if(result.granted?.length){
+   toast("Получено: "+result.granted.map(x=>x.quantity+" "+(itemNames[x.item]||x.item)).join(", "));
+   await refresh();
+  }else if(result.pending)toast("Награды ожидают свободного места на складе или в курятнике.");
+  else toast("Пока нет подтверждённых наград.");
+  await loadAdRewardStatus();
+ }catch(error){toast(error.message);}
+ finally{busy(false);}
+}
 async function watchAdReward(){
  const button=el("ad-reward-watch");
  if(!button||button.disabled)return;
