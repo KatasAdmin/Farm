@@ -476,7 +476,9 @@ def monetag_status(authorization:str=Header(default="")):
   p=person(c,authorization)
   rows=c.execute("SELECT placement,count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s AND rewarded_at IS NOT NULL GROUP BY placement",(p["id"],)).fetchall()
   totals={x["placement"]:x["n"] for x in rows}
- return {"enabled":monetag_enabled(),"zone_id":12193261,"rewards":{k:{"views":v[0],"quantity":v[1],"progress":totals.get(k+"_reward",0)%v[0]} for k,v in MONETAG_REWARDS.items()}}
+  attempts=c.execute("SELECT placement,count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s GROUP BY placement",(p["id"],)).fetchall()
+  attempted={x["placement"]:x["n"] for x in attempts}
+ return {"enabled":monetag_enabled(),"zone_id":12193261,"rewards":{k:{"views":v[0],"quantity":v[1],"progress":totals.get(k+"_reward",0)%v[0],"attempts":attempted.get(k+"_reward",0),"confirmed":totals.get(k+"_reward",0)} for k,v in MONETAG_REWARDS.items()}}
 
 @app.post("/api/ads/monetag/prepare")
 def monetag_prepare(q:dict,authorization:str=Header(default="")):
