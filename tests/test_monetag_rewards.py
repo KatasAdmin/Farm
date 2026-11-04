@@ -69,9 +69,9 @@ class MonetagRewardsTests(AdFixture):
   a=self.prepare();self.report(a,result='valued')
   s=ads.status(self.c,self.p(),'telegram',self.now+121);self.assertEqual(s['history'][0]['state'],'unconfirmed')
   self.post(a,reward_event_type='non_valued',estimated_price='0')
-  self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now)['history'][0]['state'],'non_valued')
-  self.assertEqual(self.deliver()['granted'],[])
-  self.assertTrue(self.post(a)['rewarded'])
+  self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now)['history'][0]['state'],'credited')
+  self.assertEqual(self.deliver()['granted'],[{'item':'grain','quantity':1}])
+  self.assertFalse(self.post(a)['rewarded'])
  def test_undefined_sdk_result_does_not_wait_forever(self):
   a=self.prepare();self.report(a)
   self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now)['history'][0]['state'],'unconfirmed')
@@ -172,6 +172,24 @@ class ExpandedAdvertisingRewards(AdFixture):
   self.c.execute("UPDATE players SET cowshed_level=2,farmer_level=3 WHERE id='p'");self.c.raw.commit()
   self.assertEqual(len(self.deliver()['granted']),2)
   self.assertEqual((self.p()['ad_cows'],self.p()['ad_geese'],self.p()['fed_cows'],self.p()['fed_geese']),(1,1,1,1))
+
+class UnpaidImpressionRewards(AdFixture):
+ def test_unpaid_impression_earns_goods_once_but_never_counts_as_paid_income(self):
+  a=self.prepare();self.assertTrue(self.post(a,reward_event_type='non_valued',estimated_price='0')['rewarded'])
+  self.assertFalse(self.post(a,reward_event_type='non_valued',estimated_price='0')['rewarded'])
+  self.deliver();self.deliver();self.assertEqual(self.p()['grain'],1)
+  stats=ads.statistics(self.c);self.assertEqual((stats['total']['credited'],stats['total']['paid'],stats['total']['unpaid']),(1,0,1));self.assertIsNone(stats['estimated_usd'])
+  self.assertFalse(self.post(a)['rewarded']);self.deliver();self.assertEqual(self.p()['grain'],1)
+  self.assertEqual(ads.statistics(self.c)['total']['paid'],1)
+ def test_unpaid_click_is_not_a_view_and_sdk_cannot_forge_a_reward(self):
+  a=self.prepare();self.post(a,event_type='click',reward_event_type='non_valued',estimated_price='0')
+  self.report(a,result='non_valued');self.assertEqual(self.deliver()['granted'],[])
+  self.assertEqual(ads.statistics(self.c)['total']['paid'],0)
+ def test_unpaid_views_keep_threshold_progress_across_reload(self):
+  for i in range(2):
+   self.now+=4000;a=self.prepare('eggs');self.post(a,request_var='eggs_reward',reward_event_type='non_valued',estimated_price='0')
+   self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now)['rewards']['eggs']['progress'],(i+1)%2)
+  self.deliver();self.assertEqual(self.p()['eggs'],2)
 
 @unittest.skipUnless(importlib.util.find_spec('httpx'),'Install requirements-test.txt for API tests')
 class AdsApiTests(AdFixture):

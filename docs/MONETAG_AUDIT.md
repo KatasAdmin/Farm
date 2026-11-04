@@ -199,3 +199,19 @@ purchase handlers, with unchanged prices/capacities/level gates. The advertising
 source tag follows this credit. Emission totals include it; earned/real-money
 balances do not increase. These are game values, not provider ad revenue.
 Daily/hourly account limits remain shared across every reward type.
+
+## Owner-approved reward policy and publication — 2026-11-05
+
+The owner explicitly requested rewards even for unpaid views and authorized
+production deployment. Going forward, a secret-authenticated Monetag impression
+postback earns game progress for both valued and non_valued events. A valued
+click remains eligible once per ymid, as in the official popup contract; an
+unpaid click alone is not a view. Browser SDK reports alone remain untrusted.
+Paid statistics use valued_at (plus pre-migration legacy paid credits), never
+new rewarded_at. Non-valued rewards do not create estimated publisher income.
+All shared quotas, expiry, ownership, dedupe, capacity checks and advertising
+provenance restrictions remain in force. No retrospective grants are fabricated
+from incomplete historical logs. This policy supersedes paid-only wording above.
+The owner authorized publishing the checked game changes before Monetag's
+traffic-classification reply. Ordinary browser ads remain disabled until the
+separate compatible web zone is verified/configured.

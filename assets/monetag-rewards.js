@@ -4,7 +4,7 @@
 let cfg=null,owner='',working=false,recovering=null,lastRecover=0,sdkZone=null;
 const prepared=new Map(),timers=new Set();
 const labels={grain:'зерно',eggs:'яйца',milk:'молоко',chickens:'курицу',geese:'гусыню',cows:'корову',coins:'монеты для покупок'};
-const states={pending:'Ожидается подтверждение Monetag',unconfirmed:'Подтверждение не получено. Попытка сохранена в истории',non_valued:'Показ не оплачен Monetag и не засчитан для награды',sdk_error:'Реклама недоступна, попробуйте позже',rate_limited:'Лимит рекламы, попробуйте позже'};
+const states={pending:'Ожидается подтверждение Monetag',unconfirmed:'Подтверждение не получено. Попытка сохранена в истории',non_valued:'Событие сохранено. Для награды нужен подтверждённый показ',sdk_error:'Реклама недоступна, попробуйте позже',rate_limited:'Лимит рекламы, попробуйте позже'};
 const contextKey=()=>String(token||'')+'|'+(tgInitData()?'telegram':'web');
 const adApi=(path,payload)=>api('/api/ads/monetag/'+path,payload,tgInitData()?{'X-Telegram-Init-Data':tgInitData()}:{});
 const safeReport=(ymid,event,extra={})=>adApi('event',{ymid,event,...extra});
@@ -36,7 +36,7 @@ function decorate(){
   const item=button.dataset.adFree;const r=adRewards[item];if(!r)return;
   const ready=cfg?.enabled&&!cfg.retry_after&&cfg.remaining_today&&cfg.remaining_hour&&prepared.has(item)&&typeof window['show_'+cfg.zone_id]==='function';
   button.disabled=working||pending||!ready;
-  button.title=cfg?.reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' оплаченных просмотров');
+  button.title=cfg?.reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' подтверждённых просмотров');
   if(item==='coins'){button.textContent='🎬 +2 монеты для покупок';return;}
   button.textContent='🎬 Получить '+(button.id==='free-grain-shortage'?'зерно ':'')+'бесплатно · '+(adProgress[item]||0)+'/'+r[0];
  });

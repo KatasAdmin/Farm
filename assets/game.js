@@ -473,7 +473,7 @@ function openResourceActions(item) {
   const freeLabels={grain:"🌾 Получить бесплатно 2",eggs:"🥚 Получить бесплатно 2",milk:"🥛 Получить бесплатно 1",chickens:"🐔 Получить курицу бесплатно"};
   el("resource-action-free").textContent=freeLabels[item]||"🎬 Получить бесплатно";
   const progress=el("resource-action-ad-progress");
-  if(progress){progress.hidden=!adRewards[item];progress.textContent=adRewards[item]?(adProgress[item]||0)+"/"+adRewards[item][0]+" оплаченных просмотров":"";}
+  if(progress){progress.hidden=!adRewards[item];progress.textContent=adRewards[item]?(adProgress[item]||0)+"/"+adRewards[item][0]+" подтверждённых просмотров":"";}
   el("resource-action-description").textContent=item==="feathers"?"Редкий ресурс гусей. Сохраняй для будущих производств или продай системе по 5 монет за штуку.":["eggs","milk"].includes(item)
     ? "Купи товар у других фермеров или выставь свой на рынок."
     : "Купи ресурс в магазине или продай его системе с мгновенным начислением монет.";

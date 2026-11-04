@@ -119,9 +119,13 @@ def postback(c,secret,ymid,zone_id,sub_zone_id,event_type,reward_event_type,requ
  c.execute('UPDATE monetag_ad_attempts SET confirmed_at=COALESCE(confirmed_at,%s),launched_at=COALESCE(launched_at,%s) WHERE ymid=%s',(now,now,ymid))
  if reward_event_type=='non_valued':
   c.execute('UPDATE monetag_ad_attempts SET non_valued_at=COALESCE(non_valued_at,%s) WHERE ymid=%s',(now,ymid))
-  return {'ok':True,'rewarded':False,'reason':'non_valued'}
- c.execute('UPDATE monetag_ad_attempts SET valued_at=COALESCE(valued_at,%s) WHERE ymid=%s',(now,ymid))
- # Monetag's popup contract: one reward per ymid for ANY valued event.
+  # Owner-funded game reward for a real provider-confirmed impression,
+  # even when Monetag did not pay. An unpaid click alone is not a view.
+  if event_type!='impression':return {'ok':True,'rewarded':False,'reason':'unpaid_click'}
+ else:
+  c.execute('UPDATE monetag_ad_attempts SET valued_at=COALESCE(valued_at,%s) WHERE ymid=%s',(now,ymid))
+ # Reward eligibility is separate from publisher payment. Never trust SDK alone.
+
  if row['rewarded_at'] is not None:return {'ok':True,'rewarded':False,'reason':'duplicate'}
  if row['blocked_at'] is not None or now-row['created_at']>POSTBACK_TTL:return {'ok':True,'rewarded':False,'reason':'expired_or_limited'}
  # A forged SDK callback cannot bypass these limits. Late legitimate postbacks
@@ -199,7 +203,7 @@ def statistics(c):
  prices={}
  for e in events:
   if e['estimated_usd'] is not None:prices[e['ymid']]=max(prices.get(e['ymid'],Decimal(0)),Decimal(str(e['estimated_usd'])))
- def aggregate(rows):return dict(prepared=len(rows),starts=sum(r['launched_at'] is not None for r in rows),completed=sum(r['sdk_completed_at'] is not None for r in rows),paid=sum(r['valued_at'] is not None or r['rewarded_at'] is not None for r in rows),unpaid=sum(r['non_valued_at'] is not None for r in rows),sdk_errors=sum(r['sdk_error'] is not None for r in rows),unconfirmed=sum(state_of(r,time.time())=='unconfirmed' for r in rows))
+ def aggregate(rows):return dict(prepared=len(rows),starts=sum(r['launched_at'] is not None for r in rows),completed=sum(r['sdk_completed_at'] is not None for r in rows),paid=sum(r['valued_at'] is not None or (r['platform']=='legacy' and r['rewarded_at'] is not None) for r in rows),credited=sum(r['rewarded_at'] is not None for r in rows),unpaid=sum(r['non_valued_at'] is not None for r in rows),sdk_errors=sum(r['sdk_error'] is not None for r in rows),unconfirmed=sum(state_of(r,time.time())=='unconfirmed' for r in rows))
  return dict(total=aggregate(attempts),platforms={k:aggregate([r for r in attempts if r['platform']==k]) for k in ('telegram','web','legacy')},items={k:dict(aggregate([r for r in attempts if r['placement']==k+'_reward']),granted=sum(r['quantity'] for r in grants if r['item']==k and r['claimed_at'] is not None),pending=sum(r['quantity'] for r in grants if r['item']==k and r['claimed_at'] is None)) for k in REWARDS},estimated_usd=str(sum(prices.values(),Decimal(0))) if prices else None,events_with_estimate=len(prices),settled_revenue=None)
 
 
@@ -207,7 +211,7 @@ def admin_text(c,platform=None):
  stats=statistics(c);n=stats['platforms'].get(platform,stats['total'])
  labels={'telegram':'Telegram','web':'Браузер','legacy':'До обновления'}
  text='🎬 <b>Реклама Monetag</b> · '+labels.get(platform,'Все платформы')+'\n\n'
- for key,label in [('starts','Запусков'),('completed','Завершений SDK'),('paid','Оплаченных подтверждений'),('unpaid','Неоплаченных событий'),('sdk_errors','Ошибок SDK'),('unconfirmed','Без подтверждения')]:text+=label+': <b>'+str(n[key])+'</b>\n'
+ for key,label in [('starts','Запусков'),('completed','Завершений SDK'),('paid','Оплаченных подтверждений'),('credited','Просмотров для наград'),('unpaid','Неоплаченных событий'),('sdk_errors','Ошибок SDK'),('unconfirmed','Без подтверждения')]:text+=label+': <b>'+str(n[key])+'</b>\n'
  text+='\n<b>Товары · все платформы</b>\n'
  for item,title in [('grain','Зерно'),('eggs','Яйца'),('milk','Молоко'),('chickens','Куры'),('geese','Гуси'),('cows','Коровы'),('coins','Монеты для покупок')]:
   row=stats['items'][item];text+=title+': '+str(row['starts'])+' запусков · '+str(row['paid'])+' оплаченных · выдано '+str(row['granted'])+' · ждёт места '+str(row['pending'])+'\n'
