@@ -1153,7 +1153,7 @@ function render() {
   el("leaders").innerHTML = state.top
     .map(
       (x, i) =>
-        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>${number(x.chickens+(x.geese||0))} птиц</small></div><b>${number(x.coins)} ${image("redesign/coin")}</b></div>`,
+        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>${number(x.chickens||0)} кур · ${number(x.geese||0)} гусей · ${number(x.cows||0)} коров · ур. ${number(x.farmer_level||1)}</small></div><b>${number(x.farm_score||0)} очков</b></div>`,
     )
     .join("");
   el("mylist").innerHTML = state.my_listings.length
