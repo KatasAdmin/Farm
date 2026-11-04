@@ -1,7 +1,7 @@
 /* Monetag SDK callbacks are telemetry only. Rewards come from authenticated postbacks. */
 (()=>{
 'use strict';
-let cfg=null,owner='',working=false,recovering=null,lastRecover=0,sdkZone=null;
+let cfg=null,owner='',working=false,recovering=null,lastRecover=0,sdkZone=null,cooldownUntil=0;
 const prepared=new Map(),timers=new Set();
 const labels={grain:'зерно',eggs:'яйца',milk:'молоко',chickens:'курицу',geese:'гусыню',cows:'корову',coins:'монеты для покупок'};
 const states={pending:'Ожидается подтверждение Monetag',unconfirmed:'Подтверждение не получено. Попытка сохранена в истории',non_valued:'Событие сохранено. Для награды нужен подтверждённый показ',sdk_error:'Реклама недоступна, попробуйте позже',rate_limited:'Лимит рекламы, попробуйте позже'};
@@ -35,10 +35,11 @@ function decorate(){
  document.querySelectorAll('[data-ad-free]').forEach(button=>{
   const item=button.dataset.adFree;const r=adRewards[item];if(!r)return;
   const ready=cfg?.enabled&&!cfg.retry_after&&cfg.remaining_today&&cfg.remaining_hour&&prepared.has(item)&&typeof window['show_'+cfg.zone_id]==='function';
-  button.disabled=working||pending||!ready;
-  button.title=cfg?.reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' подтверждённых просмотров');
-  if(item==='coins'){button.textContent='🎬 +2 монеты для покупок';return;}
-  button.textContent='🎬 Получить '+(button.id==='free-grain-shortage'?'зерно ':'')+'бесплатно · '+(adProgress[item]||0)+'/'+r[0];
+  const reason=!cfg?.enabled?(cfg?.reason||'Реклама недоступна'):working?'Реклама открывается':pending?'Дождитесь завершения действия':cfg?.remaining_today===0?'Дневной лимит 40/40':cfg?.remaining_hour===0?'Часовой лимит 10/10':cfg?.retry_after?'Следующая реклама через '+cfg.retry_after+' сек':typeof window['show_'+cfg?.zone_id]!=='function'?'Загружается реклама':!prepared.has(item)?'Подготавливаем рекламу':'';
+  button.disabled=!!reason;
+  button.title=reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' подтверждённых просмотров');
+  const rewardText=item==='coins'?'🎬 +2 монеты для покупок':'🎬 Получить '+(button.id==='free-grain-shortage'?'зерно ':'')+'бесплатно · '+(adProgress[item]||0)+'/'+r[0];
+  button.textContent=reason?'🎬 '+reason:rewardText;
  });
 }
 async function sdk(config){
@@ -77,7 +78,7 @@ async function recover(force=false){
  recovering=(async()=>{
   try{
    const data=await adApi('status');if(owner!==session)return;
-   cfg=data;if(!data.enabled){const note=el('ad-inline-status');if(note)note.textContent=data.reason||'Рекламные награды пока настраиваются';}
+   cfg=data;cooldownUntil=Date.now()+Math.max(0,Number(data.retry_after)||0)*1000;if(!data.enabled){const note=el('ad-inline-status');if(note)note.textContent=data.reason||'Рекламные награды пока настраиваются';}
    adProgress=Object.fromEntries(Object.entries(data.rewards||{}).map(([k,v])=>[k,v.progress]));
    historyUI(data);const wallet=el('wallet');if(wallet&&!el('ad-purchase-credit')){const b=itemButton('coins');b.id='ad-purchase-credit';wallet.prepend(b);}decorate();
    if(data.granted?.length){notify('Награда получена');await refresh();}
@@ -134,6 +135,14 @@ window.FarmAds={recover,watch};
 new MutationObserver(()=>decorate()).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')recover(true);});
 window.addEventListener('telegram-sdk-ready',()=>recover(true));
+setInterval(()=>{
+ if(!token||document.visibilityState!=='visible'||!cfg)return;
+ if(cooldownUntil>0&&cfg.retry_after>0){
+  const remaining=Math.max(0,Math.ceil((cooldownUntil-Date.now())/1000));
+  if(remaining!==cfg.retry_after){cfg.retry_after=remaining;decorate();}
+  if(remaining===0){cooldownUntil=0;recover(true);}
+ }
+},1000);
 setInterval(()=>{if(token&&document.visibilityState==='visible')recover();},30000);
 decorate();recover(true);
 })();
