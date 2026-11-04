@@ -518,7 +518,8 @@ def monetag_postback(secret:str="",ymid:str="",zone_id:int=0,sub_zone_id:int=0,e
  if not monetag_enabled() or not secret or not hmac.compare_digest(secret,configured):raise HTTPException(403,"Forbidden")
  if not ymid.startswith("farm_") or len(ymid)!=45 or not all(x in "0123456789abcdef" for x in ymid[5:]):raise HTTPException(400,"Invalid event")
  if zone_id!=12193261 or sub_zone_id!=12193261:raise HTTPException(400,"Wrong zone")
- if event_type!="impression" or reward_event_type not in ("valued","non_valued"):raise HTTPException(400,"Invalid event")
+ if event_type not in ("impression","click") or reward_event_type not in ("valued","non_valued"):raise HTTPException(400,"Invalid event")
+ if event_type=="click":return {"ok":True,"rewarded":False,"reason":"click_not_rewardable"}
  with db() as c:
   row=c.execute("SELECT * FROM monetag_ad_attempts WHERE ymid=%s FOR UPDATE",(ymid,)).fetchone()
   if not row or row["rewarded_at"] is not None:return {"ok":True,"rewarded":False}
