@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="/assets/cattle.css?v=5" />
     <script src="https://libtl.com/sdk.js" data-zone="12193261" data-sdk="show_12193261" defer></script>
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=80" defer></script>
+    <script src="/assets/game.js?v=81" defer></script>
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -112,20 +112,6 @@
       </header>
       <section id="farm" class="panel active unified-farm-panel" aria-label="Ферма">
         <div id="tutorial-card" class="card tutorial-card" hidden><div class="tutorial-heading"><img src="/assets/redesign/achievement.webp" alt=""><div><strong>Добро пожаловать на ферму!</strong><small id="tutorial-progress">Шаг 1 из 3</small></div></div><p id="tutorial-instruction">Начнём с животных.</p><button id="tutorial-next" class="btn wide" onclick="completeTutorialStep()">Посмотреть животных</button><p class="muted">Три подсказки и +5 монет за завершение. Один раз на аккаунт.</p></div>
-        <div class="card" id="rewarded-ad-card" style="margin:12px 0;padding:16px">
-          <strong>🎬 Помощь ферме</strong>
-          <p class="muted">Выбирай награду. Просмотры суммируются отдельно для каждого ресурса и не ограничены по количеству.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0">
-            <button type="button" class="btn alt" onclick="selectAdReward('grain')">🌾 2 зерна · 1 видео</button>
-            <button type="button" class="btn alt" onclick="selectAdReward('eggs')">🥚 2 яйца · 2 видео</button>
-            <button type="button" class="btn alt" onclick="selectAdReward('milk')">🥛 1 молоко · 5 видео</button>
-            <button type="button" class="btn alt" onclick="selectAdReward('chickens')">🐔 1 курица · 20 видео</button>
-          </div>
-          <p id="ad-reward-selection" aria-live="polite">🌾 Зерно: 0 из 1 подтверждённого просмотра</p>
-          <button type="button" id="ad-reward-watch" class="btn wide" disabled>Реклама пока настраивается</button>
-          <button type="button" class="btn alt wide" onclick="claimAdRewards()">🎁 Забрать заработанные награды</button>
-          <p class="muted" id="ad-reward-status">Награды станут доступны после безопасного подключения Monetag.</p>
-        </div>
         <div class="farm-hero">
           <img
             src="/assets/backgrounds/farm_sunset.webp"
@@ -224,7 +210,7 @@
           <p id="forecast-brief" class="muted" hidden></p>
           <div class="forecast-timers"><div><span>Следующее яйцо</span><strong data-next-tick>—</strong></div><div><span>Следующее кормление</span><strong data-feed-tick>—</strong></div></div>
           <div class="forecast-feeding" hidden><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><strong>Следующее кормление: −<span data-feed-required>—</span> зерна</strong><p data-feed-status>Проверяем запас…</p></div></div>
-          <div class="buttons"><button class="btn" onclick="openSell('eggs')">Продать яйца</button><button class="btn alt" data-buy-feed onclick="tab('shop');showShop('grain')">Купить зерно</button></div>
+          <div class="buttons"><button class="btn" onclick="openSell('eggs')">Продать яйца</button><button class="btn alt" data-buy-feed onclick="tab('shop');showShop('grain')">Купить зерно</button><button class="btn alt" onclick="openFreeResourceReward('grain')">🎬 +2 зерна бесплатно</button></div>
           <details class="farm-explainer"><summary>Как рассчитывается прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Сытая курица несёт яйцо за 6 часов, гусыня — за 2 часа. Корова даёт молоко за 8 часов. Общее кормление раз в 18 часов: 1 зерно на курицу, 2 на гуся и 3 на корову. Производство всех сытых птиц складывается, поэтому яйца появляются чаще. Прогноз учитывает корм, сытость, автозакупку и место на складе. Гуси также дают редкое перо: около одного за 7 дней сытости на птицу; при заполненном складе новые ресурсы не сохраняются.</p></details>
           </div>
         <div class="forecast-details-content harvest-part" data-feather-card hidden><h3>🪶 Перья</h3>
@@ -410,6 +396,7 @@
           </div>
         </div>
         <div class="card" style="padding:14px;margin:10px 0"><strong>🎬 Бесплатные ресурсы</strong><p class="muted">Зерно, яйца, молоко и курица за рекламные просмотры.</p><button type="button" class="btn wide" onclick="openFreeResourceReward('grain')">Посмотреть награды</button></div>
+        <div class="card" style="padding:12px;margin:10px 0"><strong>🎬 Бесплатные ресурсы</strong><div class="buttons"><button class="btn alt" onclick="openFreeResourceReward('grain')">🌾 +2 зерна</button><button class="btn alt" onclick="openFreeResourceReward('eggs')">🥚 +2 яйца</button><button class="btn alt" onclick="openFreeResourceReward('milk')">🥛 +1 молоко</button><button class="btn alt" onclick="openFreeResourceReward('chickens')">🐔 +1 курица (20 видео)</button></div><p id="ad-reward-status" class="muted"></p><button class="btn alt" onclick="claimAdRewards()">🎁 Забрать награды</button></div>
         <div class="wallet-landscape"><img src="/assets/redesign/wallet.webp" alt="Сундук с золотыми монетами на солнечной ферме" width="1536" height="1024" /></div>
         <div class="moneyhero">
           <div class="money-balance">
