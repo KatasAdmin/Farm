@@ -17,6 +17,7 @@ LOCK=1984533
 DAY_LIMIT=40
 HOUR_LIMIT=10
 COOLDOWN=30
+ADS_PER_BREAK=5
 PREPARE_TTL=600
 CONFIRM_WAIT=120
 POSTBACK_TTL=48*3600
@@ -50,8 +51,11 @@ def limits(c,pid,now):
  rows=c.execute('SELECT created_at,launched_at FROM monetag_ad_attempts WHERE player_id=%s AND launched_at IS NOT NULL AND created_at>=%s',(pid,now//86400*86400-3600)).fetchall()
  day=sum(r['created_at']>=now//86400*86400 for r in rows)
  hour=sum(r['launched_at']>=now-3600 for r in rows)
- last=max((r['launched_at'] for r in rows),default=0)
- wait=max(0,int(last+COOLDOWN-now+0.999))
+ # Five launches in a row, then a 30-second rest after the fifth.
+ # The count is server-side and shared between Telegram and web sessions.
+ recent=sorted((r['launched_at'] for r in rows if r['launched_at'] is not None and r['launched_at']>=now-3600))
+ last=recent[-1] if recent else 0
+ wait=max(0,int(last+COOLDOWN-now+0.999)) if recent and len(recent)%ADS_PER_BREAK==0 else 0
  return dict(remaining_today=max(0,DAY_LIMIT-day),remaining_hour=max(0,HOUR_LIMIT-hour),retry_after=wait)
 
 def prepare(c,p,item,platform,now=None):
