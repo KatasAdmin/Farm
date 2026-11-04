@@ -495,7 +495,7 @@ async function loadAdRewardStatus(){
   adProgress=Object.fromEntries(Object.entries(status.rewards||{}).map(([key,value])=>[key,value.progress]));
   selectAdReward(selectedAdReward);
   const btn=el("ad-reward-watch");
-  if(btn){btn.disabled=!status.enabled;btn.textContent=status.enabled?"🎬 Смотреть рекламу":"Реклама пока настраивается";}
+  if(btn){btn.disabled=true;btn.textContent="Реклама пока настраивается";}
  }catch(_){}
 }
 function openFreeResourceReward(item){
