@@ -515,29 +515,26 @@ async function claimAdRewards(){
  }catch(error){toast(error.message);}
  finally{busy(false);}
 }
-async function watchAdReward(){
- const button=el("ad-reward-watch");
- if(!button||button.disabled)return;
+let adCurrentlyPlaying=false;
+async function watchAdReward(item){
+ if(adCurrentlyPlaying)return;
+ if(!adRewards[item])return;
  if(typeof window.show_12193261!=="function"){toast("Реклама сейчас недоступна.");return;}
- button.disabled=true;
+ adCurrentlyPlaying=true;
  try{
-  const kind=selectedAdReward;
-  const attempt=await api("/api/ads/monetag/prepare",{item:kind});
-  await window.show_12193261({ymid:attempt.ymid,requestVar:kind+"_reward"});
-  toast("Реклама показана. Засчитается только оплаченный просмотр, подтверждённый Monetag.");
-  await api("/api/ads/monetag/claim",{});
-  await refresh();
+  const attempt=await api("/api/ads/monetag/prepare",{item});
+  await window.show_12193261({ymid:attempt.ymid,requestVar:item+"_reward"});
+  toast("Реклама просмотрена. Награда зависит от оплаченного подтверждения Monetag.");
+  const result=await api("/api/ads/monetag/claim",{});
+  if(result.granted?.length){toast("Получено: "+result.granted.map(x=>x.quantity+" "+x.item).join(", "));await refresh();}
   await loadAdRewardStatus();
  }catch(error){toast("Реклама: "+(error?.message||"не удалось показать"));}
- finally{button.disabled=false;}
+ finally{adCurrentlyPlaying=false;}
 }
 function openFreeResourceReward(item){
  const dialog=el("resource-actions-dialog");
  if(dialog?.open)dialog.close();
- tab("farm");
- selectAdReward(adRewards[item]?item:"grain");
- requestAnimationFrame(()=>el("rewarded-ad-card")?.scrollIntoView({behavior:"smooth",block:"start"}));
- loadAdRewardStatus();
+ watchAdReward(adRewards[item]?item:"grain");
 }
 
 function resourceAction(action){
@@ -1383,4 +1380,4 @@ function celebrateLevel(playerId,level){
 function farmerTitle(level){return level>=15?"Хозяин фермы":level>=10?"Мастер фермы":level>=5?"Фермер":level>=3?"Птицевод":"Новичок";}
 
 const farmAdButton=el("ad-reward-watch");
-if(farmAdButton)farmAdButton.addEventListener("click",watchAdReward);
+if(farmAdButton)farmAdButton.addEventListener("click",()=>watchAdReward(selectedAdReward));
