@@ -469,7 +469,7 @@ function openResourceActions(item) {
   const title={grain:"🌾 Зерно",chickens:"🐔 Куры",geese:"🪿 Гуси",cows:"🐄 Коровы",milk:"🥛 Молоко",feathers:"🪶 Перья",eggs:"🥚 Яйца"}[item];
   el("resource-action-title").textContent=title;
   el("resource-action-buy").hidden=item==="feathers";
-  el("resource-action-free").hidden=!(["grain","eggs","milk","chickens"].includes(item));
+  el("resource-action-free").hidden=!adRewards[item];
   const freeLabels={grain:"🌾 Получить бесплатно 2",eggs:"🥚 Получить бесплатно 2",milk:"🥛 Получить бесплатно 1",chickens:"🐔 Получить курицу бесплатно"};
   el("resource-action-free").textContent=freeLabels[item]||"🎬 Получить бесплатно";
   const progress=el("resource-action-ad-progress");
