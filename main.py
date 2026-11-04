@@ -523,6 +523,7 @@ def monetag_postback(secret:str="",ymid:str="",zone_id:int=0,sub_zone_id:int=0,e
   if not row or row["rewarded_at"] is not None:return {"ok":True,"rewarded":False}
   if request_var!=row["placement"] or row["placement"] not in [k+"_reward" for k in MONETAG_REWARDS]:raise HTTPException(400,"Wrong placement")
   if reward_event_type!="valued" or time.time()-row["created_at"]>48*3600:return {"ok":True,"rewarded":False}
+  c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(row["player_id"],))
   kind=row["placement"][:-7]
   views,qty=MONETAG_REWARDS[kind]
   count=c.execute("SELECT count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s AND placement=%s AND rewarded_at IS NOT NULL",(row["player_id"],row["placement"])).fetchone()["n"]
