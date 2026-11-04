@@ -1144,6 +1144,7 @@ function render() {
   const feedStatus = f.effective_grain_shortage > 0 ? "Недостаточно зерна для следующего кормления."
     : f.grain_shortage > 0 ? "Запас пополнит автозакупка, если хватит монет и места." : "Зерна для следующего кормления достаточно.";
   document.querySelectorAll("[data-feed-status]").forEach(x => {x.textContent = feedStatus;x.dataset.alert = String(f.effective_grain_shortage > 0);});
+  document.querySelectorAll("[data-free-grain-shortage]").forEach(x=>x.hidden=!(f.effective_grain_shortage>0));
   document.querySelectorAll("[data-buy-feed]").forEach(x => x.classList.toggle("needs-feed", f.effective_grain_shortage > 0));
   const storageWarning = el("storage-warning");
   storageWarning.hidden = buildings.storage_used < buildings.storage_capacity;
