@@ -495,6 +495,7 @@ def monetag_claim(authorization:str=Header(default="")):
  if not monetag_enabled():raise HTTPException(503,"Рекламные награды пока настраиваются")
  with db() as c:
   p=person(c,authorization,True)
+  p=advance(c,p)
   rewards=c.execute("SELECT * FROM monetag_reward_grants WHERE player_id=%s AND claimed_at IS NULL ORDER BY created,id FOR UPDATE",(p["id"],)).fetchall()
   granted=[]
   for reward in rewards:
