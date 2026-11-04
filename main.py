@@ -463,35 +463,56 @@ def advance(c,p,now=None):
 @app.get("/",response_class=HTMLResponse)
 def index():return HTMLResponse(open("index.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
 # Monetag rewarded advertising: fail closed until a private postback secret is configured.
+# Rewarded ads are disabled until a verified Monetag postback secret is configured.
+MONETAG_REWARDS={"grain":(1,2),"eggs":(2,2),"milk":(5,1),"chickens":(20,1)}
+def monetag_enabled():
+ return bool(os.environ.get("MONETAG_POSTBACK_SECRET")) and os.environ.get("MONETAG_REWARDS_ENABLED")=="1"
+
+@app.get("/api/ads/monetag/status")
+def monetag_status(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization)
+  rows=c.execute("SELECT placement,count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s AND rewarded_at IS NOT NULL GROUP BY placement",(p["id"],)).fetchall()
+  totals={x["placement"]:x["n"] for x in rows}
+ return {"enabled":monetag_enabled(),"zone_id":12193261,"rewards":{k:{"views":v[0],"quantity":v[1],"progress":totals.get(k+"_reward",0)%v[0]} for k,v in MONETAG_REWARDS.items()}}
+
 @app.post("/api/ads/monetag/prepare")
-def monetag_prepare(authorization:str=Header(default="")):
- if not os.environ.get("MONETAG_POSTBACK_SECRET") or os.environ.get("MONETAG_REWARDS_ENABLED")!="1":
-  raise HTTPException(503,"Рекламные награды пока настраиваются")
+def monetag_prepare(q:dict,authorization:str=Header(default="")):
+ if not monetag_enabled():raise HTTPException(503,"Рекламные награды пока настраиваются")
+ kind=q.get("item","grain")
+ if kind not in MONETAG_REWARDS:raise HTTPException(400,"Награда не найдена")
  now=time.time()
  with db() as c:
   p=person(c,authorization,True)
-  # Unlimited ad views per player; each impression still requires a unique server-issued ymid.
   ymid="farm_"+secrets.token_hex(20)
-  c.execute("INSERT INTO monetag_ad_attempts(ymid,player_id,created_at,zone_id,placement) VALUES(%s,%s,%s,%s,%s)",(ymid,p["id"],now,12193261,"grain_reward"))
- return {"ymid":ymid,"zone_id":12193261,"reward_grain":2}
+  c.execute("INSERT INTO monetag_ad_attempts(ymid,player_id,created_at,zone_id,placement) VALUES(%s,%s,%s,%s,%s)",(ymid,p["id"],now,12193261,kind+"_reward"))
+ return {"ymid":ymid,"zone_id":12193261,"item":kind}
 
 @app.get("/api/ads/monetag/postback")
 def monetag_postback(secret:str="",ymid:str="",zone_id:int=0,sub_zone_id:int=0,event_type:str="",reward_event_type:str="",request_var:str="",telegram_id:str="",estimated_price:str=""):
  configured=os.environ.get("MONETAG_POSTBACK_SECRET","")
- if not configured or not secret or not hmac.compare_digest(secret,configured):raise HTTPException(403,"Forbidden")
+ if not monetag_enabled() or not secret or not hmac.compare_digest(secret,configured):raise HTTPException(403,"Forbidden")
  if not ymid.startswith("farm_") or len(ymid)!=45 or not all(x in "0123456789abcdef" for x in ymid[5:]):raise HTTPException(400,"Invalid event")
- if zone_id!=12193261 or sub_zone_id!=12193261 or request_var!="grain_reward":raise HTTPException(400,"Wrong placement")
- if event_type not in ("impression","click") or reward_event_type not in ("valued","non_valued"):raise HTTPException(400,"Invalid event")
+ if zone_id!=12193261 or sub_zone_id!=12193261:raise HTTPException(400,"Wrong zone")
+ if event_type!="impression" or reward_event_type not in ("valued","non_valued"):raise HTTPException(400,"Invalid event")
  with db() as c:
   row=c.execute("SELECT * FROM monetag_ad_attempts WHERE ymid=%s FOR UPDATE",(ymid,)).fetchone()
-  if not row:return {"ok":True,"rewarded":False}
-  if row["rewarded_at"] is not None:return {"ok":True,"rewarded":False}
-  if reward_event_type!="valued":return {"ok":True,"rewarded":False}
-  # Expired attempts are never paid, even when callbacks are delayed.
-  if time.time()-row["created_at"]>48*3600:return {"ok":True,"rewarded":False}
-  c.execute("UPDATE players SET grain=grain+2 WHERE id=%s",(row["player_id"],))
+  if not row or row["rewarded_at"] is not None:return {"ok":True,"rewarded":False}
+  if request_var!=row["placement"] or row["placement"] not in [k+"_reward" for k in MONETAG_REWARDS]:raise HTTPException(400,"Wrong placement")
+  if reward_event_type!="valued" or time.time()-row["created_at"]>48*3600:return {"ok":True,"rewarded":False}
+  kind=row["placement"][:-7]
+  views,qty=MONETAG_REWARDS[kind]
+  count=c.execute("SELECT count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s AND placement=%s AND rewarded_at IS NOT NULL",(row["player_id"],row["placement"])).fetchone()["n"]
   c.execute("UPDATE monetag_ad_attempts SET rewarded_at=%s WHERE ymid=%s",(time.time(),ymid))
- return {"ok":True,"rewarded":True}
+  if (count+1)%views==0:
+   # Do not issue chicken/milk/eggs yet: those require a complete provenance
+   # and warehouse-capacity policy before they can safely enter the real-money economy.
+   if kind!="grain":return {"ok":True,"rewarded":False,"progress":count+1,"pending_implementation":True}
+   p=c.execute("SELECT * FROM players WHERE id=%s FOR UPDATE",(row["player_id"],)).fetchone()
+   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+qty>storage_limit(p):return {"ok":True,"rewarded":False,"storage_full":True}
+   c.execute("UPDATE players SET grain=grain+%s WHERE id=%s",(qty,row["player_id"]))
+   return {"ok":True,"rewarded":True,"item":kind,"quantity":qty}
+ return {"ok":True,"rewarded":False,"progress":(count+1)%views}
 
 @app.get("/health")
 def health():return {"ok":True,"release":RELEASE}
