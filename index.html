@@ -114,15 +114,16 @@
         <div id="tutorial-card" class="card tutorial-card" hidden><div class="tutorial-heading"><img src="/assets/redesign/achievement.webp" alt=""><div><strong>Добро пожаловать на ферму!</strong><small id="tutorial-progress">Шаг 1 из 3</small></div></div><p id="tutorial-instruction">Начнём с животных.</p><button id="tutorial-next" class="btn wide" onclick="completeTutorialStep()">Посмотреть животных</button><p class="muted">Три подсказки и +5 монет за завершение. Один раз на аккаунт.</p></div>
         <div class="card" id="rewarded-ad-card" style="margin:12px 0;padding:16px">
           <strong>🎬 Помощь ферме</strong>
-          <p class="muted">Реклама добровольная. Количество просмотров не ограничено.</p>
+          <p class="muted">Выбирай награду. Просмотры суммируются отдельно для каждого ресурса и не ограничены по количеству.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0">
-            <div>🌾 2 зерна<br><small>1 просмотр</small></div>
-            <div>🥚 2 яйца<br><small>2 просмотра</small></div>
-            <div>🥛 1 молоко<br><small>5 просмотров</small></div>
-            <div>🐔 1 курица<br><small>20 просмотров</small></div>
+            <button type="button" class="btn alt" onclick="selectAdReward('grain')">🌾 2 зерна · 1 видео</button>
+            <button type="button" class="btn alt" onclick="selectAdReward('eggs')">🥚 2 яйца · 2 видео</button>
+            <button type="button" class="btn alt" onclick="selectAdReward('milk')">🥛 1 молоко · 5 видео</button>
+            <button type="button" class="btn alt" onclick="selectAdReward('chickens')">🐔 1 курица · 20 видео</button>
           </div>
-          <button type="button" class="btn wide" disabled aria-disabled="true">Рекламные награды скоро появятся</button>
-          <p class="muted">Откроем после проверки подтверждений Monetag и защиты игрового баланса.</p>
+          <p id="ad-reward-selection" aria-live="polite">🌾 Зерно: 0 из 1 подтверждённого просмотра</p>
+          <button type="button" id="ad-reward-watch" class="btn wide" disabled>Реклама пока настраивается</button>
+          <p class="muted" id="ad-reward-status">Награды станут доступны после безопасного подключения Monetag.</p>
         </div>
         <div class="farm-hero">
           <img
