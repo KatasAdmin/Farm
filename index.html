@@ -19,8 +19,9 @@
     <link rel="stylesheet" href="/assets/cattle.css?v=5" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=85" defer></script>
+    <script src="/assets/game.js?v=86" defer></script>
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
+    <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -196,12 +197,19 @@
               </div>
             </div>
           </div>
-          <div class="feed-reserve" title="Запас корма на складе для всего стада, без будущих автозакупок">
-            <span class="clock" aria-hidden="true">◴</span>
-            <p>Зерна хватит на <strong id="feedstock">—</strong></p>
-          </div>
-          <p class="muted feed-ration" id="feed-ration" hidden>На всё стадо: <b data-feed-required>—</b> зерна / 18 ч</p>
-          <p id="warning" class="muted" hidden></p><p id="storage-warning" class="capacity-warning" role="status" hidden></p>
+          <details id="feed-details" class="feed-details">
+            <summary class="feed-reserve" title="Нажмите, чтобы посмотреть расход и следующее кормление">
+              <span class="clock" aria-hidden="true">◴</span>
+              <span>Зерна хватит на <strong id="feedstock">—</strong></span>
+              <span id="feed-alert" class="feed-alert" role="img" aria-label="Внимание: зерна на следующее кормление не хватит" hidden>!</span>
+              <span class="feed-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="feed-breakdown">
+              <p class="muted feed-ration" id="feed-ration" hidden>На всё стадо: <b data-feed-required>—</b> зерна / 18 ч</p>
+              <p id="warning" class="muted" hidden></p>
+            </div>
+          </details>
+          <p id="storage-warning" class="capacity-warning" role="status" hidden></p>
         </div>
 <details class="card compact-harvest unified-primary-card forecast-card" id="nearest-harvest"><summary class="forecast-summary">🌾 Ближайший сбор</summary><div class="forecast-details-content harvest-part" data-egg-forecast><h3>🥚 Яйца</h3>
           <div class="forecast-output"><img src="/assets/redesign/egg.webp" class="icon" alt=""><div>

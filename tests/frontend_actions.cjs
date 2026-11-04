@@ -57,6 +57,16 @@ for(const item of ['eggs','milk']){
 for(const item of ['grain','chickens','geese','cows']){
   reset();run(`openResourceActions('${item}');resourceAction('buy')`);assert.ok(d.getElementById('purchase-dialog').open);const before=requests.length;await run('confirmPurchase()');assert.ok(requests.slice(before).some(r=>r.url==='/api/shop'&&r.payload.item===item&&r.payload.expected_price===fixture.shop[item]));
 }
+// Collapsed feeding panel retains the warning on its summary; level is the profile level.
+reset();run('state.top=[{name:"Katas",farmer_level:8}];state.my_rank=167;state.farm.effective_grain_shortage=2;render()');
+assert.match(d.getElementById('leaders').textContent,/Ур. 8/);assert.doesNotMatch(d.getElementById('leaders').textContent,/очков/);
+assert.equal(d.getElementById('my-rank').textContent,'Ваше место: 167');
+const feedDetails=d.getElementById('feed-details');assert.equal(feedDetails.open,false);
+assert.equal(d.getElementById('feed-alert').hidden,false);assert.equal(d.getElementById('warning').hidden,false);
+assert.ok(feedDetails.querySelector('#warning'));assert.ok(feedDetails.querySelector('#feed-ration'));
+feedDetails.querySelector('summary').click();assert.equal(feedDetails.open,true);
+run('state.farm.effective_grain_shortage=0;render()');assert.equal(d.getElementById('feed-alert').hidden,true);assert.equal(d.getElementById('warning').hidden,true);
+assert.equal(feedDetails.open,true,'refresh preserves the user choice to expand');
 // Exercise every declared click handler, including generated tasks/listing buttons.
 reset();const handlers=[...d.querySelectorAll('[onclick]')].map(n=>({code:n.getAttribute('onclick'),id:n.id}));
 for(const {code,id} of handlers){
