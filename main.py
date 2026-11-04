@@ -473,7 +473,7 @@ def monetag_prepare(authorization:str=Header(default="")):
   # Unlimited ad views per player; each impression still requires a unique server-issued ymid.
   ymid="farm_"+secrets.token_hex(20)
   c.execute("INSERT INTO monetag_ad_attempts(ymid,player_id,created_at,zone_id,placement) VALUES(%s,%s,%s,%s,%s)",(ymid,p["id"],now,12193261,"grain_reward"))
- return {"ymid":ymid,"zone_id":12193261,"reward_grain":5}
+ return {"ymid":ymid,"zone_id":12193261,"reward_grain":2}
 
 @app.get("/api/ads/monetag/postback")
 def monetag_postback(secret:str="",ymid:str="",zone_id:int=0,sub_zone_id:int=0,event_type:str="",reward_event_type:str="",request_var:str="",telegram_id:str="",estimated_price:str=""):
@@ -489,7 +489,7 @@ def monetag_postback(secret:str="",ymid:str="",zone_id:int=0,sub_zone_id:int=0,e
   if reward_event_type!="valued":return {"ok":True,"rewarded":False}
   # Expired attempts are never paid, even when callbacks are delayed.
   if time.time()-row["created_at"]>48*3600:return {"ok":True,"rewarded":False}
-  c.execute("UPDATE players SET grain=grain+5 WHERE id=%s",(row["player_id"],))
+  c.execute("UPDATE players SET grain=grain+2 WHERE id=%s",(row["player_id"],))
   c.execute("UPDATE monetag_ad_attempts SET rewarded_at=%s WHERE ymid=%s",(time.time(),ymid))
  return {"ok":True,"rewarded":True}
 
