@@ -1352,10 +1352,10 @@ def buy(q:Request,authorization:str=Header(default="")):
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
    log_id=uuid.uuid4().hex
-   receipt=x["price"]*n;receipt_sources=ad_inventory.restricted_receipt(source_shares[x['id']],tagged*x['price'])
+   receipt=x["price"]*n;receipt_sources=ad_inventory.restricted_receipt(source_shares[x['id']],max(paid_ad,tagged*x['price']))
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(log_id,x["seller"],"market_sale",receipt,q.item+" x"+str(n),time.time()))
    c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,%s,%s)",(log_id,receipt_sources['bonus'],receipt_sources['purchased'],receipt_sources['earned']))
-   if ad_inventory.active(p):ad_inventory.credit(c,log_id,tagged*x['price'])
+   if ad_inventory.active(p):ad_inventory.credit(c,log_id,max(paid_ad,tagged*x['price']))
    trade_at=time.time()
    count=c.execute("SELECT COUNT(*)::int AS n FROM market_trade_audit WHERE buyer_id=%s AND seller_id=%s AND created>%s",(p["id"],x["seller"],trade_at-86400)).fetchone()["n"]
    c.execute("INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,trade_at))

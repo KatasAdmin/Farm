@@ -143,3 +143,12 @@ class AdvertisingTradeRoutes(AdvertisingFixture,unittest.TestCase):
   main.sell(self.request('eggs',2),'p');main.buy(self.request('eggs',2),'other')
   self.assertEqual(main.farm_wallet.available(self.c,self.player()),2)
   self.assertEqual(self.other()['ad_eggs'],0)
+
+ def test_ad_money_keeps_its_tag_when_buying_ordinary_goods_from_another_account(self):
+  self.log('ad-credit','market_sale',40,(40,0,0),40)
+  self.c.execute("UPDATE players SET eggs=2 WHERE id='other'");self.c.raw.commit()
+  main.sell(self.request('eggs',2),'other');main.buy(self.request('eggs',2),'p')
+  self.assertEqual(inv.balance(self.c,self.other()),2)
+  self.assertEqual(main.farm_wallet.available(self.c,self.other()),0)
+  main.shop(self.request('grain'),'other')
+  self.assertEqual(self.other()['ad_grain'],1)
