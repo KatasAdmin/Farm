@@ -495,8 +495,24 @@ async function loadAdRewardStatus(){
   adProgress=Object.fromEntries(Object.entries(status.rewards||{}).map(([key,value])=>[key,value.progress]));
   selectAdReward(selectedAdReward);
   const btn=el("ad-reward-watch");
-  if(btn){btn.disabled=true;btn.textContent="Реклама пока настраивается";}
+  if(btn){btn.disabled=!status.enabled;btn.textContent=status.enabled?"🎬 Смотреть рекламу":"Реклама пока настраивается";}
  }catch(_){}
+}
+async function watchAdReward(){
+ const button=el("ad-reward-watch");
+ if(!button||button.disabled)return;
+ if(typeof window.show_12193261!=="function"){toast("Реклама сейчас недоступна.");return;}
+ button.disabled=true;
+ try{
+  const kind=selectedAdReward;
+  const attempt=await api("/api/ads/monetag/prepare",{item:kind});
+  await window.show_12193261({ymid:attempt.ymid,requestVar:kind+"_reward"});
+  toast("Просмотр завершён. Ожидаем подтверждения от Monetag.");
+  await api("/api/ads/monetag/claim",{});
+  await refresh();
+  await loadAdRewardStatus();
+ }catch(error){toast("Реклама: "+(error?.message||"не удалось показать"));}
+ finally{button.disabled=false;}
 }
 function openFreeResourceReward(item){
  const dialog=el("resource-actions-dialog");
@@ -1348,3 +1364,4 @@ function celebrateLevel(playerId,level){
 }
 
 function farmerTitle(level){return level>=15?"Хозяин фермы":level>=10?"Мастер фермы":level>=5?"Фермер":level>=3?"Птицевод":"Новичок";}
+\nconst farmAdButton=el("ad-reward-watch");if(farmAdButton)farmAdButton.addEventListener("click",watchAdReward);\n
