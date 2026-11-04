@@ -190,7 +190,7 @@ def forecast(p,now,jobs=()):
              grain_shortage=max(0,required-p["grain"]),effective_grain_shortage=missing,
              complete_feeds_available=p["grain"]//required if required else 0,
              autobuy_expected=bool(r6 or r12 or rf),forecast_approximate=bool(future),
-             forecast_note=" ".join(notes),feed_stock_seconds=next_feed+18*3600*(p["grain"]//required) if full else 0,
+             forecast_note=" ".join(notes),feed_stock_seconds=(next_feed+18*3600*(p["grain"]//required) if required and p["grain"]>=required else 0),
              fed_hens=fed,fed_geese=goose_fed,fed_cows=p.get("fed_cows",0),known_maturing=future,
              milk_next_6h=six.get("milk",0)-p.get("milk",0),milk_next_12h=twelve.get("milk",0)-p.get("milk",0),
              next_milk_scheduled=next_milk is not None,seconds_to_next_milk=next_milk or 0,
