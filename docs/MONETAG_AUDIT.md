@@ -22,12 +22,15 @@ Monetag inspection. See the verified follow-up below. A successful Promise or HT
 
 ## Reward policy and limits
 
-| Item | Valued impression postbacks | Goods per completed threshold |
+| Item | Valued event postbacks | Goods per completed threshold |
 |---|---:|---:|
-| Grain | 1 | 2 |
+| Grain | 1 | 1 |
 | Eggs | 2 | 2 |
 | Milk | 5 | 1 |
 | Chicken | 20 | 1 |
+| Goose | 80 | 1 |
+| Cow | 250 | 1 |
+| Purchasing credit | 1 | 2 coins (nonwithdrawable) |
 
 SDK reports are telemetry only, including a forged `valued` result. Only a secret-
 authenticated `valued` event tied to a random server-issued account/placement/
@@ -50,8 +53,9 @@ Threshold grants and claims are transactional and persistent. Warehouse capacity
 includes grain, eggs, feathers and milk; bird capacity includes chickens and geese.
 A full building defers the grant, never discards it. Production catches up before
 an advertising hen is added, avoiding retroactive eggs. Reload/status automatically
-delivers eligible grants once there is room. No coin, real-money, XP, referral or
-organic-production activity is awarded by the ad delivery itself.
+delivers eligible grants once there is room. No earned or real-money balance, XP, referral or organic-production activity is
+awarded by ad delivery. The explicit credit option adds only restricted bonus
+coins with source and emission accounting.
 
 ### Advertising provenance (follow-up authorized 2026-11-05)
 
@@ -173,3 +177,25 @@ and confirm whether the zone is enabled for paid traffic. We will not generate
 self-click traffic for testing. Please also confirm an approved rewarded format
 and SDK/postback configuration for our ordinary web version (website 3563620).
 No secret URL, user IDs or private credentials are included in this inquiry.
+
+## Follow-up: ranking and expanded rewards — 2026-11-05
+
+Seven newer callbacks at 00:44–00:46 Kyiv were again non_valued, HTTP 200.
+A visible advertiser countdown is not payment confirmation. Support conversation
+was sent with explicit user permission; it remains waiting for a teammate.
+
+Leaderboard now shows five players by the same main farmer_level as the profile,
+with exact own ordinal place even outside top five. Ties use name then immutable
+id consistently. The separate animal-weighted farm_score has been removed from
+ranking. Rankings are generated after the current player's main-level update.
+
+Direct ad rewards now include goose (80 paid events, 160 coins shop value) and cow
+(250, 500 coins). Grain is 1 unit (2 coins) per new paid event; previously owed
+2-grain grants retain their recorded quantity. Eggs remain 2 per 2 events (1
+coin/event), milk 1 per 5 (2.2), chicken 1 per 20 (2). No feather ad reward.
+The universal purchasing-credit option gives 2 restricted coins per paid event,
+allowing all existing purchases, bundles, incubator and upgrades through ordinary
+purchase handlers, with unchanged prices/capacities/level gates. The advertising
+source tag follows this credit. Emission totals include it; earned/real-money
+balances do not increase. These are game values, not provider ad revenue.
+Daily/hourly account limits remain shared across every reward type.

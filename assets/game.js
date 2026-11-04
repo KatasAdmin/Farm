@@ -481,7 +481,7 @@ function openResourceActions(item) {
   el("resource-action-sell").textContent=["eggs","milk"].includes(item)?"Выставить на продажу":"Продать системе";
   el("resource-actions-dialog").showModal();
 }
-const adRewards={grain:[1,2,"🌾"],eggs:[2,2,"🥚"],milk:[5,1,"🥛"],chickens:[20,1,"🐔"]};
+const adRewards={grain:[1,1,"🌾"],eggs:[2,2,"🥚"],milk:[5,1,"🥛"],chickens:[20,1,"🐔"],geese:[80,1,"🪿"],cows:[250,1,"🐄"],coins:[1,2,"🪙"]};
 let selectedAdReward="grain";
 let adProgress={};
 function selectAdReward(item){
@@ -1174,12 +1174,13 @@ function render() {
   const dead=el("weekly-deadline");
   if(dead&&weekly.ends_at){const hours=Math.max(0,Math.ceil((weekly.ends_at-Date.now()/1000)/3600));dead.textContent="До конца недели: "+Math.floor(hours/24)+" дн. "+hours%24+" ч";}
 
-  el("leaders").innerHTML = state.top
+  el("leaders").innerHTML = state.top.slice(0,5)
     .map(
       (x, i) =>
-        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>${number(x.chickens||0)} кур · ${number(x.geese||0)} гусей · ${number(x.cows||0)} коров · ур. ${number(x.farmer_level||1)}</small></div><b>${number(x.farm_score||0)} очков</b></div>`,
+        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>Основной уровень ${number(x.farmer_level||1)}</small></div><b>Ур. ${number(x.farmer_level||1)}</b></div>`,
     )
     .join("");
+  if(el("my-rank"))el("my-rank").textContent="Ваше место: "+(state.my_rank?number(state.my_rank):"—");
   el("mylist").innerHTML = state.my_listings.length
     ? state.my_listings
         .map(

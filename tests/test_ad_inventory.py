@@ -11,8 +11,6 @@ class AdvertisingFixture:
 
  def setUp(self):
   self.c=AdDB();schema(self.c)
-  self.c.execute('CREATE TABLE money_log(id text PRIMARY KEY,player_id text,kind text,delta int,details text,created real)')
-  self.c.execute('CREATE TABLE farm_money_sources(log_id text PRIMARY KEY,bonus int,purchased int,earned int)')
   self.c.raw.commit()
  def player(self):return self.c.execute("SELECT * FROM players WHERE id='p'").fetchone()
  def log(self,id,kind,amount,parts=None,ad=0):

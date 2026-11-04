@@ -28,6 +28,12 @@ def schema(c):
  c.execute('CREATE TABLE farm_ad_money(log_id text PRIMARY KEY,amount integer)')
  c.execute('CREATE TABLE farm_ad_listings(id text PRIMARY KEY,quantity integer)')
  c.execute('CREATE TABLE farm_ad_incubations(id text PRIMARY KEY)')
+ for key,default in (('cows',0),('fed_cows',0),('fed_geese',0),('cowshed_level',1),('farmer_level',3)):
+  c.execute('ALTER TABLE players ADD COLUMN '+key+' integer NOT NULL DEFAULT '+str(default))
+ c.execute('CREATE TABLE money_log(id text PRIMARY KEY,player_id text,kind text,delta int,details text,created double precision)')
+ c.execute('CREATE TABLE reward_emission(id int PRIMARY KEY,total_minted int)')
+ c.execute('INSERT INTO reward_emission VALUES(1,0)')
+ c.execute('CREATE TABLE farm_money_sources(log_id text PRIMARY KEY,bonus int,purchased int,earned int)')
  c.execute('CREATE TABLE monetag_ad_attempts(ymid text PRIMARY KEY,player_id text,created_at double precision,rewarded_at double precision,zone_id int,placement text,'+','.join(k+' '+v for k,v in ads.FIELDS.items())+')')
  c.execute('CREATE TABLE monetag_reward_grants(id text PRIMARY KEY,player_id text,item text,quantity int,created real,claimed_at real)')
  c.execute('CREATE TABLE monetag_postback_events(ymid text,event_type text,sub_zone_id int,reward_event_type text,estimated_usd numeric,received_at real,PRIMARY KEY(ymid,event_type,sub_zone_id,reward_event_type))')
@@ -51,8 +57,8 @@ class AdFixture(unittest.TestCase):
 class MonetagRewardsTests(AdFixture):
  def test_popup_subzone_and_prefixed_placement_are_valid_and_duplicate_safe(self):
   a=self.prepare();self.assertTrue(self.post(a)['rewarded']);self.assertFalse(self.post(a)['rewarded'])
-  self.assertEqual(self.deliver()['granted'],[{'item':'grain','quantity':2}]);self.assertEqual(self.deliver()['granted'],[])
-  self.assertEqual((self.p()['grain'],self.p()['coins']),(2,100))
+  self.assertEqual(self.deliver()['granted'],[{'item':'grain','quantity':1}]);self.assertEqual(self.deliver()['granted'],[])
+  self.assertEqual((self.p()['grain'],self.p()['coins']),(1,100))
   self.assertEqual(self.c.execute('SELECT count(*) AS n FROM monetag_postback_events').fetchone()['n'],1)
   s=ads.statistics(self.c);self.assertEqual(s['estimated_usd'],'0.0037');self.assertIsNone(s['settled_revenue'])
  def test_sdk_valued_completion_never_credits_without_postback(self):
@@ -75,9 +81,9 @@ class MonetagRewardsTests(AdFixture):
    with self.subTest(changes=changes),self.assertRaises(HTTPException):self.post(a,**changes)
   self.assertEqual(self.c.execute('SELECT count(*) AS n FROM monetag_postback_events').fetchone()['n'],0)
  def test_click_and_multiple_subzones_never_duplicate_reward_or_revenue(self):
-  a=self.prepare();self.post(a,event_type='click');self.assertEqual(self.deliver()['granted'],[{'item':'grain','quantity':2}])
+  a=self.prepare();self.post(a,event_type='click');self.assertEqual(self.deliver()['granted'],[{'item':'grain','quantity':1}])
   self.post(a);self.post(a,sub_zone_id=1000);self.deliver()
-  self.assertEqual(self.p()['grain'],2)
+  self.assertEqual(self.p()['grain'],1)
   self.assertEqual(ads.statistics(self.c)['estimated_usd'],'0.0037')
  def test_progress_is_persistent_and_shared_between_platforms(self):
   a=self.prepare('eggs');self.post(a,request_var='eggs_reward')
@@ -87,9 +93,9 @@ class MonetagRewardsTests(AdFixture):
   self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now+31)['rewards']['eggs']['progress'],0)
  def test_stock_capacity_defers_instead_of_losing_or_overflowing_rewards(self):
   a=self.prepare();self.post(a)
-  self.c.execute("UPDATE players SET milk=99 WHERE id='p'");self.c.raw.commit()
+  self.c.execute("UPDATE players SET milk=100 WHERE id='p'");self.c.raw.commit()
   self.assertEqual(self.deliver()['pending'],1);self.assertEqual(self.p()['grain'],0)
-  self.c.execute("UPDATE players SET milk=98 WHERE id='p'");self.c.raw.commit();self.deliver();self.assertEqual(self.p()['grain'],2)
+  self.c.execute("UPDATE players SET milk=99 WHERE id='p'");self.c.raw.commit();self.deliver();self.assertEqual(self.p()['grain'],1)
  def test_all_thresholds_and_animal_housing_and_fed_state(self):
   for item,(views,qty) in ads.REWARDS.items():
    for i in range(views):
@@ -98,8 +104,8 @@ class MonetagRewardsTests(AdFixture):
     a=self.prepare(item,now=self.now);self.post(a,request_var=item+'_reward')
     pending=self.c.execute('SELECT count(*) AS n FROM monetag_reward_grants WHERE item=%s',(item,)).fetchone()['n']
     self.assertEqual(pending,int(i+1==views))
-   self.deliver();self.assertEqual(self.p()[item],qty)
-  self.assertEqual(self.p()['fed_hens'],1);self.assertEqual(self.p()['coins'],100)
+   self.deliver();self.assertEqual(self.p()[item],100+qty if item=='coins' else qty)
+  self.assertEqual(self.p()['fed_hens'],1);self.assertEqual(self.p()['coins'],102)
  def test_deliver_catches_up_before_adding_hen_and_preserves_full_coop(self):
   self.c.execute("INSERT INTO monetag_reward_grants VALUES('hen','p','chickens',1,1,NULL)")
   self.c.execute("UPDATE players SET geese=10 WHERE id='p'");self.c.raw.commit()
@@ -125,7 +131,7 @@ class MonetagRewardsTests(AdFixture):
   self.assertIsNone(self.c.execute('SELECT sdk_completed_at FROM monetag_ad_attempts WHERE ymid=%s',(a['ymid'],)).fetchone()['sdk_completed_at'])
  def test_late_postback_after_ui_timeout_is_still_credited_once(self):
   a=self.prepare();self.report(a,event='failed',error='verification_failed')
-  self.assertTrue(self.post(a,now=self.now+37*3600)['rewarded']);self.deliver();self.assertEqual(self.p()['grain'],2)
+  self.assertTrue(self.post(a,now=self.now+37*3600)['rewarded']);self.deliver();self.assertEqual(self.p()['grain'],1)
  def test_nan_negative_and_unbounded_prices_rejected(self):
   a=self.prepare()
   for price in ('NaN','Infinity','-1','1001','1'*100):
@@ -141,7 +147,31 @@ class MonetagRewardsTests(AdFixture):
    return execute(sql,params)
   with patch.object(self.c,'execute',side_effect=fail):
    with self.assertRaises(RuntimeError):self.deliver()
-  self.assertEqual(self.p()['grain'],0);self.assertEqual(self.deliver()['granted'],[{'item':'grain','quantity':2}])
+  self.assertEqual(self.p()['grain'],0);self.assertEqual(self.deliver()['granted'],[{'item':'grain','quantity':1}])
+
+class ExpandedAdvertisingRewards(AdFixture):
+ def test_goods_value_is_between_one_and_three_game_coins_per_paid_event(self):
+  prices={'grain':2,'eggs':1,'milk':11,'chickens':40,'geese':160,'cows':500,'coins':1}
+  self.assertNotIn('feathers',ads.REWARDS)
+  for item,(views,qty) in ads.REWARDS.items():
+   self.assertGreaterEqual(prices[item]*qty/views,1);self.assertLessEqual(prices[item]*qty/views,3)
+ def test_credit_is_bonus_tagged_and_idempotent_without_storage_requirement(self):
+  import farm_wallet
+  import ad_inventory
+  a=self.prepare('coins');self.post(a,request_var='coins_reward');self.deliver();self.deliver()
+  self.assertEqual(self.p()['coins'],102)
+  self.assertEqual(farm_wallet.available(self.c,self.p()),0)
+  self.assertEqual(ad_inventory.balance(self.c,self.p()),2)
+  self.assertEqual(self.c.execute('SELECT total_minted FROM reward_emission WHERE id=1').fetchone()['total_minted'],2)
+ def test_new_animal_grants_wait_for_housing_or_required_level(self):
+  self.c.execute("INSERT INTO monetag_reward_grants VALUES('cow','p','cows',1,1,NULL)")
+  self.c.execute("INSERT INTO monetag_reward_grants VALUES('goose','p','geese',1,2,NULL)")
+  self.c.execute("UPDATE players SET cows=2,farmer_level=1 WHERE id='p'");self.c.raw.commit()
+  self.assertEqual(self.deliver()['pending'],2)
+  with self.assertRaises(HTTPException):self.prepare('geese')
+  self.c.execute("UPDATE players SET cowshed_level=2,farmer_level=3 WHERE id='p'");self.c.raw.commit()
+  self.assertEqual(len(self.deliver()['granted']),2)
+  self.assertEqual((self.p()['ad_cows'],self.p()['ad_geese'],self.p()['fed_cows'],self.p()['fed_geese']),(1,1,1,1))
 
 @unittest.skipUnless(importlib.util.find_spec('httpx'),'Install requirements-test.txt for API tests')
 class AdsApiTests(AdFixture):
@@ -160,14 +190,14 @@ class AdsApiTests(AdFixture):
   params=dict(secret=SECRET,ymid=a['ymid'],zone_id=ads.TMA_ZONE,sub_zone_id=444,event_type='impression',reward_event_type='valued',request_var=str(ads.TMA_ZONE)+'_grain_reward',estimated_price='0.01')
   response=self.client.get('/api/ads/monetag/postback',params=params)
   self.assertEqual(response.status_code,200,response.text)
-  self.assertEqual(self.p()['grain'],2)
+  self.assertEqual(self.p()['grain'],1)
   self.assertEqual(self.client.get('/api/ads/monetag/postback',params={**params,'secret':'wrong'}).status_code,403)
  def test_http_web_prepare_and_claim_recover_after_reload(self):
   response=self.client.post('/api/ads/monetag/prepare',headers={'Authorization':'Bearer test-user'},json={'item':'grain'})
   self.assertEqual(response.status_code,200,response.text);a=response.json();self.assertEqual(a['zone_id'],22334455)
   self.post(a,request_var='grain_reward');response=self.client.get('/api/ads/monetag/status',headers={'Authorization':'Bearer test-user'})
-  self.assertEqual(response.status_code,200,response.text);self.assertEqual(self.p()['grain'],2)
-  self.client.get('/api/ads/monetag/status',headers={'Authorization':'Bearer test-user'});self.assertEqual(self.p()['grain'],2)
+  self.assertEqual(response.status_code,200,response.text);self.assertEqual(self.p()['grain'],1)
+  self.client.get('/api/ads/monetag/status',headers={'Authorization':'Bearer test-user'});self.assertEqual(self.p()['grain'],1)
  def test_admin_ads_requires_owner(self):
   self.assertEqual(self.client.get('/api/admin/ads').status_code,403)
 

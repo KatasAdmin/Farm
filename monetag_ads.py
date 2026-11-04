@@ -1,5 +1,5 @@
 """Rewarded Monetag events. Only authenticated server postbacks earn goods.
-Client reports are telemetry, never payment evidence. No coin/XP/referral writes.
+Client reports are telemetry, never payment evidence. Only goods or restricted purchasing credit.
 """
 import hmac
 import ad_inventory
@@ -7,10 +7,11 @@ import os
 import re
 import secrets
 import time
+import uuid
 from decimal import Decimal, InvalidOperation
 from fastapi import HTTPException
 
-REWARDS={'grain':(1,2),'eggs':(2,2),'milk':(5,1),'chickens':(20,1)}
+REWARDS={'grain':(1,1),'eggs':(2,2),'milk':(5,1),'chickens':(20,1),'geese':(80,1),'cows':(250,1),'coins':(1,2)}
 TMA_ZONE=12193261
 LOCK=1984533
 DAY_LIMIT=40
@@ -56,6 +57,7 @@ def limits(c,pid,now):
 def prepare(c,p,item,platform,now=None):
  now=time.time() if now is None else now
  cfg=config(platform)
+ if item=='geese' and p.get('farmer_level',1)<3:raise HTTPException(403,'Гуси доступны с 3-го уровня')
  if item not in REWARDS:raise HTTPException(400,'Награда не найдена')
  if not cfg['enabled']:raise HTTPException(503,cfg['reason'] or 'Рекламные награды пока настраиваются')
  quota=limits(c,p['id'],now)
@@ -142,14 +144,26 @@ def deliver(c,p,advance,coop_limit,storage_limit):
  for r in rewards:
   if not ad_inventory.active(p):raise RuntimeError('Advertising provenance migration is required before delivery')
   item=r['item'];n=r['quantity']
-  if item=='chickens':
+  if item in ('chickens','geese'):
+   if item=='geese' and p.get('farmer_level',1)<3:continue
    if p['chickens']+p.get('geese',0)+n>coop_limit(p):continue
-   c.execute('UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s',(n,n,p['id']))
+   fed='fed_hens' if item=='chickens' else 'fed_geese'
+   c.execute('UPDATE players SET '+item+'='+item+'+%s,'+fed+'='+fed+'+%s WHERE id=%s',(n,n,p['id']))
+  elif item=='cows':
+   if p.get('cows',0)+n>2*p.get('cowshed_level',1):continue
+   c.execute('UPDATE players SET cows=cows+%s,fed_cows=fed_cows+%s WHERE id=%s',(n,n,p['id']))
+  elif item=='coins':
+   log_id=uuid.uuid4().hex
+   c.execute('UPDATE players SET coins=coins+%s WHERE id=%s',(n,p['id']))
+   c.execute('INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)',(log_id,p['id'],'ad_reward',n,'Рекламные монеты: только для покупок',time.time()))
+   c.execute('INSERT INTO farm_money_sources VALUES(%s,%s,0,0)',(log_id,n))
+   ad_inventory.credit(c,log_id,n)
+   c.execute('UPDATE reward_emission SET total_minted=total_minted+%s WHERE id=1',(n,))
   elif item in ('grain','eggs','milk'):
    if sum(p.get(k,0) for k in ('grain','eggs','milk','feathers'))+n>storage_limit(p):continue
    c.execute('UPDATE players SET '+item+'='+item+'+%s WHERE id=%s',(n,p['id']))
   else:continue
-  ad_inventory.add(c,p,item,n)
+  if item!='coins':ad_inventory.add(c,p,item,n)
   p={**p,item:p.get(item,0)+n}
   c.execute('UPDATE monetag_reward_grants SET claimed_at=%s WHERE id=%s AND claimed_at IS NULL',(time.time(),r['id']))
   granted.append({'item':item,'quantity':n})
@@ -195,7 +209,7 @@ def admin_text(c,platform=None):
  text='🎬 <b>Реклама Monetag</b> · '+labels.get(platform,'Все платформы')+'\n\n'
  for key,label in [('starts','Запусков'),('completed','Завершений SDK'),('paid','Оплаченных подтверждений'),('unpaid','Неоплаченных событий'),('sdk_errors','Ошибок SDK'),('unconfirmed','Без подтверждения')]:text+=label+': <b>'+str(n[key])+'</b>\n'
  text+='\n<b>Товары · все платформы</b>\n'
- for item,title in [('grain','Зерно'),('eggs','Яйца'),('milk','Молоко'),('chickens','Куры')]:
+ for item,title in [('grain','Зерно'),('eggs','Яйца'),('milk','Молоко'),('chickens','Куры'),('geese','Гуси'),('cows','Коровы'),('coins','Монеты для покупок')]:
   row=stats['items'][item];text+=title+': '+str(row['starts'])+' запусков · '+str(row['paid'])+' оплаченных · выдано '+str(row['granted'])+' · ждёт места '+str(row['pending'])+'\n'
  text+='\nОценка Monetag по postback: '+('$'+stats['estimated_usd'] if stats['estimated_usd'] is not None else 'нет данных')+' ('+str(stats['events_with_estimate'])+' событий с ценой).\nЭто estimated_price, не окончательный доход. Фактический доход и расчёты — в кабинете Monetag. Данные старых неподтверждённых попыток восстановить нельзя.'
  return text

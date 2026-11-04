@@ -3,7 +3,7 @@
 'use strict';
 let cfg=null,owner='',working=false,recovering=null,lastRecover=0,sdkZone=null;
 const prepared=new Map(),timers=new Set();
-const labels={grain:'зерно',eggs:'яйца',milk:'молоко',chickens:'курицу'};
+const labels={grain:'зерно',eggs:'яйца',milk:'молоко',chickens:'курицу',geese:'гусыню',cows:'корову',coins:'монеты для покупок'};
 const states={pending:'Ожидается подтверждение Monetag',unconfirmed:'Подтверждение не получено. Попытка сохранена в истории',non_valued:'Показ не оплачен Monetag и не засчитан для награды',sdk_error:'Реклама недоступна, попробуйте позже',rate_limited:'Лимит рекламы, попробуйте позже'};
 const contextKey=()=>String(token||'')+'|'+(tgInitData()?'telegram':'web');
 const adApi=(path,payload)=>api('/api/ads/monetag/'+path,payload,tgInitData()?{'X-Telegram-Init-Data':tgInitData()}:{});
@@ -14,6 +14,9 @@ function itemButton(item){
  button.addEventListener('click',()=>watch(button.dataset.adFree));return button;
 }
 function decorate(){
+ // Advertising purchasing credit can pay for any existing purchase or upgrade.
+ document.querySelectorAll("[onclick^=\"upgradeBuilding(\"],#incubator-action,#incubator-upgrade,#bundle-buy").forEach(b=>{if(!b.nextElementSibling?.matches('[data-ad-free]'))b.insertAdjacentElement('afterend',itemButton('coins'));});
+
  document.querySelectorAll('[data-ad-progress]').forEach(n=>n.textContent=(adProgress[n.dataset.adProgress]||0)+'/'+(adRewards[n.dataset.adProgress]?.[0]||1));
  const rp=el('resource-action-ad-progress');if(rp&&adRewards[selectedResource])rp.textContent=(adProgress[selectedResource]||0)+'/'+adRewards[selectedResource][0]+' подтверждённых просмотров';
  document.querySelectorAll('#shop .product,#coop [data-animal-card]').forEach(card=>{
@@ -27,13 +30,14 @@ function decorate(){
  const purchaseDialog=el('purchase-dialog');
  if(purchaseDialog&&!el('purchase-ad-free')){const button=itemButton('grain');button.id='purchase-ad-free';purchaseDialog.appendChild(button);}
  const purchaseFree=el('purchase-ad-free');
- if(purchaseFree){const item=purchase?.item;purchaseFree.hidden=!adRewards[item]||purchase?.kind==='bundle';purchaseFree.dataset.adFree=adRewards[item]?item:'grain';}
+ if(purchaseFree){const item=purchase?.item;purchaseFree.hidden=false;purchaseFree.dataset.adFree=purchase?.kind==='bundle'?'coins':adRewards[item]?item:'coins';}
  const shortage=el('free-grain-shortage');if(shortage)shortage.hidden=!(state?.farm?.effective_grain_shortage>0);
  document.querySelectorAll('[data-ad-free]').forEach(button=>{
   const item=button.dataset.adFree;const r=adRewards[item];if(!r)return;
   const ready=cfg?.enabled&&!cfg.retry_after&&cfg.remaining_today&&cfg.remaining_hour&&prepared.has(item)&&typeof window['show_'+cfg.zone_id]==='function';
   button.disabled=working||pending||!ready;
-  button.title=cfg?.reason||'Награда после оплаченного подтверждения Monetag';
+  button.title=cfg?.reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' оплаченных просмотров');
+  if(item==='coins'){button.textContent='🎬 +2 монеты для покупок';return;}
   button.textContent='🎬 Получить '+(button.id==='free-grain-shortage'?'зерно ':'')+'бесплатно · '+(adProgress[item]||0)+'/'+r[0];
  });
 }
@@ -75,7 +79,7 @@ async function recover(force=false){
    const data=await adApi('status');if(owner!==session)return;
    cfg=data;if(!data.enabled){const note=el('ad-inline-status');if(note)note.textContent=data.reason||'Рекламные награды пока настраиваются';}
    adProgress=Object.fromEntries(Object.entries(data.rewards||{}).map(([k,v])=>[k,v.progress]));
-   historyUI(data);decorate();
+   historyUI(data);const wallet=el('wallet');if(wallet&&!el('ad-purchase-credit')){const b=itemButton('coins');b.id='ad-purchase-credit';wallet.prepend(b);}decorate();
    if(data.granted?.length){notify('Награда получена');await refresh();}
    if(data.pending)notify('Награда сохранена. Освободите место на складе или для птицы');
    if(data.enabled){try{await sdk(data);await reserve();}catch(error){notify(error.message);}}

@@ -40,7 +40,7 @@ class MonetagPostgres(unittest.TestCase):
   with ThreadPoolExecutor(max_workers=5) as pool:results=list(pool.map(claim,range(10)))
   self.assertEqual(sum(len(x['granted']) for x in results),1)
   with self.connect() as c:
-   p=c.execute("SELECT * FROM players WHERE id='p'").fetchone();self.assertEqual((p['grain'],p['coins'],p['ad_grain']),(2,100,2));self.assertEqual(ads.statistics(c)['estimated_usd'],'0.0037000')
+   p=c.execute("SELECT * FROM players WHERE id='p'").fetchone();self.assertEqual((p['grain'],p['coins'],p['ad_grain']),(1,100,1));self.assertEqual(ads.statistics(c)['estimated_usd'],'0.0037000')
  def test_schema_upgrade_preserves_legacy_progress_and_grants(self):
   with self.connect() as c:
    for field in ads.FIELDS:c.execute('ALTER TABLE monetag_ad_attempts DROP COLUMN '+field)
