@@ -472,6 +472,8 @@ function openResourceActions(item) {
   el("resource-action-free").hidden=!(["grain","eggs","milk","chickens"].includes(item));
   const freeLabels={grain:"🌾 Получить бесплатно 2",eggs:"🥚 Получить бесплатно 2",milk:"🥛 Получить бесплатно 1",chickens:"🐔 Получить курицу бесплатно"};
   el("resource-action-free").textContent=freeLabels[item]||"🎬 Получить бесплатно";
+  const progress=el("resource-action-ad-progress");
+  if(progress){progress.hidden=!adRewards[item];progress.textContent=adRewards[item]?(adProgress[item]||0)+"/"+adRewards[item][0]+" оплаченных просмотров":"";}
   el("resource-action-description").textContent=item==="feathers"?"Редкий ресурс гусей. Сохраняй для будущих производств или продай системе по 5 монет за штуку.":["eggs","milk"].includes(item)
     ? "Купи товар у других фермеров или выставь свой на рынок."
     : "Купи ресурс в магазине или продай его системе с мгновенным начислением монет.";
@@ -497,6 +499,8 @@ async function loadAdRewardStatus(){
   const note=el("ad-reward-status");
   if(note&&counts)note.textContent="Запусков рекламы: "+counts.attempts+" · оплаченных подтверждений: "+counts.confirmed+". Неоплаченные показы не засчитываются.";
   selectAdReward(selectedAdReward);
+  document.querySelectorAll("[data-ad-progress]").forEach(node=>{const item=node.dataset.adProgress;if(adRewards[item])node.textContent=(adProgress[item]||0)+"/"+adRewards[item][0];});
+  const resourceProgress=el("resource-action-ad-progress");if(resourceProgress&&adRewards[selectedResource])resourceProgress.textContent=(adProgress[selectedResource]||0)+"/"+adRewards[selectedResource][0]+" оплаченных просмотров";
   const btn=el("ad-reward-watch");
   if(btn){btn.disabled=!status.enabled;btn.textContent=status.enabled?"🎬 Смотреть рекламу":"Реклама пока настраивается";}
  }catch(_){}
