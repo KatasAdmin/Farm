@@ -5,6 +5,9 @@ import weekly_missions
 import market_allocation
 import incubation_rules
 import stars_validation
+import monetag_ads
+import ad_inventory
+import farm_ranking
 import release_grants
 import farm_wallet
 import referral_bridge
@@ -22,7 +25,7 @@ from urllib.parse import parse_qsl
 from urllib.request import Request as URLRequest, urlopen
 import psycopg
 from psycopg.rows import dict_row
-from fastapi import FastAPI,HTTPException,Header
+from fastapi import FastAPI,HTTPException,Header,Request as HTTPRequest
 from fastapi.responses import HTMLResponse,JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -45,6 +48,8 @@ async def lifespan(app):
   c.execute("CREATE INDEX IF NOT EXISTS monetag_ad_attempts_player_idx ON monetag_ad_attempts(player_id,created_at)")
   c.execute("CREATE TABLE IF NOT EXISTS monetag_reward_grants(id text PRIMARY KEY,player_id text NOT NULL,item text NOT NULL,quantity integer NOT NULL CHECK(quantity>0),created double precision NOT NULL,claimed_at double precision)")
   c.execute("CREATE INDEX IF NOT EXISTS monetag_reward_grants_player_idx ON monetag_reward_grants(player_id,claimed_at)")
+  monetag_ads.initialize(c)
+  ad_inventory.initialize(c)
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS satiety integer NOT NULL DEFAULT 100")
@@ -303,10 +308,15 @@ def update_incubation(c,p,now):
  jobs=c.execute("SELECT id FROM incubation_jobs WHERE player_id=%s AND mature_at<=%s ORDER BY mature_at,id FOR UPDATE",(p["id"],now)).fetchall()
  matured=incubation_rules.available_maturity_slots(coop_limit(p),p["chickens"],p.get("geese",0),len(jobs))
  if matured:
-  for row in jobs[:matured]:c.execute("DELETE FROM incubation_jobs WHERE id=%s",(row["id"],))
+  tagged=0
+  for row in jobs[:matured]:
+   if ad_inventory.active(p):
+    tagged+=bool(c.execute("DELETE FROM farm_ad_incubations WHERE id=%s RETURNING id",(row["id"],)).fetchone())
+   c.execute("DELETE FROM incubation_jobs WHERE id=%s",(row["id"],))
+  ad_inventory.add(c,p,"chickens",tagged)
   c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(matured,matured,p["id"]))
   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"chick_matured",matured,now))
-  award_referral_resource(c,p,"chickens",matured)
+  award_referral_resource(c,p,"chickens",matured-tagged)
   p={**p,"chickens":p["chickens"]+matured,"fed_hens":p["fed_hens"]+matured}
  return p
 def upgrade_production(c,p,now):
@@ -422,6 +432,7 @@ def advance(c,p,now=None):
  """Process 6h egg ticks and 18h feeding ticks server-side without retroactive production."""
  now=time.time() if now is None else now
  if p.get("production_model",3)>=4:
+  if ad_inventory.active(p):p={**p,"_ad_credit_balance":ad_inventory.balance(c,p)}
   result,produced,refills=simulate_v4(p,now)
   for refill in refills:
    c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(GRAIN_PRICE*refill,))
@@ -430,20 +441,22 @@ def advance(c,p,now=None):
    day=time.strftime("%Y-%m-%d",time.gmtime(now))
    c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET eggs_produced=daily_activity.eggs_produced+EXCLUDED.eggs_produced",(p["id"],day,produced))
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
-   award_referrals(c,p,produced,now)
+   award_referrals(c,p,max(0,produced-(result.get("ad_eggs",0)-p.get("ad_eggs",0))),now)
   milk_gain=result.get("milk",0)-p.get("milk",0)
   if milk_gain:
-   award_referral_resource(c,p,"milk",milk_gain)
+   award_referral_resource(c,p,"milk",max(0,milk_gain-result.get("ad_milk",0)+p.get("ad_milk",0)))
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"milk_produced",milk_gain,now))
   feather_gain=result.get("feathers",0)-p.get("feathers",0)
   if feather_gain:
-   award_referral_resource(c,p,"feathers",feather_gain)
+   award_referral_resource(c,p,"feathers",max(0,feather_gain-result.get("ad_feathers",0)+p.get("ad_feathers",0)))
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"feathers_collected",feather_gain,now))
   fed_grain=max(0,p["grain"]+sum(refills)-result["grain"])
   if fed_grain:
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"grain_fed",fed_grain,now))
   keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress","geese","fed_geese","feathers","feather_progress","cows","fed_cows","milk","milk_progress")
   c.execute("UPDATE players SET "+",".join(k+"=%s" for k in keys)+" WHERE id=%s",tuple(result[k] for k in keys)+(p["id"],))
+  result.pop("_ad_credit_balance",None)
+  ad_inventory.save(c,result)
   return update_incubation(c,result,now)
  start=p["last_tick"] if p["last_tick"] is not None else now
  due=max(0,int((now-start)//CYCLE))
@@ -464,81 +477,75 @@ def advance(c,p,now=None):
  return upgrade_production(c,update_incubation(c,result,now),now)
 @app.get("/",response_class=HTMLResponse)
 def index():return HTMLResponse(open("index.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
-# Monetag rewarded advertising: fail closed until a private postback secret is configured.
-# Rewarded ads are disabled until a verified Monetag postback secret is configured.
-MONETAG_REWARDS={"grain":(1,2),"eggs":(2,2),"milk":(5,1),"chickens":(20,1)}
-def monetag_enabled():
- return bool(os.environ.get("MONETAG_POSTBACK_SECRET")) and os.environ.get("MONETAG_REWARDS_ENABLED")=="1"
+# No raw postback secrets in application access logs. Railway edge logging must
+# also keep query strings disabled; see docs/MONETAG_AUDIT.md.
+class PostbackSecretRedaction:
+ def __init__(self,app):self.app=app
+ async def __call__(self,scope,receive,send):
+  if scope.get("type")=="http" and scope.get("path")=="/api/ads/monetag/postback":
+   from urllib.parse import parse_qsl,urlencode
+   params=parse_qsl(scope.get("query_string",b"").decode("utf-8",errors="replace"),keep_blank_values=True)
+   values=[v for k,v in params if k=="secret"]
+   scope.setdefault("state",{})["monetag_secret"]=values[0] if len(values)==1 else ""
+   scope["query_string"]=urlencode([(k,v) for k,v in params if k!="secret"]).encode()
+  await self.app(scope,receive,send)
+app.add_middleware(PostbackSecretRedaction)
+
+MONETAG_REWARDS=monetag_ads.REWARDS
+monetag_enabled=monetag_ads.enabled
+
+def ads_platform(p,raw):
+ if not raw:return "web"
+ uid=telegram_identity(raw)
+ if not p.get("telegram_id") or uid!=p["telegram_id"]:raise HTTPException(403,"Telegram не совпадает с аккаунтом фермы")
+ return "telegram"
+
+def deliver_ads(c,p):return monetag_ads.deliver(c,p,advance,coop_limit,storage_limit)
 
 @app.get("/api/ads/monetag/status")
-def monetag_status(authorization:str=Header(default="")):
+def monetag_status(authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
  with db() as c:
-  p=person(c,authorization)
-  rows=c.execute("SELECT placement,count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s AND rewarded_at IS NOT NULL GROUP BY placement",(p["id"],)).fetchall()
-  totals={x["placement"]:x["n"] for x in rows}
-  attempts=c.execute("SELECT placement,count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s GROUP BY placement",(p["id"],)).fetchall()
-  attempted={x["placement"]:x["n"] for x in attempts}
- return {"enabled":monetag_enabled(),"zone_id":12193261,"rewards":{k:{"views":v[0],"quantity":v[1],"progress":totals.get(k+"_reward",0)%v[0],"attempts":attempted.get(k+"_reward",0),"confirmed":totals.get(k+"_reward",0)} for k,v in MONETAG_REWARDS.items()}}
+  monetag_ads.lock(c)
+  p=person(c,authorization,True)
+  platform=ads_platform(p,telegram_data)
+  delivered=deliver_ads(c,p)
+  return dict(monetag_ads.status(c,p,platform),**delivered)
 
 @app.post("/api/ads/monetag/prepare")
-def monetag_prepare(q:dict,authorization:str=Header(default="")):
- if not monetag_enabled():raise HTTPException(503,"Рекламные награды пока настраиваются")
- kind=q.get("item","grain")
- if kind not in MONETAG_REWARDS:raise HTTPException(400,"Награда не найдена")
- now=time.time()
+def monetag_prepare(q:dict,authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
  with db() as c:
+  monetag_ads.lock(c)
   p=person(c,authorization,True)
-  ymid="farm_"+secrets.token_hex(20)
-  c.execute("INSERT INTO monetag_ad_attempts(ymid,player_id,created_at,zone_id,placement) VALUES(%s,%s,%s,%s,%s)",(ymid,p["id"],now,12193261,kind+"_reward"))
- return {"ymid":ymid,"zone_id":12193261,"item":kind}
+  return monetag_ads.prepare(c,p,str(q.get("item","grain")),ads_platform(p,telegram_data))
+
+@app.post("/api/ads/monetag/event")
+def monetag_event(q:dict,authorization:str=Header(default="")):
+ with db() as c:
+  monetag_ads.lock(c)
+  p=person(c,authorization,True)
+  return monetag_ads.report(c,p,str(q.get("ymid","")),str(q.get("event","")),str(q.get("result","")),str(q.get("error","")))
 
 @app.post("/api/ads/monetag/claim")
 def monetag_claim(authorization:str=Header(default="")):
- if not monetag_enabled():raise HTTPException(503,"Рекламные награды пока настраиваются")
  with db() as c:
-  p=person(c,authorization,True)
-  p=advance(c,p)
-  rewards=c.execute("SELECT * FROM monetag_reward_grants WHERE player_id=%s AND claimed_at IS NULL ORDER BY created,id FOR UPDATE",(p["id"],)).fetchall()
-  granted=[]
-  for reward in rewards:
-   item=reward["item"];quantity=reward["quantity"]
-   if item=="chickens":
-    if p["chickens"]+p.get("geese",0)+quantity>coop_limit(p):continue
-    c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(quantity,quantity,p["id"]))
-   elif item in ("grain","eggs","milk"):
-    if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+quantity>storage_limit(p):continue
-    c.execute("UPDATE players SET "+item+"="+item+"+%s WHERE id=%s",(quantity,p["id"]))
-   else:continue
-   p={**p,item:p[item]+quantity}
-   c.execute("UPDATE monetag_reward_grants SET claimed_at=%s WHERE id=%s",(time.time(),reward["id"]))
-   granted.append({"item":item,"quantity":quantity})
- return {"ok":True,"granted":granted,"pending":len(rewards)-len(granted)}
+  monetag_ads.lock(c)
+  return deliver_ads(c,person(c,authorization,True))
 
 @app.get("/api/ads/monetag/postback")
-def monetag_postback(secret:str="",ymid:str="",zone_id:int=0,sub_zone_id:int=0,event_type:str="",reward_event_type:str="",request_var:str="",telegram_id:str="",estimated_price:str=""):
- configured=os.environ.get("MONETAG_POSTBACK_SECRET","")
- if not monetag_enabled() or not secret or not hmac.compare_digest(secret,configured):raise HTTPException(403,"Forbidden")
- if not ymid.startswith("farm_") or len(ymid)!=45 or not all(x in "0123456789abcdef" for x in ymid[5:]):raise HTTPException(400,"Invalid event")
- if zone_id!=12193261 or sub_zone_id!=12193261:raise HTTPException(400,"Wrong zone")
- if event_type not in ("impression","click") or reward_event_type not in ("valued","non_valued"):raise HTTPException(400,"Invalid event")
- if event_type=="click":return {"ok":True,"rewarded":False,"reason":"click_not_rewardable"}
+def monetag_postback(request:HTTPRequest,ymid:str="",zone_id:int=0,sub_zone_id:int=0,event_type:str="",reward_event_type:str="",request_var:str="",telegram_id:str="",estimated_price:str=""):
  with db() as c:
-  row=c.execute("SELECT * FROM monetag_ad_attempts WHERE ymid=%s FOR UPDATE",(ymid,)).fetchone()
-  if not row or row["rewarded_at"] is not None:return {"ok":True,"rewarded":False}
-  if request_var!=row["placement"] or row["placement"] not in [k+"_reward" for k in MONETAG_REWARDS]:raise HTTPException(400,"Wrong placement")
-  if reward_event_type!="valued" or time.time()-row["created_at"]>48*3600:return {"ok":True,"rewarded":False}
-  c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(row["player_id"],))
-  kind=row["placement"][:-7]
-  views,qty=MONETAG_REWARDS[kind]
-  count=c.execute("SELECT count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s AND placement=%s AND rewarded_at IS NOT NULL",(row["player_id"],row["placement"])).fetchone()["n"]
-  c.execute("UPDATE monetag_ad_attempts SET rewarded_at=%s WHERE ymid=%s",(time.time(),ymid))
-  if (count+1)%views==0:
-   # A completed set of paid views creates a durable claim. Never lose rewards
-   # when the warehouse or coop is full; do not touch money balances.
-   c.execute("INSERT INTO monetag_reward_grants(id,player_id,item,quantity,created) VALUES(%s,%s,%s,%s,%s)",(ymid,row["player_id"],kind,qty,time.time()))
-   return {"ok":True,"rewarded":True,"item":kind,"quantity":qty,"claim_required":True}
+  monetag_ads.lock(c)
+  result=monetag_ads.postback(c,getattr(request.state,"monetag_secret",""),ymid,zone_id,sub_zone_id,event_type,reward_event_type,request_var,telegram_id,estimated_price)
+  pid=result.pop("player_id",None)
+  if pid:
+   p=c.execute("SELECT * FROM players WHERE id=%s FOR UPDATE",(pid,)).fetchone()
+   result.update(deliver_ads(c,p))
+  return result
 
- return {"ok":True,"rewarded":False,"progress":(count+1)%views}
+@app.get("/api/admin/ads")
+def admin_ads(authorization:str=Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:return monetag_ads.statistics(c)
 
 @app.get("/health")
 def health():return {"ok":True,"release":RELEASE}
@@ -1105,7 +1112,6 @@ def state(authorization:str=Header(default="")):
   available_eggs=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("eggs",p["id"])).fetchone()["total"]
   available_milk=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("milk",p["id"])).fetchone()["total"]
   mine=c.execute("SELECT id,item,quantity,price FROM market WHERE seller=%s AND quantity>0 ORDER BY item,price,id",(p["id"],)).fetchall()
-  top=c.execute("""SELECT name,chickens,geese,cows,farmer_level,\n    (chickens*10+geese*30+cows*100+GREATEST(farmer_level-1,0)*50) AS farm_score\n    FROM players ORDER BY farm_score DESC,farmer_level DESC,name ASC LIMIT 8""").fetchall()
   day=time.strftime("%Y-%m-%d",time.gmtime())
   activity=c.execute("SELECT grain_bought,eggs_listed,eggs_produced FROM daily_activity WHERE player_id=%s AND day=%s",(p["id"],day)).fetchone() or {"grain_bought":0,"eggs_listed":0,"eggs_produced":0}
   event=c.execute("SELECT id,kind,amount FROM farm_events WHERE player_id=%s ORDER BY created DESC,id DESC LIMIT 1",(p["id"],)).fetchone()
@@ -1165,6 +1171,7 @@ def state(authorization:str=Header(default="")):
   if level>p.get("farmer_level",1):
    c.execute("UPDATE players SET farmer_level=%s WHERE id=%s",(level,p["id"]))
    p={**p,"farmer_level":level}
+  top,my_rank=farm_ranking.snapshot(c,p["id"])
   next_xp=25*level*level
   unlocked={
    "first_egg":totals["eggs_produced"]>=1,
@@ -1191,7 +1198,7 @@ def state(authorization:str=Header(default="")):
   prediction=forecast_v4(p,observed_at,jobs) if p.get('production_model',3)>=4 else forecast(p,observed_at,jobs)
   expected_eggs=min(p["fed_hens"]+3*p.get("fed_geese",0),max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0)))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":p.get("cows",0),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"market_purchases":weekly_stats["market_purchases"],"feathers":weekly_stats["feathers"],"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"now":observed_at}
+  return {"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":p.get("cows",0),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"market_purchases":weekly_stats["market_purchases"],"feathers":weekly_stats["feathers"],"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"my_rank":my_rank,"now":observed_at}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -1206,6 +1213,7 @@ def shop(q:Request,authorization:str=Header(default="")):
   if q.item=="cows" and p.get("cows",0)+q.amount>cowshed_limit(p):raise HTTPException(400,"В коровнике нет места. Улучшите коровник")
   if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"Нет места для птиц. Увеличьте вместимость в разделе «Животные»")
   if q.item=="grain" and p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
+  tagged=ad_inventory.funded_units(ad_inventory.balance(c,p),cost,q.amount)
   if q.item=="chickens":
    # New hens arrive satiated; existing hungry hens are not refed.
    c.execute("UPDATE players SET coins=coins-%s,chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(cost,q.amount,q.amount,p["id"]))
@@ -1220,7 +1228,8 @@ def shop(q:Request,authorization:str=Header(default="")):
    c.execute("INSERT INTO daily_activity(player_id,day,grain_bought) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET grain_bought=daily_activity.grain_bought+EXCLUDED.grain_bought",(p["id"],day,q.amount))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"shop",-cost,q.item+" x"+str(q.amount),time.time()))
-  award_referral_resource(c,p,q.item,q.amount)
+  ad_inventory.add(c,p,q.item,tagged)
+  award_referral_resource(c,p,q.item,q.amount-tagged)
  return {"ok":True}
 @app.post("/api/shop/sell")
 def sell_to_system(q:Request,authorization:str=Header(default="")):
@@ -1237,6 +1246,7 @@ def sell_to_system(q:Request,authorization:str=Header(default="")):
   funds=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()
   if not funds or funds["treasury"]<payout:
    raise HTTPException(409,"В системе временно не хватает монет для выкупа")
+  tagged=ad_inventory.take(c,p,q.item,q.amount)
   if q.item=="chickens":
    remaining=p["chickens"]-q.amount
    c.execute("UPDATE players SET chickens=%s,fed_hens=LEAST(fed_hens,%s),coins=coins+%s WHERE id=%s",(remaining,remaining,payout,p["id"]))
@@ -1256,6 +1266,8 @@ def sell_to_system(q:Request,authorization:str=Header(default="")):
   # Grain/bird buybacks are purchasing credit, preventing gift/promo stock
   # or bonus-funded market stock from being converted to withdrawable money.
   if q.item!="feathers":c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,0)",(log_id,payout))
+  elif tagged:c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,%s)",(log_id,tagged*unit_price,payout-tagged*unit_price))
+  if ad_inventory.active(p):ad_inventory.credit(c,log_id,tagged*unit_price)
  return {"ok":True,"received":payout,"unit_price":unit_price}
 
 @app.post("/api/bundle")
@@ -1265,6 +1277,7 @@ def buy_bundle(authorization:str=Header(default="")):
   p=advance(c,person(c,authorization,True))
   if now>=p["created_at"]+PROMO_SECONDS or p["bundle_uses"]>=5:raise HTTPException(400,"Акция завершена")
   if p["coins"]<PROMO_PRICE:raise HTTPException(400,"Недостаточно монет")
+  ad_funded=ad_inventory.balance(c,p)>0
   hens=p["chickens"]+10
   items=p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+100
   coop=max(p["coop_level"],(hens+p.get("geese",0)+9)//10)
@@ -1273,8 +1286,11 @@ def buy_bundle(authorization:str=Header(default="")):
   c.execute("UPDATE players SET coins=coins-%s,chickens=%s,fed_hens=fed_hens+10,grain=grain+100,coop_level=%s,storage_level=%s,bundle_uses=bundle_uses+1 WHERE id=%s",(PROMO_PRICE,hens,coop,storage,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(PROMO_PRICE,))
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"bundle",-PROMO_PRICE,"Акция: 10 кур + 100 зерна (стоимость товаров 600)",now))
-  award_referral_resource(c,p,"chickens",10)
-  award_referral_resource(c,p,"grain",100)
+  if ad_funded:
+   ad_inventory.add(c,p,"chickens",10);ad_inventory.add(c,p,"grain",100)
+  else:
+   award_referral_resource(c,p,"chickens",10)
+   award_referral_resource(c,p,"grain",100)
  return {"ok":True,"spent":PROMO_PRICE}
 
 @app.post("/api/feed")
@@ -1292,7 +1308,10 @@ def sell(q:Request,authorization:str=Header(default="")):
   if p[q.item]<q.amount:raise HTTPException(400,"Недостаточно товара")
   c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s WHERE id=%s",(q.amount,p["id"]))
   price=EGG_PRICE if q.item=="eggs" else MILK_PRICE if q.item=="milk" else q.price
-  c.execute("INSERT INTO market VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],q.item,q.amount,price))
+  listing_id=uuid.uuid4().hex
+  tagged=ad_inventory.take(c,p,q.item,q.amount)
+  c.execute("INSERT INTO market VALUES(%s,%s,%s,%s,%s)",(listing_id,p["id"],q.item,q.amount,price))
+  if tagged:c.execute("INSERT INTO farm_ad_listings VALUES(%s,%s)",(listing_id,tagged))
   if q.item=="milk":
    c.execute("INSERT INTO farm_events VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"milk_listed",q.amount,time.time()))
   if q.item=="eggs":
@@ -1321,16 +1340,23 @@ def buy(q:Request,authorization:str=Header(default="")):
      JOIN star_orders o ON o.id=i.order_id
      WHERE o.player_id=%s AND i.status IN ('calling','needs_review') LIMIT 1""",(seller_id,)).fetchone()
    if pending:raise HTTPException(409,"Объявление продавца временно недоступно")
+  ad_budget=ad_inventory.balance(c,p)
   sources=farm_wallet.balances(c,p)
   source_shares=farm_wallet.split_market_sources([(x['id'],x['price']*n) for x,n in chosen],sources,cost)
   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   for x,n in chosen:
+   ad_row=c.execute("SELECT quantity FROM farm_ad_listings WHERE id=%s FOR UPDATE",(x["id"],)).fetchone() if ad_inventory.active(p) else None
+   tagged=min(n,ad_row["quantity"]) if ad_row else 0
+   if tagged:c.execute("UPDATE farm_ad_listings SET quantity=quantity-%s WHERE id=%s",(tagged,x["id"]))
+   paid_ad=min(ad_budget,x["price"]*n);ad_budget-=paid_ad
+   ad_inventory.add(c,p,q.item,max(tagged,ad_inventory.funded_units(paid_ad,x["price"]*n,n)))
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
    log_id=uuid.uuid4().hex
-   receipt=x["price"]*n;receipt_sources=source_shares[x['id']]
+   receipt=x["price"]*n;receipt_sources=ad_inventory.restricted_receipt(source_shares[x['id']],max(paid_ad,tagged*x['price']))
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(log_id,x["seller"],"market_sale",receipt,q.item+" x"+str(n),time.time()))
    c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,%s,%s)",(log_id,receipt_sources['bonus'],receipt_sources['purchased'],receipt_sources['earned']))
+   if ad_inventory.active(p):ad_inventory.credit(c,log_id,max(paid_ad,tagged*x['price']))
    trade_at=time.time()
    count=c.execute("SELECT COUNT(*)::int AS n FROM market_trade_audit WHERE buyer_id=%s AND seller_id=%s AND created>%s",(p["id"],x["seller"],trade_at-86400)).fetchone()["n"]
    c.execute("INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,trade_at))
@@ -1352,6 +1378,9 @@ def cancel_listing(listing_id:str,authorization:str=Header(default="")):
   if entry["item"] not in ("grain","eggs","milk"):raise HTTPException(400,"Некорректный товар")
   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+entry["quantity"]>storage_limit(p):raise HTTPException(409,"На складе не хватает места для возврата. Освободите или расширьте склад")
   c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(entry["quantity"],p["id"]))
+  if ad_inventory.active(p):
+   ad_row=c.execute("DELETE FROM farm_ad_listings WHERE id=%s RETURNING quantity",(listing_id,)).fetchone()
+   if ad_row:ad_inventory.add(c,p,entry["item"],ad_row["quantity"])
   c.execute("UPDATE market SET quantity=0 WHERE id=%s",(listing_id,))
  return {"ok":True,"returned":entry["quantity"]}
 
@@ -1573,10 +1602,14 @@ def incubator_action(q:Request,authorization:str=Header(default="")):
   if not incubation_rules.can_start_incubation(coop_limit(p),p["chickens"],p.get("geese",0),active,p["incubator_level"]):raise HTTPException(400,"Добавьте места для птиц в разделе «Животные»")
   now=time.time()
   egg_seconds,grow_seconds=incubation_stages(p["incubator_level"])
+  restricted=ad_inventory.balance(c,p)>0
+  restricted=bool(ad_inventory.take(c,p,"eggs",12)) or restricted
   c.execute("UPDATE players SET eggs=eggs-12,coins=coins-15 WHERE id=%s",(p["id"],))
   c.execute("UPDATE economy SET treasury=treasury+15 WHERE id=1")
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"incubation",-15,"Выведение курицы: 12 яиц",now))
-  c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],now,now+egg_seconds,now+egg_seconds+grow_seconds))
+  job_id=uuid.uuid4().hex
+  c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) VALUES(%s,%s,%s,%s,%s)",(job_id,p["id"],now,now+egg_seconds,now+egg_seconds+grow_seconds))
+  if restricted:c.execute("INSERT INTO farm_ad_incubations VALUES(%s)",(job_id,))
  return {"ok":True}
 
 @app.post("/api/tutorial")

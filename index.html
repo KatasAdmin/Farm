@@ -17,9 +17,10 @@
     <link rel="stylesheet" href="/assets/stars-mobile.css?v=13" />
     <link rel="stylesheet" href="/assets/market-polish.css?v=1" />
     <link rel="stylesheet" href="/assets/cattle.css?v=5" />
-    <script src="https://libtl.com/sdk.js" data-zone="12193261" data-sdk="show_12193261" defer></script>
+
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=82" defer></script>
+    <script src="/assets/game.js?v=85" defer></script>
+  <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -210,7 +211,7 @@
           <p id="forecast-brief" class="muted" hidden></p>
           <div class="forecast-timers"><div><span>Следующее яйцо</span><strong data-next-tick>—</strong></div><div><span>Следующее кормление</span><strong data-feed-tick>—</strong></div></div>
           <div class="forecast-feeding" hidden><img src="/assets/redesign/grain.webp" class="icon" alt=""><div><strong>Следующее кормление: −<span data-feed-required>—</span> зерна</strong><p data-feed-status>Проверяем запас…</p></div></div>
-          <div class="buttons"><button class="btn" onclick="openSell('eggs')">Продать яйца</button><button class="btn alt" data-buy-feed onclick="tab('shop');showShop('grain')">Купить зерно</button><button class="btn alt" onclick="openFreeResourceReward('grain')">🎬 +2 зерна бесплатно <small data-ad-progress="grain" style="font-size:11px;opacity:.8">0/1</small></button><button class="btn alt" data-free-grain-shortage hidden onclick="openFreeResourceReward('grain')">🎬 Не хватает зерна? Получить +2 бесплатно</button></div>
+          <div class="buttons"><button class="btn" onclick="openSell('eggs')">Продать яйца</button><button class="btn alt" data-buy-feed onclick="tab('shop');showShop('grain')">Купить зерно</button></div>
           <details class="farm-explainer"><summary>Как рассчитывается прогноз?</summary><p data-forecast-note>Рассчитываем…</p><p>Сытая курица несёт яйцо за 6 часов, гусыня — за 2 часа. Корова даёт молоко за 8 часов. Общее кормление раз в 18 часов: 1 зерно на курицу, 2 на гуся и 3 на корову. Производство всех сытых птиц складывается, поэтому яйца появляются чаще. Прогноз учитывает корм, сытость, автозакупку и место на складе. Гуси также дают редкое перо: около одного за 7 дней сытости на птицу; при заполненном складе новые ресурсы не сохраняются.</p></details>
           </div>
         <div class="forecast-details-content harvest-part" data-feather-card hidden><h3>🪶 Перья</h3>
@@ -396,7 +397,7 @@
           </div>
         </div>
         
-        <div class="card" style="padding:12px;margin:10px 0"><strong>🎬 Бесплатные ресурсы</strong><div class="buttons"><button class="btn alt" onclick="openFreeResourceReward('grain')">🌾 +2 зерна</button><button class="btn alt" onclick="openFreeResourceReward('eggs')">🥚 +2 яйца <small data-ad-progress="eggs" style="font-size:11px;opacity:.8">0/2</small></button><button class="btn alt" onclick="openFreeResourceReward('milk')">🥛 +1 молоко <small data-ad-progress="milk" style="font-size:11px;opacity:.8">0/5</small></button><button class="btn alt" onclick="openFreeResourceReward('chickens')">🐔 +1 курица (20 видео) <small data-ad-progress="chickens" style="font-size:11px;opacity:.8">0/20</small></button></div><p id="ad-reward-status" class="muted"></p><button class="btn alt" onclick="claimAdRewards()">🎁 Забрать награды</button></div>
+
         <div class="wallet-landscape"><img src="/assets/redesign/wallet.webp" alt="Сундук с золотыми монетами на солнечной ферме" width="1536" height="1024" /></div>
         <div class="moneyhero">
           <div class="money-balance">
@@ -547,7 +548,7 @@
           </div>
           <p class="profile-flock-caption">Куры: <b data-value="chickens">—</b> · Гуси: <b data-value="geese">—</b> · Перья: <b data-value="feathers">—</b> · Коровы: <b data-value="cows">0</b> · Молоко: <b data-value="milk">0</b></p>
         </div>
-        <details class="card compact-ranking"><summary>🏆 Рейтинг фермеров</summary><div id="leaders"></div></details>
+        <details class="card compact-ranking"><summary>🏆 Топ‑5 по основному уровню</summary><div id="leaders"></div><p id="my-rank" class="muted"></p></details>
         <details class="economy-card profile-settings">
           <summary><img src="/assets/redesign/settings.webp" class="icon" alt="" /><span><strong>Настройки</strong><small>Управление хозяйством</small></span><b>›</b></summary>
           <div class="economy-details">
@@ -850,5 +851,6 @@
       </div>
     </dialog>
   <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
+<script src="/assets/monetag-rewards.js?v=4" defer></script>
 </body>
 </html>

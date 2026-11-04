@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - farm-prelaunch-2026-11-01
+      - fix/monetag-reward-audit-20261104
 jobs:
   python-checks:
     runs-on: ubuntu-latest
@@ -37,8 +38,15 @@ jobs:
         with:
           node-version: '22'
       - name: JavaScript syntax check
-        run: node --check assets/game.js
+        run: |
+          node --check assets/game.js
+          node --check assets/monetag-rewards.js
       - name: Install application test dependencies
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install -r requirements-test.txt
       - name: Unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Rewarded ad interface scenarios (mock SDK, no real impressions)
+        run: |
+          npm install --prefix /tmp/farm-ad-ui --no-package-lock --ignore-scripts jsdom@26.1.0
+          NODE_PATH=/tmp/farm-ad-ui/node_modules node tests/monetag_frontend.cjs

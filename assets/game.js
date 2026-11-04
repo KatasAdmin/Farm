@@ -60,14 +60,14 @@ function toast(message) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => (el("toast").hidden = true), 4500);
 }
-async function api(path, payload) {
+async function api(path, payload, extraHeaders={}) {
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),payload===undefined?15000:45000);
   let response,value;
   try {
     response=await fetch(path, {
       method: payload === undefined ? "GET" : "POST",
-      headers: {"Content-Type":"application/json",Authorization:"Bearer "+(token||"")},
+      headers: {"Content-Type":"application/json",Authorization:"Bearer "+(token||""),...extraHeaders},
       body:payload===undefined?undefined:JSON.stringify(payload),cache:"no-store",signal:controller.signal
     });
     value=await response.json();
@@ -473,7 +473,7 @@ function openResourceActions(item) {
   const freeLabels={grain:"🌾 Получить бесплатно 2",eggs:"🥚 Получить бесплатно 2",milk:"🥛 Получить бесплатно 1",chickens:"🐔 Получить курицу бесплатно"};
   el("resource-action-free").textContent=freeLabels[item]||"🎬 Получить бесплатно";
   const progress=el("resource-action-ad-progress");
-  if(progress){progress.hidden=!adRewards[item];progress.textContent=adRewards[item]?(adProgress[item]||0)+"/"+adRewards[item][0]+" оплаченных просмотров":"";}
+  if(progress){progress.hidden=!adRewards[item];progress.textContent=adRewards[item]?(adProgress[item]||0)+"/"+adRewards[item][0]+" подтверждённых просмотров":"";}
   el("resource-action-description").textContent=item==="feathers"?"Редкий ресурс гусей. Сохраняй для будущих производств или продай системе по 5 монет за штуку.":["eggs","milk"].includes(item)
     ? "Купи товар у других фермеров или выставь свой на рынок."
     : "Купи ресурс в магазине или продай его системе с мгновенным начислением монет.";
@@ -481,7 +481,7 @@ function openResourceActions(item) {
   el("resource-action-sell").textContent=["eggs","milk"].includes(item)?"Выставить на продажу":"Продать системе";
   el("resource-actions-dialog").showModal();
 }
-const adRewards={grain:[1,2,"🌾"],eggs:[2,2,"🥚"],milk:[5,1,"🥛"],chickens:[20,1,"🐔"]};
+const adRewards={grain:[1,1,"🌾"],eggs:[2,2,"🥚"],milk:[5,1,"🥛"],chickens:[20,1,"🐔"],geese:[80,1,"🪿"],cows:[250,1,"🐄"],coins:[1,2,"🪙"]};
 let selectedAdReward="grain";
 let adProgress={};
 function selectAdReward(item){
@@ -491,54 +491,12 @@ function selectAdReward(item){
  const label=el("ad-reward-selection");
  if(label)label.textContent=emoji+" "+(adProgress[item]||0)+" из "+views+" просмотров · награда "+quantity+" шт.";
 }
-async function loadAdRewardStatus(){
- try{
-  const status=await api("/api/ads/monetag/status");
-  adProgress=Object.fromEntries(Object.entries(status.rewards||{}).map(([key,value])=>[key,value.progress]));
-  const counts=status.rewards?.[selectedAdReward];
-  const note=el("ad-reward-status");
-  if(note&&counts)note.textContent="Запусков рекламы: "+counts.attempts+" · оплаченных подтверждений: "+counts.confirmed+". Неоплаченные показы не засчитываются.";
-  selectAdReward(selectedAdReward);
-  document.querySelectorAll("[data-ad-progress]").forEach(node=>{const item=node.dataset.adProgress;if(adRewards[item])node.textContent=(adProgress[item]||0)+"/"+adRewards[item][0];});
-  const resourceProgress=el("resource-action-ad-progress");if(resourceProgress&&adRewards[selectedResource])resourceProgress.textContent=(adProgress[selectedResource]||0)+"/"+adRewards[selectedResource][0]+" оплаченных просмотров";
-  const btn=el("ad-reward-watch");
-  if(btn){btn.disabled=!status.enabled;btn.textContent=status.enabled?"🎬 Смотреть рекламу":"Реклама пока настраивается";}
- }catch(_){}
-}
-async function claimAdRewards(){
- if(pending)return;
- busy(true);
- try{
-  const result=await api("/api/ads/monetag/claim",{});
-  if(result.granted?.length){
-   toast("Получено: "+result.granted.map(x=>x.quantity+" "+(itemNames[x.item]||x.item)).join(", "));
-   await refresh();
-  }else if(result.pending)toast("Награды ожидают свободного места на складе или в курятнике.");
-  else toast("Пока нет подтверждённых наград.");
-  await loadAdRewardStatus();
- }catch(error){toast(error.message);}
- finally{busy(false);}
-}
-let adCurrentlyPlaying=false;
-async function watchAdReward(item){
- if(adCurrentlyPlaying)return;
- if(!adRewards[item])return;
- if(typeof window.show_12193261!=="function"){toast("Реклама сейчас недоступна.");return;}
- adCurrentlyPlaying=true;
- try{
-  const attempt=await api("/api/ads/monetag/prepare",{item});
-  await window.show_12193261({ymid:attempt.ymid,requestVar:item+"_reward"});
-  toast("Реклама просмотрена. Награда зависит от оплаченного подтверждения Monetag.");
-  const result=await api("/api/ads/monetag/claim",{});
-  if(result.granted?.length){toast("Получено: "+result.granted.map(x=>x.quantity+" "+x.item).join(", "));await refresh();}
-  await loadAdRewardStatus();
- }catch(error){toast("Реклама: "+(error?.message||"не удалось показать"));}
- finally{adCurrentlyPlaying=false;}
-}
+function loadAdRewardStatus(){return window.FarmAds?.recover();}
+function claimAdRewards(){return window.FarmAds?.recover(true);}
+function watchAdReward(item){return window.FarmAds?.watch(item);}
 function openFreeResourceReward(item){
- const dialog=el("resource-actions-dialog");
- if(dialog?.open)dialog.close();
- watchAdReward(adRewards[item]?item:"grain");
+ const dialog=el("resource-actions-dialog");if(dialog?.open)dialog.close();
+ return watchAdReward(adRewards[item]?item:"grain");
 }
 
 function resourceAction(action){
@@ -1216,12 +1174,13 @@ function render() {
   const dead=el("weekly-deadline");
   if(dead&&weekly.ends_at){const hours=Math.max(0,Math.ceil((weekly.ends_at-Date.now()/1000)/3600));dead.textContent="До конца недели: "+Math.floor(hours/24)+" дн. "+hours%24+" ч";}
 
-  el("leaders").innerHTML = state.top
+  el("leaders").innerHTML = state.top.slice(0,5)
     .map(
       (x, i) =>
-        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>${number(x.chickens||0)} кур · ${number(x.geese||0)} гусей · ${number(x.cows||0)} коров · ур. ${number(x.farmer_level||1)}</small></div><b>${number(x.farm_score||0)} очков</b></div>`,
+        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>Основной уровень ${number(x.farmer_level||1)}</small></div><b>Ур. ${number(x.farmer_level||1)}</b></div>`,
     )
     .join("");
+  if(el("my-rank"))el("my-rank").textContent="Ваше место: "+(state.my_rank?number(state.my_rank):"—");
   el("mylist").innerHTML = state.my_listings.length
     ? state.my_listings
         .map(
@@ -1311,6 +1270,7 @@ async function refresh() {
       state = await api("/api/state");
       refreshedAt = Date.now();
       render();
+      window.FarmAds?.recover();
     } catch (error) {
       if (error.status === 401) showLogin();
       else if(el("app").hidden)showStartupError();

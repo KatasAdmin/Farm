@@ -1,2 +1,2 @@
 """Source release marker for public readiness checks and the owner dashboard."""
-RELEASE = 'farm-bot-20261101-r34'
+RELEASE = 'farm-bot-20261105-r35'
