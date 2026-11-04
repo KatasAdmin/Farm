@@ -470,8 +470,7 @@ def monetag_prepare(authorization:str=Header(default="")):
  now=time.time()
  with db() as c:
   p=person(c,authorization,True)
-  count=c.execute("SELECT count(*) AS n FROM monetag_ad_attempts WHERE player_id=%s AND created_at>=%s",(p["id"],now-86400)).fetchone()["n"]
-  if count>=5:raise HTTPException(429,"Лимит рекламы на сегодня исчерпан")
+  # Unlimited ad views per player; each impression still requires a unique server-issued ymid.
   ymid="farm_"+secrets.token_hex(20)
   c.execute("INSERT INTO monetag_ad_attempts(ymid,player_id,created_at,zone_id,placement) VALUES(%s,%s,%s,%s,%s)",(ymid,p["id"],now,12193261,"grain_reward"))
  return {"ymid":ymid,"zone_id":12193261,"reward_grain":5}
