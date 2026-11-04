@@ -14,7 +14,7 @@ from fastapi import HTTPException
 REWARDS={'grain':(1,1),'eggs':(2,2),'milk':(5,1),'chickens':(20,1),'geese':(80,1),'cows':(250,1),'coins':(1,2)}
 TMA_ZONE=12193261
 LOCK=1984533
-DAY_LIMIT=40
+DAY_LIMIT=50
 HOUR_LIMIT=10
 COOLDOWN=30
 ADS_PER_BREAK=5
