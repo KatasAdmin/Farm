@@ -1025,7 +1025,7 @@ def state(authorization:str=Header(default="")):
   available_eggs=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("eggs",p["id"])).fetchone()["total"]
   available_milk=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("milk",p["id"])).fetchone()["total"]
   mine=c.execute("SELECT id,item,quantity,price FROM market WHERE seller=%s AND quantity>0 ORDER BY item,price,id",(p["id"],)).fetchall()
-  top=c.execute("SELECT name,coins,chickens,geese,cows FROM players ORDER BY coins DESC LIMIT 8").fetchall()
+  top=c.execute("""SELECT name,chickens,geese,cows,farmer_level,\n    (chickens*10+geese*30+cows*100+GREATEST(farmer_level-1,0)*50) AS farm_score\n    FROM players ORDER BY farm_score DESC,farmer_level DESC,name ASC LIMIT 8""").fetchall()
   day=time.strftime("%Y-%m-%d",time.gmtime())
   activity=c.execute("SELECT grain_bought,eggs_listed,eggs_produced FROM daily_activity WHERE player_id=%s AND day=%s",(p["id"],day)).fetchone() or {"grain_bought":0,"eggs_listed":0,"eggs_produced":0}
   event=c.execute("SELECT id,kind,amount FROM farm_events WHERE player_id=%s ORDER BY created DESC,id DESC LIMIT 1",(p["id"],)).fetchone()
