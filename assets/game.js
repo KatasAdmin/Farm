@@ -493,6 +493,9 @@ async function loadAdRewardStatus(){
  try{
   const status=await api("/api/ads/monetag/status");
   adProgress=Object.fromEntries(Object.entries(status.rewards||{}).map(([key,value])=>[key,value.progress]));
+  const counts=status.rewards?.[selectedAdReward];
+  const note=el("ad-reward-status");
+  if(note&&counts)note.textContent="Запусков рекламы: "+counts.attempts+" · оплаченных подтверждений: "+counts.confirmed+". Неоплаченные показы не засчитываются.";
   selectAdReward(selectedAdReward);
   const btn=el("ad-reward-watch");
   if(btn){btn.disabled=!status.enabled;btn.textContent=status.enabled?"🎬 Смотреть рекламу":"Реклама пока настраивается";}
@@ -521,7 +524,7 @@ async function watchAdReward(){
   const kind=selectedAdReward;
   const attempt=await api("/api/ads/monetag/prepare",{item:kind});
   await window.show_12193261({ymid:attempt.ymid,requestVar:kind+"_reward"});
-  toast("Просмотр завершён. Ожидаем подтверждения от Monetag.");
+  toast("Реклама показана. Засчитается только оплаченный просмотр, подтверждённый Monetag.");
   await api("/api/ads/monetag/claim",{});
   await refresh();
   await loadAdRewardStatus();
@@ -533,7 +536,7 @@ function openFreeResourceReward(item){
  if(dialog?.open)dialog.close();
  tab("farm");
  selectAdReward(adRewards[item]?item:"grain");
- el("rewarded-ad-card")?.scrollIntoView({behavior:"smooth",block:"center"});
+ requestAnimationFrame(()=>el("rewarded-ad-card")?.scrollIntoView({behavior:"smooth",block:"start"}));
  loadAdRewardStatus();
 }
 
