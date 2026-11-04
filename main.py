@@ -43,6 +43,8 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS market(id text primary key,seller text,item text,quantity int,price int)")
   c.execute("CREATE TABLE IF NOT EXISTS monetag_ad_attempts(ymid text primary key,player_id text not null,created_at double precision not null,rewarded_at double precision,zone_id int not null,placement text not null)")
   c.execute("CREATE INDEX IF NOT EXISTS monetag_ad_attempts_player_idx ON monetag_ad_attempts(player_id,created_at)")
+  c.execute("CREATE TABLE IF NOT EXISTS monetag_reward_grants(id text PRIMARY KEY,player_id text NOT NULL,item text NOT NULL,quantity integer NOT NULL CHECK(quantity>0),created double precision NOT NULL,claimed_at double precision)")
+  c.execute("CREATE INDEX IF NOT EXISTS monetag_reward_grants_player_idx ON monetag_reward_grants(player_id,claimed_at)")
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS satiety integer NOT NULL DEFAULT 100")
@@ -488,6 +490,27 @@ def monetag_prepare(q:dict,authorization:str=Header(default="")):
   c.execute("INSERT INTO monetag_ad_attempts(ymid,player_id,created_at,zone_id,placement) VALUES(%s,%s,%s,%s,%s)",(ymid,p["id"],now,12193261,kind+"_reward"))
  return {"ymid":ymid,"zone_id":12193261,"item":kind}
 
+@app.post("/api/ads/monetag/claim")
+def monetag_claim(authorization:str=Header(default="")):
+ if not monetag_enabled():raise HTTPException(503,"Рекламные награды пока настраиваются")
+ with db() as c:
+  p=person(c,authorization,True)
+  rewards=c.execute("SELECT * FROM monetag_reward_grants WHERE player_id=%s AND claimed_at IS NULL ORDER BY created,id FOR UPDATE",(p["id"],)).fetchall()
+  granted=[]
+  for reward in rewards:
+   item=reward["item"];quantity=reward["quantity"]
+   if item=="chickens":
+    if p["chickens"]+p.get("geese",0)+quantity>coop_limit(p):continue
+    c.execute("UPDATE players SET chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(quantity,quantity,p["id"]))
+   elif item in ("grain","eggs","milk"):
+    if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+quantity>storage_limit(p):continue
+    c.execute("UPDATE players SET "+item+"="+item+"+%s WHERE id=%s",(quantity,p["id"]))
+   else:continue
+   p={**p,item:p[item]+quantity}
+   c.execute("UPDATE monetag_reward_grants SET claimed_at=%s WHERE id=%s",(time.time(),reward["id"]))
+   granted.append({"item":item,"quantity":quantity})
+ return {"ok":True,"granted":granted,"pending":len(rewards)-len(granted)}
+
 @app.get("/api/ads/monetag/postback")
 def monetag_postback(secret:str="",ymid:str="",zone_id:int=0,sub_zone_id:int=0,event_type:str="",reward_event_type:str="",request_var:str="",telegram_id:str="",estimated_price:str=""):
  configured=os.environ.get("MONETAG_POSTBACK_SECRET","")
@@ -505,13 +528,11 @@ def monetag_postback(secret:str="",ymid:str="",zone_id:int=0,sub_zone_id:int=0,e
   count=c.execute("SELECT count(*)::int AS n FROM monetag_ad_attempts WHERE player_id=%s AND placement=%s AND rewarded_at IS NOT NULL",(row["player_id"],row["placement"])).fetchone()["n"]
   c.execute("UPDATE monetag_ad_attempts SET rewarded_at=%s WHERE ymid=%s",(time.time(),ymid))
   if (count+1)%views==0:
-   # Do not issue chicken/milk/eggs yet: those require a complete provenance
-   # and warehouse-capacity policy before they can safely enter the real-money economy.
-   if kind!="grain":return {"ok":True,"rewarded":False,"progress":count+1,"pending_implementation":True}
-   p=c.execute("SELECT * FROM players WHERE id=%s FOR UPDATE",(row["player_id"],)).fetchone()
-   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+qty>storage_limit(p):return {"ok":True,"rewarded":False,"storage_full":True}
-   c.execute("UPDATE players SET grain=grain+%s WHERE id=%s",(qty,row["player_id"]))
-   return {"ok":True,"rewarded":True,"item":kind,"quantity":qty}
+   # A completed set of paid views creates a durable claim. Never lose rewards
+   # when the warehouse or coop is full; do not touch money balances.
+   c.execute("INSERT INTO monetag_reward_grants(id,player_id,item,quantity,created) VALUES(%s,%s,%s,%s,%s)",(ymid,row["player_id"],kind,qty,time.time()))
+   return {"ok":True,"rewarded":True,"item":kind,"quantity":qty,"claim_required":True}
+
  return {"ok":True,"rewarded":False,"progress":(count+1)%views}
 
 @app.get("/health")
