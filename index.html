@@ -407,6 +407,7 @@
             <small>НОВАЯ ЖИЗНЬ · ФЕРМА</small>
           </div>
         </div>
+        <div class="card" style="padding:14px;margin:10px 0"><strong>🎬 Бесплатные ресурсы</strong><p class="muted">Зерно, яйца, молоко и курица за рекламные просмотры.</p><button type="button" class="btn wide" onclick="openFreeResourceReward('grain')">Посмотреть награды</button></div>
         <div class="wallet-landscape"><img src="/assets/redesign/wallet.webp" alt="Сундук с золотыми монетами на солнечной ферме" width="1536" height="1024" /></div>
         <div class="moneyhero">
           <div class="money-balance">
@@ -789,6 +790,7 @@
   <div class="resource-action-buttons">
     <button type="button" class="btn wide" id="resource-action-buy" onclick="resourceAction('buy')">Купить</button>
     <button type="button" class="btn alt wide" id="resource-action-sell" onclick="resourceAction('sell')">Продать</button>
+    <button type="button" class="btn wide" id="resource-action-free" onclick="openFreeResourceReward(selectedResource)">🎬 Получить бесплатно</button>
   </div>
 </dialog>
 <dialog id="system-sell-dialog" class="resource-dialog" aria-labelledby="system-sell-title">
