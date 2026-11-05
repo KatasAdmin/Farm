@@ -330,6 +330,14 @@
         </div>
 
         <button class="fields-link" onclick="tab('fields')"><span><strong>🌾 Поля и комбайны</strong><small>Выращивай зерно для животных · <span data-fields-count>0</span> полей</small></span><span>›</span></button>
+        <div class="card">
+          <div class="product catalog-row">
+            <span class="product-image" aria-hidden="true" style="display:grid;place-items:center;font-size:32px">🚜</span>
+            <div class="product-copy"><h3>Комбайн</h3><small>Обслуживает до 5 полей</small><small>Автоматический сбор зерна</small></div>
+            <strong class="price">200 🪙</strong>
+            <button class="btn small" id="fields-buy-combine" onclick="buyFieldItem('combine')">Купить</button>
+          </div>
+        </div>
         <div class="card shop-catalog">
           <h2 class="cardtitle">Товары</h2>
           <p class="compact-trade-hint">Животные, корм и ресурсы твоего хозяйства.</p>
@@ -754,10 +762,10 @@
         </div>
         <div class="card">
           <h2 class="cardtitle">Расширение хозяйства</h2>
-          <p class="muted">Один комбайн обслуживает пять полей. Каждый участок стоит 240 монет, комбайн — 200. Первым покупается комбайн.</p>
+          <p class="muted">Одно поле стоит 240 монет. Один комбайн обслуживает пять полей и покупается в Рынке за 200 монет.</p>
           <div class="fields-buttons">
-            <button class="btn wide" id="fields-buy-combine" onclick="buyFieldItem('combine')">Купить комбайн · 200 монет</button>
-            <button class="btn alt wide" id="fields-buy-plot" onclick="buyFieldItem('field')">Купить поле · 240 монет</button>
+            <button class="btn wide" id="fields-buy-plot" onclick="buyFieldItem('field')">Расширить хозяйство · 240 монет</button>
+            <button class="btn alt wide" onclick="tab('shop')">🛒 Купить комбайн в Рынке</button>
           </div>
           <p class="fields-note">Урожай собирается автоматически и поступает на общий склад. При заполненном складе готовое зерно ожидает свободного места. Окупаемость 20 дней рассчитана по магазинной цене зерна 2 монеты за штуку; продажа системе происходит по другой цене.</p>
         </div>
