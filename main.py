@@ -1310,9 +1310,13 @@ def sell(q:Request,authorization:str=Header(default="")):
   # Same transaction-level market lock as buy/cancel: deterministic order for concurrent trades.
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
-  if p[q.item]<q.amount:raise HTTPException(400,"Недостаточно товара")
-  c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s WHERE id=%s",(q.amount,p["id"]))
-  price=EGG_PRICE if q.item=="eggs" else MILK_PRICE if q.item=="milk" else q.price
+  if q.item in ("chickens","geese","cows"):
+   reserved=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS n FROM market WHERE seller=%s AND item=%s AND quantity>0",(p["id"],q.item)).fetchone()["n"]
+   if p[q.item]-reserved<q.amount:raise HTTPException(400,"Недостаточно свободных животных: часть уже на продаже")
+  else:
+   if p[q.item]<q.amount:raise HTTPException(400,"Недостаточно товара")
+   c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s WHERE id=%s",(q.amount,p["id"]))
+  price={"eggs":EGG_PRICE,"milk":MILK_PRICE,"feathers":5,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE}.get(q.item,q.price)
   listing_id=uuid.uuid4().hex
   tagged=ad_inventory.take(c,p,q.item,q.amount)
   c.execute("INSERT INTO market VALUES(%s,%s,%s,%s,%s)",(listing_id,p["id"],q.item,q.amount,price))
@@ -1335,7 +1339,9 @@ def buy(q:Request,authorization:str=Header(default="")):
   chosen=market_allocation.allocate(rows,q.amount)
   cost=sum(x["price"]*n for x,n in chosen)
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
-  if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
+  if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"Нет места для птиц")
+  if q.item=="cows" and p.get("cows",0)+q.amount>cowshed_limit(p):raise HTTPException(400,"В коровнике нет места")
+  if q.item not in ("chickens","geese","cows") and p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   # Prevent crediting sellers whose Stars refund is being reconciled.
   # Lock every seller in a stable order before any buyer debit or seller credit.
   for seller_id in sorted({x["seller"] for x,n in chosen}):
@@ -1348,7 +1354,11 @@ def buy(q:Request,authorization:str=Header(default="")):
   ad_budget=ad_inventory.balance(c,p)
   sources=farm_wallet.balances(c,p)
   source_shares=farm_wallet.split_market_sources([(x['id'],x['price']*n) for x,n in chosen],sources,cost)
-  c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
+  if q.item in ("chickens","geese","cows"):
+   fed_col={"chickens":"fed_hens","geese":"fed_geese","cows":"fed_cows"}[q.item]
+   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s,"+fed_col+"="+fed_col+"+%s WHERE id=%s",(cost,q.amount,q.amount,p["id"]))
+  else:
+   c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   for x,n in chosen:
    ad_row=c.execute("SELECT quantity FROM farm_ad_listings WHERE id=%s FOR UPDATE",(x["id"],)).fetchone() if ad_inventory.active(p) else None
    tagged=min(n,ad_row["quantity"]) if ad_row else 0
@@ -1356,6 +1366,9 @@ def buy(q:Request,authorization:str=Header(default="")):
    paid_ad=min(ad_budget,x["price"]*n);ad_budget-=paid_ad
    ad_inventory.add(c,p,q.item,max(tagged,ad_inventory.funded_units(paid_ad,x["price"]*n,n)))
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
+   if q.item in ("chickens","geese","cows"):
+    fed_col={"chickens":"fed_hens","geese":"fed_geese","cows":"fed_cows"}[q.item]
+    c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s,"+fed_col+"=LEAST("+fed_col+", "+q.item+"-%s) WHERE id=%s",(n,n,x["seller"]))
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
    log_id=uuid.uuid4().hex
    receipt=x["price"]*n;receipt_sources=ad_inventory.restricted_receipt(source_shares[x['id']],max(paid_ad,tagged*x['price']))
@@ -1381,8 +1394,9 @@ def cancel_listing(listing_id:str,authorization:str=Header(default="")):
   entry=c.execute("SELECT * FROM market WHERE id=%s AND seller=%s FOR UPDATE",(listing_id,p["id"])).fetchone()
   if not entry or entry["quantity"]<=0:raise HTTPException(404,"Объявление уже закрыто")
   if entry["item"] not in ("grain","eggs","milk","feathers","chickens","geese","cows"):raise HTTPException(400,"Некорректный товар")
-  if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+entry["quantity"]>storage_limit(p):raise HTTPException(409,"На складе не хватает места для возврата. Освободите или расширьте склад")
-  c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(entry["quantity"],p["id"]))
+  if entry["item"] not in ("chickens","geese","cows"):
+   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+entry["quantity"]>storage_limit(p):raise HTTPException(409,"На складе не хватает места для возврата. Освободите или расширьте склад")
+   c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(entry["quantity"],p["id"]))
   if ad_inventory.active(p):
    ad_row=c.execute("DELETE FROM farm_ad_listings WHERE id=%s RETURNING quantity",(listing_id,)).fetchone()
    if ad_row:ad_inventory.add(c,p,entry["item"],ad_row["quantity"])
