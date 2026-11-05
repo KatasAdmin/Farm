@@ -19,6 +19,8 @@ const translate=value=>{
 };
 const originals=new WeakMap();
 const rendered=new WeakMap();
+const attributeOriginals=new WeakMap();
+const attributeRendered=new WeakMap();
 let busy=false;
 function apply(root=document.body){
  if(!root||busy)return;
@@ -35,6 +37,20 @@ function apply(root=document.body){
   if(source===undefined||current!==rendered.get(node))source=current;
   originals.set(node,source);
   const result=translate(source);rendered.set(node,result);if(current!==result)node.nodeValue=result;
+ }
+ const elements=root.querySelectorAll?.('[placeholder],[title],[aria-label],[alt],[value]')||[];
+ for(const element of elements){
+  if(element.closest('script,style,[data-i18n-skip]'))continue;
+  for(const name of ['placeholder','title','aria-label','alt']){
+   if(!element.hasAttribute(name))continue;
+   const originals=attributeOriginals.get(element)||{};
+   const previous=attributeRendered.get(element)||{};
+   const current=element.getAttribute(name);
+   if(!(name in originals)||current!==previous[name])originals[name]=current;
+   const next=translate(originals[name]);previous[name]=next;
+   attributeOriginals.set(element,originals);attributeRendered.set(element,previous);
+   if(current!==next)element.setAttribute(name,next);
+  }
  }
  document.documentElement.lang=language;
  document.title=language==='uk'?'НОВЕ ЖИТТЯ — Ферма':'NEW LIFE — Farm';
@@ -58,7 +74,7 @@ function picker(){
 }
 let queued=false;
 function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply();});}
-function init(){picker();apply();new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,characterData:true});}
+function init(){picker();apply();new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['placeholder','title','aria-label','alt']});}
 window.FarmLocale={get language(){return language},set:change,refresh:schedule};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 window.addEventListener('telegram-sdk-ready',()=>{if(!read()){language=detect();schedule();}});
