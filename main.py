@@ -1318,6 +1318,8 @@ def buy(q:Request,authorization:str=Header(default="")):
   chosen=market_allocation.allocate(rows,min(q.amount,available)) if available else []
   system_price={"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE}.get(q.item,0)
   cost=sum(x["price"]*n for x,n in chosen)+system_quantity*system_price
+  if q.expected_price is not None and q.expected_price!=system_price and q.item in ("grain","chickens","geese","cows"):
+   raise HTTPException(409,"Цена товара изменилась. Обновите рынок")
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"Нет места для птиц")
   if q.item=="cows" and p.get("cows",0)+q.amount>cowshed_limit(p):raise HTTPException(400,"В коровнике нет места")
