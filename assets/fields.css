@@ -1,1 +1,27 @@
 .fields-link{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;width:100%;border:1px solid rgba(149,198,239,.25);border-radius:18px;background:linear-gradient(125deg,#153c5a,#10243c);padding:17px;color:#f1f8ff;cursor:pointer}.fields-link strong{font-size:17px}.fields-link small{display:block;opacity:.8;margin-top:4px}.fields-scene{position:relative;min-height:180px;border-radius:20px;overflow:hidden;padding:20px;background:linear-gradient(180deg,#5e9db3 0%,#80b2a3 40%,#547b42 41%,#31502c 100%);border:1px solid rgba(221,237,196,.3)}.fields-landscape{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;align-content:center;min-height:140px}.wheat-plot{display:grid;place-items:center;min-height:45px;font-size:26px;border-radius:9px;background:repeating-linear-gradient(125deg,#c19a36,#d4b45a 10px,#a47e2b 18px);box-shadow:inset 0 0 0 1px #e4c77d,0 3px 6px #21372055}.fields-empty{grid-column:1/-1;display:grid;place-items:center;min-height:140px;text-align:center;font-weight:700;color:#fff;text-shadow:0 1px 5px #143}.fields-more{display:grid;place-items:center;background:#193c29;color:#f3df96;border-radius:10px;font-weight:700}.fields-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.fields-stat{padding:12px;background:rgba(74,122,149,.14);border-radius:12px}.fields-stat small{display:block;opacity:.8}.fields-stat strong{font-size:20px}.fields-buttons{display:grid;gap:10px}.fields-buttons button:disabled{opacity:.5}.fields-note{font-size:13px;line-height:1.55;opacity:.83}.fields-scene{padding:0;min-height:245px;background:#3b8552}.fields-hero-art{display:block;width:100%;height:auto;min-height:180px;object-fit:cover}.fields-landscape{position:relative;display:flex;flex-wrap:wrap;gap:3px;min-height:0;padding:7px 10px;background:linear-gradient(90deg,#184c37,#2b7050)}.wheat-plot{display:inline-flex;min-height:0;width:26px;height:25px;background:transparent;box-shadow:none;border:0;padding:0}.wheat-plot img{width:100%;height:100%;object-fit:contain}.fields-more{padding:3px 10px;font-size:12px}.fields-empty{min-height:0;padding:5px;font-size:12px}.fields-home-shortcut{display:flex;align-items:center;gap:12px;width:100%;margin:12px 0;border-radius:18px;padding:10px 16px;background:linear-gradient(135deg,#1267ad,#08356d);border:2px solid #5ad9fc;color:#fff;box-shadow:0 4px 15px #001f4b80;text-align:left;cursor:pointer}.fields-home-shortcut img{width:64px;height:54px;object-fit:contain}.fields-home-shortcut span:nth-child(2){flex:1}.fields-home-shortcut strong{display:block;font-size:18px}.fields-home-shortcut small{display:block;font-size:12px;opacity:.9;margin-top:4px}.fields-home-shortcut>span:last-child{font-size:30px}
+/* Mobile layout: keep fields an unobtrusive extension of the existing farm. */
+#fields .panelhead{margin-bottom:8px}
+#fields .fields-scene{min-height:0;margin-bottom:10px;border-radius:16px}
+#fields .fields-hero-art{min-height:0;max-height:195px;object-fit:cover}
+#fields .fields-landscape{padding:4px 8px;gap:2px}
+#fields>.card{padding:13px 14px!important;margin:9px 0!important;border-radius:16px}
+#fields .cardtitle{font-size:19px!important;margin:0 0 10px!important}
+#fields .fields-stat-grid{gap:6px}
+#fields .fields-stat{padding:8px 10px;min-width:0}
+#fields .fields-stat small{font-size:12px}
+#fields .fields-stat strong{font-size:18px}
+#fields #fields-info{font-size:12px;line-height:1.35;margin:8px 0 0}
+#fields .fields-buttons{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+#fields .fields-buttons .btn{position:static!important;display:flex;align-items:center;justify-content:center;width:100%;min-height:43px;height:auto!important;max-width:100%;margin:0!important;padding:9px 12px!important;line-height:1.25;white-space:normal;box-sizing:border-box}
+#fields .fields-note{margin-top:9px;font-size:11px;line-height:1.4}
+.fields-market-card{padding:10px 12px!important;margin:10px 0!important}
+.fields-market-row{display:flex;align-items:center;gap:10px;min-width:0}
+.fields-market-art{width:54px;height:50px;object-fit:contain;flex-shrink:0}
+.fields-market-copy{display:flex;flex:1;flex-direction:column;min-width:0;gap:3px}
+.fields-market-copy strong{font-size:17px}
+.fields-market-copy small{font-size:12px;line-height:1.3;opacity:.85}
+.fields-market-row .btn{position:static!important;flex:0 0 auto;width:auto!important;min-width:78px;min-height:39px;height:auto!important;margin:0!important;padding:7px 11px!important;line-height:1.2;white-space:normal}
+.fields-home-shortcut{margin:8px 0;padding:7px 11px;border-radius:15px;min-height:70px}
+.fields-home-shortcut img{width:48px;height:45px}
+.fields-home-shortcut strong{font-size:17px}
+@media(max-width:360px){.fields-market-art{width:42px}.fields-market-row{gap:7px}.fields-market-row .btn{min-width:68px;padding:6px!important}}
