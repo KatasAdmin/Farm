@@ -1,4 +1,22 @@
 /* Field landscape and purchasing: data always comes from /api/state. */
+let fieldPurchaseQuantity=1;
+function setFieldQuantity(value){
+ const f=state?.fields;if(!f)return;
+ const q=Math.max(1,Math.min(500-f.plots,Number(value)||1));
+ fieldPurchaseQuantity=q;
+ document.querySelectorAll('[data-field-quantity]').forEach(b=>{const active=Number(b.dataset.fieldQuantity)===q;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});
+ const custom=document.getElementById('fields-quantity-custom');if(custom&&document.activeElement!==custom)custom.value=String(q);if(custom)custom.max=String(Math.max(1,500-f.plots));
+ const total=q*f.field_price;
+ const summary=document.getElementById('fields-quantity-summary');if(summary)summary.textContent='+'+q+' '+(q===1?'поле':'полей')+' · всего до 500';
+ const price=document.getElementById('fields-total-price');if(price)price.textContent=Number(total).toLocaleString('ru-RU');
+ const button=document.getElementById('fields-buy-plot');if(button){button.disabled=pending||q<1||state.me.coins<total;button.textContent='Купить';}
+}
+function marketCategory(category){
+ if(!['animals','equipment','resources'].includes(category))return;
+ document.querySelectorAll('[data-market-tab]').forEach(b=>{const active=b.dataset.marketTab===category;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});
+ document.querySelectorAll('.market-card').forEach(card=>{card.hidden=!card.classList.contains(category);});
+}
+marketCategory('animals');
 function renderFields(){
  const f=state?.fields;
  if(!f)return;
@@ -41,16 +59,14 @@ function renderFields(){
  if(info)info.textContent=f.plots
    ?"Автоматический сбор · "+numberText(f.grain_per_day)+" зерна в сутки · "+f.combines+" комбайнов"
    :"Покупай поля и комбайны в любом порядке. Для сбора нужны оба: 1 комбайн на 5 полей.";
- const combine=document.getElementById("fields-buy-combine");
+ const combineButtons=document.querySelectorAll("#fields-buy-combine,#fields-buy-combine-market");
  const plot=document.getElementById("fields-buy-plot");
- if(combine){
-  combine.disabled=pending||f.combines>=100||state.me.coins<f.combine_price;
-  combine.textContent=f.combines>=100?"Максимум":"Купить · "+numberText(f.combine_price);
- }
+ combineButtons.forEach(combine=>{combine.disabled=pending||f.combines>=100||state.me.coins<f.combine_price;combine.textContent=f.combines>=100?"Максимум":"Купить";});
  if(plot){
   plot.disabled=pending||f.plots>=500||state.me.coins<f.field_price;
   plot.textContent=f.plots>=500?"Все поля куплены":"Расширить · "+numberText(f.field_price);
  }
+ setFieldQuantity(Math.min(fieldPurchaseQuantity,Math.max(1,500-f.plots)));
 }
 function fieldPurchaseCelebration(item,result){
  const old=document.getElementById("field-purchase-celebration");
@@ -73,7 +89,7 @@ function fieldPurchaseCelebration(item,result){
   :result.needs_field
   ?"Теперь купи поле — тогда комбайн начнёт собирать зерно."
   :"Отлично! Твоё хозяйство производит "+result.grain_per_day+" зерна в сутки.";
- message.textContent=(item==="field"?"Поле приобретено! ":"Комбайн приобретён! ")+remaining;
+ message.textContent=(item==="field"?(result.purchased>1?"Приобретено полей: "+result.purchased+". ":"Поле приобретено! "):"Комбайн приобретён! ")+remaining;
  const button=document.createElement("button");
  button.className="btn";
  button.textContent="Отлично!";
@@ -85,18 +101,19 @@ function fieldPurchaseCelebration(item,result){
 }
 async function buyFieldItem(item){
  if(pending||!state?.fields)return;
- const cost=item==="field"?state.fields.field_price:state.fields.combine_price;
+ const quantity=item==="field"?Math.min(fieldPurchaseQuantity,500-state.fields.plots):1;
+ const cost=item==="field"?state.fields.field_price*quantity:state.fields.combine_price;
  if(state.me.coins<cost)return toast("Недостаточно монет");
  const warning=item==="field"&&state.fields.plots>=state.fields.combines*5
   ?"\n⚠️ Без свободного комбайна новое поле пока не производит зерно."
   :item==="combine"&&state.fields.plots<=state.fields.combines*5
   ?"\n⚠️ Без свободных полей новый комбайн пока не собирает зерно."
   :"";
- if(!confirm("Купить "+(item==="field"?"поле":"комбайн")+" за "+cost+" монет?"+warning))return;
+ if(!confirm("Купить "+(item==="field"?(quantity===1?"поле":quantity+" полей"):"комбайн")+" за "+cost+" монет?"+warning))return;
  if(pending)return;
  busy(true);
  try{
-  const result=await api("/api/fields/buy",{item});
+  const result=await api("/api/fields/buy",{item,amount:quantity});
   try{await refresh();}catch(e){console.warn("Field purchase refresh failed",e);}
   fieldPurchaseCelebration(item,result);
  }catch(e){toast(e.message);}

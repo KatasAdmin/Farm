@@ -23,5 +23,21 @@ class FarmNavigationTests(unittest.TestCase):
         self.assertIn("tab('shop')", bottom)
         self.assertIn("tab('tasks')", bottom)
 
+    def test_market_categories_keep_real_equipment_and_trade_controls(self):
+        page = HTML.read_text(encoding="utf-8")
+        for category in ("animals", "equipment", "resources"):
+            self.assertIn('data-market-tab="' + category + '"', page)
+        self.assertIn('id="fields-buy-combine-market"', page)
+        self.assertIn('id="incubator-shop-button"', page)
+        self.assertIn("onclick=\"openSell('eggs')\"", page)
+        self.assertIn("onclick=\"showShop('grain')\"", page)
+
+    def test_fields_have_bulk_quantity_and_direct_combine_purchase(self):
+        page = HTML.read_text(encoding="utf-8")
+        fields = page.split('<section id="fields"', 1)[1].split("</section>", 1)[0]
+        self.assertIn('data-field-quantity="12"', fields)
+        self.assertIn('id="fields-quantity-custom"', fields)
+        self.assertIn('id="fields-buy-combine"', fields)
+
 if __name__ == "__main__":
     unittest.main()

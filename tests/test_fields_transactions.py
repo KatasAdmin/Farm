@@ -41,3 +41,11 @@ class FieldsTransactions(unittest.TestCase):
   with self.assertRaises(HTTPException):fields.purchase(self.c,self.p(),'field',86500)
   self.assertEqual(fields.status(self.c,self.p())['plots'],1)
   self.assertEqual(self.p()['coins'],0)
+ def test_bulk_field_price_is_server_calculated_and_respects_cap(self):
+  self.c.execute("UPDATE players SET coins=10000 WHERE id='p'")
+  result=fields.purchase(self.c,self.p(),'field',100,quantity=12)
+  self.assertEqual(result['spent'],2880)
+  self.assertEqual(result['fields'],12)
+  self.assertEqual(self.p()['coins'], 7120)
+  with self.assertRaises(HTTPException):fields.purchase(self.c,self.p(),'field',101,quantity=489)
+  self.assertEqual(fields.status(self.c,self.p())['plots'],12)

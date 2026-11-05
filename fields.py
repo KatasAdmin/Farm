@@ -63,24 +63,30 @@ def harvest(c,p,now=None):
   p={**p,"grain":p["grain"]+gained}
  return p
 
-def purchase(c,p,item,now=None):
+def purchase(c,p,item,now=None,quantity=1):
  if item not in ("field","combine"):raise HTTPException(400,"Неизвестная покупка")
+ if not isinstance(quantity,int) or isinstance(quantity,bool) or quantity<1 or quantity>MAX_FIELDS:
+  raise HTTPException(400,"Некорректное количество полей")
+ if item=="combine" and quantity!=1:raise HTTPException(400,"Комбайны покупаются по одному")
  now=time.time() if now is None else now
  c.execute("INSERT INTO farm_fields(player_id,updated_at) VALUES(%s,%s) ON CONFLICT(player_id) DO NOTHING",(p["id"],now))
  row=snapshot(c,p["id"])
  plots=row["plots"];combines=row["combines"]
  if item=="field":
-  if plots>=MAX_FIELDS:raise HTTPException(400,"Все 500 полей уже куплены")
-  cost=FIELD_PRICE
+  if plots+quantity>MAX_FIELDS:raise HTTPException(400,"Нельзя превысить лимит в 500 полей")
+  cost=FIELD_PRICE*quantity
  else:
   if combines>=MAX_COMBINES:raise HTTPException(400,"Все 100 комбайнов уже куплены")
   cost=COMBINE_PRICE
  if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
  c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(cost,p["id"]))
+ field_count=quantity if item=="field" else 0
+ combine_count=1 if item=="combine" else 0
  c.execute("UPDATE farm_fields SET plots=plots+%s,combines=combines+%s,updated_at=%s WHERE player_id=%s",
-           (int(item=="field"),int(item=="combine"),now,p["id"]))
+           (field_count,combine_count,now,p["id"]))
  c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
- newplots=plots+int(item=="field");newcombines=combines+int(item=="combine")
+ newplots=plots+field_count;newcombines=combines+combine_count
  return dict(ok=True,spent=cost,fields=newplots,combines=newcombines,
+             purchased=quantity,
              grain_per_day=rate(newplots,newcombines),
              needs_combine=newplots>newcombines*5,needs_field=newcombines>0 and newplots==0)
