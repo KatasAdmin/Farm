@@ -19,7 +19,8 @@
     <link rel="stylesheet" href="/assets/cattle.css?v=5" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=86" defer></script>
+    <script src="/assets/game.js?v=87" defer></script>
+    <link rel="stylesheet" href="/assets/fields.css?v=1">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
   </head>
@@ -328,6 +329,7 @@
           </div>
         </div>
 
+        <button class="fields-link" onclick="tab('fields')"><span><strong>🌾 Поля и комбайны</strong><small>Выращивай зерно для животных · <span data-fields-count>0</span> полей</small></span><span>›</span></button>
         <div class="card shop-catalog">
           <h2 class="cardtitle">Товары</h2>
           <p class="compact-trade-hint">Животные, корм и ресурсы твоего хозяйства.</p>
@@ -735,6 +737,30 @@
           </button>
           <p class="muted" data-auto-status>Проверяем настройки…</p>
         </div>
+        <button class="fields-link" onclick="tab('fields')"><span><strong>🌾 Поля</strong><small>Своё зерно · <span data-fields-rate>0</span> в сутки</small></span><span>›</span></button>
+      </section>
+      <section id="fields" class="panel unified-farm-panel" aria-label="Поля">
+        <div class="panelhead"><button class="back" onclick="tab('storage')" aria-label="Назад">‹</button><div><h1>🌾 Поля</h1><small>РАСТЕНИЕВОДСТВО · ФЕРМА</small></div></div>
+        <div class="fields-scene"><div class="fields-landscape" id="fields-landscape"></div></div>
+        <div class="card">
+          <h2 class="cardtitle">Моё хозяйство</h2>
+          <div class="fields-stat-grid">
+            <div class="fields-stat"><small>Полей из 500</small><strong data-fields-count>0</strong></div>
+            <div class="fields-stat"><small>Комбайнов из 100</small><strong id="fields-combines">0</strong></div>
+            <div class="fields-stat"><small>Зерна в сутки</small><strong data-fields-rate>0</strong></div>
+            <div class="fields-stat"><small>Вложено монет</small><strong id="fields-invested">0</strong></div>
+          </div>
+          <p id="fields-info" class="muted">Загружаем поля…</p>
+        </div>
+        <div class="card">
+          <h2 class="cardtitle">Расширение хозяйства</h2>
+          <p class="muted">Один комбайн обслуживает пять полей. Каждый участок стоит 240 монет, комбайн — 200. Первым покупается комбайн.</p>
+          <div class="fields-buttons">
+            <button class="btn wide" id="fields-buy-combine" onclick="buyFieldItem('combine')">Купить комбайн · 200 монет</button>
+            <button class="btn alt wide" id="fields-buy-plot" onclick="buyFieldItem('field')">Купить поле · 240 монет</button>
+          </div>
+          <p class="fields-note">Урожай собирается автоматически и поступает на общий склад. При заполненном складе готовое зерно ожидает свободного места. Окупаемость 20 дней рассчитана по магазинной цене зерна 2 монеты за штуку; продажа системе происходит по другой цене.</p>
+        </div>
       </section>
     </div>
     <nav id="nav" class="bottom" aria-label="Основная навигация" hidden>
@@ -859,6 +885,7 @@
       </div>
     </dialog>
   <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
+<script src="/assets/fields.js?v=1" defer></script>
 <script src="/assets/monetag-rewards.js?v=4" defer></script>
 </body>
 </html>
