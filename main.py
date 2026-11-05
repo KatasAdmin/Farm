@@ -296,7 +296,7 @@ EGG_PRICE=1
 MAX_BUILDING_LEVEL=100
 PROMO_SECONDS=3*86400
 PROMO_PRICE=300
-INCUBATOR_PRICE=120
+INCUBATOR_PRICE=0
 INCUBATE_SECONDS=12*3600
 GROW_SECONDS=12*3600
 INCUBATOR_LEVEL_HOURS={1:24,2:24,3:20,4:18,5:16}
@@ -1239,7 +1239,7 @@ def shop(q:Request,authorization:str=Header(default="")):
 @app.post("/api/shop/sell")
 def sell_to_system(q:Request,authorization:str=Header(default="")):
  check(q.amount)
- if q.item not in ("grain","chickens","geese","feathers","cows"):
+ if q.item not in ("grain","feathers"):
   raise HTTPException(400,"Этот товар нельзя продать системе")
  unit_price={"grain":SYSTEM_GRAIN_BUYBACK,"chickens":SYSTEM_HEN_BUYBACK,"geese":80,"feathers":5,"cows":250}[q.item]
  payout=q.amount*unit_price
@@ -1305,7 +1305,7 @@ def feed_disabled():
 @app.post("/api/sell")
 def sell(q:Request,authorization:str=Header(default="")):
  check(q.amount);check(q.price)
- if q.item not in ("grain","eggs","milk"):raise HTTPException(400,"Товар не найден")
+ if q.item not in ("grain","eggs","milk","feathers","chickens","geese","cows"):raise HTTPException(400,"Товар не найден")
  with db() as c:
   # Same transaction-level market lock as buy/cancel: deterministic order for concurrent trades.
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
@@ -1326,7 +1326,7 @@ def sell(q:Request,authorization:str=Header(default="")):
 @app.post("/api/buy")
 def buy(q:Request,authorization:str=Header(default="")):
  check(q.amount)
- if q.item not in ("grain","eggs","milk"):raise HTTPException(400,"Товар не найден")
+ if q.item not in ("grain","eggs","milk","feathers","chickens","geese","cows"):raise HTTPException(400,"Товар не найден")
  with db() as c:
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
@@ -1380,7 +1380,7 @@ def cancel_listing(listing_id:str,authorization:str=Header(default="")):
   p=advance(c,person(c,authorization,True))
   entry=c.execute("SELECT * FROM market WHERE id=%s AND seller=%s FOR UPDATE",(listing_id,p["id"])).fetchone()
   if not entry or entry["quantity"]<=0:raise HTTPException(404,"Объявление уже закрыто")
-  if entry["item"] not in ("grain","eggs","milk"):raise HTTPException(400,"Некорректный товар")
+  if entry["item"] not in ("grain","eggs","milk","feathers","chickens","geese","cows"):raise HTTPException(400,"Некорректный товар")
   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+entry["quantity"]>storage_limit(p):raise HTTPException(409,"На складе не хватает места для возврата. Освободите или расширьте склад")
   c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(entry["quantity"],p["id"]))
   if ad_inventory.active(p):
@@ -1591,13 +1591,12 @@ def incubator_action(q:Request,authorization:str=Header(default="")):
  with db() as c:
   p=advance(c,person(c,authorization,True))
   if q.item=="buy":
-   if p["incubator_owned"]:raise HTTPException(409,"Инкубатор уже куплен")
-   if p["coins"]<INCUBATOR_PRICE:raise HTTPException(400,"Недостаточно монет")
-   c.execute("UPDATE players SET coins=coins-%s,incubator_owned=true WHERE id=%s",(INCUBATOR_PRICE,p["id"]))
-   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(INCUBATOR_PRICE,))
-   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"incubator",-INCUBATOR_PRICE,"Покупка инкубатора",time.time()))
+   if p["incubator_owned"]:return {"ok":True,"spent":0}
+   c.execute("UPDATE players SET incubator_owned=true WHERE id=%s",(p["id"],))
    return {"ok":True,"spent":INCUBATOR_PRICE}
-  if not p["incubator_owned"]:raise HTTPException(400,"Сначала купите инкубатор")
+  if not p["incubator_owned"]:
+   c.execute("UPDATE players SET incubator_owned=true WHERE id=%s",(p["id"],))
+   p={**p,"incubator_owned":True}
   if q.item=="upgrade":
    cost=INCUBATOR_UPGRADE_COST.get(p["incubator_level"])
    if cost is None:raise HTTPException(400,"Максимальный уровень")
@@ -1608,16 +1607,13 @@ def incubator_action(q:Request,authorization:str=Header(default="")):
    return {"ok":True,"spent":cost}
   active=c.execute("SELECT COUNT(*)::int AS n FROM incubation_jobs WHERE player_id=%s",(p["id"],)).fetchone()["n"]
   if active>=p["incubator_level"]:raise HTTPException(409,"Все места инкубатора заняты")
-  if p["eggs"]<12:raise HTTPException(400,"Для выведения курицы нужно 12 яиц")
-  if p["coins"]<15:raise HTTPException(400,"Для инкубации нужно 15 монет")
+  if p["eggs"]<20:raise HTTPException(400,"Для выведения курицы нужно 20 яиц")
   if not incubation_rules.can_start_incubation(coop_limit(p),p["chickens"],p.get("geese",0),active,p["incubator_level"]):raise HTTPException(400,"Добавьте места для птиц в разделе «Животные»")
   now=time.time()
   egg_seconds,grow_seconds=incubation_stages(p["incubator_level"])
   restricted=ad_inventory.balance(c,p)>0
-  restricted=bool(ad_inventory.take(c,p,"eggs",12)) or restricted
-  c.execute("UPDATE players SET eggs=eggs-12,coins=coins-15 WHERE id=%s",(p["id"],))
-  c.execute("UPDATE economy SET treasury=treasury+15 WHERE id=1")
-  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"incubation",-15,"Выведение курицы: 12 яиц",now))
+  restricted=bool(ad_inventory.take(c,p,"eggs",20)) or restricted
+  c.execute("UPDATE players SET eggs=eggs-20 WHERE id=%s",(p["id"],))
   job_id=uuid.uuid4().hex
   c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) VALUES(%s,%s,%s,%s,%s)",(job_id,p["id"],now,now+egg_seconds,now+egg_seconds+grow_seconds))
   if restricted:c.execute("INSERT INTO farm_ad_incubations VALUES(%s)",(job_id,))
