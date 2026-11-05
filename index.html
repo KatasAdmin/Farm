@@ -20,7 +20,7 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
     <script src="/assets/game.js?v=87" defer></script>
-    <link rel="stylesheet" href="/assets/fields.css?v=2">
+    <link rel="stylesheet" href="/assets/fields.css?v=3">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
   </head>
@@ -330,12 +330,10 @@
           </div>
         </div>
 
-        <button class="fields-link" onclick="tab('fields')"><span><strong>🌾 Поля и комбайны</strong><small>Выращивай зерно для животных · <span data-fields-count>0</span> полей</small></span><span>›</span></button>
-        <div class="card">
-          <div class="product catalog-row">
-            <img class="product-image" src="/assets/combine.svg" alt="Комбайн">
-            <div class="product-copy"><h3>Комбайн</h3><small>Обслуживает до 5 полей</small><small>Автоматический сбор зерна</small></div>
-            <strong class="price">200 🪙</strong>
+        <div class="card fields-market-card">
+          <div class="fields-market-row">
+            <img class="fields-market-art" src="/assets/combine.svg" alt="Комбайн">
+            <div class="fields-market-copy"><strong>Комбайн</strong><small>Для 5 полей · 200 монет</small></div>
             <button class="btn small" id="fields-buy-combine" onclick="buyFieldItem('combine')">Купить</button>
           </div>
         </div>
@@ -746,7 +744,6 @@
           </button>
           <p class="muted" data-auto-status>Проверяем настройки…</p>
         </div>
-        <button class="fields-link" onclick="tab('fields')"><span><strong>🌾 Поля</strong><small>Своё зерно · <span data-fields-rate>0</span> в сутки</small></span><span>›</span></button>
       </section>
       <section id="fields" class="panel unified-farm-panel" aria-label="Поля">
         <div class="panelhead"><button class="back" onclick="tab('storage')" aria-label="Назад">‹</button><div><h1>🌾 Поля</h1><small>РАСТЕНИЕВОДСТВО · ФЕРМА</small></div></div>
