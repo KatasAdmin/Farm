@@ -130,7 +130,7 @@ class AdvertisingTradeRoutes(AdvertisingFixture,unittest.TestCase):
   self.assertEqual(inv.balance(self.c,self.player()),0);self.assertEqual(main.farm_wallet.available(self.c,self.player()),0)
  def test_ad_eggs_incubation_and_maturity_preserve_tag(self):
   for field,default in [('incubator_owned','1'),('incubator_level','1')]:self.c.execute('ALTER TABLE players ADD COLUMN '+field+' int DEFAULT '+default)
-  self.c.execute("UPDATE players SET eggs=12,ad_eggs=1 WHERE id='p'");self.c.raw.commit()
+  self.c.execute("UPDATE players SET eggs=20,ad_eggs=1 WHERE id='p'");self.c.raw.commit()
   main.incubator_action(self.request('start'),'p')
   job=self.c.execute('SELECT * FROM incubation_jobs').fetchone()
   main.update_incubation(self.c,self.player(),job['mature_at'])
