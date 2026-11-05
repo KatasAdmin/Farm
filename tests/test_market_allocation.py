@@ -25,8 +25,8 @@ class ProportionalMarketTests(unittest.TestCase):
         self.assertEqual({r["id"]: n for r, n in result}, {"a": 1, "b": 1})
 
     def test_fractional_tie_prefers_smaller_listing(self):
-        result = allocate([listing("a", 3), listing("b", 1)], 1)
-        self.assertEqual({r["id"]: n for r, n in result}, {"b": 1})
+        result = allocate([listing("a", 3), listing("b", 1)], 2)
+        self.assertEqual({r["id"]: n for r, n in result}, {"a": 1, "b": 1})
 
     def test_animal_seven_and_three_buy_one(self):
         result = allocate([listing("a", 7), listing("b", 3)], 1)
