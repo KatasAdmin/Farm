@@ -115,3 +115,6 @@
 #fields .fields-combine-purchase>img{object-fit:contain;padding:5px;background:#ffffff12;border-radius:9px}
 #fields .fields-v2-help p:last-child{display:none}
 @media(max-width:360px){.market-categories button{font-size:10px}.market-categories img{width:19px}.field-quantity{font-size:11px;gap:4px}}
+
+/* Hens are already part of the new farm illustration. */
+#farm .farm-hero .flock{display:none!important}

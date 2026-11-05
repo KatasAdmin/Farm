@@ -81,7 +81,7 @@ function fieldPurchaseCelebration(item,result){
  const title=document.createElement("h2");
  title.textContent="Поздравляем!";
  const art=document.createElement("img");
- art.src=item==="field"?"/assets/field-plot.svg":"/assets/combine.svg";
+ art.src=item==="field"?"/assets/field-plot.svg":"/assets/illustrations/combine-v1.webp";
  art.alt="";
  const message=document.createElement("p");
  const remaining=result.needs_combine
