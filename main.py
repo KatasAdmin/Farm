@@ -4,6 +4,7 @@ import achievement_stages
 import achievement_counters
 import weekly_missions
 import market_allocation
+import animal_market
 import incubation_rules
 import stars_validation
 import monetag_ads
@@ -51,6 +52,7 @@ async def lifespan(app):
   c.execute("CREATE INDEX IF NOT EXISTS monetag_reward_grants_player_idx ON monetag_reward_grants(player_id,claimed_at)")
   monetag_ads.initialize(c)
   ad_inventory.initialize(c)
+  animal_market.initialize(c)
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS satiety integer NOT NULL DEFAULT 100")
@@ -86,7 +88,9 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS age integer")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar text NOT NULL DEFAULT 'default'")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar_photo text")
-  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS incubator_owned boolean NOT NULL DEFAULT false")
+  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS incubator_owned boolean NOT NULL DEFAULT true")
+  c.execute("ALTER TABLE players ALTER COLUMN incubator_owned SET DEFAULT true")
+  c.execute("UPDATE players SET incubator_owned=true WHERE incubator_owned=false")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS incubation_started double precision")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS chick_ready_at double precision")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS incubator_level integer NOT NULL DEFAULT 1")
@@ -289,6 +293,8 @@ def check(n):
  if n<1 or n>10000:raise HTTPException(400,"Некорректное количество")
 HEN_PRICE=40
 GOOSE_PRICE=160  # 24 days * (12 eggs - 2 grain * 2 coins * 24/18)
+ANIMAL_MARKET_PRICES={"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE}
+ANIMAL_FIELDS={"chickens":("chickens","fed_hens","ad_chickens","ad_fed_hens"),"geese":("geese","fed_geese","ad_geese","ad_fed_geese"),"cows":("cows","fed_cows","ad_cows","ad_fed_cows")}
 GOOSE_MIN_LEVEL=3
 SYSTEM_GRAIN_BUYBACK=1
 SYSTEM_HEN_BUYBACK=20
@@ -296,7 +302,7 @@ EGG_PRICE=1
 MAX_BUILDING_LEVEL=100
 PROMO_SECONDS=3*86400
 PROMO_PRICE=300
-INCUBATOR_PRICE=120
+INCUBATOR_PRICE=0
 INCUBATE_SECONDS=12*3600
 GROW_SECONDS=12*3600
 INCUBATOR_LEVEL_HOURS={1:24,2:24,3:20,4:18,5:16}
@@ -1114,9 +1120,29 @@ def state(authorization:str=Header(default="")):
    c.execute("UPDATE players SET welcome_granted=true WHERE id=%s",(p["id"],))
    p={**p,"welcome_granted":True}
   listings=c.execute("SELECT m.item,m.price,m.quantity,p.name AS seller FROM market m JOIN players p ON p.id=m.seller WHERE m.quantity>0 ORDER BY m.price LIMIT 40").fetchall()
+  animal_rows=c.execute("SELECT l.id,l.seller,l.item,l.price,l.quantity_units,l.ad_units,l.coins_received,p.name AS seller_name FROM animal_market_listings l JOIN players p ON p.id=l.seller WHERE l.quantity_units>0 ORDER BY l.price,l.id").fetchall()
+  for row in animal_rows:
+   listings.append({"id":row["id"],"item":row["item"],"price":row["price"],"quantity":animal_market.display_quantity(row["quantity_units"]),"quantity_units":row["quantity_units"],"seller":row["seller_name"],"animal":True})
   available_eggs=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("eggs",p["id"])).fetchone()["total"]
   available_milk=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("milk",p["id"])).fetchone()["total"]
+  available_feathers=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("feathers",p["id"])).fetchone()["total"]
+  available_grain=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("grain",p["id"])).fetchone()["total"]
   mine=c.execute("SELECT id,item,quantity,price FROM market WHERE seller=%s AND quantity>0 ORDER BY item,price,id",(p["id"],)).fetchall()
+  mine_animals=c.execute("SELECT id,item,price,quantity_units,coins_received FROM animal_market_listings WHERE seller=%s AND quantity_units>0 ORDER BY item,created,id",(p["id"],)).fetchall()
+  for row in mine_animals:
+   mine.append({"id":row["id"],"item":row["item"],"price":row["price"],"quantity":animal_market.display_quantity(row["quantity_units"]),"quantity_units":row["quantity_units"],"animal":True,"coins_received":row["coins_received"]})
+  animal_stats={}
+  for item in animal_market.ANIMALS:
+   field=ANIMAL_FIELDS[item][0]
+   balance=animal_market.balance(c,p["id"],item)
+   listed_units=sum(int(row["quantity_units"]) for row in mine_animals if row["item"]==item)
+   owned_units=int(p.get(field,0))*animal_market.SCALE+balance["fraction_units"]
+   other_units=sum(int(row["quantity_units"]) for row in animal_rows if row["item"]==item and row["seller"]!=p["id"])
+   received=c.execute("SELECT COALESCE(SUM(coins),0)::bigint AS n FROM animal_market_trades WHERE seller_id=%s AND item=%s",(p["id"],item)).fetchone()["n"]
+   fractional_rows=[row for row in mine_animals if row["item"]==item]
+   redeemable=bool(balance["fraction_units"] and fractional_rows and all(row["quantity_units"]<animal_market.SCALE for row in fractional_rows) and sum(row["quantity_units"] for row in fractional_rows)==balance["fraction_units"])
+   redeem_cost=((animal_market.SCALE-balance["fraction_units"])*ANIMAL_MARKET_PRICES[item]+animal_market.SCALE-1)//animal_market.SCALE if redeemable else None
+   animal_stats[item]={"available":animal_market.display_quantity(other_units),"listed":animal_market.display_quantity(listed_units),"fraction":animal_market.display_quantity(balance["fraction_units"]),"producing":p.get(field,0),"owned":animal_market.display_quantity(owned_units),"listable":max(0,(owned_units-listed_units)//animal_market.SCALE),"coins_received":received,"redeem_cost":redeem_cost}
   day=time.strftime("%Y-%m-%d",time.gmtime())
   activity=c.execute("SELECT grain_bought,eggs_listed,eggs_produced FROM daily_activity WHERE player_id=%s AND day=%s",(p["id"],day)).fetchone() or {"grain_bought":0,"eggs_listed":0,"eggs_produced":0}
   event=c.execute("SELECT id,kind,amount FROM farm_events WHERE player_id=%s ORDER BY created DESC,id DESC LIMIT 1",(p["id"],)).fetchone()
@@ -1203,45 +1229,204 @@ def state(authorization:str=Header(default="")):
   prediction=forecast_v4(p,observed_at,jobs) if p.get('production_model',3)>=4 else forecast(p,observed_at,jobs)
   expected_eggs=min(p["fed_hens"]+3*p.get("fed_geese",0),max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0)))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"fields":fields.status(c,p),"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":p.get("cows",0),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"market_purchases":weekly_stats["market_purchases"],"feathers":weekly_stats["feathers"],"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"my_rank":my_rank,"now":observed_at}
+  return {"fields":fields.status(c,p),"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":p.get("cows",0),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"available_grain":available_grain,"available_feathers":available_feathers,"animal_market":animal_stats,"market_listable":{"grain":p["grain"],"eggs":p["eggs"],"milk":p.get("milk",0),"feathers":p.get("feathers",0),**{item:animal_stats[item]["listable"] for item in animal_market.ANIMALS}},"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"market_purchases":weekly_stats["market_purchases"],"feathers":weekly_stats["feathers"],"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"eggs":EGG_PRICE,"feathers":5},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"my_rank":my_rank,"now":observed_at}
+def lock_trade_sellers(c,buyer_id,seller_ids):
+ locked={}
+ for seller_id in sorted(set(seller_ids)):
+  seller=c.execute("SELECT * FROM players WHERE id=%s FOR UPDATE",(seller_id,)).fetchone()
+  if not seller:raise HTTPException(409,"Продавец больше не существует")
+  pending=c.execute("""SELECT 1 FROM stars_refund_intents i JOIN star_orders o ON o.id=i.order_id
+      WHERE o.player_id=%s AND i.status IN ('calling','needs_review') LIMIT 1""",(seller_id,)).fetchone()
+  if pending:raise HTTPException(409,"Объявление продавца временно недоступно")
+  locked[seller_id]=seller
+ return locked
+
+def record_market_receipt(c,buyer_id,seller_id,item,quantity,coins,created,source_parts,restricted=0,seller=None):
+ if coins:
+  log_id=uuid.uuid4().hex
+  parts=ad_inventory.restricted_receipt(source_parts,min(coins,restricted)) if restricted else source_parts
+  details=(item+" · продана доля "+format(float(quantity),".9f").rstrip("0").rstrip(".")) if item in animal_market.ANIMALS else item+" x"+str(quantity)
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(log_id,seller_id,"market_sale",coins,details,created))
+  c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,%s,%s)",(log_id,parts["bonus"],parts["purchased"],parts["earned"]))
+  if seller and ad_inventory.active(seller) and restricted:ad_inventory.credit(c,log_id,min(coins,restricted))
+ recent=c.execute("SELECT COUNT(*)::int AS n FROM market_trade_audit WHERE buyer_id=%s AND seller_id=%s AND created>%s",(buyer_id,seller_id,created-86400)).fetchone()["n"]
+ audit_quantity=max(0,int(quantity))
+ c.execute("INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,buyer_id,seller_id,item,audit_quantity,coins,created))
+ if recent>=9 or coins>=500:
+  reason="frequent_pair" if recent>=9 else "large_trade"
+  c.execute("INSERT INTO trade_risk_events(id,buyer_id,seller_id,item,quantity,coins,reason,created) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,buyer_id,seller_id,item,audit_quantity,coins,reason,created))
+  logger.warning("trade_flagged reason=%s buyer=%s seller=%s",reason,buyer_id,seller_id)
+
+def buy_grain_market_first(c,p,q):
+ rows=c.execute("SELECT * FROM market WHERE item='grain' AND seller<>%s AND quantity>0 ORDER BY price,id FOR UPDATE",(p["id"],)).fetchall()
+ listed=min(q.amount,sum(row["quantity"] for row in rows))
+ chosen=market_allocation.allocate(rows,listed) if listed else []
+ system_amount=q.amount-listed
+ receipts=[(row["id"],row["price"]*n) for row,n in chosen]
+ system_receipt=system_amount*GRAIN_PRICE
+ if system_amount:receipts.append(("__farm_system__",system_receipt))
+ cost=sum(amount for _,amount in receipts)
+ if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
+ if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
+ sellers=lock_trade_sellers(c,p["id"],[row["seller"] for row,_ in chosen])
+ source_shares=farm_wallet.split_market_sources(receipts,farm_wallet.balances(c,p),cost) if cost else {}
+ ad_budget=ad_inventory.balance(c,p)
+ initial_ad_budget=ad_budget
+ c.execute("UPDATE players SET coins=coins-%s,grain=grain+%s WHERE id=%s",(cost,q.amount,p["id"]))
+ total_market_tags=0
+ now=time.time()
+ for row,n in chosen:
+  ad_row=c.execute("SELECT quantity FROM farm_ad_listings WHERE id=%s FOR UPDATE",(row["id"],)).fetchone()
+  tagged=min(n,ad_row["quantity"]) if ad_row else 0
+  if tagged:c.execute("UPDATE farm_ad_listings SET quantity=quantity-%s WHERE id=%s",(tagged,row["id"]))
+  total_market_tags+=tagged
+  paid_ad=min(ad_budget,row["price"]*n);ad_budget-=paid_ad
+  restricted=max(paid_ad,tagged*row["price"])
+  c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,row["id"]))
+  c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(row["price"]*n,row["seller"]))
+  record_market_receipt(c,p["id"],row["seller"],"grain",n,row["price"]*n,now,source_shares[row["id"]],restricted,sellers[row["seller"]])
+ total_tagged=min(q.amount,total_market_tags+ad_inventory.funded_units(initial_ad_budget,cost,q.amount))
+ ad_inventory.add(c,p,"grain",total_tagged)
+ if system_receipt:c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(system_receipt,))
+ day=time.strftime("%Y-%m-%d",time.gmtime(now))
+ c.execute("INSERT INTO daily_activity(player_id,day,grain_bought) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET grain_bought=daily_activity.grain_bought+EXCLUDED.grain_bought",(p["id"],day,q.amount))
+ c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"market_buy",-cost,"grain x"+str(q.amount),now))
+ award_referral_resource(c,p,"grain",q.amount-total_tagged)
+ return {"ok":True,"spent":cost,"from_players":listed,"from_system":system_amount}
+
+def buy_animal_market_first(c,p,q):
+ item=q.item;unit_price=ANIMAL_MARKET_PRICES[item]
+ rows=c.execute("SELECT * FROM animal_market_listings WHERE item=%s AND seller<>%s AND quantity_units>0 ORDER BY price,id FOR UPDATE",(item,p["id"])).fetchall()
+ sellers=lock_trade_sellers(c,p["id"],[row["seller"] for row in rows])
+ now=time.time()
+ for seller_id in list(sellers):sellers[seller_id]=advance(c,sellers[seller_id],now)
+ grouped={}
+ for row in rows:grouped.setdefault(row["seller"],[]).append(row)
+ for seller_id,seller_rows in grouped.items():
+  balance=animal_market.balance(c,seller_id,item,True)
+  field=ANIMAL_FIELDS[item][0]
+  owned=sellers[seller_id][field]*animal_market.SCALE+balance["fraction_units"]
+  balance["ad_units"]=min(balance["ad_units"],owned)
+  c.execute("UPDATE animal_market_balances SET ad_units=%s WHERE player_id=%s AND item=%s",(balance["ad_units"],seller_id,item))
+  remaining=owned
+  for row in seller_rows:
+   effective=min(int(row["quantity_units"]),remaining)
+   row["quantity_units"]=effective
+   row["ad_units"]=min(int(row["ad_units"]),effective)
+   if int(c.execute("SELECT quantity_units FROM animal_market_listings WHERE id=%s",(row["id"],)).fetchone()["quantity_units"])!=effective:
+    c.execute("UPDATE animal_market_listings SET quantity_units=%s,ad_units=%s WHERE id=%s",(effective,row["ad_units"],row["id"]))
+   remaining-=effective
+ rows=[row for row in rows if int(row["quantity_units"])>0]
+ peer_total=sum(int(row["quantity_units"]) for row in rows)
+ peer_units=min(q.amount*animal_market.SCALE,peer_total)
+ seller_allocations=animal_market.allocate(rows,peer_units) if peer_units else []
+ by_seller={}
+ for row,units in seller_allocations:by_seller.setdefault(row["seller"],[]).append((row,units))
+ cost=q.amount*unit_price
+ if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
+ field,fed_field,ad_field,ad_fed_field=ANIMAL_FIELDS[item]
+ room=(cowshed_limit(p)-p.get("cows",0)) if item=="cows" else (coop_limit(p)-p["chickens"]-p.get("geese",0))
+ if q.amount>room:raise HTTPException(400,"Для животных не хватает места. Улучшите соответствующее здание")
+ sources=farm_wallet.balances(c,p);ad_budget=ad_inventory.balance(c,p)
+ payouts={};seller_units={};seller_tags={}
+ order_id=uuid.uuid4().hex
+ for seller_id,entries in by_seller.items():
+  old_balance=animal_market.balance(c,seller_id,item,True)
+  total_sold=sum(units for _,units in entries)
+  exact_coin_units=old_balance["coin_fraction_units"]+total_sold*unit_price
+  payout,coin_remainder=divmod(exact_coin_units,animal_market.SCALE)
+  moved_tags=0
+  for row,units in entries:
+   tag_units=animal_market.transfer_tagged_units(int(row["ad_units"]),int(row["quantity_units"]),units)
+   moved_tags+=tag_units
+   row["sold_units"]=units;row["moved_ad_units"]=tag_units
+  payouts[seller_id]=payout;seller_units[seller_id]=total_sold;seller_tags[seller_id]=moved_tags
+  old_whole=int(sellers[seller_id][field])
+  new_whole,new_fraction=animal_market.apply_balance(old_whole,old_balance["fraction_units"],-total_sold)
+  new_ad=max(0,old_balance["ad_units"]-moved_tags)
+  c.execute("UPDATE players SET "+field+"=%s,"+fed_field+"=LEAST("+fed_field+",%s),coins=coins+%s WHERE id=%s",(new_whole,new_whole,payout,seller_id))
+  c.execute("UPDATE animal_market_balances SET fraction_units=%s,ad_units=%s,coin_fraction_units=%s WHERE player_id=%s AND item=%s",(new_fraction,new_ad,coin_remainder,seller_id,item))
+  seller=sellers[seller_id]
+  seller[ad_field]=animal_market.tagged_count(new_ad,new_whole*animal_market.SCALE+new_fraction)
+  seller[ad_fed_field]=min(seller.get(ad_fed_field,0),seller[ad_field],new_whole)
+  ad_inventory.save(c,seller)
+ for row,units in seller_allocations:
+  tag_units=row["moved_ad_units"]
+  next_tags=max(0,int(row["ad_units"])-tag_units)
+  c.execute("UPDATE animal_market_listings SET quantity_units=quantity_units-%s,ad_units=%s WHERE id=%s",(units,next_tags,row["id"]))
+ # A previous order may have held a fractional coin on behalf of a seller.
+ # Release that coin from escrow when the accumulated share crosses one coin.
+ paid_to_sellers=sum(payouts.values())
+ system_units=q.amount*animal_market.SCALE-peer_units
+ system_coins=system_units*unit_price//animal_market.SCALE
+ escrow_delta=cost-paid_to_sellers-system_coins
+ escrow=c.execute("SELECT coins FROM animal_market_cash_escrow WHERE id=1 FOR UPDATE").fetchone()["coins"]
+ if escrow+escrow_delta<0:raise RuntimeError("Animal market escrow underfunded")
+ c.execute("UPDATE animal_market_cash_escrow SET coins=coins+%s WHERE id=1",(escrow_delta,))
+ if system_coins:c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(system_coins,))
+ funded=farm_wallet.split_receipts([("seller:"+sid,amount) for sid,amount in payouts.items()],min(cost,paid_to_sellers)) if paid_to_sellers else {}
+ funded_total=sum(funded.values())
+ current_receipts=[(key,amount) for key,amount in funded.items() if amount]
+ if cost-funded_total:current_receipts.append(("__farm_system__",cost-funded_total))
+ current_sources=farm_wallet.split_market_sources(current_receipts,sources,cost) if cost else {}
+ ad_funded=farm_wallet.split_receipts(current_receipts,min(ad_budget,cost)) if current_receipts else {}
+ for seller_id,entries in by_seller.items():
+  distribution=animal_market.split_payment([{"id":str(row["id"]),"units":units} for row,units in entries],seller_units[seller_id],payouts[seller_id])
+  listing_coins={row["id"]:coins for row,coins in distribution}
+  ad_cost=ad_funded.get("seller:"+seller_id,0)
+  restricted=min(payouts[seller_id],max(ad_cost,(seller_tags[seller_id]*unit_price+animal_market.SCALE-1)//animal_market.SCALE))
+  funded_part=funded.get("seller:"+seller_id,0)
+  receipt_parts=dict(current_sources.get("seller:"+seller_id,{"bonus":0,"purchased":0,"earned":0}))
+  receipt_parts["bonus"]+=payouts[seller_id]-funded_part
+  for row,units in entries:
+   coins=listing_coins[row["id"]]
+   exact_units=units*unit_price
+   c.execute("INSERT INTO animal_market_trades(id,order_id,listing_id,buyer_id,seller_id,item,share_units,coin_units,coins,created) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,order_id,row["id"],p["id"],seller_id,item,units,exact_units,coins,now))
+   c.execute("UPDATE animal_market_listings SET coins_received=coins_received+%s WHERE id=%s",(coins,row["id"]))
+  record_market_receipt(c,p["id"],seller_id,item,animal_market.display_quantity(seller_units[seller_id]),payouts[seller_id],now,receipt_parts,restricted,sellers[seller_id])
+ old_balance=animal_market.balance(c,p["id"],item,True)
+ new_whole=p[field]+q.amount;new_total=new_whole*animal_market.SCALE+old_balance["fraction_units"]
+ tagged_from_payment=ad_inventory.funded_units(ad_budget,cost,q.amount)
+ moved_ad=sum(seller_tags.values())
+ new_ad=min(new_total,old_balance["ad_units"]+moved_ad+tagged_from_payment*animal_market.SCALE)
+ new_tag_count=animal_market.tagged_count(new_ad,new_total)
+ old_tag_count=p.get(ad_field,0)
+ p[ad_field]=new_tag_count
+ p[ad_fed_field]=min(new_tag_count,new_whole,p.get(ad_fed_field,0)+max(0,new_tag_count-old_tag_count))
+ c.execute("UPDATE players SET coins=coins-%s,"+field+"="+field+"+%s,"+fed_field+"=LEAST("+field+"+%s,"+fed_field+"+%s)"+(",goose_xp=goose_xp+%s" if item=="geese" else ",cow_xp=cow_xp+%s" if item=="cows" else "")+" WHERE id=%s",(cost,q.amount,q.amount,q.amount)+((20*q.amount,) if item=="geese" else (30*q.amount,) if item=="cows" else ())+ (p["id"],))
+ animal_market.set_balance(c,p["id"],item,old_balance["fraction_units"],new_ad,old_balance["coin_fraction_units"])
+ ad_inventory.save(c,p)
+ daily_tagged=min(q.amount,tagged_from_payment+animal_market.tagged_count(moved_ad,q.amount*animal_market.SCALE))
+ award_referral_resource(c,p,item,q.amount-daily_tagged)
+ c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"market_buy",-cost,item+" x"+str(q.amount),now))
+ day=time.strftime("%Y-%m-%d",time.gmtime(now))
+ if item=="chickens":
+  c.execute("INSERT INTO daily_activity(player_id,day,eggs_produced) VALUES(%s,%s,0) ON CONFLICT DO NOTHING",(p["id"],day))
+ return {"ok":True,"spent":cost,"from_players":animal_market.display_quantity(peer_units),"from_system":q.amount-animal_market.display_quantity(peer_units)}
+
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
  if q.item not in ("grain","chickens","geese","cows"):raise HTTPException(400,"Товар не найден")
- cost=q.amount*{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE}[q.item]
  with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
+  if q.item=="grain":return buy_grain_market_first(c,p,q)
+  cost=q.amount*ANIMAL_MARKET_PRICES[q.item]
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if q.item=="geese" and p.get("farmer_level",1)<GOOSE_MIN_LEVEL:raise HTTPException(403,"Гуси открываются с 3-го уровня фермера")
   if q.item=="geese" and q.expected_price!=GOOSE_PRICE:raise HTTPException(409,"Цена гусыни — 160 монет. Обновите игру и подтвердите покупку по новой цене")
   if q.item=="cows" and q.expected_price!=COW_PRICE:raise HTTPException(409,"Цена коровы — 500 монет. Обновите игру")
   if q.item=="cows" and p.get("cows",0)+q.amount>cowshed_limit(p):raise HTTPException(400,"В коровнике нет места. Улучшите коровник")
   if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"Нет места для птиц. Увеличьте вместимость в разделе «Животные»")
-  if q.item=="grain" and p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
-  tagged=ad_inventory.funded_units(ad_inventory.balance(c,p),cost,q.amount)
-  if q.item=="chickens":
-   # New hens arrive satiated; existing hungry hens are not refed.
-   c.execute("UPDATE players SET coins=coins-%s,chickens=chickens+%s,fed_hens=fed_hens+%s WHERE id=%s",(cost,q.amount,q.amount,p["id"]))
-  elif q.item=="cows":
-   c.execute("UPDATE players SET coins=coins-%s,cows=cows+%s,fed_cows=fed_cows+%s,cow_xp=cow_xp+%s WHERE id=%s",(cost,q.amount,q.amount,30*q.amount,p["id"]))
-  elif q.item=="geese":
-   c.execute("UPDATE players SET coins=coins-%s,geese=geese+%s,fed_geese=fed_geese+%s,goose_xp=goose_xp+%s WHERE id=%s",(cost,q.amount,q.amount,20*q.amount,p["id"]))
-  else:
-   c.execute("UPDATE players SET coins=coins-%s,grain=grain+%s WHERE id=%s",(cost,q.amount,p["id"]))
-  if q.item=="grain":
-   day=time.strftime("%Y-%m-%d",time.gmtime())
-   c.execute("INSERT INTO daily_activity(player_id,day,grain_bought) VALUES(%s,%s,%s) ON CONFLICT(player_id,day) DO UPDATE SET grain_bought=daily_activity.grain_bought+EXCLUDED.grain_bought",(p["id"],day,q.amount))
-  c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
-  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"shop",-cost,q.item+" x"+str(q.amount),time.time()))
-  ad_inventory.add(c,p,q.item,tagged)
-  award_referral_resource(c,p,q.item,q.amount-tagged)
- return {"ok":True}
+  return buy_animal_market_first(c,p,q)
 @app.post("/api/shop/sell")
 def sell_to_system(q:Request,authorization:str=Header(default="")):
  check(q.amount)
- if q.item not in ("grain","chickens","geese","feathers","cows"):
+ if q.item in animal_market.ANIMALS:raise HTTPException(400,"Животных можно продать только другим игрокам")
+ if q.item not in ("grain","feathers"):
   raise HTTPException(400,"Этот товар нельзя продать системе")
- unit_price={"grain":SYSTEM_GRAIN_BUYBACK,"chickens":SYSTEM_HEN_BUYBACK,"geese":80,"feathers":5,"cows":250}[q.item]
+ unit_price={"grain":SYSTEM_GRAIN_BUYBACK,"feathers":5}[q.item]
  payout=q.amount*unit_price
  with db() as c:
   # Synchronize system buybacks with market operations and resource updates.
@@ -1268,8 +1453,8 @@ def sell_to_system(q:Request,authorization:str=Header(default="")):
   c.execute("UPDATE economy SET treasury=treasury-%s WHERE id=1",(payout,))
   log_id=uuid.uuid4().hex
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(log_id,p["id"],"system_sale",payout,"Продажа системе: "+q.item+" x"+str(q.amount),time.time()))
-  # Grain/bird buybacks are purchasing credit, preventing gift/promo stock
-  # or bonus-funded market stock from being converted to withdrawable money.
+  # Grain buybacks are purchasing credit, preventing gift/promo stock from
+  # being converted into withdrawable money; feathers retain existing rules.
   if q.item!="feathers":c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,0)",(log_id,payout))
   elif tagged:c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,%s)",(log_id,tagged*unit_price,payout-tagged*unit_price))
   if ad_inventory.active(p):ad_inventory.credit(c,log_id,tagged*unit_price)
@@ -1305,14 +1490,33 @@ def feed_disabled():
 @app.post("/api/sell")
 def sell(q:Request,authorization:str=Header(default="")):
  check(q.amount);check(q.price)
- if q.item not in ("grain","eggs","milk"):raise HTTPException(400,"Товар не найден")
+ if q.item not in ("grain","eggs","milk","feathers",*animal_market.ANIMALS):raise HTTPException(400,"Товар не найден")
  with db() as c:
   # Same transaction-level market lock as buy/cancel: deterministic order for concurrent trades.
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
+  if q.item in animal_market.ANIMALS:
+   unit_price=ANIMAL_MARKET_PRICES[q.item]
+   if q.price!=unit_price:raise HTTPException(400,"Цена животного фиксированная: "+str(unit_price)+" монет")
+   field,_,ad_field,_=ANIMAL_FIELDS[q.item]
+   balance=animal_market.balance(c,p["id"],q.item,True)
+   total_units=p[field]*animal_market.SCALE+balance["fraction_units"]
+   open_rows=c.execute("SELECT quantity_units,ad_units FROM animal_market_listings WHERE seller=%s AND item=%s AND quantity_units>0 FOR UPDATE",(p["id"],q.item)).fetchall()
+   listed_units=sum(int(row["quantity_units"]) for row in open_rows)
+   listed_ad=sum(int(row["ad_units"]) for row in open_rows)
+   free_units=max(0,total_units-listed_units)
+   if q.amount*animal_market.SCALE>free_units:raise HTTPException(400,"Столько целых животных нельзя выставить: часть уже на рынке или доступен только дробный остаток")
+   total_ad=min(total_units,max(balance["ad_units"],p.get(ad_field,0)*animal_market.SCALE))
+   available_ad=max(0,total_ad-listed_ad)
+   tagged=animal_market.reserve_tagged_units(available_ad,free_units,q.amount*animal_market.SCALE)
+   listing_id=uuid.uuid4().hex
+   c.execute("INSERT INTO animal_market_listings(id,seller,item,quantity_units,ad_units,price,created) VALUES(%s,%s,%s,%s,%s,%s,%s)",(listing_id,p["id"],q.item,q.amount*animal_market.SCALE,tagged,unit_price,time.time()))
+   animal_market.set_balance(c,p["id"],q.item,balance["fraction_units"],total_ad,balance["coin_fraction_units"])
+   return {"ok":True,"listing_id":listing_id,"animal":True}
+  if q.item=="feathers" and q.price!=5:raise HTTPException(400,"Цена пера — 5 монет")
   if p[q.item]<q.amount:raise HTTPException(400,"Недостаточно товара")
   c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s WHERE id=%s",(q.amount,p["id"]))
-  price=EGG_PRICE if q.item=="eggs" else MILK_PRICE if q.item=="milk" else q.price
+  price=EGG_PRICE if q.item=="eggs" else MILK_PRICE if q.item=="milk" else 5 if q.item=="feathers" else q.price
   listing_id=uuid.uuid4().hex
   tagged=ad_inventory.take(c,p,q.item,q.amount)
   c.execute("INSERT INTO market VALUES(%s,%s,%s,%s,%s)",(listing_id,p["id"],q.item,q.amount,price))
@@ -1326,7 +1530,8 @@ def sell(q:Request,authorization:str=Header(default="")):
 @app.post("/api/buy")
 def buy(q:Request,authorization:str=Header(default="")):
  check(q.amount)
- if q.item not in ("grain","eggs","milk"):raise HTTPException(400,"Товар не найден")
+ if q.item in ("grain",*animal_market.ANIMALS):return shop(q,authorization)
+ if q.item not in ("eggs","milk","feathers"):raise HTTPException(400,"Товар не найден")
  with db() as c:
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
@@ -1378,9 +1583,18 @@ def cancel_listing(listing_id:str,authorization:str=Header(default="")):
  with db() as c:
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
+  animal=c.execute("SELECT * FROM animal_market_listings WHERE id=%s AND seller=%s FOR UPDATE",(listing_id,p["id"])).fetchone()
+  if animal:
+   if animal["quantity_units"]<=0:raise HTTPException(404,"Объявление уже закрыто")
+   returned_units=(int(animal["quantity_units"])//animal_market.SCALE)*animal_market.SCALE
+   if returned_units<=0:raise HTTPException(409,"Осталась только дробная доля: она остаётся на рынке до покупки целого животного")
+   returned_tags=animal_market.transfer_tagged_units(int(animal["ad_units"]),int(animal["quantity_units"]),returned_units)
+   remaining=int(animal["quantity_units"])-returned_units
+   c.execute("UPDATE animal_market_listings SET quantity_units=%s,ad_units=%s WHERE id=%s",(remaining,int(animal["ad_units"])-returned_tags,listing_id))
+   return {"ok":True,"returned":returned_units//animal_market.SCALE,"fraction_left":animal_market.display_quantity(remaining),"animal":True}
   entry=c.execute("SELECT * FROM market WHERE id=%s AND seller=%s FOR UPDATE",(listing_id,p["id"])).fetchone()
   if not entry or entry["quantity"]<=0:raise HTTPException(404,"Объявление уже закрыто")
-  if entry["item"] not in ("grain","eggs","milk"):raise HTTPException(400,"Некорректный товар")
+  if entry["item"] not in ("grain","eggs","milk","feathers"):raise HTTPException(400,"Некорректный товар")
   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+entry["quantity"]>storage_limit(p):raise HTTPException(409,"На складе не хватает места для возврата. Освободите или расширьте склад")
   c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(entry["quantity"],p["id"]))
   if ad_inventory.active(p):
@@ -1388,6 +1602,42 @@ def cancel_listing(listing_id:str,authorization:str=Header(default="")):
    if ad_row:ad_inventory.add(c,p,entry["item"],ad_row["quantity"])
   c.execute("UPDATE market SET quantity=0 WHERE id=%s",(listing_id,))
  return {"ok":True,"returned":entry["quantity"]}
+
+@app.post("/api/animal-market/redeem/{item}")
+def redeem_animal_fraction(item:str,authorization:str=Header(default="")):
+ """Close stranded shares by explicitly buying their missing part from the system.
+
+ No share is returned alone: a whole, newly productive animal is issued only
+ when existing owned fractions and the purchased complement sum to exactly one.
+ """
+ if item not in animal_market.ANIMALS:raise HTTPException(400,"Неверное животное")
+ with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  p=advance(c,person(c,authorization,True))
+  balance=animal_market.balance(c,p["id"],item,True)
+  fraction=balance["fraction_units"]
+  rows=c.execute("SELECT * FROM animal_market_listings WHERE seller=%s AND item=%s AND quantity_units>0 FOR UPDATE",(p["id"],item)).fetchall()
+  if not fraction or not rows or any(row["quantity_units"]>=animal_market.SCALE for row in rows) or sum(row["quantity_units"] for row in rows)!=fraction:
+   raise HTTPException(409,"Сначала снимите целые животные с продажи; затем можно закрыть оставшиеся доли")
+  missing=animal_market.SCALE-fraction
+  price=(missing*ANIMAL_MARKET_PRICES[item]+animal_market.SCALE-1)//animal_market.SCALE
+  if p["coins"]<price:raise HTTPException(400,"Недостаточно монет для покупки недостающей доли")
+  field,fed_field,ad_field,ad_fed_field=ANIMAL_FIELDS[item]
+  room=(cowshed_limit(p)-p.get("cows",0)) if item=="cows" else (coop_limit(p)-p["chickens"]-p.get("geese",0))
+  if room<1:raise HTTPException(400,"Для целого животного не хватает места")
+  for row in rows:c.execute("UPDATE animal_market_listings SET quantity_units=0,ad_units=0 WHERE id=%s",(row["id"],))
+  ad_budget=ad_inventory.balance(c,p)
+  complement_tag=missing if ad_budget else 0
+  new_ad=min((p[field]+1)*animal_market.SCALE,balance["ad_units"]+complement_tag)
+  previous_tagged=p.get(ad_field,0)
+  p[ad_field]=animal_market.tagged_count(new_ad,(p[field]+1)*animal_market.SCALE)
+  p[ad_fed_field]=min(p[ad_field],p.get(ad_fed_field,0)+max(0,p[ad_field]-previous_tagged))
+  animal_market.set_balance(c,p["id"],item,0,new_ad,balance["coin_fraction_units"])
+  c.execute("UPDATE players SET coins=coins-%s,"+field+"="+field+"+1,"+fed_field+"="+fed_field+"+1 WHERE id=%s",(price,p["id"]))
+  ad_inventory.save(c,p)
+  c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(price,))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"market_buy",-price,item+" · закрытие доли",time.time()))
+ return {"ok":True,"spent":price,"returned":1,"item":item}
 
 def require_farm_admin(authorization):
  expected=os.environ.get("FARM_ADMIN_API_KEY","")
@@ -1591,12 +1841,8 @@ def incubator_action(q:Request,authorization:str=Header(default="")):
  with db() as c:
   p=advance(c,person(c,authorization,True))
   if q.item=="buy":
-   if p["incubator_owned"]:raise HTTPException(409,"Инкубатор уже куплен")
-   if p["coins"]<INCUBATOR_PRICE:raise HTTPException(400,"Недостаточно монет")
-   c.execute("UPDATE players SET coins=coins-%s,incubator_owned=true WHERE id=%s",(INCUBATOR_PRICE,p["id"]))
-   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(INCUBATOR_PRICE,))
-   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"incubator",-INCUBATOR_PRICE,"Покупка инкубатора",time.time()))
-   return {"ok":True,"spent":INCUBATOR_PRICE}
+   if not p["incubator_owned"]:c.execute("UPDATE players SET incubator_owned=true WHERE id=%s",(p["id"],))
+   return {"ok":True,"spent":0,"free":True}
   if not p["incubator_owned"]:raise HTTPException(400,"Сначала купите инкубатор")
   if q.item=="upgrade":
    cost=INCUBATOR_UPGRADE_COST.get(p["incubator_level"])
@@ -1608,16 +1854,13 @@ def incubator_action(q:Request,authorization:str=Header(default="")):
    return {"ok":True,"spent":cost}
   active=c.execute("SELECT COUNT(*)::int AS n FROM incubation_jobs WHERE player_id=%s",(p["id"],)).fetchone()["n"]
   if active>=p["incubator_level"]:raise HTTPException(409,"Все места инкубатора заняты")
-  if p["eggs"]<12:raise HTTPException(400,"Для выведения курицы нужно 12 яиц")
-  if p["coins"]<15:raise HTTPException(400,"Для инкубации нужно 15 монет")
+  if p["eggs"]<20:raise HTTPException(400,"Для выведения курицы нужно 20 яиц")
   if not incubation_rules.can_start_incubation(coop_limit(p),p["chickens"],p.get("geese",0),active,p["incubator_level"]):raise HTTPException(400,"Добавьте места для птиц в разделе «Животные»")
   now=time.time()
   egg_seconds,grow_seconds=incubation_stages(p["incubator_level"])
   restricted=ad_inventory.balance(c,p)>0
-  restricted=bool(ad_inventory.take(c,p,"eggs",12)) or restricted
-  c.execute("UPDATE players SET eggs=eggs-12,coins=coins-15 WHERE id=%s",(p["id"],))
-  c.execute("UPDATE economy SET treasury=treasury+15 WHERE id=1")
-  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"incubation",-15,"Выведение курицы: 12 яиц",now))
+  restricted=bool(ad_inventory.take(c,p,"eggs",20)) or restricted
+  c.execute("UPDATE players SET eggs=eggs-20 WHERE id=%s",(p["id"],))
   job_id=uuid.uuid4().hex
   c.execute("INSERT INTO incubation_jobs(id,player_id,started,hatch_at,mature_at) VALUES(%s,%s,%s,%s,%s)",(job_id,p["id"],now,now+egg_seconds,now+egg_seconds+grow_seconds))
   if restricted:c.execute("INSERT INTO farm_ad_incubations VALUES(%s)",(job_id,))

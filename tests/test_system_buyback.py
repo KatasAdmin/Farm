@@ -36,12 +36,10 @@ class SystemBuybackTests(unittest.TestCase):
   self.assertEqual(result["received"],5)
   self.assertTrue(any("UPDATE players SET grain=grain-" in sql for sql,_ in statements))
   self.assertTrue(any("UPDATE economy SET treasury=treasury-" in sql for sql,_ in statements))
- def test_hen_sale_reduces_satiated_hens_safely(self):
-  result,statements=self.run_sale("chickens",2)
-  self.assertEqual(result["received"],40)
-  sql,args=next((sql,args) for sql,args in statements if "UPDATE players SET chickens=" in sql)
-  self.assertIn("fed_hens=LEAST(fed_hens,%s)",sql)
-  self.assertEqual(args[:3],(3,3,40))
+ def test_animals_cannot_be_sold_to_system(self):
+  for animal in ('chickens','geese','cows'):
+   with self.assertRaises(HTTPException) as exc:self.run_sale(animal,2)
+   self.assertEqual(exc.exception.status_code,400)
  def test_no_overselling(self):
   with self.assertRaises(HTTPException) as exc:
    self.run_sale("chickens",6)
@@ -49,7 +47,7 @@ class SystemBuybackTests(unittest.TestCase):
  def test_no_unfunded_buyback(self):
   with self.assertRaises(HTTPException) as exc:
    self.run_sale("chickens",3,treasury=0)
-  self.assertEqual(exc.exception.status_code,409)
+  self.assertEqual(exc.exception.status_code,400)
  def test_market_eggs_cannot_use_system_buyback(self):
   with self.assertRaises(HTTPException):
    self.run_sale("eggs",2)
