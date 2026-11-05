@@ -20,7 +20,7 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
     <script src="/assets/game.js?v=87" defer></script>
-    <link rel="stylesheet" href="/assets/fields.css?v=1">
+    <link rel="stylesheet" href="/assets/fields.css?v=2">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
   </head>
@@ -147,6 +147,7 @@
             <span>Склад</span>
           </button>
         </div>
+        <button type="button" class="fields-home-shortcut" onclick="tab('fields')"><img src="/assets/field-plot.svg" alt=""><span><strong>Поля</strong><small><span data-fields-count>0</span> / 500 · <span data-fields-rate>0</span> зерна/сутки</small></span><span aria-hidden="true">›</span></button>
         <details class="card launch-guide" id="launch-guide" hidden>
  <summary>🌱 Как начать играть? · подсказка для новичка</summary>
  <div class="launch-guide-body">
@@ -332,7 +333,7 @@
         <button class="fields-link" onclick="tab('fields')"><span><strong>🌾 Поля и комбайны</strong><small>Выращивай зерно для животных · <span data-fields-count>0</span> полей</small></span><span>›</span></button>
         <div class="card">
           <div class="product catalog-row">
-            <span class="product-image" aria-hidden="true" style="display:grid;place-items:center;font-size:32px">🚜</span>
+            <img class="product-image" src="/assets/combine.svg" alt="Комбайн">
             <div class="product-copy"><h3>Комбайн</h3><small>Обслуживает до 5 полей</small><small>Автоматический сбор зерна</small></div>
             <strong class="price">200 🪙</strong>
             <button class="btn small" id="fields-buy-combine" onclick="buyFieldItem('combine')">Купить</button>
@@ -749,7 +750,7 @@
       </section>
       <section id="fields" class="panel unified-farm-panel" aria-label="Поля">
         <div class="panelhead"><button class="back" onclick="tab('storage')" aria-label="Назад">‹</button><div><h1>🌾 Поля</h1><small>РАСТЕНИЕВОДСТВО · ФЕРМА</small></div></div>
-        <div class="fields-scene"><div class="fields-landscape" id="fields-landscape"></div></div>
+        <div class="fields-scene"><img class="fields-hero-art" src="/assets/fields-landscape.svg" alt="Золотые пшеничные поля, красный амбар и комбайн"><div class="fields-landscape" id="fields-landscape"></div></div>
         <div class="card">
           <h2 class="cardtitle">Моё хозяйство</h2>
           <div class="fields-stat-grid">
@@ -893,7 +894,7 @@
       </div>
     </dialog>
   <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
-<script src="/assets/fields.js?v=1" defer></script>
+<script src="/assets/fields.js?v=2" defer></script>
 <script src="/assets/monetag-rewards.js?v=4" defer></script>
 </body>
 </html>
