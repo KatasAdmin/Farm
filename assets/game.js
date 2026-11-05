@@ -585,6 +585,11 @@ function quote(item, n) {
 }
 function drawPool() {
   if (!state) return;
+  document.querySelectorAll("[data-market-available]").forEach(node=>{
+    const item=node.dataset.marketAvailable;
+    const qty=marketRows(item).reduce((sum,row)=>sum+row.quantity,0);
+    node.textContent="У игроков: "+number(qty)+" шт.";
+  });
   const available = Number(state.available_eggs ?? 0);
   const label = el("eggs-available");
   const buy = el("eggs-buy-button");
