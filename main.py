@@ -1292,7 +1292,7 @@ def sell(q:Request,authorization:str=Header(default="")):
    c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s WHERE id=%s",(q.amount,p["id"]))
   price={"eggs":EGG_PRICE,"milk":MILK_PRICE,"feathers":5,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE}.get(q.item,q.price)
   listing_id=uuid.uuid4().hex
-  tagged=ad_inventory.take(c,p,q.item,q.amount)
+  tagged=0 if q.item in ("chickens","geese","cows") else ad_inventory.take(c,p,q.item,q.amount)
   c.execute("INSERT INTO market VALUES(%s,%s,%s,%s,%s)",(listing_id,p["id"],q.item,q.amount,price))
   if tagged:c.execute("INSERT INTO farm_ad_listings VALUES(%s,%s)",(listing_id,tagged))
   if q.item=="milk":
@@ -1324,8 +1324,10 @@ def buy(q:Request,authorization:str=Header(default="")):
   if q.item not in ("chickens","geese","cows") and p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   # Prevent crediting sellers whose Stars refund is being reconciled.
   # Lock every seller in a stable order before any buyer debit or seller credit.
+  seller_rows={}
   for seller_id in sorted({x["seller"] for x,n in chosen}):
-   seller=c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(seller_id,)).fetchone()
+   seller=c.execute("SELECT * FROM players WHERE id=%s FOR UPDATE",(seller_id,)).fetchone()
+   if seller:seller_rows[seller_id]=seller
    if not seller:raise HTTPException(409,"Продавец больше не существует")
    pending=c.execute("""SELECT 1 FROM stars_refund_intents i
      JOIN star_orders o ON o.id=i.order_id
@@ -1342,7 +1344,7 @@ def buy(q:Request,authorization:str=Header(default="")):
    c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   for x,n in chosen:
    ad_row=c.execute("SELECT quantity FROM farm_ad_listings WHERE id=%s FOR UPDATE",(x["id"],)).fetchone() if ad_inventory.active(p) else None
-   tagged=min(n,ad_row["quantity"]) if ad_row else 0
+   tagged=ad_inventory.take(c,seller_rows[x["seller"]],q.item,n) if q.item in ("chickens","geese","cows") else (min(n,ad_row["quantity"]) if ad_row else 0)
    if tagged:c.execute("UPDATE farm_ad_listings SET quantity=quantity-%s WHERE id=%s",(tagged,x["id"]))
    paid_ad=min(ad_budget,x["price"]*n);ad_budget-=paid_ad
    ad_inventory.add(c,p,q.item,max(tagged,ad_inventory.funded_units(paid_ad,x["price"]*n,n)))
