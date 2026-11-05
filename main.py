@@ -1208,6 +1208,7 @@ def state(authorization:str=Header(default="")):
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
  if q.item not in ("grain","chickens","geese","cows"):raise HTTPException(400,"Товар не найден")
+ return buy(q,authorization)
  cost=q.amount*{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE}[q.item]
  with db() as c:
   p=advance(c,person(c,authorization,True))
@@ -1335,9 +1336,15 @@ def buy(q:Request,authorization:str=Header(default="")):
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
   rows=c.execute("SELECT * FROM market WHERE item=%s AND seller<>%s AND quantity>0 ORDER BY price,id FOR UPDATE",(q.item,p["id"])).fetchall()
-  if sum(x["quantity"] for x in rows)<q.amount:raise HTTPException(400,"Недостаточно товара на рынке")
-  chosen=market_allocation.allocate(rows,q.amount)
-  cost=sum(x["price"]*n for x,n in chosen)
+  available=sum(x["quantity"] for x in rows)
+  system_quantity=max(0,q.amount-available)
+  if system_quantity and q.item not in ("grain","chickens","geese","cows"):
+   raise HTTPException(400,"Недостаточно товара на рынке")
+  if q.item=="geese" and p.get("farmer_level",1)<GOOSE_MIN_LEVEL:
+   raise HTTPException(403,"Гуси открываются с 3-го уровня фермера")
+  chosen=market_allocation.allocate(rows,min(q.amount,available)) if available else []
+  system_price={"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE}.get(q.item,0)
+  cost=sum(x["price"]*n for x,n in chosen)+system_quantity*system_price
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"Нет места для птиц")
   if q.item=="cows" and p.get("cows",0)+q.amount>cowshed_limit(p):raise HTTPException(400,"В коровнике нет места")
@@ -1382,6 +1389,11 @@ def buy(q:Request,authorization:str=Header(default="")):
     reason="frequent_pair" if count>=9 else "large_trade"
     c.execute("INSERT INTO trade_risk_events(id,buyer_id,seller_id,item,quantity,coins,reason,created) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,reason,trade_at))
     logger.warning("trade_flagged reason=%s buyer=%s seller=%s",reason,p["id"],x["seller"])
+  if system_quantity:
+   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(system_quantity*system_price,))
+   system_tagged=ad_inventory.funded_units(ad_inventory.balance(c,p),system_quantity*system_price,system_quantity)
+   ad_inventory.add(c,p,q.item,system_tagged)
+   award_referral_resource(c,p,q.item,system_quantity-system_tagged)
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"market_buy",-cost,q.item+" x"+str(q.amount),time.time()))
  return {"ok":True,"spent":cost}
 
