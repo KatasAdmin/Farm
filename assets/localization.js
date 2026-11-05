@@ -90,7 +90,6 @@ dictionary["Купить поле"]={uk:"Купити поле",en:"Buy field"};
 dictionary["Купить комбайн"]={uk:"Купити комбайн",en:"Buy harvester"};
 dictionary["Зерна в сутки"]={uk:"Зерна за добу",en:"Grain per day"};
 const supported=['uk','en'];
-const nativeText=(value,lang)=>dictionary[value]?.[lang]||value;
 
 const key='farm_interface_language';
 const read=()=>{try{return localStorage.getItem(key)}catch(_){return null}};
@@ -147,9 +146,6 @@ function apply(root=document.body){
  if(picker){picker.value=language;picker.setAttribute('aria-label',language==='uk'?'Мова гри':'Game language');}
  }finally{busy=false;}
 }
-function translateFor(source,lang){
- const prev=language;language=lang;try{return translate(source)}finally{language=prev;}
-}
 function change(lang){if(!supported.includes(lang))return;language=lang;write(lang);apply();}
 window.farmTranslate=(value)=>translate(String(value));
 function picker(){
@@ -164,7 +160,17 @@ function picker(){
 }
 let queued=false;
 function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply();});}
-function init(){picker();apply();new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['placeholder','title','aria-label','alt']});}
+function init(){picker();apply();new MutationObserver((records)=>{
+ if(busy)return;
+ for(const record of records){
+  if(record.type==='childList'&&record.addedNodes.length){schedule();return;}
+  if(record.type==='characterData'&&record.target.nodeValue!==rendered.get(record.target)){schedule();return;}
+  if(record.type==='attributes'){
+   const current=record.target.getAttribute(record.attributeName);
+   if(current!==attributeRendered.get(record.target)?.[record.attributeName]){schedule();return;}
+  }
+ }
+}).observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['placeholder','title','aria-label','alt']});}
 window.FarmLocale={get language(){return language},set:change,refresh:schedule};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 window.addEventListener('telegram-sdk-ready',()=>{if(!read()){language=detect();schedule();}});
