@@ -44,18 +44,56 @@ function renderFields(){
  const combine=document.getElementById("fields-buy-combine");
  const plot=document.getElementById("fields-buy-plot");
  if(combine){
-  combine.disabled=pending||f.combines>=100||f.combines*5>f.plots||state.me.coins<f.combine_price;
-  combine.textContent=f.combines>=100?"Максимум":f.combines*5>f.plots?"Уже есть свободный комбайн":"Купить · "+numberText(f.combine_price)+" 🪙";
+  combine.disabled=pending||f.combines>=100||state.me.coins<f.combine_price;
+  combine.textContent=f.combines>=100?"Максимум":"Купить · "+numberText(f.combine_price)+" 🪙";
  }
  if(plot){
-  plot.disabled=pending||f.plots>=500||f.next_field_requires_combine||state.me.coins<f.field_price;
-  plot.textContent=f.plots>=500?"Все поля куплены":f.next_field_requires_combine?"Сначала купи комбайн в Рынке":"Расширить хозяйство · "+numberText(f.field_price)+" монет";
+  plot.disabled=pending||f.plots>=500||state.me.coins<f.field_price;
+  plot.textContent=f.plots>=500?"Все поля куплены":"Расширить хозяйство · "+numberText(f.field_price)+" монет";
  }
+}
+function fieldPurchaseCelebration(item,result){
+ const old=document.getElementById("field-purchase-celebration");
+ if(old)old.remove();
+ const overlay=document.createElement("div");
+ overlay.id="field-purchase-celebration";
+ overlay.className="field-purchase-overlay";
+ const card=document.createElement("div");
+ card.className="field-purchase-popup";
+ card.setAttribute("role","alertdialog");
+ card.setAttribute("aria-modal","true");
+ const title=document.createElement("h2");
+ title.textContent="🎉 Поздравляем!";
+ const art=document.createElement("img");
+ art.src=item==="field"?"/assets/field-plot.svg":"/assets/combine.svg";
+ art.alt="";
+ const message=document.createElement("p");
+ const remaining=result.needs_combine
+  ?"Чтобы получать зерно, купи комбайн в Рынке. Один комбайн обслуживает 5 полей."
+  :result.needs_field
+  ?"Теперь купи поле — тогда комбайн начнёт собирать зерно."
+  :"Отлично! Твоё хозяйство производит "+result.grain_per_day+" зерна в сутки.";
+ message.textContent=(item==="field"?"Поле приобретено! ":"Комбайн приобретён! ")+remaining;
+ const button=document.createElement("button");
+ button.className="btn";
+ button.textContent="Отлично!";
+ button.onclick=()=>overlay.remove();
+ card.append(art,title,message,button);
+ overlay.append(card);
+ document.body.append(overlay);
+ button.focus();
 }
 async function buyFieldItem(item){
  if(pending||!state?.fields)return;
  const cost=item==="field"?state.fields.field_price:state.fields.combine_price;
- const label=item==="field"?"поле":"комбайн";
- if(!confirm("Купить "+label+" за "+cost+" монет?"))return;
- await perform("/api/fields/buy",{item});
+ if(state.me.coins<cost)return toast("Недостаточно монет");
+ if(!confirm("Купить "+(item==="field"?"поле":"комбайн")+" за "+cost+" монет?"))return;
+ if(pending)return;
+ busy(true);
+ try{
+  const result=await api("/api/fields/buy",{item});
+  try{await refresh();}catch(e){console.warn("Field purchase refresh failed",e);}
+  fieldPurchaseCelebration(item,result);
+ }catch(e){toast(e.message);}
+ finally{busy(false);}
 }
