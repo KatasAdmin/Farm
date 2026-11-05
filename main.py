@@ -1349,7 +1349,8 @@ def buy(q:Request,authorization:str=Header(default="")):
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    if q.item in ("chickens","geese","cows"):
     fed_col={"chickens":"fed_hens","geese":"fed_geese","cows":"fed_cows"}[q.item]
-    c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s,"+fed_col+"=LEAST("+fed_col+", "+q.item+"-%s) WHERE id=%s",(n,n,x["seller"]))
+    moved=c.execute("UPDATE players SET "+q.item+"="+q.item+"-%s,"+fed_col+"=LEAST("+fed_col+", "+q.item+"-%s) WHERE id=%s AND "+q.item+">=%s RETURNING id",(n,n,x["seller"],n)).fetchone()
+    if not moved:raise HTTPException(409,"У продавца изменилось поголовье. Сделка отменена; обновите рынок")
    c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(x["price"]*n,x["seller"]))
    log_id=uuid.uuid4().hex
    receipt=x["price"]*n;receipt_sources=ad_inventory.restricted_receipt(source_shares[x['id']],max(paid_ad,tagged*x['price']))
