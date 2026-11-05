@@ -16,7 +16,11 @@ function renderFields(){
   for(let i=0;i<shown;i++){
    const tile=document.createElement("span");
    tile.className="wheat-plot";
-   tile.textContent="🌾";
+   const art=document.createElement("img");
+   art.src="/assets/field-plot.svg";
+   art.alt="";
+   art.loading="lazy";
+   tile.appendChild(art);
    tile.setAttribute("aria-label","Поле "+(i+1));
    area.appendChild(tile);
   }
