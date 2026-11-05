@@ -19,7 +19,8 @@ def migrate(c):
  )""")
 
 def rate(plots, combines):
- return 6*plots + 5*min(combines, (plots+4)//5) if plots else 0
+ active=min(plots,combines*5)
+ return 6*active + 5*min(combines, (active+4)//5) if active else 0
 
 def snapshot(c, player_id):
  cursor=c.execute("SELECT plots,combines,produced_progress,updated_at FROM farm_fields WHERE player_id=%s",(player_id,))
@@ -36,14 +37,18 @@ def status(c,p):
              plots_per_combine=5,field_price=FIELD_PRICE,combine_price=COMBINE_PRICE,
              grain_per_day=rate(plots,combines),grain_per_day_at_max=3500,
              invested=plots*FIELD_PRICE+combines*COMBINE_PRICE,
-             next_field_requires_combine=plots>=combines*5,
+             inactive_fields=max(0,plots-combines*5),active_fields=min(plots,combines*5),
+             next_field_requires_combine=False,
              next_grain_seconds=(SECONDS_PER_DAY/rate(plots,combines))*(1-row["produced_progress"]) if rate(plots,combines) else None)
 
 def harvest(c,p,now=None):
  """Accrue server-side, respecting shared storage. Keep uncollected progress if full."""
  now=time.time() if now is None else now
  row=snapshot(c,p["id"])
- if not row["plots"]:return p
+ if not row["plots"] or not row["combines"]:
+  if row["plots"]:
+   c.execute("UPDATE farm_fields SET updated_at=%s WHERE player_id=%s",(now,p["id"]))
+  return p
  elapsed=max(0,now-row["updated_at"])
  # Avoid unbounded backlog after long absence: at most 24h worth of grain is waiting.
  progress=min(float(rate(row["plots"],row["combines"])),row["produced_progress"]+
@@ -66,15 +71,16 @@ def purchase(c,p,item,now=None):
  plots=row["plots"];combines=row["combines"]
  if item=="field":
   if plots>=MAX_FIELDS:raise HTTPException(400,"Все 500 полей уже куплены")
-  if plots>=combines*5:raise HTTPException(400,"Для следующего поля сначала купите комбайн")
   cost=FIELD_PRICE
  else:
   if combines>=MAX_COMBINES:raise HTTPException(400,"Все 100 комбайнов уже куплены")
-  if combines*5>plots:raise HTTPException(400,"Этот комбайн пока не нужен: есть свободные места")
   cost=COMBINE_PRICE
  if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
  c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(cost,p["id"]))
  c.execute("UPDATE farm_fields SET plots=plots+%s,combines=combines+%s,updated_at=%s WHERE player_id=%s",
            (int(item=="field"),int(item=="combine"),now,p["id"]))
  c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
- return dict(ok=True,spent=cost,fields=plots+int(item=="field"),combines=combines+int(item=="combine"))
+ newplots=plots+int(item=="field");newcombines=combines+int(item=="combine")
+ return dict(ok=True,spent=cost,fields=newplots,combines=newcombines,
+             grain_per_day=rate(newplots,newcombines),
+             needs_combine=newplots>newcombines*5,needs_field=newcombines>0 and newplots==0)
