@@ -38,12 +38,14 @@ def enabled():return os.getenv('MONETAG_REWARDS_ENABLED')=='1' and len(os.getenv
 def zone(platform):
  if platform=='telegram':return TMA_ZONE
  raw=os.getenv('MONETAG_WEB_ZONE_ID','')
- if platform=='web' and os.getenv('MONETAG_WEB_REWARDED_ENABLED')=='1' and raw.isdecimal() and int(raw)>0 and int(raw)!=TMA_ZONE:return int(raw)
+ # Monetag rewarded SDK and reward postbacks are licensed for Telegram Mini Apps only.
+ # A website zone must never enable rewards on a normal browser page.
+
  return None
 
 def config(platform):
  z=zone(platform)
- return dict(enabled=enabled() and bool(z),platform=platform,zone_id=z,sdk_url='https://libtl.com/sdk.js',ad_format='pop',daily_limit=DAY_LIMIT,hourly_limit=HOUR_LIMIT,cooldown=COOLDOWN,reason='' if z else 'Для браузера ещё не подключена отдельная rewarded-зона Monetag')
+ return dict(enabled=enabled() and bool(z),platform=platform,zone_id=z,sdk_url='https://libtl.com/sdk.js',ad_format='pop',daily_limit=DAY_LIMIT,hourly_limit=HOUR_LIMIT,cooldown=COOLDOWN,reason='' if z else 'Награды за рекламу доступны только внутри Telegram Mini App')
 
 def lock(c):c.execute('SELECT pg_advisory_xact_lock(%s)',(LOCK,))
 
@@ -123,9 +125,9 @@ def postback(c,secret,ymid,zone_id,sub_zone_id,event_type,reward_event_type,requ
  c.execute('UPDATE monetag_ad_attempts SET confirmed_at=COALESCE(confirmed_at,%s),launched_at=COALESCE(launched_at,%s) WHERE ymid=%s',(now,now,ymid))
  if reward_event_type=='non_valued':
   c.execute('UPDATE monetag_ad_attempts SET non_valued_at=COALESCE(non_valued_at,%s) WHERE ymid=%s',(now,ymid))
-  # Owner-funded game reward for a real provider-confirmed impression,
-  # even when Monetag did not pay. An unpaid click alone is not a view.
-  if event_type!='impression':return {'ok':True,'rewarded':False,'reason':'unpaid_click'}
+  # Non-valued impressions are unpaid fallback ads: record telemetry only.
+  # Never grant goods or advance reward progress for them.
+  return {'ok':True,'rewarded':False,'reason':'non_valued'}
  else:
   c.execute('UPDATE monetag_ad_attempts SET valued_at=COALESCE(valued_at,%s) WHERE ymid=%s',(now,ymid))
  # Reward eligibility is separate from publisher payment. Never trust SDK alone.
