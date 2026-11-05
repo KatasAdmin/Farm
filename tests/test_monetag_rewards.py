@@ -117,8 +117,11 @@ class MonetagRewardsTests(AdFixture):
  def test_attempt_rate_cooldown_and_reservation_idempotency(self):
   a=self.prepare();b=self.prepare();self.assertEqual(a['ymid'],b['ymid'])
   self.report(a,event='started')
-  with self.assertRaises(HTTPException):self.prepare(now=self.now+1)
-  self.assertNotEqual(self.prepare(now=self.now+31)['ymid'],a['ymid'])
+  for i in range(1,5):
+   attempt=self.prepare(now=self.now+i)
+   ads.report(self.c,self.p(),attempt['ymid'],'started',now=self.now+i)
+  with self.assertRaises(HTTPException):self.prepare(now=self.now+5)
+  self.assertNotEqual(self.prepare(now=self.now+35)['ymid'],a['ymid'])
  def test_daily_cap_cannot_be_bypassed_by_a_forged_callback(self):
   for i in range(ads.DAY_LIMIT):
    self.c.execute('INSERT INTO monetag_ad_attempts(ymid,player_id,created_at,launched_at,zone_id,placement) VALUES(%s,%s,%s,%s,%s,%s)',('old'+str(i),'p',self.now-60,self.now-60,ads.TMA_ZONE,'grain_reward'))
