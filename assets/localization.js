@@ -126,6 +126,16 @@ dictionary["5. Переводи заработанное."]={uk:"5. Перека
 dictionary["Моё хозяйство"]={uk:"Моє господарство",en:"My farm"};
 dictionary["Куры: купить или продать"]={uk:"Кури: купити або продати",en:"Chickens: buy or sell"};
 dictionary["Гуси: купить или продать"]={uk:"Гуси: купити або продати",en:"Geese: buy or sell"};
+dictionary["Ферма на закате"]={uk:"Ферма на заході сонця",en:"Farm at sunset"};
+dictionary["Фермер"]={uk:"Фермер",en:"Farmer"};
+dictionary["Уровень 1 · 0 XP"]={uk:"Рівень 1 · 0 XP",en:"Level 1 · 0 XP"};
+dictionary["Как начать играть?"]={uk:"Як почати грати?",en:"How to play?"};
+dictionary["На баланс бота"]={uk:"На баланс бота",en:"To bot balance"};
+dictionary["Сытая курица несёт яйцо каждые 6 часов. С 3-го уровня доступны гуси — яйцо каждые 2 часа."]={uk:"Сита курка несе яйце кожні 6 годин. Із 3-го рівня доступні гуси — яйце кожні 2 години.",en:"A fed chicken lays an egg every 6 hours. Geese unlock at level 3 and lay an egg every 2 hours."};
+dictionary["Животные едят раз в 18 часов: курице нужно 1 зерно, гусыне — 2, корове — 3. Запас виден на главной."]={uk:"Тварини їдять раз на 18 годин: курці потрібно 1 зерно, гусці — 2, корові — 3. Запаси видно на головній.",en:"Animals eat every 18 hours: a chicken needs 1 grain, a goose 2, and a cow 3. Supplies appear on the home screen."};
+dictionary["Выставляй яйца и молоко на рынке. Монеты поступят, когда другие игроки купят товар."]={uk:"Виставляй яйця та молоко на ринку. Монети надійдуть, коли інші гравці куплять товар.",en:"List eggs and milk on the market. You'll receive coins when other players buy your goods."};
+dictionary["Покупай животных, увеличивай склад, выполняй задания и улучшай ферму."]={uk:"Купуй тварин, розширюй склад, виконуй завдання та покращуй ферму.",en:"Buy animals, expand storage, complete tasks, and upgrade your farm."};
+dictionary["В кошельке нажми «На баланс бота». Оттуда можно заказать выплату."]={uk:"У гаманці натисни «На баланс бота». Звідти можна замовити виплату.",en:"In your wallet, select 'To bot balance'. You can request a payout from there."};
 const supported=['uk','en'];
 
 const key='farm_interface_language';
