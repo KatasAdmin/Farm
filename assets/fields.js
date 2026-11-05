@@ -87,7 +87,12 @@ async function buyFieldItem(item){
  if(pending||!state?.fields)return;
  const cost=item==="field"?state.fields.field_price:state.fields.combine_price;
  if(state.me.coins<cost)return toast("Недостаточно монет");
- if(!confirm("Купить "+(item==="field"?"поле":"комбайн")+" за "+cost+" монет?"))return;
+ const warning=item==="field"&&state.fields.plots>=state.fields.combines*5
+  ?"\n⚠️ Без свободного комбайна новое поле пока не производит зерно."
+  :item==="combine"&&state.fields.plots<=state.fields.combines*5
+  ?"\n⚠️ Без свободных полей новый комбайн пока не собирает зерно."
+  :"";
+ if(!confirm("Купить "+(item==="field"?"поле":"комбайн")+" за "+cost+" монет?"+warning))return;
  if(pending)return;
  busy(true);
  try{
