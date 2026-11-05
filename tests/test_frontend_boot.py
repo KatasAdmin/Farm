@@ -26,7 +26,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('weekly.feathers',js)
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
-  self.assertIn("/assets/game.js?v=87",html)
+  self.assertIn("/assets/game.js?v=88",html)
  def test_launch_help_and_placeholder_polish(self):
   root=Path(__file__).resolve().parents[1]
   html=(root/"index.html").read_text(encoding="utf-8")
@@ -62,8 +62,8 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('id="system-sell-dialog"',html)
   self.assertIn('id="egg-sale-dialog"',html)
   self.assertIn('id="egg-sale-form"',html)
-  self.assertIn('onclick="openSystemSell(\'chickens\')"',html)
-  self.assertIn('onclick="openSystemSell(\'grain\')"',html)
+  self.assertIn('onclick="openSell(\'chickens\')"',html)
+  self.assertIn('onclick="openSell(\'grain\')"',html)
   self.assertIn('id="incubator-shop-button"',html)
   self.assertIn("function confirmSystemSell()",js)
   self.assertIn("Зерна хватит на",html)
@@ -78,13 +78,13 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('<summary class="forecast-summary">🌾 Ближайший сбор</summary>',html)
   self.assertIn('id="egg-sale-dialog"',html)
   self.assertEqual(html.count('id="egg-sale-form"'),1)
-  self.assertIn("if(grainPriceWrap)grainPriceWrap.hidden",js)
+  self.assertIn("function openSell(item)",js)
   self.assertIn('el("egg-sale-dialog")',js)
   self.assertNotIn('tab("market");return openSystemSell',js)
   self.assertIn('#shop .compact-trade-scene,#market .compact-trade-scene',css)
   self.assertIn('#shop .product .trade-dual-actions',css)
   for item in ("eggs","grain","chickens"):
-   self.assertIn("openSell('"+item+"')" if item=="eggs" else "openSystemSell('"+item+"')",html)
+   self.assertIn("openSell('"+item+"')",html)
  def test_single_market_screen(self):
   root=Path(__file__).resolve().parents[1]
   html=(root/"index.html").read_text(encoding="utf-8")

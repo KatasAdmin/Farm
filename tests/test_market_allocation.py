@@ -20,6 +20,25 @@ class ProportionalMarketTests(unittest.TestCase):
         self.assertEqual(allocate(rows, 2), allocate(list(reversed(rows)), 2))
         self.assertEqual([r["id"] for r, _ in allocate(rows, 2)], ["a", "b"])
 
+    def test_whole_animals_four_and_three_buy_two(self):
+        result = allocate([listing("a", 4), listing("b", 3)], 2)
+        self.assertEqual({r["id"]: n for r, n in result}, {"a": 1, "b": 1})
+
+    def test_fractional_tie_prefers_smaller_listing(self):
+        result = allocate([listing("a", 3), listing("b", 1)], 2)
+        self.assertEqual({r["id"]: n for r, n in result}, {"a": 1, "b": 1})
+
+    def test_animal_seven_and_three_buy_one(self):
+        result = allocate([listing("a", 7), listing("b", 3)], 1)
+        self.assertEqual({r["id"]: n for r, n in result}, {"a": 1})
+
+    def test_ten_sellers_conserve_whole_units(self):
+        rows = [listing(str(i), i + 1) for i in range(10)]
+        result = allocate(rows, 17)
+        self.assertEqual(sum(q for _, q in result), 17)
+        self.assertTrue(all(isinstance(q, int) and q >= 1 for _, q in result))
+        self.assertTrue(all(q <= row["quantity"] for row, q in result))
+
     def test_no_overselling(self):
         rows = [listing("a", 2), listing("b", 3)]
         selected = allocate(rows, 5)

@@ -44,7 +44,7 @@ class TradeSafetyTests(unittest.TestCase):
   fake,out=self.run_cancel(60)
   self.assertEqual(out["returned"],10)
   self.assertTrue(any(sql.startswith("UPDATE players SET eggs") for sql,_ in fake.statements))
-  self.assertTrue(any(sql.startswith("UPDATE market SET quantity=0") for sql,_ in fake.statements))
+  self.assertTrue(any(sql.startswith("UPDATE market SET quantity=quantity-%s") for sql,_ in fake.statements))
 
 class MarketConcurrencyGuards(unittest.TestCase):
  def test_market_mutations_share_transaction_lock(self):
