@@ -1308,6 +1308,13 @@ def buy(q:Request,authorization:str=Header(default="")):
  with db() as c:
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
+  system_price={"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE}.get(q.item,0)
+  if q.expected_price is not None and q.item in ("grain","chickens","geese","cows") and q.expected_price!=system_price:
+   raise HTTPException(409,"Цена товара изменилась. Обновите рынок")
+  if q.item=="geese" and p.get("farmer_level",1)<GOOSE_MIN_LEVEL:raise HTTPException(403,"Гуси открываются с 3-го уровня фермера")
+  if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"Нет места для птиц")
+  if q.item=="cows" and p.get("cows",0)+q.amount>cowshed_limit(p):raise HTTPException(400,"В коровнике нет места")
+  if q.item not in ("chickens","geese","cows") and p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   rows=c.execute("SELECT * FROM market WHERE item=%s AND seller<>%s AND quantity>0 ORDER BY price,id FOR UPDATE",(q.item,p["id"])).fetchall()
   available=sum(x["quantity"] for x in rows)
   system_quantity=max(0,q.amount-available)
