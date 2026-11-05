@@ -5,6 +5,7 @@ import json
 import re
 import time
 import uuid
+import bot_broadcast
 import bot_payments
 import bot_accounts_admin
 import bot_account_controls
@@ -21,6 +22,7 @@ def core():
 
 def initialize(c):
     bot_account_controls.initialize(c)
+    bot_broadcast.initialize(c)
     farm_wallet.initialize_sources(c)
     c.execute('CREATE TABLE IF NOT EXISTS bot_controls(key text PRIMARY KEY,value bigint NOT NULL CHECK(value>=0))')
     c.execute('CREATE TABLE IF NOT EXISTS bot_payout_terms(id text PRIMARY KEY,fee bigint NOT NULL CHECK(fee>=0),net bigint NOT NULL CHECK(net>0))')
@@ -54,6 +56,7 @@ def panel(c, uid):
         [b.button('📊 Статистика','admin:statistics'),b.button('🧾 История оплат','admin:payments:all:0')],
         [{'text':'⭐ Stars','callback_data':'adm:stars'},{'text':'🐔 Ферма','callback_data':'adm:farm'}],
         [b.button('👥 Аккаунты игроков','admin:accounts:0'),b.button('🎬 Реклама','admin:ads')],
+        [b.button('📢 Рассылка','admin:broadcast')],
         [b.button('🔄 Обновить','admin'),b.button('⬅️ Мой кабинет','cabinet')]])
 
 
@@ -215,6 +218,8 @@ def copy_entry(c, uid, key):
 def admin(c, uid, text, action, api):
     b = core()
     ui = b.bot_ui
+    broadcast=bot_broadcast.route(c,uid,action,api) if action.startswith('admin:broadcast') else None
+    if broadcast is not None:return broadcast
     accounts=bot_accounts_admin.route(c,uid,action)
     if accounts is not None:return accounts
     moderation=b.bot_moderation.route(c,uid,action)
@@ -330,6 +335,8 @@ def input_text(c, uid, text, message, current, api):
     ui = b.bot_ui
     stage = current['state']
     data = current['data']
+    if stage == 'admin_broadcast_body':
+        return bot_broadcast.input_text(c,uid,text)
     if stage.startswith('admin_account_'):
         return bot_accounts_admin.input_text(c,uid,text,current)
     if stage.startswith('admin_task_'):
