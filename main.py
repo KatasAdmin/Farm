@@ -1335,8 +1335,10 @@ def buy(q:Request,authorization:str=Header(default="")):
    if pending:raise HTTPException(409,"Объявление продавца временно недоступно")
   ad_budget=ad_inventory.balance(c,p)
   sources=farm_wallet.balances(c,p)
-  market_cost=sum(x["price"]*n for x,n in chosen)
-  source_shares=farm_wallet.split_market_sources([(x['id'],x['price']*n) for x,n in chosen],sources,market_cost)
+  system_cost=system_quantity*system_price
+  source_receipts=[(x["id"],x["price"]*n) for x,n in chosen]
+  if system_cost:source_receipts.append(("__system__",system_cost))
+  source_shares=farm_wallet.split_market_sources(source_receipts,sources,cost)
   if q.item in ("chickens","geese","cows"):
    fed_col={"chickens":"fed_hens","geese":"fed_geese","cows":"fed_cows"}[q.item]
    c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s,"+fed_col+"="+fed_col+"+%s WHERE id=%s",(cost,q.amount,q.amount,p["id"]))
