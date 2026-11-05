@@ -85,17 +85,22 @@ class AdvertisingPollingBoundaries(AdvertisingFixture,unittest.TestCase):
 class AdvertisingTradeRoutes(AdvertisingFixture,unittest.TestCase):
  def setUp(self):
   super().setUp()
+  self.c.raw.create_function('LEAST',2,min)
   for sql in (
    'CREATE TABLE market(id text PRIMARY KEY,seller text,item text,quantity int,price int)',
    'CREATE TABLE economy(id int,treasury int)',
    'INSERT INTO economy VALUES(1,10000)',
    'CREATE TABLE stars_refund_intents(order_id text,status text)',
    'CREATE TABLE star_orders(id text,player_id text)',
-   'CREATE TABLE daily_activity(player_id text,day text,grain_bought int DEFAULT 0,eggs_listed int DEFAULT 0,PRIMARY KEY(player_id,day))',
+   'CREATE TABLE daily_activity(player_id text,day text,grain_bought int DEFAULT 0,eggs_listed int DEFAULT 0,eggs_produced int DEFAULT 0,PRIMARY KEY(player_id,day))',
    'CREATE TABLE farm_events(id text,player_id text,kind text,amount int,created real)',
    'CREATE TABLE market_trade_audit(id text,buyer_id text,seller_id text,item text,quantity int,coins int,created real)',
    'CREATE TABLE trade_risk_events(id text,buyer_id text,seller_id text,item text,quantity int,coins int,reason text,created real)',
    'CREATE TABLE incubation_jobs(id text PRIMARY KEY,player_id text,started real,hatch_at real,mature_at real)'
+   ,'CREATE TABLE animal_market_listings(id text PRIMARY KEY,seller text,item text,quantity_units bigint,ad_units bigint,price int,coins_received bigint DEFAULT 0,created real)'
+   ,'CREATE TABLE animal_market_balances(player_id text,item text,fraction_units bigint DEFAULT 0,ad_units bigint DEFAULT 0,coin_fraction_units bigint DEFAULT 0,PRIMARY KEY(player_id,item))'
+   ,'CREATE TABLE animal_market_cash_escrow(id int PRIMARY KEY,coins bigint)'
+   ,'INSERT INTO animal_market_cash_escrow VALUES(1,0)'
   ):self.c.execute(sql)
   self.c.raw.commit()
   def person(c,auth,lock=False):return c.execute('SELECT * FROM players WHERE id=%s',(auth,)).fetchone()
@@ -130,7 +135,7 @@ class AdvertisingTradeRoutes(AdvertisingFixture,unittest.TestCase):
   self.assertEqual(inv.balance(self.c,self.player()),0);self.assertEqual(main.farm_wallet.available(self.c,self.player()),0)
  def test_ad_eggs_incubation_and_maturity_preserve_tag(self):
   for field,default in [('incubator_owned','1'),('incubator_level','1')]:self.c.execute('ALTER TABLE players ADD COLUMN '+field+' int DEFAULT '+default)
-  self.c.execute("UPDATE players SET eggs=12,ad_eggs=1 WHERE id='p'");self.c.raw.commit()
+  self.c.execute("UPDATE players SET eggs=20,ad_eggs=1 WHERE id='p'");self.c.raw.commit()
   main.incubator_action(self.request('start'),'p')
   job=self.c.execute('SELECT * FROM incubation_jobs').fetchone()
   main.update_incubation(self.c,self.player(),job['mature_at'])

@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import psycopg
 from psycopg.rows import dict_row
 import farm_wallet
+import animal_market
 
 DSN = os.environ.get("TEST_DATABASE_URL")
 
@@ -29,7 +30,7 @@ class PostgresMarketLedgerTests(unittest.TestCase):
 
     def setUp(self):
         with self.connect() as c:
-            c.execute('DROP TABLE IF EXISTS staged_achievement_claims, daily_claims, weekly_claims, daily_activity, farm_events, market_trade_audit, reward_emission, incubator_jobs, farm_bot_transfers, star_orders, referral_codes, referrals, farm_money_sources, money_log, players, market CASCADE')
+            c.execute('DROP TABLE IF EXISTS animal_market_trades, animal_market_listings, animal_market_balances, animal_market_cash_escrow, staged_achievement_claims, daily_claims, weekly_claims, daily_activity, farm_events, market_trade_audit, reward_emission, incubator_jobs, farm_bot_transfers, star_orders, referral_codes, referrals, farm_money_sources, money_log, players, market CASCADE')
             c.execute('CREATE TABLE players(id text PRIMARY KEY, coins integer NOT NULL CHECK(coins>=0))')
             c.execute('CREATE TABLE money_log(id text PRIMARY KEY,player_id text NOT NULL,kind text NOT NULL,delta integer NOT NULL,details text,created double precision NOT NULL)')
             c.execute('CREATE TABLE market(id text PRIMARY KEY,seller text NOT NULL,quantity integer NOT NULL CHECK(quantity>=0),price integer NOT NULL CHECK(price>0))')
@@ -48,6 +49,16 @@ class PostgresMarketLedgerTests(unittest.TestCase):
             c.execute("INSERT INTO farm_money_sources VALUES('sale',0,100,0)")
             seller = c.execute("SELECT * FROM players WHERE id='seller'").fetchone()
             self.assertEqual(farm_wallet.available(c,seller),0)
+
+    def test_animal_market_migration_is_idempotent_and_preserves_accounts(self):
+        with self.connect() as c:
+            for item in animal_market.ANIMALS:
+                c.execute('ALTER TABLE players ADD COLUMN ad_'+item+' integer DEFAULT 0')
+            animal_market.initialize(c)
+            animal_market.initialize(c)
+            self.assertEqual(c.execute('SELECT COUNT(*) AS n FROM animal_market_balances').fetchone()['n'],6)
+            self.assertEqual(c.execute('SELECT SUM(coins) AS n FROM players').fetchone()['n'],100)
+            self.assertEqual(c.execute('SELECT coins FROM animal_market_cash_escrow WHERE id=1').fetchone()['coins'],0)
 
     def test_competing_buyers_cannot_oversell(self):
         # Mimics the actual market transaction's advisory lock and FOR UPDATE.
@@ -89,7 +100,7 @@ class PostgresMarketLedgerTests(unittest.TestCase):
         def incubate(i):
             try:
                 with self.connect() as c:
-                    c.execute("INSERT INTO incubator_jobs VALUES(%s,'buyer',1,12,15)",(str(i),))
+                    c.execute("INSERT INTO incubator_jobs VALUES(%s,'buyer',1,20,0)",(str(i),))
                 return True
             except psycopg.errors.UniqueViolation:
                 return False

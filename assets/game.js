@@ -588,8 +588,9 @@ function quote(item, n) {
     remaining -= count;
     if (remaining <= 0) break;
   }
+  const fromPlayers=n-remaining,fromSystem=item==="grain"?remaining:0;
   if(item==="grain")cost+=remaining*(state.shop.grain||2),remaining=0;
-  return { cost, remaining,fromPlayers:n-remaining,fromSystem:remaining };
+  return { cost, remaining,fromPlayers,fromSystem };
 }
 function drawPool() {
   if (!state) return;

@@ -15,15 +15,14 @@ class DB:
 
 class FeedTests(unittest.TestCase):
  def test_new_purchased_hens_are_fed_without_grain(self):
-  db=DB()
-  p={"id":"p","coins":1000,"chickens":2,"fed_hens":1,"grain":0,"eggs":0,"coop_level":3,"storage_level":3}
-  with patch.object(main,"db",return_value=db),patch.object(main,"person",return_value=p),patch.object(main,"advance",return_value=p):
-   main.shop(main.Request(item="chickens",amount=3),authorization="test")
-  updates=[(sql,args) for sql,args in db.calls if sql.startswith("UPDATE players SET coins")]
-  self.assertEqual(len(updates),1)
-  self.assertIn("fed_hens=fed_hens+%s",updates[0][0])
-  self.assertEqual(updates[0][1][1:3],(3,3))
-  self.assertFalse(any("grain=grain-" in sql for sql,_ in db.calls))
+  from test_animal_market_transactions import AnimalMarketTransactions
+  fixture=AnimalMarketTransactions();fixture.setUp()
+  fixture.c.execute("UPDATE players SET chickens=2,fed_hens=1,grain=0 WHERE id='a'")
+  fixture.c.raw.commit()
+  fixture.base.credit('a','stars_purchase',120,'first-feed-purchase')
+  fixture.buy('a','chickens',3)
+  purchased=fixture.base.p('a')
+  self.assertEqual((purchased['chickens'],purchased['fed_hens'],purchased['grain']),(5,4,0))
 
  def test_shared_feed_schedule(self):
   p=dict(chickens=5,fed_hens=5,grain=10,eggs=0,coins=100,

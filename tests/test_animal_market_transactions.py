@@ -124,5 +124,16 @@ class AnimalMarketTransactions(unittest.TestCase):
         self.assertEqual(self.c.execute('SELECT SUM(coins) AS n FROM players').fetchone()['n']+self.c.execute('SELECT coins FROM animal_market_cash_escrow').fetchone()['coins'],2200)
         self.assertEqual(self.c.execute('SELECT coins FROM animal_market_cash_escrow').fetchone()['coins'],0)
 
+    def test_base_incubator_takes_twenty_eggs_and_zero_coins(self):
+        self.c.execute('ALTER TABLE players ADD COLUMN incubator_owned int DEFAULT 0')
+        self.c.execute('ALTER TABLE players ADD COLUMN incubator_level int DEFAULT 1')
+        self.c.execute('CREATE TABLE incubation_jobs(id text,player_id text,started real,hatch_at real,mature_at real)')
+        self.c.execute("UPDATE players SET eggs=25 WHERE id='a'")
+        self.c.raw.commit()
+        self.assertEqual(self.run_as('a',main.incubator_action,main.Request(item='buy'))['spent'],0)
+        self.run_as('a',main.incubator_action,main.Request(item='start'))
+        self.assertEqual((self.base.p('a')['coins'],self.base.p('a')['eggs'],self.base.p('a')['incubator_level']),(0,5,1))
+        self.assertEqual(self.c.execute('SELECT COUNT(*) AS n FROM incubation_jobs').fetchone()['n'],1)
+
 
 if __name__ == '__main__':unittest.main()
