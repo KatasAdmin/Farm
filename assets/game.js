@@ -747,8 +747,13 @@ async function sellNow() {
   } catch(error){toast(error.message);}
 }
 function cancelLot(id) {
-  if (confirm("Вернуть непроданный остаток на склад?"))
-    perform("/api/cancel/" + id, {});
+  const lot=state?.my_listings?.find(x=>x.id===id);
+  if(!lot)return;
+  const value=prompt("Сколько снять с продажи? (от 1 до "+lot.quantity+")",String(lot.quantity));
+  if(value===null)return;
+  const count=Number(value);
+  if(!Number.isSafeInteger(count)||count<1||count>lot.quantity)return toast("Укажи целое количество от 1 до "+lot.quantity);
+  perform("/api/cancel/"+id+"?amount="+count,{});
 }
 function autoQuote(input) {
   const n = Number(input.value);
