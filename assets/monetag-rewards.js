@@ -38,8 +38,8 @@ function decorate(){
   const reason=!cfg?.enabled?(cfg?.reason||'Реклама недоступна'):working?'Реклама открывается':pending?'Дождитесь завершения действия':cfg?.remaining_today===0?'Дневной лимит 40/40':cfg?.remaining_hour===0?'Часовой лимит 10/10':cfg?.retry_after?'Следующая реклама через '+cfg.retry_after+' сек':typeof window['show_'+cfg?.zone_id]!=='function'?'Загружается реклама':!prepared.has(item)?'Подготавливаем рекламу':'';
   button.disabled=!!reason;
   button.title=reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' подтверждённых просмотров');
-  const rewardText=item==='coins'?'🎬 +2 монеты для покупок':'🎬 Получить '+(button.id==='free-grain-shortage'?'зерно ':'')+'бесплатно · '+(adProgress[item]||0)+'/'+r[0];
-  button.textContent=reason?'🎬 '+reason:rewardText;
+  const compactReason=reason?.includes('rewarded-зона')?'Скоро':reason?.includes('лимит')||reason?.includes('Лимит')?'Лимит':reason?.includes('через')?'Таймер':reason?.includes('Загружается')?'Загрузка':reason?.includes('открывается')?'Открывается':reason?.includes('Дождитесь')?'Ожидание':reason?'Недоступно':'';
+  button.textContent=reason?'🎬 '+compactReason:item==='coins'?'🎬 +2 монеты':'🎬 Бесплатно · '+(adProgress[item]||0)+'/'+r[0];
  });
 }
 async function sdk(config){
