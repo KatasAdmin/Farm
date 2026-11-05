@@ -119,7 +119,7 @@ class MonetagRewardsTests(AdFixture):
   self.report(a,event='started')
   for i in range(1,5):
    attempt=self.prepare(now=self.now+i)
-   ads.report(self.c,self.p(),attempt['ymid'],'started',now=self.now+i)
+   with self.c:ads.report(self.c,self.p(),attempt['ymid'],'started',now=self.now+i)
   with self.assertRaises(HTTPException):self.prepare(now=self.now+5)
   self.assertNotEqual(self.prepare(now=self.now+35)['ymid'],a['ymid'])
  def test_daily_cap_cannot_be_bypassed_by_a_forged_callback(self):
