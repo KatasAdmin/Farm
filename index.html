@@ -20,7 +20,7 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
     <script src="/assets/game.js?v=87" defer></script>
-    <link rel="stylesheet" href="/assets/fields.css?v=8">
+    <link rel="stylesheet" href="/assets/fields.css?v=9">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
   </head>
@@ -338,8 +338,8 @@
           <div class="product catalog-row market-card animals"><img src="/assets/cow-v1.webp" class="product-image" alt="Корова"><div class="product-copy"><h3>Корова</h3><small>Молоко / 8 ч · окупаемость ~20 дней</small><small>3 зерна / 18 ч · живёт в коровнике</small></div><strong class="price">500<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" onclick="showShop('cows')">Купить</button><button class="btn alt small" onclick="openSystemSell('cows')">Продать</button></div></div>
           <div class="product catalog-row market-card resources"><img src="/assets/milk-v1.webp" class="product-image" alt="Молоко"><div class="product-copy"><h3>Молоко</h3><small id="milk-available">Доступно: — шт.</small><small>У других фермеров · на складе: <b data-value="milk">0</b></small></div><strong class="price">11<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button id="milk-buy-button" class="btn small" onclick="selectBuy('milk')">Купить</button><button class="btn alt small" onclick="openSell('milk')">Продать</button></div></div>
           <div class="product catalog-row market-card resources"><span class="product-image feather-art" role="img" aria-label="Перо">🪶</span><div class="product-copy"><h3>Перо</h3><small>На складе: <b data-value="feathers">0</b> шт.</small><small>Советуем сохранить для развития фермы</small></div><strong class="price">5<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn alt small" onclick="openSystemSell('feathers')">Продать</button></div></div>
-          <div class="product catalog-row market-card equipment fields-market-row"><img class="product-image" src="/assets/combine.svg" alt="Комбайн"><div class="product-copy"><h3>Комбайн</h3><small>Обслуживает до 5 полей</small></div><strong class="price">200<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="fields-buy-combine-market" onclick="buyFieldItem('combine')">Купить</button></div></div>
           <div class="product catalog-row market-card equipment incubator-shop"><img src="/assets/redesign/incubator.webp" class="product-image" alt="Инкубатор"><div class="product-copy"><h3>Инкубатор</h3><small data-incubator-summary>Выведение цыплят</small></div><strong class="price"><span data-incubator-price>120</span><img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить</button></div></div>
+          <div class="product catalog-row market-card equipment fields-market-row"><img class="product-image" src="/assets/combine.svg" alt="Комбайн"><div class="product-copy"><h3>Комбайн</h3><small>Обслуживает до 5 полей</small></div><strong class="price">200<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="fields-buy-combine-market" onclick="buyFieldItem('combine')">Купить</button></div></div>
           </div>
           <details class="catalog-help"><summary>Корм и окупаемость животных</summary><div><p>Курица: 40 монет, яйцо каждые 6 часов, 1 зерно раз в 18 часов. Гусыня: 160 монет, яйцо каждые 2 часа, 2 зерна раз в 18 часов.</p><p>При постоянном корме и продаже всех яиц по 1 монете: курица окупается примерно за 30 дней, гусыня — за 24 дня. Перья в этот расчёт не входят.</p><p>Корова: 500 монет, молоко каждые 8 часов, 3 зерна каждые 18 часов. При продаже молока по 11 монет и зерне по 2 — около 25 монет чистыми в сутки и окупаемость около 20 дней. Продажа зависит от покупателей.</p><p>Гуси дают в среднем одно перо за 7 дней сытости на птицу. Можно копить для будущих производств или продавать системе по 5 монет. Для новых яиц, молока и перьев нужно место на складе.</p></div></details>
         </div>
@@ -899,6 +899,6 @@
     </dialog>
   <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
 <script src="/assets/fields.js?v=7" defer></script>
-<script src="/assets/monetag-rewards.js?v=4" defer></script>
+<script src="/assets/monetag-rewards.js?v=5" defer></script>
 </body>
 </html>
