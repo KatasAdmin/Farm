@@ -7,7 +7,7 @@ def initialize(c):
     c.execute("""CREATE TABLE IF NOT EXISTS bot_broadcasts(
       id text PRIMARY KEY, owner bigint NOT NULL, body text NOT NULL,
       status text NOT NULL CHECK(status IN ('draft','queued')),
-      created double precision NOT NULL, queued_at double precision)""")
+      created double precision NOT NULL, queued_at double precision, tested_at double precision)""")
 
 def screen(c,uid):
     import task_bot as b
@@ -16,7 +16,7 @@ def screen(c,uid):
     buttons=[[b.button('✍️ Создать рассылку','admin:broadcast:new')]]
     buttons += [[b.button(('📝 ' if r['status']=='draft' else '📨 ')+r['id'][:8], 'admin:broadcast:view:'+r['id'])] for r in rows]
     buttons.append([b.button('⬅️ Админ-панель','admin')])
-    return b.bot_ui.screen(uid,'📢 <b>Рассылки</b>\\n\\nПользователей в базе: '+str(total)+'\\nОтправка только после теста и отдельного подтверждения.',buttons)
+    return b.bot_ui.screen(uid,'📢 <b>Рассылки</b>\n\nПользователей в базе: '+str(total)+'\nОтправка только после теста и отдельного подтверждения.',buttons)
 
 def view(c,uid,bid):
     import task_bot as b
@@ -30,7 +30,7 @@ def view(c,uid,bid):
                  [b.button('🔐 Подготовить подтверждение','admin:broadcast:prepare:'+bid)],
                  [b.button('🗑 Удалить черновик','admin:broadcast:delete:'+bid)]]
     buttons.append([b.button('⬅️ Рассылки','admin:broadcast')])
-    return b.bot_ui.screen(uid,'📢 <b>Рассылка '+bid[:8]+'</b>\\nСтатус: '+r['status']+'\\nПолучателей в очереди: '+str(count)+'\\nПодтверждено доставок: '+str(sent)+'\\n\\n'+b.bot_ui.esc(r['body']),buttons)
+    return b.bot_ui.screen(uid,'📢 <b>Рассылка '+bid[:8]+'</b>\nСтатус: '+r['status']+'\nПолучателей в очереди: '+str(count)+'\nПодтверждено доставок: '+str(sent)+'\n\n'+b.bot_ui.esc(r['body']),buttons)
 
 def route(c,uid,action,api):
     import task_bot as b
@@ -47,16 +47,18 @@ def route(c,uid,action,api):
     if row['status']!='draft':raise b.UserError('Рассылка уже поставлена в очередь.')
     if kind=='test':
         # Only owner's own chat; failure is reported rather than silently ignored.
-        result=api('sendMessage',{'chat_id':uid,'text':'🧪 ТЕСТ РАССЫЛКИ\\n\\n'+row['body']})
+        result=api('sendMessage',{'chat_id':uid,'text':'🧪 ТЕСТ РАССЫЛКИ\n\n'+row['body']})
         if not isinstance(result,dict) or not result.get('message_id'):raise b.UserError('Тест не доставлен. Проверь бота.')
-        c.execute("UPDATE bot_broadcasts SET created=created WHERE id=%s",(bid,))
+        c.execute("UPDATE bot_broadcasts SET tested_at=%s WHERE id=%s",(time.time(),bid))
         return b.bot_ui.screen(uid,'✅ Тест отправлен только тебе. Проверь сообщение перед подтверждением.',[[b.button('⬅️ К рассылке','admin:broadcast:view:'+bid)]])
     if kind=='prepare':
+        if not row['tested_at']:raise b.UserError('Сначала отправь тест себе.')
         total=c.execute('SELECT count(*) n FROM bot_accounts WHERE uid>0').fetchone()['n']
         b.state(c,uid,'admin_broadcast_confirm',{'id':bid})
-        return b.bot_ui.screen(uid,'⚠️ <b>Последнее подтверждение</b>\\n\\nПолучателей: '+str(total)+'\\nПосле нажатия «Отправить всем» рассылка начнётся.\\n\\n'+b.bot_ui.esc(row['body']),[[b.button('🚀 Отправить всем','admin:broadcast:send:'+bid)],[b.button('❌ Отмена','admin:broadcast:view:'+bid)]])
+        return b.bot_ui.screen(uid,'⚠️ <b>Последнее подтверждение</b>\n\nПолучателей: '+str(total)+'\nПосле нажатия «Отправить всем» рассылка начнётся.\n\n'+b.bot_ui.esc(row['body']),[[b.button('🚀 Отправить всем','admin:broadcast:send:'+bid)],[b.button('❌ Отмена','admin:broadcast:view:'+bid)]])
     if kind=='send':
         st=b.state(c,uid)
+        if not row['tested_at']:raise b.UserError('Сначала отправь тест себе.')
         if not st or st['state']!='admin_broadcast_confirm' or st['data'].get('id')!=bid:
             raise b.UserError('Сначала открой подтверждение рассылки.')
         # Lock draft row and prevent duplicate enqueue from repeated callbacks.
