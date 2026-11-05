@@ -118,3 +118,34 @@
 
 /* Hens are already part of the new farm illustration. */
 #farm .farm-hero .flock{display:none!important}
+/* Vivid beveled controls and one continuous fields illustration. */
+#farm .farm-hero{overflow:hidden;border-radius:16px 16px 14px 14px}
+#farm .farm-landscape{object-position:center 54%;filter:saturate(1.28) contrast(1.04)}
+#farm .farm-hero:after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,transparent 48%,rgba(5,63,145,.08) 61%,rgba(5,63,145,.48) 84%,#0752a1 100%)!important}
+#farm .farm-hero h1{z-index:2}
+#farm .farm-tile{position:relative;isolation:isolate;overflow:hidden;border:2px solid #91eaff;border-radius:15px;background:linear-gradient(180deg,#58d7ff 0%,#20a7ee 14%,#0876d0 52%,#064389 100%);box-shadow:inset 0 2px 0 #ffffffd9,inset 0 -3px 0 #00295f99,0 2px 0 #052e68,0 6px 12px #001b4c99,0 0 0 1px #36caff66;color:#fff;text-shadow:0 2px 3px #002458;transition:transform .14s ease,filter .14s ease,box-shadow .14s ease}
+#farm .farm-tile:before{content:"";position:absolute;z-index:0;inset:1px;border-radius:12px;background:linear-gradient(180deg,#ffffff47 0%,#ffffff12 24%,transparent 57%,#001c4b24 100%);pointer-events:none}
+#farm .farm-tile>*{position:relative;z-index:1}
+#farm .farm-tile img{filter:drop-shadow(0 3px 3px #00173eaa)}
+#farm .farm-tile strong{font-weight:800;text-shadow:0 2px 2px #002656,0 0 6px #003b80}
+#farm .farm-tile:active{transform:translateY(2px);filter:brightness(1.12);box-shadow:inset 0 2px 0 #ffffffb0,inset 0 -1px 0 #00295f99,0 1px 0 #052e68,0 2px 5px #001b4c99}
+#farm .farm-tile-fields{background:linear-gradient(150deg,#fff07b 0%,#eab530 17%,#54c870 48%,#087244 100%)}
+#farm .farm-tile-future{opacity:1;background:linear-gradient(150deg,#63d6ff 0%,#2589e7 40%,#253d9c 100%)}
+#nav .nav-button{position:relative;border:1px solid #6bd7ff;border-radius:12px;background:linear-gradient(180deg,#187fca 0%,#0b5ba9 58%,#063b7e 100%);box-shadow:inset 0 1px 0 #ffffff99,inset 0 -2px 0 #00255899,0 3px 7px #001943aa;color:#fff;text-shadow:0 1px 3px #001e50}
+#nav .nav-button.active{background:linear-gradient(180deg,#45ddff 0%,#1498e8 44%,#0755b8 100%)!important;border-color:#a2f3ff;box-shadow:inset 0 2px 0 #ffffffdd,inset 0 -3px 0 #004397,0 0 0 1px #32d9ff,0 0 13px #00baff9c,0 4px 8px #001a4d!important}
+#nav .nav-button .nav-art img{filter:drop-shadow(0 3px 3px #00173eaa)}
+#nav .nav-button:active{transform:translateY(1px)}
+#fields .fields-v2-landscape-card{position:relative;margin:0 0 13px;height:clamp(390px,114vw,480px);overflow:hidden;border:1px solid #75e5ff;border-radius:16px;background:#1d7eae;box-shadow:inset 0 0 0 2px #b5f5ff75,0 6px 16px #001c4e80}
+#fields .fields-v2-landscape-image{display:block;width:100%;height:100%;object-fit:cover;object-position:center center;filter:saturate(1.18) contrast(1.03)}
+#fields .fields-v2-summary{position:absolute;z-index:2;top:34%;left:10px;right:10px;margin:0;border:1px solid #b1f1ff;border-radius:13px;background:linear-gradient(145deg,#0875cfef,#063c8def);box-shadow:inset 0 2px 0 #ffffffa8,inset 0 -2px 0 #002a67,0 5px 13px #001947a8;backdrop-filter:blur(5px)}
+#fields .fields-v2-summary>div{padding:9px 4px}
+#fields .fields-v2-plot-title{position:absolute;z-index:3;top:54%;left:12px;right:auto;max-width:fit-content;background:linear-gradient(180deg,#a6652def,#603217f2);border:1px solid #ffe0a0;border-radius:10px;padding:6px 10px;box-shadow:inset 0 1px #fff9,0 3px 8px #321900aa;color:#fff;text-shadow:0 2px 3px #2b1700}
+#fields .fields-v2-landscape-card>.fields-landscape{position:absolute;z-index:3;left:6%;right:6%;bottom:7%;display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:2px 3px;min-height:38px;padding:3px;background:transparent;pointer-events:none}
+#fields .fields-v2-landscape-card .wheat-plot{display:inline-flex;width:21px;height:20px;border:0;background:transparent;box-shadow:none;padding:0;filter:drop-shadow(0 2px 2px #593000bb)}
+#fields .fields-v2-landscape-card .wheat-plot img{width:100%;height:100%;object-fit:contain}
+#fields .fields-v2-landscape-card .fields-empty{min-height:0;padding:5px 10px;border:1px solid #d2f8ff;border-radius:999px;background:linear-gradient(180deg,#0e67b8e8,#05336fef);box-shadow:inset 0 1px 0 #ffffff66,0 3px 7px #001c46a8;color:#fff;text-shadow:0 1px 2px #001b45;font-size:12px}
+#fields .fields-v2-landscape-card .fields-more{padding:4px 9px;border:1px solid #ffffff55;border-radius:999px;background:#07417be8;box-shadow:0 2px 6px #001b45a8}
+#fields .fields-v2-expand{background:linear-gradient(145deg,#179be6 0%,#0871c4 38%,#063b83 100%);border-color:#9cecff;box-shadow:inset 0 2px 0 #ffffffa3,inset 0 -2px 0 #002c69,0 3px 0 #042d66,0 6px 12px #001b4c88}
+#fields .fields-v2-expand>img{filter:drop-shadow(0 3px 4px #00173e88)}
+#fields .fields-v2-expand .btn{background:linear-gradient(180deg,#d9a1ff 0%,#b458f4 20%,#8726db 58%,#5a17aa 100%);border:1px solid #efcaff;box-shadow:inset 0 2px 0 #ffffffa8,inset 0 -2px 0 #4b138a,0 3px 0 #381070,0 5px 8px #001a4e99;color:#fff;text-shadow:0 1px 3px #451075}
+@media(max-width:370px){#fields .fields-v2-summary{left:6px;right:6px}#fields .fields-v2-summary>div{padding:8px 2px}#fields .fields-v2-landscape-card .wheat-plot{width:18px;height:18px}}

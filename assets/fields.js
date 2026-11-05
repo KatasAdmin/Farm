@@ -35,7 +35,7 @@ function renderFields(){
    const tile=document.createElement("span");
    tile.className="wheat-plot";
    const art=document.createElement("img");
-   art.src="/assets/field-plot.svg";
+   art.src="/assets/illustrations/field-icon-v2.webp";
    art.alt="";
    art.loading="lazy";
    tile.appendChild(art);
@@ -81,7 +81,7 @@ function fieldPurchaseCelebration(item,result){
  const title=document.createElement("h2");
  title.textContent="Поздравляем!";
  const art=document.createElement("img");
- art.src=item==="field"?"/assets/field-plot.svg":"/assets/illustrations/combine-v1.webp";
+ art.src=item==="field"?"/assets/illustrations/field-icon-v2.webp":"/assets/illustrations/combine-icon-v2.webp";
  art.alt="";
  const message=document.createElement("p");
  const remaining=result.needs_combine

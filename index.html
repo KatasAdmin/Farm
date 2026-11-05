@@ -20,7 +20,7 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
     <script src="/assets/game.js?v=87" defer></script>
-    <link rel="stylesheet" href="/assets/fields.css?v=10">
+    <link rel="stylesheet" href="/assets/fields.css?v=11">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
   </head>
@@ -140,8 +140,8 @@
         <div class="farm-tiles-v2">
           <button type="button" class="farm-tile" onclick="tab('coop')"><img src="/assets/redesign/coop-icon.webp" alt=""><strong>Животные</strong></button>
           <button type="button" class="farm-tile" onclick="tab('storage')"><img src="/assets/redesign/storage.webp" alt=""><strong>Склад</strong></button>
-          <button type="button" class="farm-tile farm-tile-fields" onclick="tab('fields')"><img src="/assets/field-plot.svg" alt=""><strong>Поля</strong></button>
-          <div class="farm-tile farm-tile-future" aria-label="Производство появится позже"><img src="/assets/ui/factory-reference.svg" alt=""><strong>Производство</strong><small>Скоро</small></div>
+          <button type="button" class="farm-tile farm-tile-fields" onclick="tab('fields')"><img src="/assets/illustrations/field-icon-v2.webp" alt=""><strong>Поля</strong></button>
+          <div class="farm-tile farm-tile-future" aria-label="Производство появится позже"><img src="/assets/illustrations/factory-icon-v2.webp" alt=""><strong>Производство</strong><small>Скоро</small></div>
         </div>
         <details class="card launch-guide" id="launch-guide" hidden>
  <summary>🌱 Как начать играть? · подсказка для новичка</summary>
@@ -339,7 +339,7 @@
           <div class="product catalog-row market-card resources"><img src="/assets/milk-v1.webp" class="product-image" alt="Молоко"><div class="product-copy"><h3>Молоко</h3><small id="milk-available">Доступно: — шт.</small><small>У других фермеров · на складе: <b data-value="milk">0</b></small></div><strong class="price">11<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button id="milk-buy-button" class="btn small" onclick="selectBuy('milk')">Купить</button><button class="btn alt small" onclick="openSell('milk')">Продать</button></div></div>
           <div class="product catalog-row market-card resources"><span class="product-image feather-art" role="img" aria-label="Перо">🪶</span><div class="product-copy"><h3>Перо</h3><small>На складе: <b data-value="feathers">0</b> шт.</small><small>Советуем сохранить для развития фермы</small></div><strong class="price">5<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn alt small" onclick="openSystemSell('feathers')">Продать</button></div></div>
           <div class="product catalog-row market-card equipment incubator-shop"><img src="/assets/redesign/incubator.webp" class="product-image" alt="Инкубатор"><div class="product-copy"><h3>Инкубатор</h3><small data-incubator-summary>Выведение цыплят</small></div><strong class="price"><span data-incubator-price>120</span><img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить</button></div></div>
-          <div class="product catalog-row market-card equipment fields-market-row"><img class="product-image" src="/assets/illustrations/combine-v1.webp" alt="Комбайн"><div class="product-copy"><h3>Комбайн</h3><small>Обслуживает до 5 полей</small></div><strong class="price">200<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="fields-buy-combine-market" onclick="buyFieldItem('combine')">Купить</button></div></div>
+          <div class="product catalog-row market-card equipment fields-market-row"><img class="product-image" src="/assets/illustrations/combine-icon-v2.webp" alt="Комбайн"><div class="product-copy"><h3>Комбайн</h3><small>Обслуживает до 5 полей</small></div><strong class="price">200<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="fields-buy-combine-market" onclick="buyFieldItem('combine')">Купить</button></div></div>
           </div>
           <details class="catalog-help"><summary>Корм и окупаемость животных</summary><div><p>Курица: 40 монет, яйцо каждые 6 часов, 1 зерно раз в 18 часов. Гусыня: 160 монет, яйцо каждые 2 часа, 2 зерна раз в 18 часов.</p><p>При постоянном корме и продаже всех яиц по 1 монете: курица окупается примерно за 30 дней, гусыня — за 24 дня. Перья в этот расчёт не входят.</p><p>Корова: 500 монет, молоко каждые 8 часов, 3 зерна каждые 18 часов. При продаже молока по 11 монет и зерне по 2 — около 25 монет чистыми в сутки и окупаемость около 20 дней. Продажа зависит от покупателей.</p><p>Гуси дают в среднем одно перо за 7 дней сытости на птицу. Можно копить для будущих производств или продавать системе по 5 монет. Для новых яиц, молока и перьев нужно место на складе.</p></div></details>
         </div>
@@ -743,27 +743,25 @@
           <button class="fields-v2-back" onclick="tab('farm')" aria-label="Назад">‹</button>
           <div><h1>🌾 Поля</h1><p>Выращивай зерно для своих животных</p></div>
         </div>
-        <div class="fields-v2-panorama">
-          <img src="/assets/illustrations/fields-panorama-v1.webp" alt="Пшеничные поля и комбайн">
+        <div class="fields-v2-landscape-card">
+          <img class="fields-v2-landscape-image" src="/assets/illustrations/fields-full-v2.webp" alt="Комбайн, золотая пшеница и огороженный участок хозяйства">
           <div class="fields-v2-summary">
             <div><small>Поля</small><strong><span data-fields-count>0</span> / 500</strong></div>
             <div><small>Комбайны</small><strong id="fields-combines">0</strong></div>
             <div><small>Производство</small><strong><span data-fields-rate>0</span> <em>зерна/сутки</em></strong></div>
           </div>
-        </div>
-        <div class="fields-v2-plot">
           <div class="fields-v2-plot-title">Моё хозяйство</div>
-          <div class="fields-v2-plot-art"><img src="/assets/illustrations/wheat-plot-v1.webp" alt="Участок пшеницы"><div class="fields-landscape" id="fields-landscape"></div></div>
+          <div class="fields-landscape" id="fields-landscape"></div>
         </div>
         <h2 class="fields-v2-section-title">Управление хозяйством</h2>
         <div class="field-quantity" role="group" aria-label="Количество полей"><span>Количество:</span><button type="button" class="active" data-field-quantity="1" onclick="setFieldQuantity(1)">1</button><button type="button" data-field-quantity="5" onclick="setFieldQuantity(5)">5</button><button type="button" data-field-quantity="12" onclick="setFieldQuantity(12)">12</button><input id="fields-quantity-custom" type="number" min="1" max="500" value="1" aria-label="Своё количество полей" oninput="setFieldQuantity(this.value)"></div>
         <div class="fields-v2-expand">
-          <img src="/assets/field-plot.svg" alt="">
+          <img src="/assets/illustrations/field-icon-v2.webp" alt="">
           <div class="fields-v2-expand-copy"><strong>Расширить поля</strong><small id="fields-quantity-summary">+1 поле · всего до 500</small><small>Цена: <b id="fields-total-price">240</b> монет</small></div>
           <button class="btn small" id="fields-buy-plot" onclick="buyFieldItem('field')">Купить</button>
         </div>
         <div class="fields-v2-expand fields-combine-purchase">
-          <img src="/assets/illustrations/combine-v1.webp" alt="Комбайн">
+          <img src="/assets/illustrations/combine-icon-v2.webp" alt="Комбайн">
           <div class="fields-v2-expand-copy"><strong>Купить комбайн</strong><small>Обслуживает до 5 полей</small><small>Цена: 200 монет</small></div>
           <button class="btn small" id="fields-buy-combine" onclick="buyFieldItem('combine')">Купить</button>
         </div>
@@ -785,7 +783,7 @@
             alt=""
             decoding="async" /></span
         ><span>Ферма</span></button
-      ><button class="nav-button" onclick="tab('shop')" data-tab="shop"><span class="nav-art" aria-hidden="true"><img src="/assets/ui/factory-reference.svg" class="icon" alt=""></span><span>Рынок</span></button>
+      ><button class="nav-button" onclick="tab('shop')" data-tab="shop"><span class="nav-art" aria-hidden="true"><img src="/assets/illustrations/market-icon-v2.webp" class="icon" alt=""></span><span>Рынок</span></button>
       <button class="nav-button" onclick="tab('tasks')" data-tab="tasks"><span class="nav-art" aria-hidden="true"><img src="/assets/redesign/achievement.webp" class="icon" alt=""></span><span>Задания</span></button>
       <button class="nav-button" onclick="tab('wallet')" data-tab="wallet">
         <span class="nav-art" aria-hidden="true"
@@ -898,7 +896,7 @@
       </div>
     </dialog>
   <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
-<script src="/assets/fields.js?v=8" defer></script>
+<script src="/assets/fields.js?v=9" defer></script>
 <script src="/assets/monetag-rewards.js?v=5" defer></script>
 </body>
 </html>
