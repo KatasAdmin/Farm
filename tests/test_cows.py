@@ -85,6 +85,9 @@ class CowTradingTests(unittest.TestCase):
         self.c.execute('ALTER TABLE players ADD COLUMN milk int DEFAULT 0')
         self.c.execute('CREATE TABLE farm_events(id text,player_id text,kind text,amount int,created real)')
         self.c.execute('CREATE TABLE economy(id int,treasury int)');self.c.execute('INSERT INTO economy VALUES(1,10000)')
+        self.c.execute('CREATE TABLE animal_market_listings(id text,seller text,item text,quantity_units bigint,ad_units bigint,price int,coins_received bigint DEFAULT 0,created real)')
+        self.c.execute('CREATE TABLE animal_market_balances(player_id text,item text,fraction_units bigint DEFAULT 0,ad_units bigint DEFAULT 0,coin_fraction_units bigint DEFAULT 0,PRIMARY KEY(player_id,item))')
+        self.c.execute('CREATE TABLE animal_market_cash_escrow(id int,coins bigint)');self.c.execute('INSERT INTO animal_market_cash_escrow VALUES(1,0)')
         self.c.raw.commit()
     def test_buy_cow_price_capacity_shared_clock_and_bonus_buyback(self):
         self.f.credit('a','stars_purchase',1500,'paid')
@@ -93,9 +96,9 @@ class CowTradingTests(unittest.TestCase):
             main.shop(main.Request(item='cows',amount=2,expected_price=500),'Bearer a')
             p=self.f.p('a');self.assertEqual((p['cows'],p['fed_cows'],p['coins']),(2,2,500))
             with self.assertRaises(main.HTTPException):main.shop(main.Request(item='cows',amount=1,expected_price=500),'Bearer a')
-            main.sell_to_system(main.Request(item='cows',amount=1),'Bearer a')
-            p=self.f.p('a');self.assertEqual((p['cows'],p['fed_cows'],p['coins']),(1,1,750))
-            self.assertEqual(main.farm_wallet.balances(self.c,p),{'bonus':250,'purchased':500,'earned':0})
+            with self.assertRaises(main.HTTPException):main.sell_to_system(main.Request(item='cows',amount=1),'Bearer a')
+            p=self.f.p('a');self.assertEqual((p['cows'],p['fed_cows'],p['coins']),(2,2,500))
+            self.assertEqual(main.farm_wallet.balances(self.c,p),{'bonus':0,'purchased':500,'earned':0})
     def test_milk_fixed_price_market_bonus_provenance_and_storage_check(self):
         self.c.execute("UPDATE players SET milk=10 WHERE id='b'");self.c.raw.commit()
         with patch.object(main,'db',return_value=self.c),patch.object(main,'person',side_effect=lambda *a:self.f.p('b')),patch.object(main,'advance',side_effect=lambda c,p:p):

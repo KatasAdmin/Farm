@@ -46,7 +46,9 @@ class GeeseTests(unittest.TestCase):
         class DB:
             def __enter__(self):return self
             def __exit__(self,*args):return False
-            def execute(self,*args):raise AssertionError('Purchase should be rejected before mutation')
+            def execute(self,sql,*args):
+                if 'pg_advisory_xact_lock' in sql:return self
+                raise AssertionError('Purchase should be rejected before mutation')
         for level,hens,geese in [(2,0,0),(3,9,1)]:
             p=dict(self.birdfarm(hens,geese),id='p',coins=1000,coop_level=1,farmer_level=level)
             with patch.object(main,'db',return_value=DB()),patch.object(main,'person',return_value=p),patch.object(main,'advance',return_value=p):
@@ -62,6 +64,9 @@ class GooseTradingTests(unittest.TestCase):
         self.c.execute('CREATE TABLE economy(id int PRIMARY KEY,treasury int)')
         self.c.execute('INSERT INTO economy VALUES(1,1000)')
         self.c.execute('CREATE TABLE money_log(id text,player_id text,kind text,delta int,details text,created double precision)')
+        self.c.execute('CREATE TABLE animal_market_listings(id text,seller text,item text,quantity_units bigint,ad_units bigint,price int,coins_received bigint DEFAULT 0,created real)')
+        self.c.execute('CREATE TABLE animal_market_balances(player_id text,item text,fraction_units bigint DEFAULT 0,ad_units bigint DEFAULT 0,coin_fraction_units bigint DEFAULT 0,PRIMARY KEY(player_id,item))')
+        self.c.execute('CREATE TABLE animal_market_cash_escrow(id int,coins bigint)');self.c.execute('INSERT INTO animal_market_cash_escrow VALUES(1,0)')
         main.farm_wallet.initialize_sources(self.c)
         self.c.raw.commit()
     def player(self,*args):return self.c.execute("SELECT * FROM players WHERE id='p'").fetchone()
@@ -70,14 +75,14 @@ class GooseTradingTests(unittest.TestCase):
             main.shop(main.Request(item='geese',amount=2,expected_price=main.GOOSE_PRICE),'Bearer p')
             p=self.player()
             self.assertEqual((p['coins'],p['chickens'],p['geese'],p['fed_geese'],p['goose_xp']),(180,2,3,3,40))
-            main.sell_to_system(main.Request(item='geese',amount=2),'Bearer p')
-            p=self.player()
-            self.assertEqual((p['coins'],p['chickens'],p['geese'],p['fed_geese'],p['goose_xp']),(340,2,1,1,40))
-            self.assertEqual(main.farm_wallet.available(self.c,p),0)
-            self.assertEqual(self.c.execute('SELECT bonus FROM farm_money_sources').fetchone()['bonus'],160)
             with self.assertRaises(HTTPException):main.sell_to_system(main.Request(item='geese',amount=2),'Bearer p')
-        self.assertEqual(len(self.c.execute('SELECT * FROM money_log').fetchall()),2)
-        self.assertEqual(self.c.execute('SELECT treasury FROM economy').fetchone()['treasury'],1160)
+            p=self.player()
+            self.assertEqual((p['coins'],p['chickens'],p['geese'],p['fed_geese'],p['goose_xp']),(180,2,3,3,40))
+            self.assertEqual(main.farm_wallet.available(self.c,p),0)
+            self.assertIsNone(self.c.execute('SELECT bonus FROM farm_money_sources').fetchone())
+            with self.assertRaises(HTTPException):main.sell_to_system(main.Request(item='geese',amount=2),'Bearer p')
+        self.assertEqual(len(self.c.execute('SELECT * FROM money_log').fetchall()),1)
+        self.assertEqual(self.c.execute('SELECT treasury FROM economy').fetchone()['treasury'],1320)
 
     def test_old_or_missing_price_cannot_charge_the_new_price(self):
         with patch.object(main,'db',return_value=self.c),patch.object(main,'person',side_effect=self.player),patch.object(main,'advance',side_effect=lambda c,p:p):

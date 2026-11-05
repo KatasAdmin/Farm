@@ -48,6 +48,7 @@ class FeatherSalesTests(unittest.TestCase):
     def setUp(self):
         self.base=geese_base.GooseTradingTests();self.base.setUp();self.c=self.base.c
         self.c.execute('ALTER TABLE players ADD COLUMN feathers int DEFAULT 0')
+        self.c.execute('CREATE TABLE market(id text,seller text,item text,quantity int,price int)')
         self.c.execute("UPDATE players SET feathers=2 WHERE id='p'");self.c.raw.commit()
     def test_sale_at_five_and_cannot_resell_consumed_stock(self):
         with patch.object(main,'db',return_value=self.c),patch.object(main,'person',side_effect=self.base.player),patch.object(main,'advance',side_effect=lambda c,p:p):
