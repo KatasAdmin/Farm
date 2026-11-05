@@ -93,9 +93,12 @@ class CowTradingTests(unittest.TestCase):
             main.shop(main.Request(item='cows',amount=2,expected_price=500),'Bearer a')
             p=self.f.p('a');self.assertEqual((p['cows'],p['fed_cows'],p['coins']),(2,2,500))
             with self.assertRaises(main.HTTPException):main.shop(main.Request(item='cows',amount=1,expected_price=500),'Bearer a')
-            main.sell_to_system(main.Request(item='cows',amount=1),'Bearer a')
-            p=self.f.p('a');self.assertEqual((p['cows'],p['fed_cows'],p['coins']),(1,1,750))
-            self.assertEqual(main.farm_wallet.balances(self.c,p),{'bonus':250,'purchased':500,'earned':0})
+            with self.assertRaises(main.HTTPException) as error:
+                main.sell_to_system(main.Request(item='cows',amount=1),'Bearer a')
+            self.assertEqual(error.exception.status_code,400)
+            p=self.f.p('a')
+            self.assertEqual((p['cows'],p['fed_cows'],p['coins']),(2,2,500))
+
     def test_milk_fixed_price_market_bonus_provenance_and_storage_check(self):
         self.c.execute("UPDATE players SET milk=10 WHERE id='b'");self.c.raw.commit()
         with patch.object(main,'db',return_value=self.c),patch.object(main,'person',side_effect=lambda *a:self.f.p('b')),patch.object(main,'advance',side_effect=lambda c,p:p):
