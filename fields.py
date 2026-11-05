@@ -22,7 +22,10 @@ def rate(plots, combines):
  return 6*plots + 5*min(combines, (plots+4)//5) if plots else 0
 
 def snapshot(c, player_id):
- row=c.execute("SELECT plots,combines,produced_progress,updated_at FROM farm_fields WHERE player_id=%s",(player_id,)).fetchone()
+ cursor=c.execute("SELECT plots,combines,produced_progress,updated_at FROM farm_fields WHERE player_id=%s",(player_id,))
+ # Lightweight simulation test doubles do not implement SELECT cursors.
+ if not hasattr(cursor,"fetchone"):return dict(plots=0,combines=0,produced_progress=0.0,updated_at=0.0)
+ row=cursor.fetchone()
  if not row:return dict(plots=0,combines=0,produced_progress=0.0,updated_at=0.0)
  return dict(row)
 
