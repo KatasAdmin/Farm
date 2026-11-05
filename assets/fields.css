@@ -96,15 +96,16 @@
 .market-categories button.active{background:linear-gradient(155deg,#22b8ed,#0756a5);border-color:#9cecff;box-shadow:0 0 9px #5edcff77,inset 0 1px #ffffff88}
 .market-categories img{width:23px;height:24px;object-fit:contain}
 .market-product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
-#shop .market-card[hidden]{display:none!important}
+#shop .shop-catalog .market-card[hidden]{display:none!important}
 #shop .shop-catalog .market-card{position:relative;display:grid!important;grid-template-columns:37px minmax(0,1fr);grid-template-rows:minmax(45px,auto) auto auto;align-content:start;align-items:center;gap:4px 6px;min-width:0;min-height:132px;padding:8px!important;margin:0;border:1px solid #55b9f0;border-radius:12px;background:linear-gradient(155deg,#146bb0,#07346f);box-shadow:inset 0 1px #d2f5ff44,0 3px 7px #00194177}
 #shop .market-card>.product-image{grid-column:1;grid-row:1;width:36px;height:42px;object-fit:contain}
 #shop .market-card>.product-copy{grid-column:2;grid-row:1;min-width:0}
 #shop .market-card h3{font-size:14px!important;overflow-wrap:anywhere}
 #shop .market-card small{font-size:10px!important;line-height:1.25!important;display:block}
 #shop .market-card>.price{grid-column:1/2;grid-row:2;justify-content:flex-start;font-size:12px!important}
-#shop .market-card .trade-dual-actions{grid-column:1/-1!important;grid-row:3!important;display:flex!important;gap:4px!important;width:100%!important;max-width:none!important}
-#shop .market-card .trade-dual-actions .btn{flex:1;min-width:0!important;min-height:31px!important;padding:5px 3px!important;font-size:11px!important}
+#shop .market-card .trade-dual-actions{grid-column:1/-1!important;grid-row:3!important;display:flex!important;align-items:flex-start!important;gap:4px!important;width:100%!important;max-width:none!important;height:auto!important}
+#shop .market-card .trade-dual-actions .btn{flex:1;align-self:flex-start;min-width:0!important;width:auto!important;height:auto!important;min-height:31px!important;padding:5px 3px!important;font-size:10px!important;line-height:1.1!important}
+#shop .market-card .ad-free-button{min-height:31px!important;padding:5px 2px!important;font-size:10px!important}
 #shop .market-card .product-image.feather-art{font-size:28px}
 #fields .fields-v2-section-title{margin-top:10px}
 .field-quantity{display:flex;align-items:center;gap:6px;margin:0 10px 8px;font-size:12px;color:#e7f6ff}
