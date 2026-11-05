@@ -26,7 +26,7 @@ for(const animal of ['chickens','geese','cows']){
  const card=d.querySelector(`[data-animal-card="${animal}"]`);assert.ok(card,animal+' card');
  const buttons=[...card.querySelectorAll('.buttons>button')];assert.equal(buttons.length,2);
  assert.equal(buttons[0].getAttribute('onclick'),`showShop('${animal}')`);
- assert.equal(buttons[1].getAttribute('onclick'),`openSystemSell('${animal}')`);
+assert.equal(buttons[1].getAttribute('onclick'),`openSell('${animal}')`);
 }
 assert.equal(d.querySelectorAll('#farm details.forecast-card').length,1);
 assert.equal(d.querySelector('.farm-footer-links'),null);
