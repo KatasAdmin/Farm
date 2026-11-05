@@ -46,7 +46,9 @@ class GeeseTests(unittest.TestCase):
         class DB:
             def __enter__(self):return self
             def __exit__(self,*args):return False
-            def execute(self,*args):raise AssertionError('Purchase should be rejected before mutation')
+            def execute(self,*args):
+                if 'pg_advisory_xact_lock' in args[0]:return None
+                raise AssertionError('Purchase should be rejected before mutation')
         for level,hens,geese in [(2,0,0),(3,9,1)]:
             p=dict(self.birdfarm(hens,geese),id='p',coins=1000,coop_level=1,farmer_level=level)
             with patch.object(main,'db',return_value=DB()),patch.object(main,'person',return_value=p),patch.object(main,'advance',return_value=p):
