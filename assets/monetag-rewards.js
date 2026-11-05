@@ -1,19 +1,20 @@
 /* Monetag SDK callbacks are telemetry only. Rewards come from authenticated postbacks. */
 (()=>{
 'use strict';
-let cfg=null,owner='',working=false,recovering=null,lastRecover=0,sdkZone=null,cooldownUntil=0;
+let cfg=null,owner='',working=false,recovering=null,lastRecover=0,sdkZone=null,adsgramController=null,adsgramBlock=null,cooldownUntil=0;
 const prepared=new Map(),timers=new Set();
 const labels={grain:'зерно',eggs:'яйца',milk:'молоко',chickens:'курицу',geese:'гусыню',cows:'корову',coins:'монеты для покупок'};
-const states={pending:'Ожидается подтверждение Monetag',unconfirmed:'Подтверждение не получено. Попытка сохранена в истории',non_valued:'Событие сохранено. Для награды нужен подтверждённый показ',sdk_error:'Реклама недоступна, попробуйте позже',rate_limited:'Лимит рекламы, попробуйте позже'};
+const states={test_completed:'Тестовый просмотр завершён',test_pending:'Тестовый просмотр запущен',test_no_fill:'Нет рекламы для показа',test_skipped:'Тестовая реклама пропущена',test_sdk_error:'Ошибка AdsGram',test_timeout:'Истекло время теста',pending:'Ожидается подтверждение Monetag',unconfirmed:'Подтверждение не получено. Попытка сохранена в истории',non_valued:'Событие сохранено. Для награды нужен подтверждённый показ',sdk_error:'Реклама недоступна, попробуйте позже',rate_limited:'Лимит рекламы, попробуйте позже'};
 const contextKey=()=>String(token||'')+'|'+(tgInitData()?'telegram':'web');
-const adApi=(path,payload)=>api('/api/ads/monetag/'+path,payload,tgInitData()?{'X-Telegram-Init-Data':tgInitData()}:{});
-const safeReport=(ymid,event,extra={})=>adApi('event',{ymid,event,...extra});
+const adApi=(path,payload)=>api('/api/ads/'+path,payload,tgInitData()?{'X-Telegram-Init-Data':tgInitData()}:{});
+const safeReport=(ymid,event,extra={})=>adApi('monetag/event',{ymid,event,...extra});
 function notify(message){toast(message);const node=el('ad-inline-status');if(node)node.textContent=message;}
 function itemButton(item){
  const button=document.createElement('button');button.type='button';button.className='btn alt small ad-free-button';button.dataset.adFree=item;
  button.addEventListener('click',()=>watch(button.dataset.adFree));return button;
 }
 function decorate(){
+ if(!cfg?.visible)return;
  // Advertising purchasing credit can pay for any existing purchase or upgrade.
  document.querySelectorAll('[onclick]').forEach(b=>{if(!(b.getAttribute('onclick')||'').startsWith('upgradeBuilding(')&&!['incubator-action','incubator-upgrade','bundle-buy'].includes(b.id))return;if(!b.nextElementSibling?.matches('[data-ad-free="coins"]'))b.insertAdjacentElement('afterend',itemButton('coins'));});
 
@@ -34,12 +35,13 @@ function decorate(){
  const shortage=el('free-grain-shortage');if(shortage)shortage.hidden=!(state?.farm?.effective_grain_shortage>0);
  document.querySelectorAll('[data-ad-free]').forEach(button=>{
   const item=button.dataset.adFree;const r=adRewards[item];if(!r)return;
-  const ready=cfg?.enabled&&!cfg.retry_after&&cfg.remaining_today&&cfg.remaining_hour&&prepared.has(item)&&typeof window['show_'+cfg.zone_id]==='function';
-  const reason=!cfg?.enabled?(cfg?.reason||'Реклама недоступна'):working?'Реклама открывается':pending?'Дождитесь завершения действия':cfg?.remaining_today===0?'Дневной лимит 40/40':cfg?.remaining_hour===0?'Часовой лимит 10/10':cfg?.retry_after?'Следующая реклама через '+cfg.retry_after+' сек':typeof window['show_'+cfg?.zone_id]!=='function'?'Загружается реклама':!prepared.has(item)?'Подготавливаем рекламу':'';
+  const test=cfg.provider==='adsgram';
+  const sdkReady=test?!!adsgramController:typeof window['show_'+cfg.zone_id]==='function';
+  const reason=!cfg?.enabled?(cfg?.reason||'Реклама недоступна'):working?'Реклама открывается':pending?'Дождитесь завершения действия':cfg?.remaining_today===0?'Дневной лимит '+cfg.daily_limit+'/'+cfg.daily_limit:cfg?.remaining_hour===0?'Часовой лимит 10/10':cfg?.retry_after?'Следующая реклама через '+cfg.retry_after+' сек':!sdkReady?'Загружается реклама':!test&&!prepared.has(item)?'Подготавливаем рекламу':'';
   button.disabled=!!reason;
-  button.title=reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' подтверждённых просмотров');
+  button.title=reason||(test?'Тестовый просмотр без начислений':'Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' подтверждённых просмотров');
   const compactReason=reason?.includes('rewarded-зона')?'Скоро':reason?.includes('лимит')||reason?.includes('Лимит')?'Лимит':reason?.includes('через')?'Таймер':reason?.includes('Загружается')?'Загрузка':reason?.includes('открывается')?'Открывается':reason?.includes('Дождитесь')?'Ожидание':reason?'Недоступно':'';
-  button.textContent=reason?'🎬 '+compactReason:item==='coins'?'🎬 +2 монеты':'🎬 Бесплатно · '+(adProgress[item]||0)+'/'+r[0];
+  button.textContent=reason?'🎬 '+compactReason:test?'🎬 Тест AdsGram':item==='coins'?'🎬 +2 монеты':'🎬 Бесплатно · '+(adProgress[item]||0)+'/'+r[0];
  });
 }
 async function sdk(config){
@@ -53,13 +55,28 @@ async function sdk(config){
   script.onerror=()=>{clearTimeout(timeout);sdkZone=null;script.remove();reject(Error('Реклама недоступна, попробуйте позже'));};document.head.appendChild(script);
  });
 }
+async function loadAdsGram(config){
+ if(adsgramController&&adsgramBlock===config.block_id)return;
+ if(!window.Adsgram?.init){
+  await new Promise((resolve,reject)=>{
+   const script=document.createElement('script');script.src=config.sdk_url;
+   const failed=()=>{clearTimeout(timer);script.remove();reject(Error('SDK AdsGram не загрузился'));};
+   const timer=setTimeout(failed,10000);
+   script.onload=()=>{clearTimeout(timer);resolve();};script.onerror=failed;
+   document.head.appendChild(script);
+  });
+ }
+ if(!window.Adsgram?.init)throw Error('SDK AdsGram не загрузился');
+ adsgramController=window.Adsgram.init({blockId:config.block_id,debug:true,debugConsole:false,debugBannerType:'RewardedVideo'});
+ adsgramBlock=config.block_id;
+}
 async function reserve(){
  if(!cfg?.enabled||cfg.retry_after||!cfg.remaining_today||!cfg.remaining_hour)return;
  const session=owner;
  await Promise.all(Object.keys(adRewards).map(async item=>{
   if(prepared.get(item)?.expires_at>Date.now()/1000+20)return;
   prepared.delete(item);
-  try{const value=await adApi('prepare',{item});if(owner===session)prepared.set(item,value);}catch(_){}
+  try{const value=await adApi('monetag/prepare',{item});if(owner===session)prepared.set(item,value);}catch(_){}
  }));decorate();
 }
 function historyUI(data){
@@ -78,12 +95,16 @@ async function recover(force=false){
  recovering=(async()=>{
   try{
    const data=await adApi('status');if(owner!==session)return;
-   cfg=data;cooldownUntil=Date.now()+Math.max(0,Number(data.retry_after)||0)*1000;if(!data.enabled){const note=el('ad-inline-status');if(note)note.textContent=data.reason||'Рекламные награды пока настраиваются';}
+   if(cfg?.provider!==data.provider)prepared.clear();
+   cfg=data;
+   const paused=el('rewarded-ads-ui-paused');if(paused)paused.media=data.visible?'not all':'all';
+   if(!data.visible)return;
+   cooldownUntil=Date.now()+Math.max(0,Number(data.retry_after)||0)*1000;if(!data.enabled){const note=el('ad-inline-status');if(note)note.textContent=data.reason||'Рекламные награды пока настраиваются';}
    adProgress=Object.fromEntries(Object.entries(data.rewards||{}).map(([k,v])=>[k,v.progress]));
    historyUI(data);const wallet=el('wallet');if(wallet&&!el('ad-purchase-credit')){const b=itemButton('coins');b.id='ad-purchase-credit';wallet.prepend(b);}decorate();
    if(data.granted?.length){notify('Награда получена');await refresh();}
    if(data.pending)notify('Награда сохранена. Освободите место на складе или для птицы');
-   if(data.enabled){try{await sdk(data);await reserve();}catch(error){notify(error.message);}}
+   if(data.enabled){try{if(data.provider==='adsgram')await loadAdsGram(data);else{await sdk(data);await reserve();}}catch(error){notify(error.message);}}
   }catch(error){if(force)notify(error.message);}finally{recovering=null;decorate();}
  })();return recovering;
 }
@@ -101,10 +122,44 @@ function schedulePoll(ymid,item,deadline){
   }catch(_){notify('Не удалось проверить результат. Попытка сохранена на сервере');}
  },5000);timers.add(timer);
 }
+async function watchAdsGram(item){
+ if(!adsgramController)return;
+ working=true;decorate();
+ const session=owner,controller=adsgramController;
+ let attempt,timer,result='sdk_error';
+ const noFill=()=>{result='no_fill';};
+ const skipped=()=>{result='skipped';};
+ try{
+  attempt=await adApi('adsgram/start',{item});
+  if(owner!==session||contextKey()!==session)return;
+  controller.addEventListener('onBannerNotFound',noFill);
+  controller.addEventListener('onSkip',skipped);
+  const answer=await Promise.race([
+   controller.show(),
+   new Promise((_,reject)=>{timer=setTimeout(()=>{result='timeout';reject(Error('timeout'));},90000);})
+  ]);
+  if(answer?.done&&!answer.error)result='completed';
+ }catch(error){
+  if(!attempt)notify(error.message||'Реклама недоступна, попробуйте позже');
+ }finally{
+  clearTimeout(timer);
+  controller.removeEventListener('onBannerNotFound',noFill);
+  controller.removeEventListener('onSkip',skipped);
+  if(result==='timeout')controller.destroy();
+  if(attempt&&owner===session&&contextKey()===session){
+   try{await adApi('adsgram/finish',{ymid:attempt.ymid,result});notify(states['test_'+result]);}
+   catch(_){notify('Не удалось сохранить результат теста');}
+   await recover(true);
+  }
+  working=false;decorate();
+ }
+}
 async function watch(item){
  if(working||pending||!adRewards[item])return;
  if(owner!==contextKey()){prepared.clear();recover(true);notify('Обновляем настройки рекламы');return;}
  if(cfg?.retry_after||cfg?.remaining_today===0||cfg?.remaining_hour===0){notify('Лимит рекламы, попробуйте позже');recover(true);return;}
+ if(!cfg?.visible||!cfg.enabled)return;
+ if(cfg.provider==='adsgram')return watchAdsGram(item);
  const attempt=prepared.get(item);
  if(!attempt||attempt.expires_at<=Date.now()/1000||!cfg?.enabled){notify(cfg?.reason||'Реклама подготавливается. Попробуйте через несколько секунд');recover(true);return;}
  const show=window['show_'+attempt.zone_id];if(typeof show!=='function'){notify('Реклама недоступна, попробуйте позже');return;}

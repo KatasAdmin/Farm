@@ -69,9 +69,9 @@ class MonetagRewardsTests(AdFixture):
   a=self.prepare();self.report(a,result='valued')
   s=ads.status(self.c,self.p(),'telegram',self.now+121);self.assertEqual(s['history'][0]['state'],'unconfirmed')
   self.post(a,reward_event_type='non_valued',estimated_price='0')
-  self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now)['history'][0]['state'],'credited')
-  self.assertEqual(self.deliver()['granted'],[{'item':'grain','quantity':1}])
-  self.assertFalse(self.post(a)['rewarded'])
+  self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now)['history'][0]['state'],'non_valued')
+  self.assertEqual(self.deliver()['granted'],[])
+  self.assertTrue(self.post(a)['rewarded'])
  def test_undefined_sdk_result_does_not_wait_forever(self):
   a=self.prepare();self.report(a)
   self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now)['history'][0]['state'],'unconfirmed')
@@ -85,10 +85,12 @@ class MonetagRewardsTests(AdFixture):
   self.post(a);self.post(a,sub_zone_id=1000);self.deliver()
   self.assertEqual(self.p()['grain'],1)
   self.assertEqual(ads.statistics(self.c)['estimated_usd'],'0.0037')
- def test_progress_is_persistent_and_shared_between_platforms(self):
+ def test_progress_is_persistent_and_visible_in_browser(self):
   a=self.prepare('eggs');self.post(a,request_var='eggs_reward')
   s=ads.status(self.c,self.p(),'web',self.now);self.assertEqual(s['rewards']['eggs']['progress'],1)
-  b=self.prepare('eggs','web',self.now+31);self.post(b,request_var='22334455_eggs_reward',now=self.now+31)
+  with self.assertRaises(HTTPException) as denied:self.prepare('eggs','web',self.now+31)
+  self.assertEqual(denied.exception.status_code,503)
+  b=self.prepare('eggs','telegram',self.now+31);self.post(b,request_var='eggs_reward',now=self.now+31)
   self.assertEqual(self.deliver()['granted'],[{'item':'eggs','quantity':2}])
   self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now+31)['rewards']['eggs']['progress'],0)
  def test_stock_capacity_defers_instead_of_losing_or_overflowing_rewards(self):
@@ -177,22 +179,31 @@ class ExpandedAdvertisingRewards(AdFixture):
   self.assertEqual((self.p()['ad_cows'],self.p()['ad_geese'],self.p()['fed_cows'],self.p()['fed_geese']),(1,1,1,1))
 
 class UnpaidImpressionRewards(AdFixture):
- def test_unpaid_impression_earns_goods_once_but_never_counts_as_paid_income(self):
-  a=self.prepare();self.assertTrue(self.post(a,reward_event_type='non_valued',estimated_price='0')['rewarded'])
-  self.assertFalse(self.post(a,reward_event_type='non_valued',estimated_price='0')['rewarded'])
-  self.deliver();self.deliver();self.assertEqual(self.p()['grain'],1)
-  stats=ads.statistics(self.c);self.assertEqual((stats['total']['credited'],stats['total']['paid'],stats['total']['unpaid']),(1,0,1));self.assertIsNone(stats['estimated_usd'])
-  self.assertFalse(self.post(a)['rewarded']);self.deliver();self.assertEqual(self.p()['grain'],1)
+ def test_unpaid_impression_is_deduplicated_telemetry_and_never_earns_goods(self):
+  a=self.prepare()
+  for _ in range(2):
+   self.assertFalse(self.post(a,reward_event_type='non_valued',estimated_price='0')['rewarded'])
+  self.assertEqual(self.deliver()['granted'],[])
+  self.assertEqual(self.p()['grain'],0)
+  self.assertEqual(self.c.execute('SELECT count(*) AS n FROM monetag_postback_events').fetchone()['n'],1)
+  stats=ads.statistics(self.c)
+  self.assertEqual((stats['total']['credited'],stats['total']['paid'],stats['total']['unpaid']),(0,0,1))
+  self.assertIsNone(stats['estimated_usd'])
+  self.assertTrue(self.post(a)['rewarded'])
+  self.assertFalse(self.post(a)['rewarded'])
+  self.deliver()
+  self.assertEqual(self.p()['grain'],1)
   self.assertEqual(ads.statistics(self.c)['total']['paid'],1)
  def test_unpaid_click_is_not_a_view_and_sdk_cannot_forge_a_reward(self):
   a=self.prepare();self.post(a,event_type='click',reward_event_type='non_valued',estimated_price='0')
   self.report(a,result='non_valued');self.assertEqual(self.deliver()['granted'],[])
   self.assertEqual(ads.statistics(self.c)['total']['paid'],0)
- def test_unpaid_views_keep_threshold_progress_across_reload(self):
+ def test_unpaid_views_never_advance_threshold_progress_across_reload(self):
   for i in range(2):
    self.now+=4000;a=self.prepare('eggs');self.post(a,request_var='eggs_reward',reward_event_type='non_valued',estimated_price='0')
-   self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now)['rewards']['eggs']['progress'],(i+1)%2)
-  self.deliver();self.assertEqual(self.p()['eggs'],2)
+   self.assertEqual(ads.status(self.c,self.p(),'telegram',self.now)['rewards']['eggs']['progress'],0)
+  self.assertEqual(self.deliver()['granted'],[])
+  self.assertEqual(self.p()['eggs'],0)
 
 @unittest.skipUnless(importlib.util.find_spec('httpx'),'Install requirements-test.txt for API tests')
 class AdsApiTests(AdFixture):
@@ -213,9 +224,10 @@ class AdsApiTests(AdFixture):
   self.assertEqual(response.status_code,200,response.text)
   self.assertEqual(self.p()['grain'],1)
   self.assertEqual(self.client.get('/api/ads/monetag/postback',params={**params,'secret':'wrong'}).status_code,403)
- def test_http_web_prepare_and_claim_recover_after_reload(self):
+ def test_http_web_prepare_blocked_and_old_claim_recovers_after_reload(self):
   response=self.client.post('/api/ads/monetag/prepare',headers={'Authorization':'Bearer test-user'},json={'item':'grain'})
-  self.assertEqual(response.status_code,200,response.text);a=response.json();self.assertEqual(a['zone_id'],22334455)
+  self.assertEqual(response.status_code,503,response.text)
+  a=self.prepare()
   self.post(a,request_var='grain_reward');response=self.client.get('/api/ads/monetag/status',headers={'Authorization':'Bearer test-user'})
   self.assertEqual(response.status_code,200,response.text);self.assertEqual(self.p()['grain'],1)
   self.client.get('/api/ads/monetag/status',headers={'Authorization':'Bearer test-user'});self.assertEqual(self.p()['grain'],1)

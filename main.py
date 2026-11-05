@@ -7,6 +7,7 @@ import market_allocation
 import incubation_rules
 import stars_validation
 import monetag_ads
+import adsgram_ads
 import ad_inventory
 import farm_ranking
 import release_grants
@@ -50,6 +51,7 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS monetag_reward_grants(id text PRIMARY KEY,player_id text NOT NULL,item text NOT NULL,quantity integer NOT NULL CHECK(quantity>0),created double precision NOT NULL,claimed_at double precision)")
   c.execute("CREATE INDEX IF NOT EXISTS monetag_reward_grants_player_idx ON monetag_reward_grants(player_id,claimed_at)")
   monetag_ads.initialize(c)
+  adsgram_ads.initialize(c)
   ad_inventory.initialize(c)
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
@@ -481,7 +483,11 @@ def advance(c,p,now=None):
  c.execute("UPDATE players SET coins=%s,grain=%s,eggs=%s,chickens=%s,satiety=%s,critical_cycles=%s,fed_hens=%s,feed_phase=%s,last_tick=%s WHERE id=%s",tuple(result[k] for k in ("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick"))+(p["id"],))
  return upgrade_production(c,update_incubation(c,result,now),now)
 @app.get("/",response_class=HTMLResponse)
-def index():return HTMLResponse(open("index.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
+def index():
+ markup=open("index.html",encoding="utf8").read()
+ if os.getenv("FARM_ADS_UI_ENABLED")=="1" or adsgram_ads.config("telegram")["enabled"]:
+  markup=markup.replace("<!-- farm-rewarded-ads-script -->",'<script src="/assets/monetag-rewards.js?v=2" defer></script>')
+ return HTMLResponse(markup,headers={"Cache-Control":"no-store"})
 # No raw postback secrets in application access logs. Railway edge logging must
 # also keep query strings disabled; see docs/MONETAG_AUDIT.md.
 class PostbackSecretRedaction:
@@ -514,14 +520,18 @@ def monetag_status(authorization:str=Header(default=""),telegram_data:str=Header
   p=person(c,authorization,True)
   platform=ads_platform(p,telegram_data)
   delivered=deliver_ads(c,p)
-  return dict(monetag_ads.status(c,p,platform),**delivered)
+  data=monetag_ads.status(c,p,platform)
+  if platform=="telegram" and adsgram_ads.provider(platform)!="monetag":data.update(enabled=False,reason="Monetag сейчас отключён")
+  return dict(data,**delivered)
 
 @app.post("/api/ads/monetag/prepare")
 def monetag_prepare(q:dict,authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
  with db() as c:
   monetag_ads.lock(c)
   p=person(c,authorization,True)
-  return monetag_ads.prepare(c,p,str(q.get("item","grain")),ads_platform(p,telegram_data))
+  platform=ads_platform(p,telegram_data)
+  if platform=="telegram" and adsgram_ads.provider(platform)!="monetag":raise HTTPException(503,"Monetag сейчас отключён")
+  return monetag_ads.prepare(c,p,str(q.get("item","grain")),platform)
 
 @app.post("/api/ads/monetag/event")
 def monetag_event(q:dict,authorization:str=Header(default="")):
@@ -547,10 +557,40 @@ def monetag_postback(request:HTTPRequest,ymid:str="",zone_id:int=0,sub_zone_id:i
    result.update(deliver_ads(c,p))
   return result
 
+@app.get("/api/ads/status")
+def ads_status(authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
+ with db() as c:
+  monetag_ads.lock(c)
+  p=person(c,authorization,True)
+  platform=ads_platform(p,telegram_data)
+  selected=adsgram_ads.provider(platform)
+  ui_enabled=os.getenv("FARM_ADS_UI_ENABLED")=="1"
+  delivered=deliver_ads(c,p) if selected=="monetag" and ui_enabled else {}
+  data=monetag_ads.status(c,p,platform)
+  if selected=="adsgram":data=adsgram_ads.status(c,p,data)
+  if selected=="disabled":data.update(enabled=False,reason=data["reason"] or "Реклама отключена")
+  # The current main branch hides advertising controls. Keep that default.
+  visible=data["enabled"] if selected=="adsgram" else ui_enabled
+  return dict(data,provider=selected,visible=visible,**delivered)
+
+@app.post("/api/ads/adsgram/start")
+def adsgram_start(q:dict,authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
+ with db() as c:
+  p=person(c,authorization,True)
+  return adsgram_ads.start(c,p,str(q.get("item","")),ads_platform(p,telegram_data))
+
+@app.post("/api/ads/adsgram/finish")
+def adsgram_finish(q:dict,authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
+ with db() as c:
+  p=person(c,authorization,True)
+  return adsgram_ads.finish(c,p,str(q.get("ymid","")),str(q.get("result","")),ads_platform(p,telegram_data))
+
 @app.get("/api/admin/ads")
 def admin_ads(authorization:str=Header(default="")):
  require_farm_admin(authorization)
- with db() as c:return monetag_ads.statistics(c)
+ with db() as c:
+  current=monetag_ads.statistics(c)
+  return dict(current,providers={"monetag":current,"adsgram":adsgram_ads.statistics(c)},telegram_provider=adsgram_ads.provider("telegram"))
 
 @app.get("/health")
 def health():return {"ok":True,"release":RELEASE}

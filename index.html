@@ -832,6 +832,8 @@
   <div class="resource-action-buttons">
     <button type="button" class="btn wide" id="resource-action-buy" onclick="resourceAction('buy')">Купить</button>
     <button type="button" class="btn alt wide" id="resource-action-sell" onclick="resourceAction('sell')">Продать</button>
+    <button type="button" class="btn wide" id="resource-action-free" onclick="openFreeResourceReward(selectedResource)">🎬 Получить бесплатно</button>
+    <small id="resource-action-ad-progress" class="muted" style="display:block;text-align:center;font-size:11px">0/1 подтверждённых просмотров</small>
     
   </div>
 </dialog>
@@ -904,6 +906,6 @@
     </dialog>
   <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
 <script src="/assets/fields.js?v=9" defer></script>
-<!-- Rewarded ads temporarily disabled: no paid inventory; keep implementation in repository. -->
+<!-- farm-rewarded-ads-script -->
 </body>
 </html>
