@@ -18,6 +18,7 @@ const translate=value=>{
  return match&&dictionary[match[2]]?match[1]+dictionary[match[2]][language]+match[3]:value;
 };
 const originals=new WeakMap();
+const rendered=new WeakMap();
 let busy=false;
 function apply(root=document.body){
  if(!root||busy)return;
@@ -31,9 +32,9 @@ function apply(root=document.body){
  for(const node of nodes){
   const current=node.nodeValue;
   let source=originals.get(node);
-  if(source===undefined||current!==translateFor(source,language))source=current;
+  if(source===undefined||current!==rendered.get(node))source=current;
   originals.set(node,source);
-  const result=translate(source);if(current!==result)node.nodeValue=result;
+  const result=translate(source);rendered.set(node,result);if(current!==result)node.nodeValue=result;
  }
  document.documentElement.lang=language;
  document.title=language==='uk'?'НОВЕ ЖИТТЯ — Ферма':'NEW LIFE — Farm';
