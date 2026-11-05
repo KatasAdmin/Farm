@@ -41,11 +41,11 @@ function renderFields(){
  const plot=document.getElementById("fields-buy-plot");
  if(combine){
   combine.disabled=pending||f.combines>=100||f.combines*5>f.plots||state.me.coins<f.combine_price;
-  combine.textContent=f.combines>=100?"Максимум комбайнов":"Купить комбайн · "+numberText(f.combine_price)+" монет";
+  combine.textContent=f.combines>=100?"Максимум":f.combines*5>f.plots?"Уже есть свободный комбайн":"Купить · "+numberText(f.combine_price)+" 🪙";
  }
  if(plot){
   plot.disabled=pending||f.plots>=500||f.next_field_requires_combine||state.me.coins<f.field_price;
-  plot.textContent=f.plots>=500?"Все поля куплены":f.next_field_requires_combine?"Сначала нужен комбайн":"Расширить поле · "+numberText(f.field_price)+" монет";
+  plot.textContent=f.plots>=500?"Все поля куплены":f.next_field_requires_combine?"Сначала купи комбайн в Рынке":"Расширить хозяйство · "+numberText(f.field_price)+" монет";
  }
 }
 async function buyFieldItem(item){
