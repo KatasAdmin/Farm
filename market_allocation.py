@@ -21,7 +21,7 @@ def allocate(rows, quantity):
         weights = [(row, target * int(row["quantity"]) // available,
                     target * int(row["quantity"]) % available) for row in group]
         extras = target - sum(base for _, base, _ in weights)
-        weights.sort(key=lambda entry: (-entry[2], entry[0]["id"]))
+        weights.sort(key=lambda entry: (-entry[2], int(entry[0]["quantity"]), entry[0]["id"]))
         for row, base, _ in weights:
             amount = base + int(extras > 0)
             if extras:
