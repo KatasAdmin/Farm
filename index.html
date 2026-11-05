@@ -23,6 +23,13 @@
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
+      <!-- Temporarily hide all rewarded-ad controls; implementation remains available for later. -->
+    <style id="rewarded-ads-ui-paused">
+      [data-ad-free], .ad-free-button, #resource-action-free,
+      #resource-action-ad-progress, #free-grain-shortage,
+      #purchase-ad-free, #ad-purchase-credit, #ad-inline-status,
+      #ad-history { display: none !important; }
+    </style>
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
