@@ -1373,7 +1373,7 @@ def buy(q:Request,authorization:str=Header(default="")):
  return {"ok":True,"spent":cost}
 
 @app.post("/api/cancel/{listing_id}")
-def cancel_listing(listing_id:str,authorization:str=Header(default="")):
+def cancel_listing(listing_id:str,authorization:str=Header(default=""),amount:int=0):
  if len(listing_id)!=32:raise HTTPException(400,"Неверный номер объявления")
  with db() as c:
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
@@ -1381,14 +1381,21 @@ def cancel_listing(listing_id:str,authorization:str=Header(default="")):
   entry=c.execute("SELECT * FROM market WHERE id=%s AND seller=%s FOR UPDATE",(listing_id,p["id"])).fetchone()
   if not entry or entry["quantity"]<=0:raise HTTPException(404,"Объявление уже закрыто")
   if entry["item"] not in ("grain","eggs","milk","feathers","chickens","geese","cows"):raise HTTPException(400,"Некорректный товар")
+  returned=entry["quantity"] if amount==0 else amount
+  if returned<1 or returned>entry["quantity"]:raise HTTPException(400,"Недопустимое количество для снятия")
   if entry["item"] not in ("chickens","geese","cows"):
-   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+entry["quantity"]>storage_limit(p):raise HTTPException(409,"На складе не хватает места для возврата. Освободите или расширьте склад")
-   c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(entry["quantity"],p["id"]))
+   if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+returned>storage_limit(p):raise HTTPException(409,"На складе не хватает места для возврата")
+   c.execute("UPDATE players SET "+entry["item"]+"="+entry["item"]+"+%s WHERE id=%s",(returned,p["id"]))
   if ad_inventory.active(p):
-   ad_row=c.execute("DELETE FROM farm_ad_listings WHERE id=%s RETURNING quantity",(listing_id,)).fetchone()
-   if ad_row:ad_inventory.add(c,p,entry["item"],ad_row["quantity"])
-  c.execute("UPDATE market SET quantity=0 WHERE id=%s",(listing_id,))
- return {"ok":True,"returned":entry["quantity"]}
+   ad_row=c.execute("SELECT quantity FROM farm_ad_listings WHERE id=%s FOR UPDATE",(listing_id,)).fetchone()
+   if ad_row:
+    tagged=min(returned,ad_row["quantity"])
+    if tagged:
+     c.execute("UPDATE farm_ad_listings SET quantity=quantity-%s WHERE id=%s",(tagged,listing_id))
+     ad_inventory.add(c,p,entry["item"],tagged)
+    if returned==entry["quantity"]:c.execute("DELETE FROM farm_ad_listings WHERE id=%s",(listing_id,))
+  c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(returned,listing_id))
+ return {"ok":True,"returned":returned}
 
 def require_farm_admin(authorization):
  expected=os.environ.get("FARM_ADMIN_API_KEY","")
