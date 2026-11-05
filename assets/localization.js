@@ -207,7 +207,7 @@ function apply(root=document.body){
  busy=true;
  try{
  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){
-  if(!node.parentElement||node.parentElement.closest('script,style,textarea,code,[contenteditable="true"],[data-i18n-skip]'))return NodeFilter.FILTER_REJECT;
+  if(!node.parentElement||node.parentElement.closest('script,style,textarea,code,[contenteditable="true"],[data-i18n-skip],#toast[data-user-content]'))return NodeFilter.FILTER_REJECT;
   return NodeFilter.FILTER_ACCEPT;
  }});
  const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
