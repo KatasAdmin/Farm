@@ -18,3 +18,7 @@ class FieldEconomyTests(unittest.TestCase):
   self.assertEqual(fields.rate(5,1),35)
   self.assertEqual(fields.rate(6,2),46)
   self.assertEqual(fields.rate(0,1),0)
+  self.assertEqual(fields.rate(1,0),0)
+  self.assertEqual(fields.rate(5,0),0)
+  self.assertEqual(fields.rate(6,1),35)
+  self.assertEqual(fields.rate(6,2),46)
