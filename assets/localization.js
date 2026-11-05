@@ -71,6 +71,8 @@ dictionary["Бонус"]={uk:"Бонус",en:"Bonus"};
 dictionary["Подарок"]={uk:"Подарунок",en:"Gift"};
 dictionary["Забрать бонус"]={uk:"Забрати бонус",en:"Claim bonus"};
 const supported=['uk','en'];
+const nativeText=(value,lang)=>dictionary[value]?.[lang]||value;
+
 const key='farm_interface_language';
 const read=()=>{try{return localStorage.getItem(key)}catch(_){return null}};
 const write=v=>{try{localStorage.setItem(key,v)}catch(_){}};
@@ -130,6 +132,7 @@ function translateFor(source,lang){
  const prev=language;language=lang;try{return translate(source)}finally{language=prev;}
 }
 function change(lang){if(!supported.includes(lang))return;language=lang;write(lang);apply();}
+window.farmTranslate=(value)=>translate(String(value));
 function picker(){
  if(document.getElementById('farm-language-picker'))return;
  const wrapper=document.createElement('div');wrapper.id='farm-language-control';
