@@ -1327,7 +1327,7 @@ def buy(q:Request,authorization:str=Header(default="")):
   seller_rows={}
   for seller_id in sorted({x["seller"] for x,n in chosen}):
    seller=c.execute("SELECT * FROM players WHERE id=%s FOR UPDATE",(seller_id,)).fetchone()
-   if seller:seller_rows[seller_id]=seller
+   if seller:seller_rows[seller_id]=advance(c,seller)
    if not seller:raise HTTPException(409,"Продавец больше не существует")
    pending=c.execute("""SELECT 1 FROM stars_refund_intents i
      JOIN star_orders o ON o.id=i.order_id
@@ -1345,7 +1345,7 @@ def buy(q:Request,authorization:str=Header(default="")):
   else:
    c.execute("UPDATE players SET coins=coins-%s,"+q.item+"="+q.item+"+%s WHERE id=%s",(cost,q.amount,p["id"]))
   for x,n in chosen:
-   ad_row=c.execute("SELECT quantity FROM farm_ad_listings WHERE id=%s FOR UPDATE",(x["id"],)).fetchone() if ad_inventory.active(p) else None
+   ad_row=c.execute("SELECT quantity FROM farm_ad_listings WHERE id=%s FOR UPDATE",(x["id"],)).fetchone() if ad_inventory.active(seller_rows[x["seller"]]) else None
    tagged=ad_inventory.take(c,seller_rows[x["seller"]],q.item,n) if q.item in ("chickens","geese","cows") else (min(n,ad_row["quantity"]) if ad_row else 0)
    if tagged:c.execute("UPDATE farm_ad_listings SET quantity=quantity-%s WHERE id=%s",(tagged,x["id"]))
    paid_ad=min(ad_budget,x["price"]*n);ad_budget-=paid_ad
@@ -1360,7 +1360,7 @@ def buy(q:Request,authorization:str=Header(default="")):
    receipt=x["price"]*n;receipt_sources=ad_inventory.restricted_receipt(source_shares[x['id']],max(paid_ad,tagged*x['price']))
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(log_id,x["seller"],"market_sale",receipt,q.item+" x"+str(n),time.time()))
    c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,%s,%s)",(log_id,receipt_sources['bonus'],receipt_sources['purchased'],receipt_sources['earned']))
-   if ad_inventory.active(p):ad_inventory.credit(c,log_id,max(paid_ad,tagged*x['price']))
+   if ad_inventory.active(seller_rows[x["seller"]]):ad_inventory.credit(c,log_id,max(paid_ad,tagged*x['price']))
    trade_at=time.time()
    count=c.execute("SELECT COUNT(*)::int AS n FROM market_trade_audit WHERE buyer_id=%s AND seller_id=%s AND created>%s",(p["id"],x["seller"],trade_at-86400)).fetchone()["n"]
    c.execute("INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created) VALUES(%s,%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],x["seller"],q.item,n,x["price"]*n,trade_at))
