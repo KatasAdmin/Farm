@@ -27,7 +27,7 @@ function renderFields(){
   if(!shown){
    const empty=document.createElement("div");
    empty.className="fields-empty";
-   empty.textContent="🌱 Здесь появится твоё первое поле";
+   empty.textContent="Здесь появится твоё первое поле";
    area.appendChild(empty);
   }
   if(f.plots>shown){
@@ -40,16 +40,16 @@ function renderFields(){
  const info=document.getElementById("fields-info");
  if(info)info.textContent=f.plots
    ?"Автоматический сбор · "+numberText(f.grain_per_day)+" зерна в сутки · "+f.combines+" комбайнов"
-   :"Начни с комбайна, затем купи первое поле. Урожай поступает на общий склад автоматически.";
+   :"Покупай поля и комбайны в любом порядке. Для сбора нужны оба: 1 комбайн на 5 полей.";
  const combine=document.getElementById("fields-buy-combine");
  const plot=document.getElementById("fields-buy-plot");
  if(combine){
   combine.disabled=pending||f.combines>=100||state.me.coins<f.combine_price;
-  combine.textContent=f.combines>=100?"Максимум":"Купить · "+numberText(f.combine_price)+" 🪙";
+  combine.textContent=f.combines>=100?"Максимум":"Купить · "+numberText(f.combine_price);
  }
  if(plot){
   plot.disabled=pending||f.plots>=500||state.me.coins<f.field_price;
-  plot.textContent=f.plots>=500?"Все поля куплены":"Расширить хозяйство · "+numberText(f.field_price)+" монет";
+  plot.textContent=f.plots>=500?"Все поля куплены":"Расширить · "+numberText(f.field_price);
  }
 }
 function fieldPurchaseCelebration(item,result){
@@ -63,7 +63,7 @@ function fieldPurchaseCelebration(item,result){
  card.setAttribute("role","alertdialog");
  card.setAttribute("aria-modal","true");
  const title=document.createElement("h2");
- title.textContent="🎉 Поздравляем!";
+ title.textContent="Поздравляем!";
  const art=document.createElement("img");
  art.src=item==="field"?"/assets/field-plot.svg":"/assets/combine.svg";
  art.alt="";

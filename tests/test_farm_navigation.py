@@ -7,8 +7,11 @@ class FarmNavigationTests(unittest.TestCase):
     def test_farm_has_only_unique_shortcuts(self):
         page = HTML.read_text(encoding="utf-8")
         farm = page.split('<section id="farm"', 1)[1].split("</section>", 1)[0]
-        shortcuts = farm.split('class="quicknav farm-quicknav"', 1)[1].split("</div>", 1)[0]
-        self.assertEqual(shortcuts.count('class="quick"'), 2)
+        shortcuts = farm.split('class="farm-tiles-v2"', 1)[1].split("</div>", 1)[0]
+        self.assertEqual(shortcuts.count("<button"), 3)
+        self.assertIn("tab('fields')", shortcuts)
+        self.assertIn("Производство", shortcuts)
+        self.assertIn("Скоро", shortcuts)
         self.assertIn("tab('coop')", shortcuts)
         self.assertIn("tab('storage')", shortcuts)
         self.assertNotIn("tab('shop')", shortcuts)

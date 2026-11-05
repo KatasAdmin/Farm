@@ -66,3 +66,24 @@
 @media(max-width:370px){.farm-tile img{width:42px}.fields-v2-expand>img{width:43px}.fields-v2-expand-copy strong{font-size:13px}.fields-v2-expand .btn{min-width:72px;font-size:12px}}
 
 .field-purchase-overlay{position:fixed;inset:0;z-index:99999;display:grid;place-items:center;padding:20px;background:#00152dbb;backdrop-filter:blur(6px)}.field-purchase-popup{width:min(100%,340px);padding:23px 19px 19px;text-align:center;border:2px solid #67d9ff;border-radius:24px;background:linear-gradient(150deg,#1378c6,#06316d);box-shadow:0 14px 50px #0009;color:white;animation:field-celebrate .35s ease-out}.field-purchase-popup img{display:block;width:116px;height:93px;object-fit:contain;margin:0 auto}.field-purchase-popup h2{font-size:25px;margin:5px 0 10px}.field-purchase-popup p{font-size:15px;line-height:1.5;margin:0 0 17px}.field-purchase-popup button{min-width:150px;min-height:44px}@keyframes field-celebrate{from{transform:scale(.78);opacity:0}to{transform:scale(1);opacity:1}}
+/* Reference layout, applied after the legacy mobile styles. */
+#farm .farm-hero{height:222px;margin:0 -9px;padding:0;isolation:isolate}
+#farm .farm-hero h1{top:17px;left:16px;font-size:27px;z-index:2}
+#farm .farm-hero h1 span{font-size:29px}
+#farm .farm-landscape{width:100%;height:100%;object-fit:cover}
+#farm .flock{bottom:5px;height:90px;z-index:2}
+#farm .hen{height:91px;width:85px}#farm .hen-two{height:85px;width:79px}
+#farm .farm-tiles-v2{margin:6px 0 12px;gap:8px}
+#farm .farm-tile{min-height:57px;border-radius:13px;padding:5px;gap:5px}
+#farm .farm-tile img{width:48px;height:44px}#farm .farm-tile strong{font-size:16px}
+#farm .farm-tile-future{opacity:1;background:linear-gradient(145deg,#147fc4,#073f86)}
+#farm .resource-actions.bird-resources{gap:7px!important}
+#farm .resource-actions.bird-resources .resource{min-height:80px!important;padding:7px 4px!important;grid-template-columns:38px minmax(0,1fr)!important;gap:2px}
+#farm .resource-actions.bird-resources .resource .icon{width:36px!important;height:49px!important}
+#farm .resource-actions.bird-resources .resource>span:not(.icon){font-size:12px}
+#farm .resource-actions.bird-resources .resource strong{font-size:26px}
+.farm-supplies{display:flex;gap:8px;margin-top:8px}.farm-supplies button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:34px;border:1px solid #52bded;border-radius:10px;background:#06488d;color:#e6f6ff;font-size:12px}.farm-supplies img{width:22px;height:24px;object-fit:contain}
+.fields-v2-header{padding:10px 4px}.fields-v2-panorama{margin:0;border:0;border-radius:14px}.fields-v2-panorama>img{aspect-ratio:1.85}.fields-v2-summary{border:1px solid #68dcff;border-radius:14px;margin-top:-8px;position:relative;box-shadow:inset 0 2px 7px #93eeff55,0 4px 12px #00142e88}.fields-v2-summary>div{padding:10px 4px}
+.fields-v2-plot{margin:10px 0 12px; border:0;background:linear-gradient(#237b45,#0a3c3c);padding:0;overflow:hidden}.fields-v2-plot-art{min-height:175px;background:radial-gradient(ellipse,#85ac3e,#215c36)}.fields-v2-plot-art>img{width:78%;max-height:190px;filter:drop-shadow(0 8px 8px #123c28)}.fields-v2-plot-art .fields-landscape{background:#073d37b8;border-radius:8px}.fields-v2-section-title{margin:10px 0;font-size:21px}.fields-v2-expand,.fields-v2-help{margin-left:0;margin-right:0}.fields-v2-expand .btn{background:linear-gradient(#c379ff,#8529e5);border:1px solid #e3b7ff;box-shadow:inset 0 2px #ffffff66,0 3px 6px #001f48}
+@media(max-width:360px){#farm .farm-tile strong{font-size:14px}#farm .farm-tile img{width:39px}#farm .resource-actions.bird-resources .resource{grid-template-columns:30px minmax(0,1fr)!important}#farm .resource-actions.bird-resources .resource .icon{width:29px!important}}
+.fields-v2-plot-art>img{width:100%;height:190px;max-height:none;object-fit:cover;filter:none}.fields-v2-plot-art .wheat-plot{display:none}.fields-v2-plot-art>.fields-landscape:empty{display:none}

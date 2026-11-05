@@ -20,7 +20,7 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
     <script src="/assets/game.js?v=87" defer></script>
-    <link rel="stylesheet" href="/assets/fields.css?v=5">
+    <link rel="stylesheet" href="/assets/fields.css?v=6">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
   </head>
@@ -161,18 +161,15 @@
           <button type="button" class="resource resource-link" onclick="openResourceActions('chickens')" aria-label="Куры: купить или продать">
             <img src="/assets/redesign/hen.webp" class="icon" alt="" decoding="async"/><span>Куры</span><strong data-value="chickens">—</strong>
           </button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('geese')" aria-label="Гуси: купить или продать"><img src="/assets/goose-v2.png" class="icon" alt=""/><span>Гуси</span><strong data-value="geese">0</strong></button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('cows')" aria-label="Коровы: купить или продать"><img src="/assets/cow-v1.webp" class="icon" alt=""/><span>Коровы</span><strong data-value="cows">0</strong></button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('eggs')" aria-label="Яйца: купить или выставить на продажу">
             <img src="/assets/redesign/egg.webp" class="icon" alt="" decoding="async"/><span>Яйца</span><strong data-value="eggs">—</strong>
           </button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('geese')" aria-label="Гуси: купить или продать"><img src="/assets/goose-v2.png" class="icon" alt=""/><span>Гуси</span><strong data-value="geese">0</strong></button>
-          <button type="button" class="resource resource-link feather-resource" onclick="openResourceActions('feathers')" aria-label="Перья: хранить или продать"><span class="feather-art icon" aria-hidden="true">🪶</span><span>Перья</span><strong data-value="feathers">0</strong></button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('cows')" aria-label="Коровы: купить или продать"><img src="/assets/cow-v1.webp" class="icon" alt=""/><span>Коровы</span><strong data-value="cows">0</strong></button>
+          <button type="button" class="resource resource-link feather-resource" onclick="openResourceActions('feathers')" aria-label="Перья: хранить или продать"><img src="/assets/feather-reference.svg" class="icon" alt=""><span>Перья</span><strong data-value="feathers">0</strong></button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('milk')" aria-label="Молоко: купить или выставить на продажу"><img src="/assets/milk-v1.webp" class="icon" alt=""/><span>Молоко</span><strong data-value="milk">0</strong></button>
-          <button type="button" class="resource resource-link warehouse-resource" onclick="tab('storage')" aria-label="Вместимость склада"><img src="/assets/redesign/storage.webp" class="icon" alt=""/><span>Склад</span><strong><span data-building="storage_used">—</span> / <span data-building="storage_capacity">—</span></strong></button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('grain')" aria-label="Зерно: купить или продать">
-            <img src="/assets/redesign/grain.webp" class="icon" alt="" decoding="async"/><span>Зерно</span><strong data-value="grain">—</strong>
-          </button>
         </div>
+        <div class="farm-supplies"><button onclick="openResourceActions('grain')"><img src="/assets/redesign/grain.webp" alt="">Зерно <strong data-value="grain">—</strong></button><button onclick="tab('storage')">Склад <strong><span data-building="storage_used">—</span> / <span data-building="storage_capacity">—</span></strong></button></div>
         <div class="card herd compact-herd">
           <div class="health-line">
             <img
@@ -746,7 +743,7 @@
           <div><h1>🌾 Поля</h1><p>Выращивай зерно для своих животных</p></div>
         </div>
         <div class="fields-v2-panorama">
-          <img src="/assets/fields-landscape.svg" alt="Пшеничные поля и комбайн">
+          <img src="/assets/fields-reference.webp" alt="Пшеничные поля и комбайн">
           <div class="fields-v2-summary">
             <div><small>Поля</small><strong><span data-fields-count>0</span> / 500</strong></div>
             <div><small>Комбайны</small><strong id="fields-combines">0</strong></div>
@@ -755,19 +752,19 @@
         </div>
         <div class="fields-v2-plot">
           <div class="fields-v2-plot-title">Моё хозяйство</div>
-          <div class="fields-v2-plot-art"><img src="/assets/field-plot.svg" alt="Участок пшеницы"><div class="fields-landscape" id="fields-landscape"></div></div>
+          <div class="fields-v2-plot-art"><img src="/assets/wheat-reference.webp" alt="Участок пшеницы"><div class="fields-landscape" id="fields-landscape"></div></div>
         </div>
         <h2 class="fields-v2-section-title">Расширение хозяйства</h2>
         <div class="fields-v2-expand">
           <img src="/assets/field-plot.svg" alt="">
-          <div class="fields-v2-expand-copy"><strong>Расширить хозяйство</strong><small>+1 поле · +6 зерна/сутки</small><small>Цена: 240 монет</small></div>
+          <div class="fields-v2-expand-copy"><strong>Расширить хозяйство</strong><small>+1 поле · сбор при наличии комбайна</small><small>Цена: 240 монет</small></div>
           <button class="btn small" id="fields-buy-plot" onclick="buyFieldItem('field')">Расширить</button>
         </div>
         <div class="fields-v2-help">
           <strong>ⓘ Как работают поля</strong>
           <p>До 500 полей. Один комбайн обслуживает 5 полей и покупается в Рынке. Поля и комбайны можно покупать в любом порядке: зерно производится только при наличии обоих. Максимальный урожай — 3 500 зерна в сутки.</p>
           <p id="fields-info">Зерно автоматически поступает на общий склад.</p>
-          <p class="fields-note">Окупаемость 20 дней по цене покупки зерна в магазине.</p>
+          <p class="fields-note">Максимум: 500 полей, 100 комбайнов · 3 500 зерна/сутки. Зерно занимает место на общем складе.</p>
         </div>
         <span id="fields-invested" hidden>0</span>
       </section>
@@ -894,7 +891,7 @@
       </div>
     </dialog>
   <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
-<script src="/assets/fields.js?v=4" defer></script>
+<script src="/assets/fields.js?v=5" defer></script>
 <script src="/assets/monetag-rewards.js?v=4" defer></script>
 </body>
 </html>

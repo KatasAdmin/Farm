@@ -15,12 +15,13 @@ const fixture={me:{id:'qa',name:'Tester',coins:10000,chickens:20,geese:2,cows:2,
 w.fixture=fixture;
 w.fetch=async(url,options={})=>{requests.push({url,payload:options.body?JSON.parse(options.body):null});let value={ok:true,spent:11,amount:1,awarded:30,returned:1,recovery_code:'QA',url:'https://t.me/invoice-test',max_coins:1000,orders:[],entries:[],available:100,sources:{bonus:10,purchased:10,earned:100},code:'abcdef1234567890',counts:{},rates:[1000],resources:{}};if(url==='/api/state')value=JSON.parse(JSON.stringify(fixture));return {ok:true,status:200,json:async()=>value}};
 const script=d.createElement('script');script.textContent=fs.readFileSync(path.join(root,'assets/game.js'),'utf8');d.body.appendChild(script);
+const fieldsScript=d.createElement('script');fieldsScript.textContent=fs.readFileSync(path.join(root,'assets/fields.js'),'utf8');d.body.appendChild(fieldsScript);
 const run=code=>w.eval(code),tick=()=>new Promise(r=>setImmediate(r));
 const click=selector=>{const node=d.querySelector(selector);assert.ok(node,selector);assert.equal(node.disabled,false,selector+' disabled');node.click()};
 function reset(){run('state=JSON.parse(JSON.stringify(window.fixture));token="qa-token";pending=false;refreshedAt=Date.now();render()');d.querySelectorAll('dialog').forEach(x=>x.close());}
 (async()=>{
 reset();
-assert.deepEqual([...d.querySelectorAll('.bird-resources>button')].map(n=>n.querySelector('[data-value]')?.dataset.value||'storage'),['chickens','eggs','geese','feathers','cows','milk','storage','grain']);
+assert.deepEqual([...d.querySelectorAll('.bird-resources>button')].map(n=>n.querySelector('[data-value]')?.dataset.value||'storage'),['chickens','geese','cows','eggs','feathers','milk']);
 for(const animal of ['chickens','geese','cows']){
  const card=d.querySelector(`[data-animal-card="${animal}"]`);assert.ok(card,animal+' card');
  const buttons=[...card.querySelectorAll('.buttons>button')];assert.equal(buttons.length,2);
