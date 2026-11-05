@@ -117,21 +117,10 @@ def simulate(p, now):
   else:
    sat=max(0,sat-max(1,math.ceil(3*(hens-fed+GOOSE_FEED*(geese-fed_geese)+COW_FEED*(cows-fed_cows))/max(1,hens+GOOSE_FEED*geese+COW_FEED*cows))))
    critical=critical+1 if sat==0 else 0
-   if critical>=48 and (hens or geese or cows):
-    if geese>fed_geese:geese-=1
-    elif hens>fed:hens-=1
-    elif cows>fed_cows:cows-=1
-    elif hens:hens-=1
-    elif geese:geese-=1
-    else:cows-=1
-    fed=min(fed,hens)
-    fed_geese=min(fed_geese,geese)
-    fed_cows=min(fed_cows,cows)
-    critical=0
-    sat=20 if hens or geese or cows else 0
-    if tagged:
-     ad_hens=min(ad_hens,hens);ad_geese=min(ad_geese,geese);ad_cows=min(ad_cows,cows)
-     ad_fed=min(ad_fed,fed);ad_goose_fed=min(ad_goose_fed,fed_geese);ad_cow_fed=min(ad_cow_fed,fed_cows)
+   # Hunger pauses production for unfed animals; livestock never dies.
+   # Fed hens/geese/cows remain productive in proportion to the fed herd.
+   critical=0
+
   tick=feed_at
   phase=0
   feed_at+=FEED_EVERY*CYCLE
