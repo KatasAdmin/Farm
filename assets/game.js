@@ -936,6 +936,7 @@ async function submitWithdrawalRequest() {
   finally{busy(false);}
 }
 function render() {
+  if (typeof renderFields === 'function') renderFields();
   const p = state.me;
   for(const node of document.querySelectorAll("[data-system-stock]")){
     const resource=node.dataset.systemStock;
