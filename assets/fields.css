@@ -149,3 +149,44 @@
 #fields .fields-v2-expand>img{filter:drop-shadow(0 3px 4px #00173e88)}
 #fields .fields-v2-expand .btn{background:linear-gradient(180deg,#d9a1ff 0%,#b458f4 20%,#8726db 58%,#5a17aa 100%);border:1px solid #efcaff;box-shadow:inset 0 2px 0 #ffffffa8,inset 0 -2px 0 #4b138a,0 3px 0 #381070,0 5px 8px #001a4e99;color:#fff;text-shadow:0 1px 3px #451075}
 @media(max-width:370px){#fields .fields-v2-summary{left:6px;right:6px}#fields .fields-v2-summary>div{padding:8px 2px}#fields .fields-v2-landscape-card .wheat-plot{width:18px;height:18px}}
+
+
+/* Final polish: compact inventory, richer glossy controls and scenic Fields tile. */
+#storage .warehouse-inventory{padding:10px!important}
+#storage .warehouse-inventory>.cardtitle{margin:0 0 7px;font-size:16px}
+#storage .warehouse-items{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+#storage .warehouse-items .resource{
+  min-height:66px;padding:7px 9px;gap:5px 8px;flex-wrap:nowrap;
+  display:grid;grid-template-columns:30px minmax(0,1fr) auto;grid-template-rows:1fr;
+  align-items:center;border:1px solid #79d9ff;border-radius:12px;
+  background:linear-gradient(145deg,#2d84d2 0%,#1757a6 55%,#103d83 100%);
+  box-shadow:inset 0 1px 0 #ffffffa6,inset 0 -2px 0 #092f69,0 3px 7px #001b4c77;
+}
+#storage .warehouse-items img,#storage .warehouse-items button>span:first-child{width:28px;height:34px;object-fit:contain;font-size:24px;filter:drop-shadow(0 2px 3px #001a4488)}
+#storage .warehouse-items .resource>span:not(:first-child){font-size:12px;line-height:1.15}
+#storage .warehouse-items strong{margin:0;font-size:19px;line-height:1}
+#storage .warehouse-inventory>p.muted{margin:7px 2px 0;font-size:10px;line-height:1.3}
+#shop .market-categories{gap:7px;margin:8px 0 10px}
+#shop .market-categories button{
+  position:relative;overflow:hidden;min-height:46px;padding:5px 4px;
+  border:1px solid #9ce9ff;border-radius:13px;
+  background:linear-gradient(180deg,#65d9ff 0%,#20a5eb 14%,#0872c6 53%,#064789 100%);
+  box-shadow:inset 0 2px 0 #ffffffd0,inset 0 -2px 0 #003574,0 3px 0 #032d65,0 5px 8px #001b4c88;
+  text-shadow:0 1px 3px #002854;font-size:11px;
+  transition:transform .14s ease,filter .14s ease,box-shadow .14s ease;
+}
+#shop .market-categories button:before{content:"";position:absolute;inset:1px 1px auto;height:42%;border-radius:11px 11px 50% 50%;background:linear-gradient(180deg,#ffffff58,#ffffff00);pointer-events:none}
+#shop .market-categories button.active{border-color:#d4fbff;background:linear-gradient(180deg,#8ceaff 0%,#30c0f5 15%,#0b83dc 58%,#07539e 100%);box-shadow:inset 0 2px 0 #ffffffed,inset 0 -2px 0 #06427d,0 0 10px #67dfff99,0 3px 0 #04316c,0 5px 9px #00194188;filter:saturate(1.12)}
+#shop .market-categories button:active{transform:translateY(2px);box-shadow:inset 0 2px 4px #002e6899,0 1px 0 #032d65,0 2px 4px #001b4c88}
+#shop .market-categories img{position:relative;z-index:1;width:25px;height:25px;object-fit:contain;filter:drop-shadow(0 2px 2px #00204e99)}
+#farm .farm-tile-fields{background-image:linear-gradient(90deg,#052c63d9 0%,#063c7770 38%,#052d5b25 100%),url("/assets/illustrations/fields-tile-v3.webp");background-size:cover;background-position:center 57%;border-color:#9beaff;box-shadow:inset 0 2px 0 #ffffffcc,inset 0 -3px 0 #00386d,0 3px 0 #032e65,0 6px 12px #001a4988}
+#farm .farm-tile-fields img{display:none}
+#farm .farm-tile-fields strong{position:relative;z-index:2;margin-left:38%;padding:3px 8px;border-radius:999px;background:linear-gradient(180deg,#1386d7eF,#063e82f2);box-shadow:inset 0 1px 0 #ffffff88,0 2px 5px #001943aa;text-shadow:0 1px 3px #001841}
+#farm .feed-details{border-color:#83ddff;background:linear-gradient(145deg,#318bd7 0%,#1757a4 55%,#103d80 100%);box-shadow:inset 0 1px 0 #ffffffa8,0 3px 9px #001c4d77}
+#farm .feed-details>.feed-reserve{min-height:42px;padding:8px 10px;border-radius:14px;text-shadow:0 1px 2px #003165}
+#farm details.forecast-card,#farm details.farm-day-statistics{overflow:hidden;border:1px solid #7bdcff;border-radius:14px;background:linear-gradient(145deg,#2c83d1 0%,#1855a2 58%,#103c80 100%);box-shadow:inset 0 1px 0 #ffffffa6,0 3px 9px #001c4d77}
+#farm .forecast-card .forecast-summary,#farm .farm-day-statistics>summary{display:flex;align-items:center;min-height:43px;padding:8px 10px;list-style:none;cursor:pointer;font-size:14px;line-height:1.25;font-weight:800;text-shadow:0 1px 2px #002c60}
+#farm .forecast-card .forecast-summary::-webkit-details-marker,#farm .farm-day-statistics>summary::-webkit-details-marker{display:none}
+#farm .forecast-card .forecast-summary:after,#farm .farm-day-statistics>summary:after{content:"⌄";margin-left:auto;font-size:18px;opacity:.85}
+#farm .forecast-card[open] .forecast-summary,#farm .farm-day-statistics[open]>summary{border-bottom:1px solid #a5eaff44}
+@media(max-width:370px){#storage .warehouse-items .resource{min-height:60px;padding:6px;grid-template-columns:25px minmax(0,1fr) auto;gap:5px}#storage .warehouse-items img{width:24px;height:30px}#storage .warehouse-items strong{font-size:18px}}
