@@ -324,14 +324,19 @@ def route(c, uid, text, action, message, api, admin):
         return bot_ui.partners(c,uid)
     if cmd=='/adincome' or action=='ad_income':
         earnings=bot_monetag_cash.estimated_earnings(c,uid)
-        price=lambda x:'
-               '', '👀 За свои просмотры: <b>'+price(earnings['viewer'])+'</b>',
-               '🤝 От рефералов: <b>'+price(earnings['referral'])+'</b>',
-               '📊 Всего: <b>'+price(earnings['total'])+'</b>', '',
+        price=lambda x:'$'+format(x,'.9f')
+        sumrow=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_cash_ad_credits WHERE uid=%s",(uid,)).fetchone()
+        a=c.execute("SELECT available FROM bot_accounts WHERE uid=%s",(uid,)).fetchone()
+        lines=['💵 <b>Мой рекламный доход</b>',
+               '💰 Зачислено за рекламу: <b>'+money(int(sumrow['n']))+'</b>',
+               '💳 Доступный баланс: <b>'+money(a['available'] if a else 0)+'</b>', '',
+               '👀 За свои просмотры (USD): '+price(earnings['viewer']),
+               '🤝 От рефералов (USD): '+price(earnings['referral']),
+               '📊 Всего оценка: '+price(earnings['total']), '',
                '🌱 <b>Реферальные уровни</b>']
         for index,amount in enumerate(earnings['levels'],1):
             lines.append(str(index)+' уровень: '+price(amount))
-        lines.extend(['','<i>Долларовые цифры — оценка Monetag. По оплаченным событиям гривневые награды сразу переводятся в доступный баланс по курсу НБУ. Доли меньше 1 копейки накапливаются. Риск изменений расчёта сети покрывает проект.</i>'])
+        lines.append('Доллары — предварительная оценка Monetag. После оплаченного postback гривны зачисляются сразу, доли меньше копейки накапливаются.')
         return bot_ui.screen(uid,'\n'.join(lines),[[button('🎬 Смотреть рекламу','watch_ads_info')],[button('🤝 Моя команда','friends')],[button('⬅️ Кабинет','cabinet')]])
     if cmd.startswith('/bonus'):
         return bot_promos.command(c,uid,text,admin)
