@@ -403,7 +403,7 @@ def bot_click_redirect(token: str):
         c.execute('SELECT pg_advisory_xact_lock(1984533)')
         c.execute('SELECT pg_advisory_xact_lock(%s)',(task_bot.LOCK,))
         item=c.execute("""SELECT x.task,x.uid,x.created,t.url,t.owner,t.status,t.kind
-          FROM bot_bot_click_tokens x JOIN bot_tasks t ON t.id=x.task WHERE x.token=%s FOR UPDATE OF x""",(token,)).fetchone()
+          FROM bot_bot_click_tokens x JOIN bot_tasks t ON t.id=x.task WHERE x.token=%s FOR UPDATE""",(token,)).fetchone()
         if not item or item['kind']!='bot' or item['status']!='active' or item['owner']==item['uid']:
             raise HTTPException(status_code=404,detail='Ссылка недоступна')
         from urllib.parse import urlsplit
