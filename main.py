@@ -517,6 +517,16 @@ def cash_ads_preview_auth(q:dict):
  return {"ok":True,"telegram_id":uid,"enabled":False,"cash_rewards":False,
          "status":"awaiting_monetag_approval"}
 
+@app.post("/api/ads/cash/prepare")
+def cash_ads_prepare(q:dict):
+ # Cash advertising remains disabled until explicit publisher approval.
+ # Validate Telegram identity before responding; do not create an attempt.
+ raw=q.get("telegram_data","")
+ if not isinstance(raw,str):
+  raise HTTPException(400,"Invalid Telegram data")
+ telegram_identity(raw)
+ raise HTTPException(503,"Денежные награды отключены до разрешения Monetag")
+
 @app.get("/api/ads/monetag/status")
 def monetag_status(authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
  with db() as c:
