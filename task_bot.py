@@ -378,13 +378,13 @@ def route(c, uid, text, action, message, api, admin):
     if text in sum(MENU, []) or cmd in ('/start', '/help', '/menu', '/cancel'):
         state(c, uid, 'clear')
     if action == 'watch_ads_info':
-        if not bot_quests.vip(c,uid):
+        if not admin and not bot_quests.vip(c,uid):
             if message.get('_callback_id'):
                 return {'method':'answerCallbackQuery','callback_query_id':message['_callback_id'],
                         'text':'🔒 Пройди первые 3 квеста, чтобы разблокировать VIP и смотреть рекламу.',
                         'show_alert':True}
             return bot_ui.screen(uid,'🔒 <b>Доступ к рекламе закрыт</b>\n\nПройди первые 3 квеста, чтобы разблокировать VIP.',[[button('⭐ Открыть квесты','quests')]])
-        return bot_ui.screen(uid,'💎 <b>VIP · Смотреть рекламу</b>\n\n🎬 Цель активности: 10 завершённых просмотров за день.\nНеоплаченные просмотры учитываются только для активности, не для денежной выручки.\n\n<i>Денежные выплаты за просмотры пока отключены.</i>',[[{'text':'🎬 Смотреть рекламу','web_app':{'url':farm_url()+'cash-ads-preview.html'}}],[button('⭐ Квесты','quests')]])
+        return bot_ui.screen(uid,'💎 <b>VIP · Смотреть рекламу</b>\n\n🎬 Цель активности: 10 завершённых просмотров за день.\nНеоплаченные просмотры учитываются только для активности, не для денежной выручки.\n\n<i>Оплачиваемые просмотры начисляются на баланс после подтверждения Monetag.</i>',[[{'text':'🎬 Смотреть рекламу','web_app':{'url':farm_url()+'cash-ads-preview.html'}}],[button('⭐ Квесты','quests')]])
 
     if text == '🚀 Заработать' or action == 'earn':
         return bot_ui.earn(c, uid)
