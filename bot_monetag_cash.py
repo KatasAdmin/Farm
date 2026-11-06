@@ -45,6 +45,7 @@ def initialize_cash_attempts(c):
             placement text NOT NULL CHECK(placement='cash_rewarded_interstitial'),
             request_var text NOT NULL,
             created_at double precision NOT NULL,
+            launched_at double precision,
             expires_at double precision NOT NULL,
             state text NOT NULL DEFAULT 'prepared'
                 CHECK(state IN ('prepared','launched','confirmed','expired','rejected')),
@@ -58,29 +59,55 @@ def initialize_cash_attempts(c):
 
 
 def cash_attempt_quota(c, viewer_uid, now=None):
-    """Ten launches, then 30 seconds' rest; no daily cap.
-
-    A pending prepared attempt blocks a second simultaneous launch. Abandoned
-    attempts stop blocking after their short preparation TTL.
-    """
+    """Pause 30s after each tenth *launched* ad; failed preparations do not count."""
     now=time.time() if now is None else now
     rows=c.execute("""
-        SELECT created_at,expires_at,state
+        SELECT created_at,launched_at,expires_at,state
         FROM bot_monetag_cash_attempts
-        WHERE viewer_uid=%s AND created_at>=%s
-        ORDER BY created_at DESC
-    """,(viewer_uid,now-3600)).fetchall()
+        WHERE viewer_uid=%s AND (
+          (launched_at IS NOT NULL AND launched_at>=%s)
+          OR (state='prepared' AND expires_at>%s)
+        )
+        ORDER BY launched_at DESC NULLS LAST
+    """,(viewer_uid,now-3600,now)).fetchall()
     active=any(r['state'] in ('prepared','launched') and
                r['expires_at']>now for r in rows)
-    # Prepared attempts are counted conservatively to prevent rapid retries.
-    recent=[r['created_at'] for r in rows if r['state']!='rejected']
-    count=len(recent)
-    # Break applies after each block of 10 attempts in the rolling hour.
-    last=recent[0] if recent else 0
+    launches=[r['launched_at'] for r in rows if r['launched_at'] is not None]
+    count=len(launches)
+    last=launches[0] if launches else 0
     wait=max(0,int(last+CASH_BREAK_SECONDS-now+0.999)) if count and count%CASH_ADS_PER_BREAK==0 else 0
-    return {'active':active,'retry_after':wait,'hour_attempts':count,
+    return {'active':active,'retry_after':wait,'hour_launches':count,
             'daily_limit':None,'break_every':CASH_ADS_PER_BREAK,
             'break_seconds':CASH_BREAK_SECONDS}
+
+
+def mark_cash_attempt_launched(c, viewer_uid, ymid, now=None):
+    """Record one SDK launch. Caller must authenticate viewer and serialize updates."""
+    now=time.time() if now is None else now
+    row=c.execute("""
+        SELECT * FROM bot_monetag_cash_attempts
+        WHERE ymid=%s AND viewer_uid=%s FOR UPDATE
+    """,(ymid,viewer_uid)).fetchone()
+    if not row or row['state']!='prepared' or now>row['expires_at']:
+        raise ValueError('Invalid or expired cash ad preparation')
+    quota=cash_attempt_quota(c,viewer_uid,now)
+    if quota['retry_after']:
+        raise ValueError('Cash ad cooldown')
+    c.execute("""
+        UPDATE bot_monetag_cash_attempts SET state='launched',launched_at=%s
+        WHERE ymid=%s
+    """,(now,ymid))
+    return {'ok':True,'ymid':ymid,'payable':False}
+
+
+def cancel_unlaunched_cash_attempt(c, viewer_uid, ymid):
+    """A failed SDK start must not consume a view or earn a reward."""
+    row=c.execute("""
+        UPDATE bot_monetag_cash_attempts SET state='rejected'
+        WHERE ymid=%s AND viewer_uid=%s AND state='prepared'
+        RETURNING ymid
+    """,(ymid,viewer_uid)).fetchone()
+    return bool(row)
 
 
 def prepare_cash_attempt(c, verified_telegram_uid, now=None):
