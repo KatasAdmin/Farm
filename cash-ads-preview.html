@@ -35,9 +35,9 @@ h1{font-size:23px;margin:4px 0 10px}p{color:#c7dacd;line-height:1.5}#msg{min-hei
   try{
    prepared=await post('adsgram/prepare');
    await window.FarmAdsgramFallback.show(blockId);
-   msg.textContent='✅ Реклама завершена. Ждём подтверждение AdsGram.';
-   watch.textContent='Готово';
-   setTimeout(close,750);
+   msg.textContent='✅ Просмотр завершён. Подтверждение и начисление дохода обрабатываются отдельно. Можешь вернуться в бот.';
+   watch.textContent='🎬 Смотреть ещё';
+   watch.disabled=false;
   }catch(e){
    if(prepared?.attempt_id){
     try{await post('adsgram/cancel',{attempt_id:prepared.attempt_id})}catch(_){}
