@@ -6,7 +6,8 @@ SDK success. Wallet risk remains with the owner.
 """
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR
 
 from bot_economy import monetag_cash_allocation
@@ -147,12 +148,20 @@ def _confirm_farm(c,row,now):
     return {"ok":True,"confirmed":True,"reward":"farm","item":item}
 
 
+KYIV = ZoneInfo("Europe/Kyiv")
+
+
+def _kyiv_bounds(day):
+    local=datetime.strptime(day,"%Y-%m-%d").replace(tzinfo=KYIV)
+    return local.timestamp(), (local+timedelta(days=1)).timestamp()
+
+
 def _day(date_text):
     if not isinstance(date_text,str):raise ValueError("Date must be YYYY-MM-DD")
     try: day=datetime.strptime(date_text,"%Y-%m-%d").date()
     except ValueError:raise ValueError("Date must be YYYY-MM-DD")
     if day.isoformat()!=date_text:raise ValueError("Invalid date")
-    if day>=datetime.now(timezone.utc).date():raise ValueError("Only completed UTC dates can settle")
+    if day>=datetime.now(KYIV).date():raise ValueError("Only completed Kyiv dates can settle")
     return date_text
 
 
@@ -172,10 +181,10 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
     c.execute("SELECT pg_advisory_xact_lock(%s)",(125492051,))
     old=c.execute("SELECT 1 FROM bot_adsgram_daily_settlements WHERE utc_day=%s",(day,)).fetchone()
     if old:raise ValueError("Day already reconciled; never pay twice")
-    start=datetime.strptime(day,"%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp()
+    start,end=_kyiv_bounds(day)
     rows=c.execute("""SELECT uid,referral_chain FROM bot_adsgram_attempts
       WHERE state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s
-      ORDER BY confirmed_at,id FOR UPDATE""",(start,start+86400)).fetchall()
+      ORDER BY confirmed_at,id FOR UPDATE""",(start,end)).fetchall()
     farm_count=c.execute("""SELECT COUNT(*) AS n FROM bot_adsgram_farm_attempts
       WHERE state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s""",
       (start,start+86400)).fetchone()["n"]
@@ -228,3 +237,17 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
             "publisher_usd":str(revenue),"credited_kopeks":credited_total,
             "cash_views":len(rows),"farm_views":int(farm_count),
             "platform_usd_at_least":str(revenue*Decimal("0.35"))}
+
+
+def settle_yesterday(c,revenue_usd,owner_uid):
+    """Allocate confirmed AdsGram impressions from yesterday in Kyiv time."""
+    yesterday=(datetime.now(KYIV).date()-timedelta(days=1)).isoformat()
+    start,end=_kyiv_bounds(yesterday)
+    cash=int(c.execute("""SELECT COUNT(*) AS n FROM bot_adsgram_attempts
+      WHERE state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s""",
+      (start,end)).fetchone()["n"])
+    farm=int(c.execute("""SELECT COUNT(*) AS n FROM bot_adsgram_farm_attempts
+      WHERE state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s""",
+      (start,end)).fetchone()["n"])
+    if cash+farm<=0:raise ValueError("За вчера нет подтверждённых AdsGram просмотров")
+    return settle_day(c,yesterday,revenue_usd,cash+farm,owner_uid)
