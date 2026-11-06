@@ -207,7 +207,7 @@ def bot_click_card(c,t,uid):
         c.execute('INSERT INTO bot_bot_click_tokens(token,task,uid,created) VALUES(%s,%s,%s,%s)',(secret,t['id'],uid,time.time()))
         token={'token':secret}
     link=farm_url()+'api/task/bot-click/'+token['token']
-    return bot_ui.screen(uid,'🤖 <b>Перейти в бота</b>\n\n🎁 Награда: <b>'+money(t['reward'])+'</b>\n\nОплачивается переход по ссылке, а не подтверждённый запуск или регистрация.',
+    return bot_ui.screen(uid,'🤖 <b>Перейти в бота</b>\n\n🎁 Награда: <b>'+money(t['reward'])+'</b>\n\nОткрой бота, ознакомься с ним и вернись сюда для проверки.',
        [[{'text':'🚀 Открыть бота','url':link}],
         [button('✅ Проверить переход','botclick:check:'+t['id'])],
         [button('➡️ Дальше','botclick:skip:'+t['id'])],
@@ -571,7 +571,7 @@ def route(c, uid, text, action, message, api, admin):
             raise UserError(tr('Канал рекламных постов ещё не подключён администратором.', html_mode=False, section='task_bot', limit=3000))
         state(c, uid, 'task_url' if kind in ('channel','group','bot') else 'task_title', {'kind': kind})
         if kind=='bot':
-            return input_prompt(uid,'🤖 Пришли ссылку на Telegram-бота (https://t.me/ExampleBot).\n\nОплачивается только переход, не запуск бота.')
+            return input_prompt(uid,'🤖 Пришли HTTPS-ссылку на своего Telegram-бота.\n\nАдрес должен начинаться с https://t.me/ и содержать имя твоего бота.\n\nПроверка задания подтверждает переход по ссылке, а не запуск или регистрацию.')
         if kind in ('channel','group'):
             label='📣 Пришли ссылку на канал' if kind=='channel' else '👥 Пришли ссылку на группу'
             return input_prompt(uid,label+' (https://t.me/имя).\n\nСначала добавь @Farmlife2026bot администратором, чтобы мы могли проверять участников.')
@@ -794,7 +794,7 @@ def process_input(c, uid, text, message, current, api):
                 path = urlsplit(text)
                 username = path.path.strip('/')
                 if len(text) > 400 or path.scheme != 'https' or path.hostname != 't.me' or (not re.fullmatch('[A-Za-z][A-Za-z0-9_]{3,31}', username)) or (not username.lower().endswith('bot')):
-                    raise UserError(tr('Нужна ссылка https://t.me/ИмяБота, при необходимости с параметром start.', html_mode=False, section='task_bot', limit=3000))
+                    raise UserError(tr('Пришли ссылку на своего Telegram-бота: HTTPS-адрес t.me с именем бота, при необходимости с параметром start.', html_mode=False, section='task_bot', limit=3000))
                 data['url'], data['bot_username'] = (text, username)
                 data['chat_id'] = None
                 data['bot_mode']='click'
