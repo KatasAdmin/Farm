@@ -702,10 +702,10 @@ def process_input(c, uid, text, message, current, api):
             else:
                 try:
                     data['chat_id'], data['url'] = resolve_chat(api, text, data['kind'])
-                if data['kind']=='channel':
-                    info=api('getChat', {'chat_id':data['chat_id']})
-                    data['title']='Подписаться на '+str(info.get('title') or info.get('username') or 'канал')[:75]
-                    data['description']='Подпишись на канал и нажми «Проверить подписку».'
+                    if data['kind']=='channel':
+                        info=api('getChat', {'chat_id':data['chat_id']})
+                        data['title']='Подписаться на '+str(info.get('title') or info.get('username') or 'канал')[:75]
+                        data['description']='Подпишись на канал и нажми «Проверить подписку».'
                 except UserError:
                     raise
                 except Exception:
