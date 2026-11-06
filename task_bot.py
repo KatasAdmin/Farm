@@ -148,7 +148,7 @@ def cabinet(c, uid):
     debt = debt['amount'] if debt else 0
     state(c, uid, 'clear')
     debt_line = tr('\n⚠️ Задолженность: {v0}', {'v0': money(debt)}, html_mode=True, section='task_bot', limit=3000) if debt else ''
-    text = tr('👤 <b>Мой кабинет</b>\n🆔 <code>{v0}</code>\n\n💰 <b>Доступно: {v1}</b>{v2}\n\n📊 <b>Движение средств</b>\n💳 Пополнений: {v3}\n📣 Потрачено на рекламу: {v4}\n✅ За задания: {v5}\n🎁 Бонусы и партнёры: {v6}\n\n📌 <b>Остальные средства</b>\n❄️ В рекламных заданиях: {v7}\n⏳ Ожидает вывода: {v8}\n💸 Выведено всего: {v9}', {'v0': f'{uid}', 'v1': f"{money(a['available'])}", 'v2': f'{debt_line}', 'v3': f'{money(deposits)}', 'v4': f'{money(spent)}', 'v5': f'{money(earned)}', 'v6': f'{money(bonuses)}', 'v7': f'{money(frozen)}', 'v8': f'{money(pending)}', 'v9': f'{money(paid)}'}, html_mode=True, section='task_bot', limit=3000)
+    text = tr('👤 <b>Мой кабинет</b>\n🆔 <code>{v0}</code>\n\n💰 <b>Доступно: {v1}</b>{v2}\n\n📊 <b>Движение средств</b>\n💳 Пополнений: {v3}\n📣 Потрачено на рекламу: {v4}\n✅ За задания: {v5}\n🎁 Бонусы и партнёры: {v6}\n\n📌 <b>Остальные средства</b>\n❄️ В бюджете заданий: {v7}\n⏳ Ожидает вывода: {v8}\n💸 Выведено всего: {v9}', {'v0': f'{uid}', 'v1': f"{money(a['available'])}", 'v2': f'{debt_line}', 'v3': f'{money(deposits)}', 'v4': f'{money(spent)}', 'v5': f'{money(earned)}', 'v6': f'{money(bonuses)}', 'v7': f'{money(frozen)}', 'v8': f'{money(pending)}', 'v9': f'{money(paid)}'}, html_mode=True, section='task_bot', limit=3000)
     buttons = [[button('➕ Пополнить', 'deposit'), button('💸 Вывести', 'withdraw')], [button('✅ Мои выполнения', 'claims')], [button('📥 Мои заявки', 'payouts'), button('📜 История', 'history')]]
     buttons.append([button('📱 Привязать номер','identity:share')])
     if bot_copy.owner():
