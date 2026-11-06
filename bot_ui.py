@@ -54,15 +54,15 @@ def earn(c, uid):
         if kind in kinds:
             row = kinds[kind]
             return ('от ' if row['low'] != row['high'] or kind == 'manual' else '+') + b.money(row['low'])
-        if kind == 'manual':
-            return ''
-        return '+' + b.money(b.bot_economy.quote(c, kind)['reward'])
+        return ''
 
     def label(text, kind):
         reward = rate(kind)
         return text + (' · ' + reward if reward else '')
     text = tr('🚀 <b>Как хочешь заработать?</b>\n\n<b>💼 Доступные задания</b>\n📣 Подписаться на канал: <b>{v0}</b>\n👁 Посмотреть пост: <b>{v1}</b>\n🤖 Перейти в бота: <b>{v2}</b>\n👥 Вступить в группу: <b>{v3}</b>\n📝 Выполнить задание: <b>{v4}</b>\n🤝 Приглашать друзей: <b>можно</b>\n⭐ Квесты: <i>готовятся</i>\n\n<b>💎 Награды в доступных заданиях: {v5}</b>\n<i>За каждое задание награда выдаётся один раз после проверки.</i>', {'v0': f"{count('channel')}", 'v1': f"{count('post')}", 'v2': f"{count('bot')}", 'v3': f"{count('group')}", 'v4': f"{count('manual')}", 'v5': f'{b.money(total)}'}, html_mode=True, section='bot_ui', limit=3000)
     text=text.replace('⭐ Квесты: <i>готовятся</i>','⭐ Квесты: <b>20 этапов</b>')
+    if not rows:
+        text += '\n\n<i>Сейчас нет активных оплачиваемых заданий. Можешь получить ежедневный бонус, пройти квесты и посмотреть доступную рекламу.</i>'
     # Ad viewing is public; VIP remains a separate quest achievement.
     posts_button = {'text':'🎬 Смотреть рекламу',
                     'web_app':{'url':b.farm_url()+'cash-ads-preview.html'}}
@@ -133,7 +133,7 @@ def home(c, uid, invited=False):
         welcome = c.execute('SELECT w.body,a.name FROM bot_ref_welcomes w JOIN bot_accounts a ON a.uid=w.uid WHERE w.uid=%s', (a['referrer'],)).fetchone()
         if welcome:
             text += tr('✉️ <b>Сообщение от пригласившего {v0}:</b>\n{v1}\n\n', {'v0': esc(welcome['name'][:32]), 'v1': esc(welcome['body'])}, html_mode=True, section='bot_ui', limit=3000)
-    text += tr('🌾 Развивай ферму и собирай урожай\n✅ Выполняй задания и проходи 20 квестов\n🤝 Приглашай друзей в команду\n💎 Пройди первые 3 квеста и открой VIP\n🏆 Повышай активность и поднимайся в топ\n\n👇 Начни с квестов и получи первые награды!', html_mode=True, section='bot_ui', limit=3000)
+    text += tr('🌾 Развивай ферму и собирай урожай\n✅ Выполняй задания и проходи 20 квестов\n🤝 Приглашай друзей в команду\n💎 Пройди первые 3 квеста и получи статус VIP\n🏆 Повышай активность и поднимайся в топ\n\n👇 Начни с ежедневного бонуса и квестов!', html_mode=True, section='bot_ui', limit=3000)
     return screen(uid, text)
 
 def welcome(c, uid):
@@ -153,7 +153,7 @@ def route(c, uid, text, action, message):
         b.state(c, uid, 'clear')
         return home(c, uid, bool(message.get('_new_referral')))
     if cmd=='/help' or action=='help':
-        return screen(uid,'❓ <b>Как начать в Farm?</b>\n\n1️⃣ Открой «Квесты» и получи ежедневный бонус.\n2️⃣ Пригласи друзей через свою ссылку.\n3️⃣ После третьего квеста откроется VIP с просмотром рекламы.\n4️⃣ Развивай ферму, выполняй задания и собирай награды.\n\n<i>Завершённый просмотр не всегда оплачивается рекламной сетью. Денежные выплаты доступны только по правилам раздела выплат.</i>',[[b.button('⭐ Квесты','quests')],[b.button('🤝 Партнёры','friends')],[b.button('⬅️ Главное','home')]])
+        return screen(uid,'❓ <b>Как начать в Farm?</b>\n\n1️⃣ Открой «Квесты» и получи ежедневный бонус.\n2️⃣ Пригласи друзей через свою ссылку.\n3️⃣ После третьего квеста получишь статус VIP. Реклама доступна всем.\n4️⃣ Развивай ферму, выполняй задания и собирай награды.\n\n<i>Завершённый просмотр не всегда оплачивается рекламной сетью. Денежные выплаты доступны только по правилам раздела выплат.</i>',[[b.button('⭐ Квесты','quests')],[b.button('🤝 Партнёры','friends')],[b.button('⬅️ Главное','home')]])
     if action=='home':
         return home(c,uid)
     if cmd=='/quests':
@@ -168,7 +168,7 @@ def route(c, uid, text, action, message):
             unlocked=(was==2 and bot_quests.completed(c,uid)==3)
         txt,buttons=bot_quests.show(c,uid)
         if unlocked:
-            txt='🎉 <b>VIP РАЗБЛОКИРОВАН!</b>\nТеперь можешь смотреть рекламу и выполнять рекламные квесты.\n\n'+txt
+            txt='🎉 <b>Получен статус VIP!</b>\nТы завершил первые три квеста. Просмотр рекламы доступен всем участникам.\n\n'+txt
         return screen(uid,txt,buttons)
     if action.startswith('top:'):
         period = action.split(':', 1)[1]
