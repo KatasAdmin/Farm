@@ -9,6 +9,7 @@ import stars_validation
 import monetag_ads
 import bot_monetag_cash
 import bot_cash_ad_credits
+import bot_adsgram_daily
 import bot_quests
 import bot_economy
 import ad_inventory
@@ -58,6 +59,7 @@ async def lifespan(app):
   bot_monetag_cash.initialize_cash_attempts(c)
   bot_economy.initialize_monetag_cash_staging(c)
   bot_cash_ad_credits.initialize(c)
+  bot_adsgram_daily.initialize(c)
   ad_inventory.initialize(c)
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
@@ -503,6 +505,12 @@ def cash_ads_preview_page():
 class PostbackSecretRedaction:
  def __init__(self,app):self.app=app
  async def __call__(self,scope,receive,send):
+  if scope.get("type")=="http" and scope.get("path")=="/api/ads/adsgram/reward":
+   from urllib.parse import parse_qsl,urlencode
+   params=parse_qsl(scope.get("query_string",b"").decode("utf-8",errors="replace"),keep_blank_values=True)
+   keys=[v for k,v in params if k=="key"]
+   scope.setdefault("state",{})["adsgram_reward_key"]=keys[0] if len(keys)==1 else ""
+   scope["query_string"]=urlencode([(k,v) for k,v in params if k!="key"]).encode()
   if scope.get("type")=="http" and scope.get("path")=="/api/ads/monetag/postback":
    from urllib.parse import parse_qsl,urlencode
    params=parse_qsl(scope.get("query_string",b"").decode("utf-8",errors="replace"),keep_blank_values=True)
@@ -615,6 +623,35 @@ def cash_ads_attempt_id(q):
  if not isinstance(ymid,str) or len(ymid)!=45 or not ymid.startswith("cash_") or any(ch not in "0123456789abcdef" for ch in ymid[5:]):
   raise HTTPException(400,"Invalid advertising attempt")
  return ymid
+
+@app.post("/api/ads/adsgram/prepare")
+def adsgram_prepare(q:dict):
+ uid=cash_ads_require_verified_identity(q)
+ if os.getenv("ADSGRAM_FALLBACK_ENABLED","").lower()!="true":
+  raise HTTPException(503,"AdsGram temporarily unavailable")
+ with db() as c:
+  try:return bot_adsgram_daily.prepare(c,uid)
+  except ValueError as exc:raise HTTPException(409,str(exc))
+
+@app.post("/api/ads/adsgram/cancel")
+def adsgram_cancel(q:dict):
+ uid=cash_ads_require_verified_identity(q)
+ attempt=q.get("attempt_id","")
+ if not isinstance(attempt,str) or len(attempt)!=32 or any(c not in "0123456789abcdef" for c in attempt):
+  raise HTTPException(400,"Invalid attempt ID")
+ with db() as c:bot_adsgram_daily.cancel(c,uid,attempt)
+ return {"ok":True}
+
+@app.get("/api/ads/adsgram/reward")
+def adsgram_reward(request:HTTPRequest,userId:str=""):
+ import hmac
+ secret=os.getenv("ADSGRAM_REWARD_URL_TOKEN","")
+ provided=getattr(request.state,"adsgram_reward_key","")
+ if len(secret)<32 or not provided or not hmac.compare_digest(secret,provided):
+  raise HTTPException(403,"Invalid AdsGram callback")
+ if not userId.isdecimal() or not 0<int(userId)<2**63:
+  raise HTTPException(400,"Invalid Telegram ID")
+ with db() as c:return bot_adsgram_daily.confirm(c,int(userId))
 
 @app.post("/api/ads/cash/attempt-result")
 def cash_ads_attempt_result(q:dict):
