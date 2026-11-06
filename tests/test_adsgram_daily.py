@@ -17,8 +17,9 @@ class Query:
 
 
 class FakeDB:
-    def __init__(self, rows):
+    def __init__(self, rows, farm_count=0):
         self.rows=rows
+        self.farm_count=farm_count
         self.settlements={}
         self.balances={1:0,2:0,3:0}
         self.fractions={}
@@ -32,6 +33,8 @@ class FakeDB:
             return Query({'found':1} if args[0] in self.settlements else None)
         if query.startswith('select uid,referral_chain from bot_adsgram_attempts'):
             return Query(rows=self.rows)
+        if query.startswith('select count(*) as n from bot_adsgram_farm_attempts'):
+            return Query({'n':self.farm_count})
         if query.startswith('insert into bot_adsgram_daily_settlements'):
             day,revenue,impressions,rate,created,owner=args
             self.settlements[day]={'revenue':revenue,'impressions':impressions,'credited':0}
@@ -79,6 +82,14 @@ class DailyAdsGramTests(unittest.TestCase):
         self.assertEqual(len(db.ledger),3)
         self.assertEqual(sum(x[2] for x in db.ledger),2000)
         self.assertEqual(db.settlements[self.day()]['impressions'],15)
+
+    def test_farm_views_count_in_shared_block_but_not_cash_rewarded(self):
+        db=FakeDB([{'uid':1,'referral_chain':[]}],farm_count=1)
+        with patch.object(ads,'nbu_usd_uah',return_value=Decimal('40')):
+            result=ads.settle_day(db,self.day(),'0.20',2,1)
+        self.assertEqual(result['cash_views'],1)
+        self.assertEqual(result['farm_views'],1)
+        self.assertEqual(db.balances[1],120)  # 30% of cash view's $0.10
 
     def test_duplicate_day_never_credits_again(self):
         db=FakeDB([{'uid':1,'referral_chain':[]}])
