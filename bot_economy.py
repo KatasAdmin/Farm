@@ -261,11 +261,10 @@ def edit(c, uid, text, data):
         fee, *refs = map(percentage, p)
         if fee >= 10000 or sum(refs) > fee:
             raise b.UserError(tr('Комиссия должна покрывать все реферальные проценты и быть меньше 100%.', html_mode=False, section='bot_economy', limit=3000))
-        if any((p['cost'] * (10000 - fee) // 10000 < 1 for p in c.execute("SELECT * FROM bot_prices").fetchall())):
-            raise b.UserError(tr('При такой комиссии один из тарифов даёт нулевую награду.', html_mode=False, section='bot_economy', limit=3000))
+        prices=c.execute('SELECT * FROM bot_prices').fetchall()
+        if any(price['reward']*10000+price['cost']*sum(refs)>price['cost']*10000 for price in prices):
+            raise b.UserError('Новые реферальные проценты не покрываются ценой и наградой. Измени тарифы.')
         c.execute('UPDATE bot_economics SET fee=%s,ref1=%s,ref2=%s,ref3=%s,ref4=%s,ref5=%s WHERE id=1', (fee, *refs))
-        for price in c.execute('SELECT * FROM bot_prices').fetchall():
-            c.execute('UPDATE bot_prices SET reward=%s WHERE kind=%s',(price['cost']*(10000-fee)//10000,price['kind']))
     elif field == 'bonus':
         if len(p) != 1:
             raise b.UserError(tr('Введи только сумму ежедневной награды. Например: 0.50.', html_mode=False, section='bot_economy', limit=3000))
