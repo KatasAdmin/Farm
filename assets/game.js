@@ -970,7 +970,11 @@ async function submitWithdrawalRequest() {
   try{
     const n=amount("withdrawal-amount",1000000);
     if(n<100)throw Error("Минимальная заявка — 100 монет");
-    if(!confirm("Перевести "+number(n)+" монет на свой баланс бота? Будет зачислено "+number(n)+" грн."))return;
+    const conversionStatus=await api("/api/withdraw/status");
+    const fx=Number(conversionStatus.future_usd_preview?.uah_per_usd);
+    const futureAmount=Number.isFinite(fx)&&fx>0 ? (n/fx).toFixed(6) : null;
+    const confirmation="Перевести "+number(n)+" игровых монет на баланс бота? Сейчас зачисление работает по старым условиям ("+number(n)+" грн)."+(futureAmount?"\nОценка после долларового перехода: ≈ $"+futureAmount+" (это НЕ сумма текущего зачисления).":"");
+    if(!confirm(confirmation))return;
     busy(true);
     await api("/api/withdraw/request",{amount:n,transfer_id:gameTransferKey});
     gameTransferKey="";
@@ -978,7 +982,7 @@ async function submitWithdrawalRequest() {
     await refresh();
     await loadWithdrawalStatus();
     await loadHistory();
-    toast("✅ На баланс бота зачислено "+number(n)+" грн");
+    toast("✅ Перевод в бот выполнен. До завершения долларового перехода зачисление остаётся гривневым.");
   }catch(error){toast(error.message);}
   finally{busy(false);}
 }
