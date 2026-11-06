@@ -132,8 +132,8 @@ def home(c, uid, invited=False):
         welcome = c.execute('SELECT w.body,a.name FROM bot_ref_welcomes w JOIN bot_accounts a ON a.uid=w.uid WHERE w.uid=%s', (a['referrer'],)).fetchone()
         if welcome:
             text += tr('✉️ <b>Сообщение от пригласившего {v0}:</b>\n{v1}\n\n', {'v0': esc(welcome['name'][:32]), 'v1': esc(welcome['body'])}, html_mode=True, section='bot_ui', limit=3000)
-    text += tr('🚀 <b>Зарабатывай</b> на заданиях\n📣 <b>Продвигай</b> свои проекты\n🎮 <b>Играй</b> и развивай ферму\n🤝 <b>Приглашай друзей</b> в свою команду\n\n👇 Выбери раздел в меню внизу', html_mode=True, section='bot_ui', limit=3000)
-    return screen(uid, text)
+    text += tr('🌾 Развивай ферму и собирай урожай\n✅ Выполняй задания и проходи 20 квестов\n🤝 Приглашай друзей в команду\n💎 Пройди первые 3 квеста и открой VIP\n🏆 Повышай активность и поднимайся в топ\n\n👇 Начни с квестов и получи первые награды!', html_mode=True, section='bot_ui', limit=3000)
+    return screen(uid, text, [[b.button('🚀 Начать с квестов','quests')],[{'text':'🌾 Открыть ферму','web_app':{'url':b.farm_url()}}],[b.button('🤝 Пригласить друга','friends'),b.button('❓ Помощь','help')]])
 
 def welcome(c, uid):
     b = core()
@@ -148,9 +148,15 @@ def welcome(c, uid):
 def route(c, uid, text, action, message):
     b = core()
     cmd = text.split(maxsplit=1)[0].split('@')[0] if text else ''
-    if cmd in ('/start', '/menu', '/help') and text != '/start wallet':
+    if cmd in ('/start', '/menu') and text != '/start wallet':
         b.state(c, uid, 'clear')
         return home(c, uid, bool(message.get('_new_referral')))
+    if cmd=='/help' or action=='help':
+        return screen(uid,'❓ <b>Как начать в Farm?</b>\n\n1️⃣ Открой «Квесты» и получи ежедневный бонус.\n2️⃣ Пригласи друзей через свою ссылку.\n3️⃣ После третьего квеста откроется VIP с просмотром рекламы.\n4️⃣ Развивай ферму, выполняй задания и собирай награды.\n\n<i>Завершённый просмотр не всегда оплачивается рекламной сетью. Денежные выплаты доступны только по правилам раздела выплат.</i>',[[b.button('⭐ Квесты','quests')],[b.button('🤝 Партнёры','friends')],[b.button('⬅️ Главное','home')]])
+    if action=='home':
+        return home(c,uid)
+    if cmd=='/quests':
+        action='quests'
     if action in ('quests','quests:claim'):
         b.state(c,uid,'clear')
         unlocked=False
