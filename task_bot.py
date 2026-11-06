@@ -839,7 +839,7 @@ def process_input(c, uid, text, message, current, api):
             data['budget'] = total
             data['nonce'] = uuid.uuid4().hex[:12]
             state(c, uid, 'task_confirm', data)
-            return say(uid, tr('{v0}\nНаграда: {v1}\nВыполнений: {v2}\nПолная цена выполнения: {v3}\nБюджет: {v4}\nКомиссия уже включена в цену\n\nПосле подтверждения бюджет резервируется, а задание сразу публикуется без ручной модерации.', {'v0': f"{data['title']}", 'v1': f"{money(data['reward'])}", 'v2': f'{text}', 'v3': f"{money(data.get('terms', {}).get('cost', data['reward']))}", 'v4': f'{money(total)}'}, html_mode=False, section='task_bot', limit=3000), [[button('✅ Создать', 'confirm_task:' + data['nonce']), button('Отмена', 'cancel_input')]])
+            return say(uid, tr('{v0}\nНаграда: {v1}\nВыполнений: {v2}\nПолная цена выполнения: {v3}\nБюджет: {v4}\n', {'v0': f"{data['title']}", 'v1': f"{money(data['reward'])}", 'v2': f'{text}', 'v3': f"{money(data.get('terms', {}).get('cost', data['reward']))}", 'v4': f'{money(total)}'}, html_mode=False, section='task_bot', limit=3000), [[button('✅ Создать', 'confirm_task:' + data['nonce']), button('Отмена', 'cancel_input')]])
         else:
             return input_prompt(uid, tr('Подтверди действие кнопкой выше или нажми «Отмена».', html_mode=False, section='task_bot', limit=3000))
         state(c, uid, next_stage, data)
@@ -859,7 +859,8 @@ def confirmation(c, uid, action, api):
         change(c, uid, -data['budget'], 'task_budget', 'Бюджет задания ' + tid)
         c.execute("INSERT INTO bot_tasks(id,owner,kind,title,description,url,chat_id,reward,remaining,status,created) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,'active',%s)", (tid, uid, data['kind'], data['title'], data['description'], data['url'], data.get('chat_id'), data['reward'], data['budget'], time.time()))
         # The paid order becomes active immediately. Keep an audit/owner notification.
-        bot_notifications.enqueue(c,'task:'+tid,tr('✅ Новый заказ опубликован\n\nАвтор: {v0}\nНазвание: {v1}\nБюджет: {v2}', {'v0': str(uid), 'v1': data['title'], 'v2': money(data['budget'])}, section='notifications'),'admin:tasks',subject=uid)
+        if uid != (c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone() or {}).get('telegram_id'):
+            bot_notifications.enqueue(c,'task:'+tid,tr('✅ Новый заказ опубликован\n\nАвтор: {v0}\nНазвание: {v1}\nБюджет: {v2}', {'v0': str(uid), 'v1': data['title'], 'v2': money(data['budget'])}, section='notifications'),'admin:tasks',subject=uid)
         bot_economy.save_terms(c, tid, data)
         bot_advertising.save(c,tid,data)
         if data['kind']=='bot':
@@ -867,7 +868,7 @@ def confirmation(c, uid, action, api):
         if data['kind']=='manual':bot_manual.save(c,tid,data)
         if data['kind']=='post':
             bot_extras.queue_post(c, {'id':tid}, api)
-        result = say(uid, tr('✅ Задание {v0} опубликовано без модерации. Бюджет зарезервирован.', {'v0': tid}, html_mode=False, section='task_bot', limit=3000))
+        result = say(uid, tr('✅ Задание опубликовано!\n\n💰 Бюджет: {v0}', {'v0': money(data['budget'])}, html_mode=False, section='task_bot', limit=3000), [[button('📂 Мои заказы','mine:0')]])
     elif action == 'confirm_payout' and current['state'] == 'payout_confirm':
         bot_account_controls.require_withdrawal(c,uid)
         if c.execute("SELECT 1 FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone():
