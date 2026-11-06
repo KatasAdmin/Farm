@@ -280,8 +280,10 @@ def edit(c, uid, text, data):
 
 # Prepared only: Monetag cash-reward allocation. Not wired to postbacks or wallets.
 # Existing farm production referral rates and task-marketplace rates remain unchanged.
-MONETAG_CASH_REFERRAL_BPS = (500, 300, 200, 300, 300, 400, 200)
-MONETAG_CASH_VIEWER_BPS = 5000
+# 35% to verified seven-level referral chain, 30% viewer, rest platform.
+# Snapshot into each event; never retroactively alter previously staged allocations.
+MONETAG_CASH_REFERRAL_BPS = (1000, 700, 500, 400, 300, 300, 300)
+MONETAG_CASH_VIEWER_BPS = 3000
 MONETAG_CASH_TOTAL_BPS = 10000
 
 
@@ -301,8 +303,8 @@ def monetag_cash_allocation(estimated_usd, referral_chain):
         raise ValueError('Referral depth exceeds seven')
     if any(uid is not None and (not isinstance(uid, int) or uid <= 0) for uid in referral_chain):
         raise ValueError('Invalid referral UID')
-    if sum(MONETAG_CASH_REFERRAL_BPS) != 2200:
-        raise AssertionError('Referral allocation must equal 22%')
+    if sum(MONETAG_CASH_REFERRAL_BPS) != 3500:
+        raise AssertionError('Referral allocation must equal 35%')
     if len(set(uid for uid in referral_chain if uid is not None)) != len(
         [uid for uid in referral_chain if uid is not None]
     ):
