@@ -46,13 +46,15 @@ def initialize_cash_attempts(c):
             request_var text NOT NULL,
             created_at double precision NOT NULL,
             launched_at double precision,
+            finished_at double precision,
             expires_at double precision NOT NULL,
             state text NOT NULL DEFAULT 'prepared'
-                CHECK(state IN ('prepared','launched','finished','confirmed','expired','rejected')),
+                CHECK(state IN ('prepared','launched','confirmed','expired','rejected')),
             confirmed_at double precision
         )
     """)
     c.execute("ALTER TABLE bot_monetag_cash_attempts ADD COLUMN IF NOT EXISTS launched_at double precision")
+    c.execute("ALTER TABLE bot_monetag_cash_attempts ADD COLUMN IF NOT EXISTS finished_at double precision")
     c.execute("""
         CREATE INDEX IF NOT EXISTS bot_monetag_cash_attempts_viewer
         ON bot_monetag_cash_attempts(viewer_uid,created_at)
@@ -98,7 +100,7 @@ def cash_attempt_quota(c, viewer_uid, now=None):
     """No daily cap; only launched ads count toward a 10-ad block."""
     now=time.time() if now is None else now
     rows=c.execute("""
-        SELECT created_at,launched_at,expires_at,state
+        SELECT created_at,launched_at,finished_at,expires_at,state
         FROM bot_monetag_cash_attempts
         WHERE viewer_uid=%s AND (
           (launched_at IS NOT NULL AND launched_at>=%s)
@@ -108,7 +110,7 @@ def cash_attempt_quota(c, viewer_uid, now=None):
     """,(viewer_uid,now-3600,now)).fetchall()
     active=any((r['state']=='prepared' and r['expires_at']>now) or
                (r['state']=='launched' and r['launched_at'] is not None and
-                r['launched_at']+120>now) for r in rows)
+                r['finished_at'] is None and r['launched_at']+120>now) for r in rows)
     launches=[r['launched_at'] for r in rows if r['launched_at'] is not None]
     cooldown=cash_cooldown(launches,now)
     return {'active':active,'retry_after':cooldown['retry_after'],
@@ -146,10 +148,10 @@ def finish_cash_attempt(c, viewer_uid, ymid):
     """
     lock_cash_viewer(c,viewer_uid)
     row=c.execute("""
-        UPDATE bot_monetag_cash_attempts SET state='finished'
-        WHERE ymid=%s AND viewer_uid=%s AND state='launched'
+        UPDATE bot_monetag_cash_attempts SET finished_at=%s
+        WHERE ymid=%s AND viewer_uid=%s AND state='launched' AND finished_at IS NULL
         RETURNING ymid
-    """,(ymid,viewer_uid)).fetchone()
+    """,(time.time(),ymid,viewer_uid)).fetchone()
     return {'ok':bool(row),'payable':False}
 
 
@@ -199,7 +201,7 @@ def lookup_cash_attempt_for_postback(c, *, ymid, telegram_uid, zone_id,
     row=c.execute("""
         SELECT * FROM bot_monetag_cash_attempts WHERE ymid=%s FOR UPDATE
     """,(ymid,)).fetchone()
-    if not row or row['state'] not in ('launched','finished') or row.get('launched_at') is None:
+    if not row or row['state']!='launched' or row.get('launched_at') is None:
         return None
     if now>row['launched_at']+CASH_POSTBACK_TTL or row['zone_id']!=zone_id:
         return None
@@ -256,7 +258,7 @@ def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
     if result['recorded']:
         c.execute("""
             UPDATE bot_monetag_cash_attempts SET state='confirmed',confirmed_at=%s
-            WHERE ymid=%s AND state IN ('launched','finished')
+            WHERE ymid=%s AND state='launched'
         """,(now,ymid))
     return {'ok':True,'staged':result['recorded'],
             'status':'pending_review','payable':False}
