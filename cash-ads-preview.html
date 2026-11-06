@@ -1,95 +1,89 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Смотреть рекламу</title>
+<title>VIP · Смотреть рекламу</title>
 <style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(160deg,#101b32,#10131f);color:#f4f7ff;font:16px system-ui,-apple-system,sans-serif;padding:24px}main{max-width:460px;margin:15vh auto;padding:24px;border:1px solid #34435d;border-radius:22px;background:#ffffff0a;box-shadow:0 14px 40px #0003}h1{font-size:24px}p{line-height:1.55;color:#c6d2e7}.status{display:inline-block;padding:7px 12px;border-radius:30px;background:#394052;color:#f1d69d;font-size:13px}.shares{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:22px 0}.shares div{padding:12px 6px;text-align:center;background:#253047;border-radius:12px;font-size:12px}.shares strong{display:block;font-size:22px;margin-bottom:4px}button{width:100%;padding:15px;background:#45536c;border:0;border-radius:12px;color:#fff;font-size:16px;cursor:not-allowed}small{display:block;color:#9eacc3;line-height:1.5;margin-top:14px}</style></head>
-<body><main><h1>🎬 Смотреть рекламу</h1>
-<p id="identity" role="status">Подключаем рекламу…</p>
-<p id="quota" role="status"></p>
-<button id="watch" disabled aria-disabled="true">Загружаем рекламу…</button>
-<small>Денежные начисления и вывод пока недоступны. Просмотр учитывается только после подтверждения рекламной сети.</small></main>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(155deg,#132a25,#10131f);color:#f4f7ff;font:16px system-ui,-apple-system,sans-serif;padding:18px}
+main{max-width:490px;margin:3vh auto;padding:22px;border:1px solid #34544b;border-radius:24px;background:#ffffff0b;box-shadow:0 14px 40px #0003}
+h1{font-size:25px;margin:0 0 12px}h2{font-size:17px;margin:20px 0 10px}p{line-height:1.5;color:#cbd8d2}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.metric{background:#243a34;border:1px solid #3e594c;border-radius:13px;padding:12px}.metric small{display:block;font-size:12px;color:#b6c8bb}.metric strong{font-size:19px;word-break:break-all}
+button{width:100%;padding:15px;border-radius:13px;color:white;background:#26965b;font-weight:700;border:0;font-size:17px;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:#32493d}
+.info{font-size:13px;color:#b6c8bb;margin-top:14px;line-height:1.6}.note{border-top:1px solid #3d5449;margin-top:15px;padding-top:10px;font-size:13px}
+</style></head>
+<body><main>
+<h1>💎 VIP · Реклама</h1>
+<p id="identity">Проверяем доступ через Telegram…</p>
+<div class="metrics">
+ <div class="metric"><small>Завершено просмотров</small><strong id="completed">—</strong></div>
+ <div class="metric"><small>Подтверждено Monetag</small><strong id="confirmed">—</strong></div>
+ <div class="metric"><small>За свои просмотры, предварительно</small><strong id="viewer">$0</strong></div>
+ <div class="metric"><small>От команды, предварительно</small><strong id="refs">$0</strong></div>
+</div>
+<p id="quota" role="status">Проверяем доступность рекламы…</p>
+<button id="watch" disabled>Подключаем…</button>
+<button id="retry" type="button">↻ Обновить статистику</button>
+<p class="info">💚 Зритель — 30% · Рефералы 7 уровней — до 35% · Проект — остаток. Доля отсутствующего реферала остаётся проекту.</p>
+<p class="info note">Реальные деньги начисляются только после подтверждения рекламной сетью и сверки окончательной выручки. Показанные суммы — предварительные оценки, их нельзя вывести. Просмотры без оплаты считаются только для активности.</p>
+</main>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/assets/cash-ads-sdk.js"></script>
 <script>
 (async()=>{
- const label=document.getElementById('identity');
  const app=window.Telegram?.WebApp;
+ const el=id=>document.getElementById(id);
+ const watch=el('watch'),quota=el('quota'),label=el('identity');
+ let signed='',active=false,retryUntil=0;
+ const post=async(path,payload={})=>{
+  const r=await fetch('/api/ads/cash/'+path,{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_data:signed,...payload})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(typeof data.detail==='string'?data.detail:'Сервис временно недоступен');
+  return data;
+ };
+ function usd(x){const v=Number(x||0);return '$'+(Number.isFinite(v)?v.toFixed(9):'0.000000000')}
+ async function refresh(){
+  const [stats,status]=await Promise.all([post('earnings'),post('status')]);
+  el('completed').textContent=stats.completed;
+  el('confirmed').textContent=stats.confirmed;
+  el('viewer').textContent=usd(stats.viewer_usd);
+  el('refs').textContent=usd(stats.referral_usd);
+  active=Boolean(status.active_attempt);
+  retryUntil=Date.now()+Math.max(0,Number(status.retry_after)||0)*1000;
+  if(!status.enabled){watch.disabled=true;watch.textContent='Реклама временно недоступна';quota.textContent='Просмотры сейчас отключены';return}
+  render();
+ }
+ function render(){
+  const seconds=Math.max(0,Math.ceil((retryUntil-Date.now())/1000));
+  if(active){watch.disabled=true;watch.textContent='Обрабатывается просмотр';quota.textContent='Предыдущий показ ещё обрабатывается. Попробуй обновить статистику.'}
+  else if(seconds){watch.disabled=true;watch.textContent='Пауза '+seconds+' сек.';quota.textContent='После блока из 10 запусков короткий перерыв.'}
+  else{watch.disabled=false;watch.textContent='🎬 Смотреть рекламу';quota.textContent='Просмотры запускаются только по нажатию.'}
+ }
  try{
   app?.ready?.();app?.expand?.();
-  if(!app?.initData){label.textContent='Откройте экран внутри Telegram для проверки аккаунта.';return}
-  const response=await fetch('/api/ads/cash/preview-auth',{
-   method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({telegram_data:app.initData}),credentials:'same-origin'
-  });
-  if(!response.ok){label.textContent='Не удалось подтвердить Telegram. Откройте экран заново.';return}
-  const result=await response.json();
-  label.textContent=result.ok?'Подключаем рекламу…':'Проверка недоступна.';
-  const quotaLabel=document.getElementById('quota');
-  const quotaResponse=await fetch('/api/ads/cash/status',{
-   method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({telegram_data:app.initData}),credentials:'same-origin'
-  });
-  if(!quotaResponse.ok){quotaLabel.textContent='Статус ограничений пока недоступен.';return}
-  const quota=await quotaResponse.json();
-  quotaLabel.textContent=quota.retry_after>0?'Пауза между просмотрами':'';
-  const watch=document.getElementById('watch');
-  if(result.enabled===true && quota.enabled===true && quota.test_mode===true){
-    watch.disabled=false;
-    watch.removeAttribute('aria-disabled');
-    watch.style.cursor='pointer';
-    watch.textContent='Смотреть рекламу';
-    label.textContent='';
-    quotaLabel.textContent='Загружаем рекламу…';
-    const startAd=async()=>{
-      watch.disabled=true;
-      watch.setAttribute('aria-disabled','true');
-      watch.textContent='Загрузка рекламы…';
-      quotaLabel.textContent='';
-      try{
-        const ad=await window.FarmCashAds.showCashAd(app.initData);
-        quotaLabel.textContent=ad.monetized
-          ?'Оплачиваемый просмотр подтверждён рекламной сетью. Выплаты пока недоступны.'
-          :'Просмотр завершён, но оплата рекламной сетью не подтверждена.';
-        watch.disabled=false;
-        watch.removeAttribute('aria-disabled');
-        watch.textContent='Смотреть рекламу';
-      }catch(error){
-        const message=String(error?.message||'Не удалось показать рекламу');
-        const noFill=/no.?ads|no.?fill|no.?inventory|no.?available|not.?available|no.?ad|нет доступной рекламы|реклама недоступна/i.test(message);
-        if(noFill){
-          watch.disabled=true;
-          watch.setAttribute('aria-disabled','true');
-          watch.textContent='Нет доступной рекламы';
-          quotaLabel.textContent='Сейчас оплачиваемая реклама недоступна.';
-        }else{
-          quotaLabel.textContent=message;
-          watch.disabled=false;
-          watch.removeAttribute('aria-disabled');
-          watch.textContent='Повторить просмотр';
-        }
-      }
-    };
-    watch.addEventListener('click',startAd);
-    if(Number(quota.retry_after||0)===0 && !quota.active_attempt)startAd();
-    else{
-      watch.disabled=true;
-      watch.textContent='Ожидаем доступность рекламы';
-      quotaLabel.textContent=quota.retry_after>0
-        ?'Следующий просмотр через '+Math.ceil(quota.retry_after)+' сек.'
-        :'Предыдущий просмотр ещё обрабатывается.';
-    }
-  }
-  if(!quota.enabled){label.textContent='Реклама временно недоступна';watch.textContent='Недоступно';}
-  const deadline=Date.now()+Math.max(0,Number(quota.retry_after)||0)*1000;
-
-  const render=()=>{
-   const remaining=Math.max(0,Math.ceil((deadline-Date.now())/1000));
-   if(remaining)quotaLabel.textContent='До следующего блока рекламы: '+remaining+' сек.';
-   else if(!quota.enabled)quotaLabel.textContent='Правило: 10 просмотров подряд, затем до 30 секунд отдыха. Без дневного лимита.';
+  if(!app?.initData){label.textContent='Открой страницу через Telegram Mini App.';quota.textContent='';return}
+  signed=app.initData;
+  await post('preview-auth');
+  label.textContent='✅ VIP открыт · реклама доступна';
+  await refresh();
+  el('retry').onclick=async()=>{try{await refresh()}catch(e){quota.textContent=e.message}};
+  watch.onclick=async()=>{
+   watch.disabled=true;watch.textContent='Загрузка рекламы…';quota.textContent='';
+   try{
+    const result=await window.FarmCashAds.showCashAd(signed);
+    quota.textContent=result.estimated_paid?'Сеть сообщила об оплачиваемом событии. Проверяем серверное подтверждение…':'Показ завершён. Денежное подтверждение может не прийти.';
+   }catch(e){
+    const message=String(e?.message||'Реклама сейчас недоступна');
+    quota.textContent=message;
+   }finally{
+    active=false;
+    try{await refresh()}catch(e){watch.disabled=false;watch.textContent='Повторить';quota.textContent=e.message}
+   }
   };
-  render();
-  if(quota.retry_after>0){const timer=setInterval(()=>{render();if(Date.now()>=deadline)clearInterval(timer)},1000)}
-
- }catch(e){label.textContent='Сервер проверки временно недоступен.'}
+  setInterval(()=>{if(!watch.disabled || retryUntil>Date.now())render()},1000);
+ }catch(e){
+  label.textContent=String(e?.message||'Не удалось открыть рекламу');
+  quota.textContent='Если VIP ещё закрыт, пройди первые три квеста в боте.';
+  watch.disabled=true;watch.textContent='Недоступно';
+ }
 })();
 </script></body></html>
