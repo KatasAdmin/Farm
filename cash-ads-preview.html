@@ -14,6 +14,7 @@ h1{font-size:23px;margin:4px 0 10px}p{color:#c7dacd;line-height:1.5}#msg{min-hei
 </main>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/assets/cash-ads-sdk.js"></script>
+<script src="/assets/adsgram-fallback.js"></script>
 <script>
 (async()=>{
  const app=window.Telegram?.WebApp;
@@ -21,27 +22,57 @@ h1{font-size:23px;margin:4px 0 10px}p{color:#c7dacd;line-height:1.5}#msg{min-hei
  const close=()=>{if(app?.close)app.close();else msg.textContent='Вернись в чат с ботом.'};
  back.onclick=close;
  const data=app?.initData;
- const post=async(path)=>{
-  const response=await fetch('/api/ads/cash/'+path,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_data:data})});
+ const post=async(path,body={})=>{
+  const response=await fetch('/api/ads/cash/'+path,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_data:data,...body})});
   const result=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(typeof result.detail==='string'?result.detail:'Не удалось проверить доступ');
   return result;
  };
- let busy=false;
+ let busy=false,adsgramEnabled=false,adsgramBlockId='';
+ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ const isNoFill=e=>/no.?ads|no.?fill|unavailable|not available|нет доступной рекламы|sdk unavailable/i.test(String(e?.message||e));
+ async function tryAdsgram(){
+  if(!adsgramEnabled)return false;
+  msg.textContent='🔄 Monetag не оплатил показ. Пробуем рекламу AdsGram…';
+  await window.FarmAdsgramFallback.show(adsgramBlockId);
+  msg.textContent='✅ AdsGram просмотрен. Денежная награда пока не подтверждена сетью.';
+  return true;
+ }
+ async function monetagResult(ymid){
+  for(let attempt=0;attempt<7;attempt++){
+   const check=await post('attempt-result',{ymid});
+   if(check.status!=='pending')return check.status;
+   await sleep(1000);
+  }
+  return 'pending';
+ }
  async function show(){
   if(busy)return;
   busy=true;watch.disabled=true;watch.textContent='Загружаем…';msg.textContent='Открываем рекламный ролик…';
   try{
    const result=await window.FarmCashAds.showCashAd(data);
-   msg.textContent='✅ Просмотр завершён. Если реклама оплачена, награда поступит на баланс после подтверждения Monetag.';
+   msg.textContent='Проверяем, оплачен ли показ Monetag…';
+   const status=await monetagResult(result.ymid);
+   if(status==='non_valued' && adsgramEnabled){
+    try{await tryAdsgram()}catch(e){msg.textContent='AdsGram сейчас без рекламы. Попробуй позже.'}
+   }else if(status==='valued'){
+    msg.textContent='✅ Оплаченный просмотр. Награда зачисляется на баланс.';
+   }else if(status==='non_valued'){
+    msg.textContent='Monetag не оплатил просмотр. Запасная сеть пока не активна.';
+   }else{
+    msg.textContent='Просмотр завершён; Monetag ещё проверяет оплату. Не запускаем запасную рекламу до подтверждения.';
+   }
    watch.textContent='Готово';
    close();
   }catch(error){
-   const message=String(error?.message||'Реклама временно недоступна');
-   msg.textContent=/no.?ads|no.?fill|unavailable|not available|нет доступной рекламы/i.test(message)
-    ?'Сейчас нет доступной рекламы. Попробуй позже.':message;
+   if(isNoFill(error)&&adsgramEnabled){
+    try{await tryAdsgram();watch.textContent='Готово';close();return}
+    catch(e){msg.textContent='Ни одна сеть сейчас не предоставила рекламу.'}
+   }else{
+    msg.textContent=isNoFill(error)?'Сейчас нет доступной рекламы. Попробуй позже.':String(error?.message||'Реклама временно недоступна');
+   }
    watch.disabled=false;
-   watch.textContent='🎬 Повторить просмотр';
+   watch.textContent='🎬 Попробовать снова';
   }finally{busy=false}
  }
  watch.onclick=show;
@@ -50,6 +81,8 @@ h1{font-size:23px;margin:4px 0 10px}p{color:#c7dacd;line-height:1.5}#msg{min-hei
   if(!data){throw new Error('Открой просмотр из Telegram-бота.')}
   await post('preview-auth');
   const status=await post('status');
+  adsgramEnabled=status.adsgram_enabled===true;
+  adsgramBlockId=String(status.adsgram_block_id||'');
   if(!status.enabled)throw new Error('Реклама сейчас отключена.');
   if(status.active_attempt)throw new Error('Предыдущий просмотр ещё обрабатывается. Попробуй позже.');
   if(status.retry_after>0)throw new Error('Пауза после десяти просмотров: '+Math.ceil(status.retry_after)+' секунд.');
