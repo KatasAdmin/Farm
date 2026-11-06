@@ -242,7 +242,7 @@ def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
         return {'ok':False,'reason':'unknown_or_invalid_attempt'}
     # Non-valued events are telemetry only. Positive estimated income is not
     # enough to create a payable balance; publisher settlement is still needed.
-    if reward_event_type!='valued' or price==0:
+    if event_type!='impression' or reward_event_type!='valued' or price==0:
         return {'ok':True,'staged':False,'reason':'not_valued'}
     # Prevent referral self-rewards and duplicate ancestors.
     chain=tuple(referral_chain)
