@@ -525,7 +525,7 @@ def cash_ads_preview_auth(q:dict):
  if not isinstance(raw,str):
   raise HTTPException(400,"Invalid Telegram data")
  uid=telegram_identity(raw)
- return {"ok":True,"telegram_id":uid,"enabled":False,"cash_rewards":False,
+ return {"ok":True,"telegram_id":uid,"enabled":cash_ads_enabled(),"cash_rewards":cash_ads_enabled(),
          "status":"awaiting_monetag_approval"}
 
 @app.post("/api/ads/cash/status")
@@ -544,15 +544,9 @@ def cash_ads_status(q:dict):
          "break_every":10,"break_seconds":30}
 
 
-@app.post("/api/ads/cash/prepare")
-def cash_ads_prepare(q:dict):
- # Cash advertising remains disabled until explicit publisher approval.
- # Validate Telegram identity before responding; do not create an attempt.
- raw=q.get("telegram_data","")
- if not isinstance(raw,str):
-  raise HTTPException(400,"Invalid Telegram data")
- telegram_identity(raw)
- raise HTTPException(503,"Денежные награды отключены до разрешения Monetag")
+def cash_ads_enabled():
+ # Default OFF. Operator may enable only after written Monetag permission.
+ return os.getenv("MONETAG_CASH_APPROVED","").lower() == "true"
 
 def cash_ads_require_verified_identity(q):
  raw=q.get("telegram_data","")
@@ -560,27 +554,50 @@ def cash_ads_require_verified_identity(q):
   raise HTTPException(400,"Invalid Telegram data")
  return int(telegram_identity(raw))
 
+def cash_ads_require_enabled():
+ if not cash_ads_enabled():
+  raise HTTPException(503,"Денежная реклама ожидает разрешения Monetag")
+
+def cash_ads_attempt_id(q):
+ ymid=q.get("ymid","")
+ if not isinstance(ymid,str) or len(ymid)!=45 or not ymid.startswith("cash_") or any(ch not in "0123456789abcdef" for ch in ymid[5:]):
+  raise HTTPException(400,"Invalid advertising attempt")
+ return ymid
+
+@app.post("/api/ads/cash/prepare")
+def cash_ads_prepare(q:dict):
+ uid=cash_ads_require_verified_identity(q)
+ cash_ads_require_enabled()
+ try:
+  with db() as c:
+   result=bot_monetag_cash.prepare_cash_attempt(c,uid)
+  return result
+ except ValueError as exc:
+  raise HTTPException(429,str(exc))
 
 @app.post("/api/ads/cash/launch")
 def cash_ads_launch(q:dict):
- # Deliberately disabled until Monetag authorizes withdrawable rewards.
- # Never accept an SDK callback as proof of revenue.
- cash_ads_require_verified_identity(q)
- raise HTTPException(503,"Запуск денежной рекламы ожидает разрешения Monetag")
-
+ uid=cash_ads_require_verified_identity(q)
+ cash_ads_require_enabled()
+ try:
+  with db() as c:
+   return bot_monetag_cash.mark_cash_attempt_launched(c,uid,cash_ads_attempt_id(q))
+ except ValueError as exc:
+  raise HTTPException(409,str(exc))
 
 @app.post("/api/ads/cash/finish")
 def cash_ads_finish(q:dict):
- # Future SDK-completion endpoint. Completion is not proof of payable revenue.
- cash_ads_require_verified_identity(q)
- raise HTTPException(503,"Денежная реклама ожидает разрешения Monetag")
-
+ uid=cash_ads_require_verified_identity(q)
+ cash_ads_require_enabled()
+ with db() as c:
+  return bot_monetag_cash.finish_cash_attempt(c,uid,cash_ads_attempt_id(q))
 
 @app.post("/api/ads/cash/cancel")
 def cash_ads_cancel(q:dict):
- # Do not mutate cash attempts while the feature is disabled.
- cash_ads_require_verified_identity(q)
- raise HTTPException(503,"Денежная реклама пока отключена")
+ uid=cash_ads_require_verified_identity(q)
+ cash_ads_require_enabled()
+ with db() as c:
+  return {"ok":bot_monetag_cash.cancel_unlaunched_cash_attempt(c,uid,cash_ads_attempt_id(q)),"payable":False}
 
 
 @app.get("/api/ads/monetag/status")
