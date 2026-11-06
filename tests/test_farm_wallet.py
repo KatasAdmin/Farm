@@ -64,7 +64,7 @@ class FarmWalletTests(unittest.TestCase):
         self.assertEqual(e.exception.status_code,409)
     def test_http_uses_authenticated_player_and_retries_same_key(self):
         self.add('market_sale',200);self.c.raw.commit()
-        with patch.dict(main.os.environ,{'FARM_TRANSFER_TO_BOT_ENABLED':'1'}),patch.object(main,'db',return_value=self.c),patch.object(main,'person',side_effect=lambda *args:self.player()),patch.object(main,'advance',side_effect=lambda c,p:p):
+        with patch.object(main,'db',return_value=self.c),patch.object(main,'person',side_effect=lambda *args:self.player()),patch.object(main,'advance',side_effect=lambda c,p:p):
             a=main.request_withdrawal(main.Request(amount=100,transfer_id=self.key),'Bearer owner')
             b=main.request_withdrawal(main.Request(amount=100,transfer_id=self.key),'Bearer owner')
         self.assertFalse(a['repeated']);self.assertTrue(b['repeated'])

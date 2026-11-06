@@ -894,7 +894,6 @@ async function cancelWithdrawalRequest(){
 }
 let gameTransferKey="";
 function openWithdrawalRequest() {
-  return toast("Переводы из фермы в бот временно отключены на время перехода на USD. Твои монеты сохранены.");
   if(!state)return toast("Сначала войдите в игру");
   if(!state.me.telegram_id){
     tab("profile");

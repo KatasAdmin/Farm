@@ -426,9 +426,9 @@
               title="Пополнение через Telegram Stars"
             >
               + Пополнить</button
-            ><button class="btn blue" disabled title="Переводы временно приостановлены на время перехода на USD">💵 Перевод временно недоступен</button>
+            ><button class="btn blue" onclick="openWithdrawalRequest()">→ На баланс бота</button>
           </div>
-          <p class="muted">Покупка: 1 монета = 2 ⭐. Переводы из фермы в бот временно остановлены до перехода на USD. Игровые монеты и заработанные средства сохранены. Бонусные монеты доступны только для покупок.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
+          <p class="muted">Покупка: 1 монета = 2 ⭐ · перевод в бот: 1 монета = 1 грн. Бонусные монеты доступны только для покупок.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
         </div>
         <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
           <h2 class="cardtitle">🎁 Бонусный код</h2>
