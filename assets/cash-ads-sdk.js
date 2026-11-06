@@ -8,6 +8,7 @@
   const SDK_URL='https://libtl.com/sdk.js';
   const API='/api/ads/cash/';
   let busy=false;
+  const unavailable=()=>Object.assign(new Error('Сейчас нет доступной рекламы Monetag'),{code:'monetag_unavailable'});
   const post=async(endpoint,telegramData,payload={})=>{
     const response=await fetch(API+endpoint,{
       method:'POST',credentials:'same-origin',
@@ -27,8 +28,8 @@
       script.dataset.sdk='show_'+ZONE;
       script.async=true;
       script.onload=()=>typeof window['show_'+ZONE]==='function'
-        ?resolve():reject(new Error('Monetag SDK unavailable'));
-      script.onerror=()=>reject(new Error('Не удалось загрузить рекламу'));
+        ?resolve():reject(unavailable());
+      script.onerror=()=>reject(unavailable());
       document.head.appendChild(script);
     });
   }
@@ -50,14 +51,23 @@
       launched=true;
       // No "pop": this is the separate Rewarded Interstitial placement.
       // request_var/ymid are supplied by the server, never trusted from client.
-      const adResult=await window['show_'+ZONE]({
-        type:'end',
-        ymid:attempt.ymid,
-        requestVar:attempt.request_var
-      });
+      try{
+        await window['show_'+ZONE]({
+          type:'end',
+          timeout:8,
+          ymid:attempt.ymid,
+          requestVar:attempt.request_var
+        });
+      }catch(error){
+        // Release the active slot without counting an unsuccessful SDK call.
+        // A late provider postback still resolves against the original attempt.
+        await post('abandon',telegramData,{ymid:attempt.ymid});
+        if(/^(empty feed|network error|timeout|ad is not ready)$/i.test(String(error?.message||error).trim()))throw unavailable();
+        throw error;
+      }
       await post('finish',telegramData,{ymid:attempt.ymid});
       handlers.onFinished?.();
-      return {ok:true,ymid:attempt.ymid,payable:false,pending_postback:true,estimated_paid:adResult?.reward_event_type==='valued',event_type:adResult?.reward_event_type||'unknown'};
+      return {ok:true,ymid:attempt.ymid,payable:false,pending_postback:true};
     }catch(error){
       if(attempt){
         try{if(!launched)await post('cancel',telegramData,{ymid:attempt.ymid});}

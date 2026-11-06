@@ -15,7 +15,7 @@
    script.onload=()=>window.Adsgram?.init?resolve():reject(new Error('AdsGram SDK unavailable'));
    script.onerror=()=>reject(new Error('AdsGram SDK could not load'));
    document.head.appendChild(script);
-  });
+  }).catch(error=>{loaded=null;throw error;});
   return loaded;
  }
  async function show(blockId){
@@ -28,7 +28,8 @@
     currentBlock=String(blockId);
     controller=window.Adsgram.init({blockId:currentBlock,debug:false});
    }
-   await controller.show();
+   const result=await controller.show();
+   if(result?.done!==true||result.error)throw new Error('AdsGram view did not complete');
    return {ok:true,provider:'adsgram',confirmed_cash:false,
      message:'Реклама AdsGram просмотрена; денежное вознаграждение не подтверждено'};
   }finally{busy=false}

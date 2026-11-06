@@ -1,8 +1,4 @@
-"""Read-only, opt-in Monetag cash rewards preview.
-
-This module deliberately does not call Monetag, change balances, or send payouts.
-Enable only after the publisher explicitly approves withdrawable cash rewards.
-"""
+"""Prepare Monetag cash ad attempts and validate provider postbacks."""
 from decimal import Decimal, InvalidOperation
 from bot_economy import monetag_cash_allocation, MONETAG_CASH_REFERRAL_BPS
 
@@ -24,8 +20,6 @@ def preview(estimated_usd, referral_uids=()):
     return result
 
 
-# Future cash-ad attempts are intentionally isolated from farm goods attempts.
-# These helpers are not invoked by the production app.
 import secrets
 import time
 
@@ -56,6 +50,7 @@ def initialize_cash_attempts(c):
     c.execute("ALTER TABLE bot_monetag_cash_attempts ADD COLUMN IF NOT EXISTS launched_at double precision")
     c.execute("ALTER TABLE bot_monetag_cash_attempts ADD COLUMN IF NOT EXISTS finished_at double precision")
     c.execute("ALTER TABLE bot_monetag_cash_attempts ADD COLUMN IF NOT EXISTS non_valued_at double precision")
+    c.execute("ALTER TABLE bot_monetag_cash_attempts ADD COLUMN IF NOT EXISTS abandoned_at double precision")
     c.execute("""
         CREATE INDEX IF NOT EXISTS bot_monetag_cash_attempts_viewer
         ON bot_monetag_cash_attempts(viewer_uid,created_at)
@@ -99,7 +94,7 @@ def cash_attempt_quota(c, viewer_uid, now=None):
     """No daily cap; only launched ads count toward a 10-ad block."""
     now=time.time() if now is None else now
     rows=c.execute("""
-        SELECT created_at,launched_at,finished_at,expires_at,state
+        SELECT created_at,launched_at,COALESCE(finished_at,abandoned_at) AS finished_at,expires_at,state
         FROM bot_monetag_cash_attempts
         WHERE viewer_uid=%s AND (
           (launched_at IS NOT NULL AND launched_at>=%s)
@@ -138,7 +133,7 @@ def mark_cash_attempt_launched(c, viewer_uid, ymid, now=None):
         SELECT 1 FROM bot_monetag_cash_attempts
         WHERE viewer_uid=%s AND ymid<>%s
           AND ((state='prepared' AND expires_at>%s)
-            OR (state='launched' AND finished_at IS NULL
+            OR (state='launched' AND finished_at IS NULL AND abandoned_at IS NULL
                 AND launched_at>%s))
         LIMIT 1
     """,(viewer_uid,ymid,now,now-120)).fetchone()
@@ -160,10 +155,21 @@ def finish_cash_attempt(c, viewer_uid, ymid):
     lock_cash_viewer(c,viewer_uid)
     row=c.execute("""
         UPDATE bot_monetag_cash_attempts SET finished_at=%s
-        WHERE ymid=%s AND viewer_uid=%s AND state IN ('launched','confirmed') AND finished_at IS NULL
+        WHERE ymid=%s AND viewer_uid=%s AND state IN ('launched','confirmed')
+          AND finished_at IS NULL AND abandoned_at IS NULL
         RETURNING ymid
     """,(time.time(),ymid,viewer_uid)).fetchone()
     return {'ok':bool(row),'payable':False}
+
+
+def abandon_cash_attempt(c, viewer_uid, ymid):
+    """End the SDK session without recording a completed view or rejecting postbacks."""
+    lock_cash_viewer(c,viewer_uid)
+    c.execute("""
+        UPDATE bot_monetag_cash_attempts SET abandoned_at=%s
+        WHERE ymid=%s AND viewer_uid=%s AND state IN ('launched','confirmed')
+          AND finished_at IS NULL AND abandoned_at IS NULL
+    """,(time.time(),ymid,viewer_uid))
 
 
 def cancel_unlaunched_cash_attempt(c, viewer_uid, ymid):
@@ -223,7 +229,7 @@ def lookup_cash_attempt_for_postback(c, *, ymid, telegram_uid, zone_id,
 
 def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
                                  request_var, event_type, reward_event_type,
-                                 estimated_price, referral_chain=(), now=None):
+                                 estimated_price, referral_chain=None, now=None):
     """Stage a Monetag event without touching any payable wallet.
 
     Requires the configured secret from the trusted server request context.
@@ -242,12 +248,6 @@ def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
         raise ValueError('Invalid Telegram identity')
     if event_type not in ('impression','click') or reward_event_type not in ('valued','non_valued'):
         raise ValueError('Invalid Monetag event')
-    try:
-        price=Decimal(str(estimated_price))
-    except Exception as exc:
-        raise ValueError('Invalid Monetag price') from exc
-    if not price.is_finite() or price<0:
-        raise ValueError('Invalid Monetag price')
     attempt=lookup_cash_attempt_for_postback(
         c,ymid=ymid,telegram_uid=telegram_uid,zone_id=zone_id,
         request_var=request_var,now=now)
@@ -255,7 +255,7 @@ def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
         return {'ok':False,'reason':'unknown_or_invalid_attempt'}
     # A confirmed unpaid impression permits the UI to try AdsGram instead.
     # Never treat a click or an unverified SDK callback as proof of no payment.
-    if event_type=='impression' and (reward_event_type=='non_valued' or price==0):
+    if event_type=='impression' and reward_event_type=='non_valued':
         c.execute("""UPDATE bot_monetag_cash_attempts
            SET non_valued_at=COALESCE(non_valued_at,%s)
            WHERE ymid=%s AND viewer_uid=%s AND state='launched'""",
@@ -263,12 +263,22 @@ def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
         return {'ok':True,'staged':False,'reason':'non_valued'}
     if event_type!='impression' or reward_event_type!='valued':
         return {'ok':True,'staged':False,'reason':'ignored_event'}
+    from decimal import InvalidOperation
+    try:
+        price=Decimal(str(estimated_price))
+    except InvalidOperation as exc:
+        raise ValueError('Invalid Monetag price') from exc
+    if not price.is_finite() or price<0:
+        raise ValueError('Invalid Monetag price')
+    if not price:
+        # Preserve pending status for a later priced postback. Zero cannot fund a reward.
+        return {'ok':True,'staged':False,'reason':'zero_price'}
     # Database column is numeric(28,12). Reject values that would silently
     # round away fractional earnings or overflow the provisional ledger.
-    if price != price.quantize(Decimal('0.000000000001')) or price >= Decimal('10000000000000000'):
+    if price >= Decimal('10000000000000000') or price != price.quantize(Decimal('0.000000000001')):
         raise ValueError('Estimated price exceeds supported precision')
     # Prevent referral self-rewards and duplicate ancestors.
-    chain=tuple(referral_chain)
+    chain=tuple(verified_bot_referral_chain(c,telegram_uid) if referral_chain is None else referral_chain)
     if telegram_uid in chain:
         raise ValueError('Self referral')
     result=bot_economy.stage_monetag_cash_event(

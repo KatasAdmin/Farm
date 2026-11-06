@@ -543,7 +543,7 @@ def cash_ads_earnings(q:dict):
       COUNT(*) FILTER (WHERE state='confirmed') AS confirmed
       FROM bot_monetag_cash_attempts WHERE viewer_uid=%s""",(uid,)).fetchone()
   last=c.execute("""SELECT e.ymid,e.allocation,e.received_at,
-      COALESCE(cr.credited_kopeks,0) AS credited_kopeks
+      cr.ymid IS NOT NULL AS credited, COALESCE(cr.credited_kopeks,0) AS credited_kopeks
       FROM bot_monetag_cash_events e
       LEFT JOIN bot_cash_ad_credits cr ON cr.ymid=e.ymid
         AND cr.uid=e.viewer_uid AND cr.role='viewer'
@@ -561,7 +561,7 @@ def cash_ads_earnings(q:dict):
          "levels_usd":[str(x) for x in value['levels']],
          "completed":int(rows['completed'] or 0),"confirmed":int(rows['confirmed'] or 0),
          "last_reward":({"ymid":last['ymid'],"viewer_usd":str(last['allocation']['viewer_usd']),
-                         "received_at":last['received_at'],"state":"credited","credited_kopeks":int(last["credited_kopeks"])}
+                         "received_at":last['received_at'],"state":"credited" if last['credited'] else "pending_review","credited_kopeks":int(last["credited_kopeks"])}
                         if last else None)}
 
 
@@ -574,7 +574,7 @@ def cash_ads_status(q:dict):
  cash_ads_require_vip(uid)
  with db() as c:
   quota=bot_monetag_cash.cash_attempt_quota(c,int(uid))
- return {"ok":True,"enabled":cash_ads_enabled(),"cash_rewards":False,"test_mode":cash_ads_enabled(),
+ return {"ok":True,"enabled":cash_ads_enabled(),"cash_rewards":cash_ads_enabled(),"test_mode":False,
          "status":"enabled" if cash_ads_enabled() else "temporarily_disabled",
          "retry_after":quota["retry_after"],
          "active_attempt":quota["active"],
@@ -585,8 +585,7 @@ def cash_ads_status(q:dict):
 
 
 def cash_ads_enabled():
- # Officially allowed Monetag interstitials. Earnings remain provisional until
- # the publisher revenue is reconciled; enabling views never enables withdrawals.
+ # Keep the legacy view flag compatible with the production switch.
  return (os.getenv("MONETAG_CASH_ADS_ENABLED","").lower() == "true"
          or os.getenv("MONETAG_AD_VIEW_TEST_ENABLED","").lower() == "true")
 
@@ -622,13 +621,17 @@ def cash_ads_attempt_result(q:dict):
  uid=cash_ads_require_verified_identity(q)
  ymid=cash_ads_attempt_id(q)
  with db() as c:
-  attempt=c.execute("""SELECT state,non_valued_at FROM bot_monetag_cash_attempts
-    WHERE ymid=%s AND viewer_uid=%s""",(ymid,uid)).fetchone()
+  attempt=c.execute("""SELECT a.state,a.non_valued_at,
+    EXISTS(SELECT 1 FROM bot_cash_ad_credits cr WHERE cr.ymid=a.ymid
+           AND cr.uid=a.viewer_uid AND cr.role='viewer') AS credited
+    FROM bot_monetag_cash_attempts a WHERE a.ymid=%s AND a.viewer_uid=%s""",(ymid,uid)).fetchone()
  if not attempt:
   raise HTTPException(404,"Advertising attempt not found")
- status=("valued" if attempt["state"]=="confirmed"
-         else "non_valued" if attempt["non_valued_at"] is not None
-         else "pending")
+ status="pending"
+ if attempt["credited"]:
+  status="valued"
+ elif attempt["state"]!="confirmed" and attempt["non_valued_at"] is not None:
+  status="non_valued"
  return {"ok":True,"status":status,"payable":status=="valued"}
 
 
@@ -667,6 +670,13 @@ def cash_ads_cancel(q:dict):
  with db() as c:
   return {"ok":bot_monetag_cash.cancel_unlaunched_cash_attempt(c,uid,cash_ads_attempt_id(q)),"payable":False}
 
+@app.post("/api/ads/cash/abandon")
+def cash_ads_abandon(q:dict):
+ uid=cash_ads_require_verified_identity(q)
+ with db() as c:
+  bot_monetag_cash.abandon_cash_attempt(c,uid,cash_ads_attempt_id(q))
+ return {"ok":True,"payable":False}
+
 
 @app.get("/api/ads/monetag/status")
 def monetag_status(authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
@@ -702,7 +712,7 @@ def monetag_postback(request:HTTPRequest,ymid:str="",zone_id:int=0,sub_zone_id:i
  with db() as c:
   monetag_ads.lock(c)
   if ymid.startswith("cash_"):
-   # Isolated cash staging. No credits, no withdrawals, no farm goods.
+   # Cash and farm goods use separate attempts even when sharing an SDK zone.
    if not telegram_id.isdecimal():
     raise HTTPException(400,"Invalid Telegram ID")
    # The shared Monetag lock above is kept for farm goods compatibility.
@@ -715,12 +725,14 @@ def monetag_postback(request:HTTPRequest,ymid:str="",zone_id:int=0,sub_zone_id:i
      telegram_uid=int(telegram_id),zone_id=zone_id,
      request_var=request_var.removeprefix(str(zone_id)+"_"),
      event_type=event_type,reward_event_type=reward_event_type,
-     estimated_price=estimated_price,
-     referral_chain=bot_monetag_cash.verified_bot_referral_chain(c,int(telegram_id)))
-    if staged.get("ok") and reward_event_type=="valued" and event_type=="impression":
+     estimated_price=estimated_price)
+    if staged.get("staged"):
      result=bot_cash_ad_credits.credit_verified_event(c,ymid)
-     return {**staged,**result,"payable":True,"advance_funded_by_publisher":True}
+     return {**staged,**result,"payable":result["credited"],"advance_funded_by_publisher":result["credited"]}
     return staged
+   except bot_cash_ad_credits.FxUnavailable:
+    logger.warning("cash_ad_fx_unavailable; Monetag will retry the postback")
+    raise HTTPException(503,"Advertising credit temporarily unavailable")
    except PermissionError:
     raise HTTPException(403,"Forbidden")
    except ValueError:

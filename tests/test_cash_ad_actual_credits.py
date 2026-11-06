@@ -96,6 +96,20 @@ class CashAdPayoutTests(unittest.TestCase):
         self.assertFalse(outcome["credited"])
         self.assertEqual(db.accounts[11],0)
 
+    def test_confirmed_impression_funds_viewer_and_all_seven_referral_levels(self):
+        db=FakeDb()
+        self.valued(db,"all-levels","1.0")
+        chain=tuple(range(22,29))
+        db.accounts.update(dict.fromkeys(chain,0))
+        allocation=monetag_cash_allocation(Decimal(1),chain)
+        db.events["all-levels"]["allocation"]=allocation
+        with patch.object(credits,"nbu_usd_uah",return_value=Decimal("40")):
+            result=credits.credit_verified_event(db,"all-levels")
+        self.assertEqual(Decimal(allocation["platform_usd"]),Decimal("0.35"))
+        self.assertEqual(list(db.accounts.values()),[1200,400,280,200,160,120,120,120])
+        self.assertEqual(result["credited_kopeks"],2600)
+        self.assertEqual(len(db.entries),8)
+
 
 if __name__=="__main__":
     unittest.main()

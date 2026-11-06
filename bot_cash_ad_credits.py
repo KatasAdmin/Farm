@@ -4,16 +4,18 @@ Only called for authenticated, Monetag-valued impressions. Monetary credits
 use real integer kopeks, with fractional kopeks accumulated per recipient.
 This intentionally makes the publisher carry estimate/reconciliation risk.
 """
-from decimal import Decimal, ROUND_FLOOR
-from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_FLOOR
+from datetime import datetime
 from zoneinfo import ZoneInfo
 from urllib.request import Request, urlopen
 import json
 import time
 import uuid
 
-CENT=Decimal("1")
 MAX_FX_AGE_DAYS=5
+
+class FxUnavailable(Exception):
+    """A trusted provider callback should retry when conversion is unavailable."""
 
 def initialize(c):
     c.execute("""CREATE TABLE IF NOT EXISTS bot_cash_ad_fx(
@@ -65,7 +67,6 @@ def credit_verified_event(c,ymid):
     Must be called inside same transaction as verified event INSERT. This is
     not final publisher reconciliation: cash is advanced by the bot owner.
     """
-    from psycopg.types.json import Jsonb
     row=c.execute("""SELECT viewer_uid,allocation,reward_event_type,event_type,
       estimated_usd FROM bot_monetag_cash_events WHERE ymid=%s FOR UPDATE""",(ymid,)).fetchone()
     if not row or row["reward_event_type"]!="valued" or row["event_type"]!="impression":
@@ -78,7 +79,10 @@ def credit_verified_event(c,ymid):
     # Avoid a race between parallel postbacks for the same recipient by
     # locking a deterministic global credit sequence within transaction.
     c.execute("SELECT pg_advisory_xact_lock(%s)",(125492051,))
-    rate=nbu_usd_uah(c)
+    try:
+        rate=nbu_usd_uah(c)
+    except (OSError, ValueError, InvalidOperation, KeyError, TypeError) as exc:
+        raise FxUnavailable from exc
     credited=0
     for uid,role,level,usd in recipients:
         if usd<=0:continue
