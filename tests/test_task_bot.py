@@ -2,6 +2,7 @@
 import json
 import sqlite3
 import unittest
+from unittest.mock import patch
 from contextlib import contextmanager
 import task_bot as bot
 
@@ -125,6 +126,35 @@ class TaskBotTests(unittest.TestCase):
     def invariant(self):
         pool = self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount']
         self.assertGreaterEqual(pool, bot.liability(self.c))
+    def test_new_bot_click_campaign_is_link_only_and_not_paid_without_redirect(self):
+        import main
+        self.credit()
+        screen=self.send(2,action='new:bot')
+        self.assertIn('ссылку на Telegram-бота',screen['text'])
+        self.send(2,'https://t.me/TargetBot')
+        self.assertEqual(bot.state(self.c,2)['state'],'task_count')
+        self.send(2,'2')
+        response=self.send(2,action='confirm_task')
+        self.assertIn('опубликовано',response['text'])
+        t=self.c.execute("SELECT * FROM bot_tasks WHERE kind='bot'").fetchone()
+        self.assertEqual(bot.bot_mode(self.c,t['id']),'click')
+        card=self.send(3,action='task:'+t['id'])
+        self.assertIn('Проверить переход',str(card))
+        self.assertIn('api/task/bot-click/',str(card))
+        self.assertEqual(self.balance(3),0)
+        early=self.send(3,action='botclick:check:'+t['id'])
+        self.assertIn('ещё не зарегистрирован',early['text'])
+        token=self.c.execute('SELECT token FROM bot_bot_click_tokens WHERE task=%s AND uid=%s',(t['id'],3)).fetchone()['token']
+        with patch.object(main,'db',return_value=self.c):
+            redirect=main.bot_click_redirect(token)
+        self.assertEqual(redirect.status_code,302)
+        self.assertEqual(redirect.headers['location'],'https://t.me/TargetBot')
+        done=self.send(3,action='botclick:check:'+t['id'])
+        self.assertIn('Начислено',done['text'])
+        self.assertEqual(self.balance(3),32)
+        self.send(3,action='botclick:check:'+t['id'])
+        self.assertEqual(self.balance(3),32)
+        self.invariant()
     def test_simple_channel_order_needs_only_link_and_quantity(self):
         self.credit()
         screen=self.send(2,action='new:channel')
