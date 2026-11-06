@@ -173,7 +173,7 @@ def prepare_cash_attempt(c, verified_telegram_uid, now=None):
     if not isinstance(verified_telegram_uid,int) or verified_telegram_uid<=0:
         raise ValueError('Telegram identity must be verified')
     now=time.time() if now is None else now
-    # Caller must serialize attempts per viewer (transaction advisory lock).
+    # This function obtains a per-viewer transaction lock before quota check.
     lock_cash_viewer(c,verified_telegram_uid)
     quota=cash_attempt_quota(c,verified_telegram_uid,now)
     if quota['active'] or quota['retry_after']:
