@@ -554,6 +554,28 @@ def cash_ads_prepare(q:dict):
  telegram_identity(raw)
  raise HTTPException(503,"Денежные награды отключены до разрешения Monetag")
 
+def cash_ads_require_verified_identity(q):
+ raw=q.get("telegram_data","")
+ if not isinstance(raw,str) or not raw:
+  raise HTTPException(400,"Invalid Telegram data")
+ return int(telegram_identity(raw))
+
+
+@app.post("/api/ads/cash/launch")
+def cash_ads_launch(q:dict):
+ # Deliberately disabled until Monetag authorizes withdrawable rewards.
+ # Never accept an SDK callback as proof of revenue.
+ cash_ads_require_verified_identity(q)
+ raise HTTPException(503,"Запуск денежной рекламы ожидает разрешения Monetag")
+
+
+@app.post("/api/ads/cash/cancel")
+def cash_ads_cancel(q:dict):
+ # Do not mutate cash attempts while the feature is disabled.
+ cash_ads_require_verified_identity(q)
+ raise HTTPException(503,"Денежная реклама пока отключена")
+
+
 @app.get("/api/ads/monetag/status")
 def monetag_status(authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
  with db() as c:
