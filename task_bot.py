@@ -752,6 +752,21 @@ def _administration(c, uid, text, action, api):
         return extra
     parts = text.split()
     command = parts[0].split('@')[0] if parts else ''
+    if command == '/adsgramurl':
+        if not bot_copy.owner():
+            raise UserError('Эта команда доступна только владельцу.')
+        import os
+        import html
+        secret=os.getenv('ADSGRAM_REWARD_URL_TOKEN','')
+        if len(secret)<32:
+            raise UserError('Reward URL ещё не настроен на Railway.')
+        url='https://farm-web-production-cfb9.up.railway.app/api/ads/adsgram/reward?userId=[userId]&key='+secret
+        return bot_ui.screen(uid,
+          '🔐 <b>AdsGram Reward URL</b>\n'
+          +'Скопируй ссылку ниже в настройки Rewarded-блока 58218, поле Reward URL.\n'
+          +'<code>'+html.escape(url)+'</code>\n'
+          +'<i>Это секретная ссылка. Не пересылай её другим людям.</i>',
+          [[button('⬅️ Админ-панель','admin')]])
     if command == '/adsgramsettle':
         # Only the actual bot owner may approve publisher revenue for payouts.
         if not bot_copy.owner():
