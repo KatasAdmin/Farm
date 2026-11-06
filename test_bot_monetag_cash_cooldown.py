@@ -1,6 +1,6 @@
 """Cash ad cooldown unit tests; no DB, network, or payments."""
 import unittest
-from bot_monetag_cash import cash_cooldown
+from bot_monetag_cash import cash_cooldown, lookup_cash_attempt_for_postback
 
 class CashCooldownTests(unittest.TestCase):
     def test_ten_fast_views(self):
@@ -28,6 +28,42 @@ class CashCooldownTests(unittest.TestCase):
 
     def test_failed_preparations_not_counted(self):
         self.assertEqual(cash_cooldown([],100)['retry_after'],0)
+
+class FakePostbackCursor:
+    def __init__(self, row):
+        self.row=row
+    def execute(self, query, params):
+        self.query=query
+        self.params=params
+        return self
+    def fetchone(self):
+        return self.row
+
+
+class PostbackAttemptTests(unittest.TestCase):
+    def lookup(self, row):
+        return lookup_cash_attempt_for_postback(
+            FakePostbackCursor(row),ymid='cash_test',telegram_uid=123,
+            zone_id=12193261,request_var='cash_rewarded_interstitial',now=100)
+
+    def test_prepared_attempt_cannot_stage_income(self):
+        self.assertIsNone(self.lookup({
+            'state':'prepared','launched_at':None,'created_at':10,
+            'zone_id':12193261,'viewer_uid':123,
+            'request_var':'cash_rewarded_interstitial'}))
+
+    def test_launched_attempt_matches(self):
+        row={'state':'launched','launched_at':50,'created_at':10,
+             'zone_id':12193261,'viewer_uid':123,
+             'request_var':'cash_rewarded_interstitial'}
+        self.assertEqual(self.lookup(row),row)
+
+    def test_wrong_viewer_rejected(self):
+        self.assertIsNone(self.lookup({
+            'state':'launched','launched_at':50,'created_at':10,
+            'zone_id':12193261,'viewer_uid':999,
+            'request_var':'cash_rewarded_interstitial'}))
+
 
 if __name__=='__main__':
     unittest.main()
