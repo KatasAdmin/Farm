@@ -298,3 +298,35 @@ def verified_bot_referral_chain(c, viewer_uid, depth=7):
         seen.add(parent)
         current=parent
     return tuple(chain)
+
+def estimated_earnings(c, viewer_uid):
+    """Personal provisional estimates from verified valued impressions.
+
+    Does not credit a wallet. Reconciliation and withdrawals are intentionally
+    separate and require confirmed publisher settlement.
+    """
+    from psycopg.types.json import Jsonb
+    if not isinstance(viewer_uid,int) or viewer_uid<=0:
+        raise ValueError('Invalid viewer ID')
+    rows=c.execute("""
+        SELECT viewer_uid,allocation,state
+        FROM bot_monetag_cash_events
+        WHERE event_type='impression' AND reward_event_type='valued'
+          AND (viewer_uid=%s OR referral_chain @> %s)
+    """,(viewer_uid,Jsonb([viewer_uid]))).fetchall()
+    viewer=Decimal(0)
+    referral=Decimal(0)
+    levels=[Decimal(0) for _ in range(7)]
+    for row in rows:
+        if row['state']=='rejected':
+            continue
+        allocation=row['allocation']
+        if row['viewer_uid']==viewer_uid:
+            viewer+=Decimal(str(allocation['viewer_usd']))
+        for item in allocation.get('referrals',[]):
+            if item['uid']==viewer_uid and 1<=item['level']<=7:
+                amount=Decimal(str(item['usd']))
+                referral+=amount
+                levels[item['level']-1]+=amount
+    return {'viewer':viewer,'referral':referral,'total':viewer+referral,
+            'levels':levels,'priced_events':len(rows),'payable':False}
