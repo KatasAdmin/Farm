@@ -19,6 +19,19 @@ class UsdPayoutQuoteTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 payout_quote_usd(**params)
 
+    def test_usdt_network_and_quote_are_explicit(self):
+        q=payout_quote_usd(10_000_000,"usdt",
+            network="TRC20", usdt_per_usd="0.995", network_fee_usdt="0.5")
+        self.assertEqual(q["destination_currency"],"USDT")
+        self.assertEqual(q["destination_usdt_micro"],9_450_000)
+        self.assertEqual(q["network"],"TRC20")
+
+    def test_unpriced_or_too_small_usdt_payout_rejected(self):
+        with self.assertRaises(ValueError):
+            payout_quote_usd(1_000_000,"usdt",network="TRC20",usdt_per_usd="1.0")
+        with self.assertRaises(ValueError):
+            payout_quote_usd(1_000_000,"usdt",network="TRC20",usdt_per_usd="1.0",network_fee_usdt="2.0")
+
     def test_below_minimum_bank_payout_rejected(self):
         with self.assertRaises(ValueError):
             payout_quote_usd(1,"uah_card",uah_per_usd="45.4432")
