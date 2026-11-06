@@ -620,6 +620,10 @@ def monetag_postback(request:HTTPRequest,ymid:str="",zone_id:int=0,sub_zone_id:i
    # Isolated cash staging. No credits, no withdrawals, no farm goods.
    if not telegram_id.isdecimal():
     raise HTTPException(400,"Invalid Telegram ID")
+   # The shared Monetag lock above is kept for farm goods compatibility.
+   # A cash event must not be accepted from a different advertising zone.
+   if zone_id!=bot_monetag_cash.CASH_ZONE_ID:
+    raise HTTPException(400,"Invalid cash advertising zone")
    try:
     return bot_monetag_cash.stage_verified_cash_postback(
      c,secret=getattr(request.state,"monetag_secret",""),ymid=ymid,
