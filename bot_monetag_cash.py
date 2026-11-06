@@ -256,6 +256,10 @@ def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
     # enough to create a payable balance; publisher settlement is still needed.
     if event_type!='impression' or reward_event_type!='valued' or price==0:
         return {'ok':True,'staged':False,'reason':'not_valued'}
+    # Database column is numeric(28,12). Reject values that would silently
+    # round away fractional earnings or overflow the provisional ledger.
+    if price.as_tuple().exponent < -12 or price >= Decimal('10000000000000000'):
+        raise ValueError('Estimated price exceeds supported precision')
     # Prevent referral self-rewards and duplicate ancestors.
     chain=tuple(referral_chain)
     if telegram_uid in chain:
