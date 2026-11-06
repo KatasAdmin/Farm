@@ -326,9 +326,13 @@ def route(c, uid, text, action, message, api, admin):
         earnings=bot_monetag_cash.estimated_earnings(c,uid)
         price=lambda x:'$'+format(x,'.9f')
         sumrow=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_cash_ad_credits WHERE uid=%s",(uid,)).fetchone()
+        adsgram_credits=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_adsgram_daily_credits WHERE uid=%s",(uid,)).fetchone()
+        adsgram_confirmed=c.execute("SELECT COUNT(*) AS n FROM bot_adsgram_attempts WHERE uid=%s AND state='confirmed'",(uid,)).fetchone()
         a=c.execute("SELECT available FROM bot_accounts WHERE uid=%s",(uid,)).fetchone()
         lines=['💵 <b>Мой рекламный доход</b>',
-               '💰 Зачислено за рекламу: <b>'+money(int(sumrow['n']))+'</b>',
+               '💰 Monetag зачислено: <b>'+money(int(sumrow['n']))+'</b>',
+               '🎬 AdsGram подтверждено: '+str(adsgram_confirmed['n'])+' просмотров',
+               '💰 AdsGram зачислено после сверки: <b>'+money(int(adsgram_credits['n']))+'</b>',
                '💳 Доступный баланс: <b>'+money(a['available'] if a else 0)+'</b>', '',
                '👀 За свои просмотры (USD): '+price(earnings['viewer']),
                '🤝 От рефералов (USD): '+price(earnings['referral']),
@@ -336,7 +340,7 @@ def route(c, uid, text, action, message, api, admin):
                '🌱 <b>Реферальные уровни</b>']
         for index,amount in enumerate(earnings['levels'],1):
             lines.append(str(index)+' уровень: '+price(amount))
-        lines.append('Доллары — предварительная оценка Monetag. После оплаченного postback гривны зачисляются сразу, доли меньше копейки накапливаются.')
+        lines.append('Выше оценки USD относятся к Monetag. AdsGram учитывается отдельно и начисляется после сверки подтверждённой суточной выручки. Доли меньше копейки накапливаются.')
         return bot_ui.screen(uid,'\n'.join(lines),[[button('🎬 Смотреть рекламу','watch_ads_info')],[button('🤝 Моя команда','friends')],[button('⬅️ Кабинет','cabinet')]])
     if cmd.startswith('/bonus'):
         return bot_promos.command(c,uid,text,admin)
