@@ -16,14 +16,15 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
 <div class="metrics">
  <div class="metric"><small>Завершено просмотров</small><strong id="completed">—</strong></div>
  <div class="metric"><small>Подтверждено Monetag</small><strong id="confirmed">—</strong></div>
- <div class="metric"><small>За свои просмотры, предварительно</small><strong id="viewer">$0</strong></div>
- <div class="metric"><small>От команды, предварительно</small><strong id="refs">$0</strong></div>
+ <div class="metric"><small>🎁 Начислено за свои просмотры · ожидает расчёта</small><strong id="viewer">$0</strong></div>
+ <div class="metric"><small>🤝 Начислено от команды · ожидает расчёта</small><strong id="refs">$0</strong></div>
 </div>
+<p id="rewardMessage" role="status" style="color:#9fedba;font-weight:700"></p>
 <p id="quota" role="status">Проверяем доступность рекламы…</p>
 <button id="watch" disabled>Подключаем…</button>
 <button id="retry" type="button">↻ Обновить статистику</button>
 <p class="info">💚 Зритель — 30% · Рефералы 7 уровней — до 35% · Проект — остаток. Доля отсутствующего реферала остаётся проекту.</p>
-<p class="info note">Реальные деньги начисляются только после подтверждения рекламной сетью и сверки окончательной выручки. Показанные суммы — предварительные оценки, их нельзя вывести. Просмотры без оплаты считаются только для активности.</p>
+<p class="info note">Суммы сразу записываются в ожидающие награды после подтверждения оплачиваемого события сервером Monetag. Это предварительный баланс: пока его нельзя вывести, поскольку сеть ещё может скорректировать доход. Неоплаченные показы учитываются только для активности.</p>
 </main>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/assets/cash-ads-sdk.js"></script>
@@ -32,7 +33,7 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
  const app=window.Telegram?.WebApp;
  const el=id=>document.getElementById(id);
  const watch=el('watch'),quota=el('quota'),label=el('identity');
- let signed='',active=false,retryUntil=0;
+ let signed='',active=false,retryUntil=0,lastRewardId=null,watching=false;
  const post=async(path,payload={})=>{
   const r=await fetch('/api/ads/cash/'+path,{method:'POST',credentials:'same-origin',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_data:signed,...payload})});
@@ -47,6 +48,13 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
   el('confirmed').textContent=stats.confirmed;
   el('viewer').textContent=usd(stats.viewer_usd);
   el('refs').textContent=usd(stats.referral_usd);
+  const latest=stats.last_reward;
+  if(latest?.ymid && latest.ymid!==lastRewardId){
+   if(lastRewardId!==null && watching){
+    el('rewardMessage').textContent='🎉 Награда начислена: +'+usd(latest.viewer_usd)+'! Ожидает окончательного расчёта Monetag.';
+   }
+   lastRewardId=latest.ymid;
+  }
   active=Boolean(status.active_attempt);
   retryUntil=Date.now()+Math.max(0,Number(status.retry_after)||0)*1000;
   if(!status.enabled){watch.disabled=true;watch.textContent='Реклама временно недоступна';quota.textContent='Просмотры сейчас отключены';return}
@@ -68,15 +76,27 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
   el('retry').onclick=async()=>{try{await refresh()}catch(e){quota.textContent=e.message}};
   watch.onclick=async()=>{
    watch.disabled=true;watch.textContent='Загрузка рекламы…';quota.textContent='';
+   el('rewardMessage').textContent='';watching=true;
    try{
     const result=await window.FarmCashAds.showCashAd(signed);
-    quota.textContent=result.estimated_paid?'Сеть сообщила об оплачиваемом событии. Проверяем серверное подтверждение…':'Показ завершён. Денежное подтверждение может не прийти.';
+    quota.textContent='Просмотр завершён. Проверяем серверное подтверждение и начисление награды…';
    }catch(e){
     const message=String(e?.message||'Реклама сейчас недоступна');
     quota.textContent=message;
    }finally{
     active=false;
-    try{await refresh()}catch(e){watch.disabled=false;watch.textContent='Повторить';quota.textContent=e.message}
+    try{
+     await refresh();
+     if(!el('rewardMessage').textContent){
+      quota.textContent='Показ завершён. Оплачиваемое подтверждение пока не получено; если оно придёт, ожидающая награда появится в статистике.';
+      for(let attempt=0;attempt<6;attempt++){
+       await new Promise(resolve=>setTimeout(resolve,2000));
+       await refresh();
+       if(el('rewardMessage').textContent)break;
+      }
+     }
+    }catch(e){watch.disabled=false;watch.textContent='Повторить';quota.textContent=e.message}
+    finally{watching=false}
    }
   };
   setInterval(()=>{if(!watch.disabled || retryUntil>Date.now())render()},1000);
