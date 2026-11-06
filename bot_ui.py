@@ -133,7 +133,7 @@ def home(c, uid, invited=False):
         if welcome:
             text += tr('✉️ <b>Сообщение от пригласившего {v0}:</b>\n{v1}\n\n', {'v0': esc(welcome['name'][:32]), 'v1': esc(welcome['body'])}, html_mode=True, section='bot_ui', limit=3000)
     text += tr('🌾 Развивай ферму и собирай урожай\n✅ Выполняй задания и проходи 20 квестов\n🤝 Приглашай друзей в команду\n💎 Пройди первые 3 квеста и открой VIP\n🏆 Повышай активность и поднимайся в топ\n\n👇 Начни с квестов и получи первые награды!', html_mode=True, section='bot_ui', limit=3000)
-    return screen(uid, text, [[b.button('🚀 Начать с квестов','quests')],[{'text':'🌾 Открыть ферму','web_app':{'url':b.farm_url()}}],[b.button('🤝 Пригласить друга','friends'),b.button('❓ Помощь','help')]])
+    return screen(uid, text)
 
 def welcome(c, uid):
     b = core()
