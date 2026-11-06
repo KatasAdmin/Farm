@@ -121,13 +121,13 @@ class MonetagRewardsTests(AdFixture):
   for i in range(1,5):
    attempt=self.prepare(now=self.now+i)
    with self.c:ads.report(self.c,self.p(),attempt['ymid'],'started',now=self.now+i)
-  with self.assertRaises(HTTPException):self.prepare(now=self.now+5)
+  self.assertNotEqual(self.prepare(now=self.now+5)['ymid'],a['ymid'])
   self.assertNotEqual(self.prepare(now=self.now+35)['ymid'],a['ymid'])
  def test_no_daily_or_hourly_view_cap(self):
   for i in range(55):
    self.c.execute('INSERT INTO monetag_ad_attempts(ymid,player_id,created_at,launched_at,zone_id,placement) VALUES(%s,%s,%s,%s,%s,%s)',('old'+str(i),'p',self.now-60,self.now-60,ads.TMA_ZONE,'grain_reward'))
   self.c.raw.commit()
-  with self.assertRaises(HTTPException):self.prepare()
+  self.assertTrue(self.prepare()['ymid'].startswith('farm_'))
  def test_reports_cannot_mutate_another_account_attempt(self):
   a=self.prepare()
   with self.c:
