@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import time
 import uuid
 import bot_extras
@@ -64,6 +65,9 @@ def initialize(c):
     statements = ['CREATE TABLE IF NOT EXISTS bot_accounts(\n          uid bigint PRIMARY KEY CHECK(uid>0), name text NOT NULL,\n          available bigint NOT NULL DEFAULT 0 CHECK(available>=0),\n          referrer bigint, created double precision NOT NULL)', 'ALTER TABLE bot_accounts ADD COLUMN IF NOT EXISTS advertising bigint NOT NULL DEFAULT 0 CHECK(advertising>=0)', 'CREATE TABLE IF NOT EXISTS bot_cash_pool(\n          id integer PRIMARY KEY CHECK(id=1), amount bigint NOT NULL DEFAULT 0 CHECK(amount>=0))', 'INSERT INTO bot_cash_pool(id) VALUES(1) ON CONFLICT DO NOTHING', 'CREATE TABLE IF NOT EXISTS bot_ledger(\n          id text PRIMARY KEY,uid bigint NOT NULL,delta bigint NOT NULL,kind text NOT NULL,\n          details text NOT NULL,created double precision NOT NULL)', 'CREATE INDEX IF NOT EXISTS bot_ledger_user ON bot_ledger(uid,created)', 'CREATE TABLE IF NOT EXISTS bot_receipts(\n          event text PRIMARY KEY,response jsonb NOT NULL,created double precision NOT NULL)', 'CREATE TABLE IF NOT EXISTS bot_states(\n          uid bigint PRIMARY KEY,state text NOT NULL,data jsonb NOT NULL,updated double precision NOT NULL)', "CREATE TABLE IF NOT EXISTS bot_tasks(\n          id text PRIMARY KEY,owner bigint NOT NULL,kind text NOT NULL,title text NOT NULL,\n          description text NOT NULL,url text NOT NULL,chat_id bigint,\n          reward bigint NOT NULL CHECK(reward>0),remaining bigint NOT NULL CHECK(remaining>=0),\n          status text NOT NULL CHECK(status IN ('pending','active','closed','rejected')),\n          created double precision NOT NULL)", 'CREATE INDEX IF NOT EXISTS bot_tasks_catalog ON bot_tasks(status,kind,created)', "CREATE TABLE IF NOT EXISTS bot_claims(\n          task text NOT NULL,uid bigint NOT NULL,status text NOT NULL,\n          proof text NOT NULL DEFAULT '',photo text NOT NULL DEFAULT '',created double precision NOT NULL,\n          PRIMARY KEY(task,uid))", "CREATE TABLE IF NOT EXISTS bot_payouts(\n          id text PRIMARY KEY,uid bigint NOT NULL,amount bigint NOT NULL CHECK(amount>0),\n          destination text NOT NULL,status text NOT NULL CHECK(status IN ('pending','paid','rejected','cancelled')),\n          reference text NOT NULL DEFAULT '',created double precision NOT NULL)", "CREATE UNIQUE INDEX IF NOT EXISTS bot_one_pending_payout ON bot_payouts(uid) WHERE status='pending'", 'CREATE TABLE IF NOT EXISTS bot_deposits(\n          reference text PRIMARY KEY,uid bigint NOT NULL,amount bigint NOT NULL CHECK(amount>0),created double precision NOT NULL)']
     for sql in statements:
         c.execute(sql)
+    c.execute("CREATE TABLE IF NOT EXISTS bot_task_bot_modes(task text PRIMARY KEY,mode text NOT NULL CHECK(mode IN ('click','forward')))")
+    c.execute("CREATE TABLE IF NOT EXISTS bot_bot_click_tokens(token text PRIMARY KEY,task text NOT NULL,uid bigint NOT NULL,created double precision NOT NULL,visited double precision,UNIQUE(task,uid))")
+    c.execute('CREATE TABLE IF NOT EXISTS bot_bot_click_completions(uid bigint NOT NULL,username text NOT NULL,task text NOT NULL,created double precision NOT NULL,PRIMARY KEY(uid,username))')
     bot_extras.initialize(c)
     bot_economy.initialize(c)
     bot_ui.initialize(c)
@@ -184,8 +188,33 @@ def resolve_chat(api, target, kind):
         raise UserError(tr('Не удалось получить ссылку на закрытый чат. Выдай боту право приглашать участников.', html_mode=False, section='task_bot', limit=3000))
     return (info['id'], link)
 
+def bot_mode(c,tid):
+    row=c.execute('SELECT mode FROM bot_task_bot_modes WHERE task=%s',(tid,)).fetchone()
+    return row['mode'] if row else 'forward'
+
+def bot_click_card(c,t,uid):
+    if t['owner']==uid or t['status']!='active':raise UserError('Задание недоступно.')
+    username=urlsplit(t['url']).path.strip('/').lower()
+    if c.execute('SELECT 1 FROM bot_bot_click_completions WHERE uid=%s AND username=%s',(uid,username)).fetchone():
+        raise UserError('Награда за переход к этому боту уже получена.')
+    claim=c.execute('SELECT status FROM bot_claims WHERE task=%s AND uid=%s',(t['id'],uid)).fetchone()
+    if claim and claim['status']!='started':raise UserError('Это задание уже завершено.')
+    if not claim:
+        c.execute("INSERT INTO bot_claims(task,uid,status,created) VALUES(%s,%s,'started',%s)",(t['id'],uid,time.time()))
+    token=c.execute('SELECT token FROM bot_bot_click_tokens WHERE task=%s AND uid=%s',(t['id'],uid)).fetchone()
+    if not token:
+        secret=secrets.token_urlsafe(24)
+        c.execute('INSERT INTO bot_bot_click_tokens(token,task,uid,created) VALUES(%s,%s,%s,%s)',(secret,t['id'],uid,time.time()))
+        token={'token':secret}
+    link=farm_url()+'api/task/bot-click/'+token['token']
+    return bot_ui.screen(uid,'🤖 <b>Перейти в бота</b>\n\n🎁 Награда: <b>'+money(t['reward'])+'</b>\n\nОплачивается переход по ссылке, а не подтверждённый запуск или регистрация.',
+       [[{'text':'🚀 Открыть бота','url':link}],
+        [button('✅ Проверить переход','botclick:check:'+t['id'])],
+        [button('➡️ Дальше','list:bot:0')],
+        [button('⬅️ Заработать','earn')]])
 def task_card(t, uid, c):
     if t['kind']=='manual':return bot_manual.task_card(c,t,uid)
+    if t['kind']=='bot' and bot_mode(c,t['id'])=='click':return bot_click_card(c,t,uid)
     if t['kind'] == 'bot':
         return say(uid, tr('🤖 {v0}\n\n{v1}\n\nНаграда: {v2}\nВозьми задание, запусти бота и перешли сюда свежий ответ от него. Это проверка источника пересылки, не гарантия первого запуска. Не пересылай пароли и коды.', {'v0': f"{t['title']}", 'v1': f"{t['description']}", 'v2': f"{money(t['reward'])}"}, html_mode=False, section='task_bot', limit=3000), [[{'text': tr('Перейти к боту', html_mode=False, section='task_bot', limit=3000), 'url': t['url']}], [button('Взять / отправить пересылку', 'take:' + t['id'])], [button('Пропустить', 'skip_bot')]])
     return say(uid, tr('{v0}\n\n{v1}\n\nНаграда: {v2}{v3}', {'v0': f"{t['title']}", 'v1': f"{t['description']}", 'v2': f"{money(t['reward'])}", 'v3': bot_economy.rule_text(c, t)}, html_mode=False, section='task_bot', limit=3000), [[{'text': tr('Открыть', html_mode=False, section='task_bot', limit=3000), 'url': t['url']}], [button('Взять задание', 'take:' + t['id']), button('Проверить', 'check:' + t['id'])], [button('⬅️ Задания', 'earn')]])
@@ -495,6 +524,20 @@ def route(c, uid, text, action, message, api, admin):
         if op=='take':return membership_feed(c,uid,message,kind,api=api)
         good='✅ Подписка подтверждена, награда начислена!' if kind=='channel' else '✅ Вступление подтверждено, награда начислена!'
         return membership_feed(c,uid,message,kind,after_id=tid,success=good,api=api)
+    if action.startswith('botclick:check:'):
+        tid=action.split(':')[-1]
+        t=c.execute('SELECT * FROM bot_tasks WHERE id=%s FOR UPDATE',(tid,)).fetchone()
+        if not t or t['kind']!='bot' or bot_mode(c,tid)!='click':raise UserError('Задание не найдено.')
+        if t['owner']==uid or t['status']!='active' or t['remaining']<bot_economy.cost(c,t):
+            raise UserError('Задание недоступно или места закончились.')
+        record=c.execute('SELECT visited FROM bot_bot_click_tokens WHERE task=%s AND uid=%s',(tid,uid)).fetchone()
+        if not record or not record['visited']:
+            raise UserError('Переход ещё не зарегистрирован. Сначала нажми «Открыть бота».')
+        name=urlsplit(t['url']).path.strip('/').lower()
+        row=c.execute('INSERT INTO bot_bot_click_completions(uid,username,task,created) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING uid',(uid,name,tid,time.time())).fetchone()
+        if not row:raise UserError('За переход к этому боту награда уже начислялась.')
+        award(c,t,uid)
+        return bot_ui.screen(uid,'✅ Переход учтён. Начислено <b>'+money(t['reward'])+'</b>.',[[button('🤖 Следующее задание','list:bot:0')],[button('⬅️ Заработать','earn')]])
     if action.startswith('new:'):
         kind = action.split(':')[1]
         if kind not in KINDS:
@@ -502,7 +545,9 @@ def route(c, uid, text, action, message, api, admin):
         if kind=='manual':return bot_manual.begin(c,uid)
         if kind == 'post' and (not bot_extras.settings(c)['channel_id']):
             raise UserError(tr('Канал рекламных постов ещё не подключён администратором.', html_mode=False, section='task_bot', limit=3000))
-        state(c, uid, 'task_url' if kind in ('channel','group') else 'task_title', {'kind': kind})
+        state(c, uid, 'task_url' if kind in ('channel','group','bot') else 'task_title', {'kind': kind})
+        if kind=='bot':
+            return input_prompt(uid,'🤖 Пришли ссылку на Telegram-бота (https://t.me/ExampleBot).\n\nОплачивается только переход, не запуск бота.')
         if kind in ('channel','group'):
             label='📣 Пришли ссылку на канал' if kind=='channel' else '👥 Пришли ссылку на группу'
             return input_prompt(uid,label+' (https://t.me/имя).\n\nСначала добавь @Farmlife2026bot администратором, чтобы мы могли проверять участников.')
@@ -588,6 +633,8 @@ def route(c, uid, text, action, message, api, admin):
             own = api('getMe', {})
             if api('getChatMember', {'chat_id': t['chat_id'], 'user_id': own['id']}).get('status') not in ('administrator', 'creator'):
                 raise UserError(tr('Проверка временно недоступна: нашему боту нужны права администратора этого чата.', html_mode=False, section='task_bot', limit=3000))
+        if op == 'take' and t['kind']=='bot' and bot_mode(c,t['id'])=='click':
+            return bot_click_card(c,t,uid)
         if op == 'take':
             if t['kind'] in ('channel', 'group') and bot_economy.terms(c, t['id']):
                 c.execute('INSERT INTO bot_membership_accept VALUES(%s,%s,%s) ON CONFLICT DO NOTHING', (t['id'], uid, time.time()))
@@ -726,6 +773,9 @@ def process_input(c, uid, text, message, current, api):
                     raise UserError(tr('Нужна ссылка https://t.me/ИмяБота, при необходимости с параметром start.', html_mode=False, section='task_bot', limit=3000))
                 data['url'], data['bot_username'] = (text, username)
                 data['chat_id'] = None
+                data['bot_mode']='click'
+                data['title']='Перейти в @'+username
+                data['description']='Перейди по ссылке на бота и вернись проверить переход.'
             elif data['kind'] == 'post' and text == '-':
                 data['url'], data['chat_id'] = ('', None)
             elif data['kind'] in ('manual', 'post'):
@@ -788,6 +838,8 @@ def confirmation(c, uid, action, api):
         bot_notifications.enqueue(c,'task:'+tid,tr('✅ Новый заказ опубликован\n\nАвтор: {v0}\nНазвание: {v1}\nБюджет: {v2}', {'v0': str(uid), 'v1': data['title'], 'v2': money(data['budget'])}, section='notifications'),'admin:tasks',subject=uid)
         bot_economy.save_terms(c, tid, data)
         bot_advertising.save(c,tid,data)
+        if data['kind']=='bot':
+            c.execute('INSERT INTO bot_task_bot_modes(task,mode) VALUES(%s,%s)',(tid,data.get('bot_mode','forward')))
         if data['kind']=='manual':bot_manual.save(c,tid,data)
         if data['kind']=='post':
             bot_extras.queue_post(c, {'id':tid}, api)
