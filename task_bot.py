@@ -190,7 +190,9 @@ def task_card(t, uid, c):
         return say(uid, tr('🤖 {v0}\n\n{v1}\n\nНаграда: {v2}\nВозьми задание, запусти бота и перешли сюда свежий ответ от него. Это проверка источника пересылки, не гарантия первого запуска. Не пересылай пароли и коды.', {'v0': f"{t['title']}", 'v1': f"{t['description']}", 'v2': f"{money(t['reward'])}"}, html_mode=False, section='task_bot', limit=3000), [[{'text': tr('Перейти к боту', html_mode=False, section='task_bot', limit=3000), 'url': t['url']}], [button('Взять / отправить пересылку', 'take:' + t['id'])], [button('Пропустить', 'skip_bot')]])
     return say(uid, tr('{v0}\n\n{v1}\n\nНаграда: {v2}{v3}', {'v0': f"{t['title']}", 'v1': f"{t['description']}", 'v2': f"{money(t['reward'])}", 'v3': bot_economy.rule_text(c, t)}, html_mode=False, section='task_bot', limit=3000), [[{'text': tr('Открыть', html_mode=False, section='task_bot', limit=3000), 'url': t['url']}], [button('Взять задание', 'take:' + t['id']), button('Проверить', 'check:' + t['id'])], [button('⬅️ Задания', 'earn')]])
 
-def channel_feed(c,uid,message,after_id=None,success=''):
+def channel_feed(c,uid,message,after_id=None,success='',api=None):
+    # Snapshot a new participant before the channel is opened; existing members
+    # must never receive new-subscriber rewards.
     params=[uid,uid,uid]
     condition=''
     if after_id:
@@ -198,21 +200,37 @@ def channel_feed(c,uid,message,after_id=None,success=''):
         if not prev:raise UserError('Задание не найдено.')
         condition=' AND (t.created,t.id)>(%s,%s)'
         params.extend([prev['created'],prev['id']])
-    row=c.execute('SELECT t.* FROM bot_tasks t WHERE '+bot_ui.catalog_filter()+' AND t.kind=\'channel\''+condition+' ORDER BY t.created,t.id LIMIT 1',tuple(params)).fetchone()
-    if row:
+    row=None
+    for _ in range(40):
+        row=c.execute('SELECT t.* FROM bot_tasks t WHERE '+bot_ui.catalog_filter()+" AND t.kind='channel'"+condition+' ORDER BY t.created,t.id LIMIT 1',tuple(params)).fetchone()
+        if not row:break
         claim=c.execute('SELECT status FROM bot_claims WHERE task=%s AND uid=%s',(row['id'],uid)).fetchone()
-        started=bool(claim and claim['status']=='started')
-        text=(success+'\n\n' if success else '')+'📣 <b>Подписаться на канал</b>\n\n🎁 Награда: <b>'+money(row['reward'])+'</b>\n\nОткрой канал, подпишись и вернись для проверки.'
-        buttons=[[{'text':'📣 Открыть канал','url':row['url']}],[button('✅ Проверить подписку' if started else '📥 Взять задание','channel:check:'+row['id'] if started else 'channel:take:'+row['id'])],[button('➡️ Дальше','channel:skip:'+row['id'])],[button('⬅️ Заработать','earn')]]
+        if claim and claim['status']=='started':break
+        if api is None:raise UserError('Не удалось запустить проверку подписок.')
+        try:
+            member_status=api('getChatMember', {'chat_id':row['chat_id'],'user_id':uid})
+        except Exception:
+            raise UserError('Проверка канала временно недоступна. Убедись, что наш бот является его администратором.')
+        if not member(member_status):
+            c.execute("INSERT INTO bot_claims(task,uid,status,created) VALUES(%s,%s,'started',%s) ON CONFLICT DO NOTHING",(row['id'],uid,time.time()))
+            if bot_economy.terms(c,row['id']):
+                c.execute('INSERT INTO bot_membership_accept VALUES(%s,%s,%s) ON CONFLICT DO NOTHING',(row['id'],uid,time.time()))
+            break
+        # Already a member before opening this offer: move past it without pay.
+        condition=' AND (t.created,t.id)>(%s,%s)'
+        params=[uid,uid,uid,row['created'],row['id']]
+        row=None
+    if row:
+        body=(success+'\n\n' if success else '')+'📣 <b>Подписаться на канал</b>\n\n🎁 Награда: <b>'+money(row['reward'])+'</b>\n\nОткрой канал, подпишись и вернись для проверки.'
+        buttons=[[{'text':'📣 Открыть канал','url':row['url']}],[button('✅ Проверить подписку','channel:check:'+row['id'])],[button('➡️ Дальше','channel:skip:'+row['id'])],[button('⬅️ Заработать','earn')]]
     else:
-        text=(success+'\n\n' if success else '')+'📣 <b>Пока больше нет заданий на подписку.</b>'
+        body=(success+'\n\n' if success else '')+'📣 <b>Пока больше нет заданий на подписку.</b>'
         buttons=[[button('🔄 Сначала','channel:feed')],[button('⬅️ Заработать','earn')]]
-    out=bot_ui.screen(uid,text,buttons)
+    out=bot_ui.screen(uid,body,buttons)
     if message.get('_callback_id') and isinstance(message.get('message_id'),int):
         out['method']='editMessageText'
         out['message_id']=message['message_id']
     return out
-
 def channel_feed_for_task(c,uid,message,tid):
     t=c.execute("SELECT * FROM bot_tasks WHERE id=%s AND kind='channel'",(tid,)).fetchone()
     if not t:raise UserError('Задание не найдено.')
@@ -458,7 +476,7 @@ def route(c, uid, text, action, message, api, admin):
         rules = bot_admin.limits(c)
         return input_prompt(uid, tr('💸 Вывод средств\n\nС баланса: от {v0} до {v1}\nКомиссия: {v2}%\n\nВведи сумму в гривнах. Затем укажешь реквизиты для ручной выплаты.', {'v0': money(rules['withdraw_min']), 'v1': money(rules['withdraw_max']), 'v2': bot_economy.pct(rules['withdraw_fee'])}, section='task_bot'))
     if action=='channel:feed':
-        return channel_feed(c,uid,message)
+        return channel_feed(c,uid,message,api=api)
     if action.startswith('channel:'):
         parts=action.split(':')
         if len(parts)!=3 or parts[1] not in ('take','check','skip'):
@@ -466,10 +484,10 @@ def route(c, uid, text, action, message, api, admin):
         tid=parts[2]
         item=c.execute('SELECT kind FROM bot_tasks WHERE id=%s',(tid,)).fetchone()
         if not item or item['kind']!='channel':raise UserError('Задание на подписку не найдено.')
-        if parts[1]=='skip':return channel_feed(c,uid,message,after_id=tid)
+        if parts[1]=='skip':return channel_feed(c,uid,message,after_id=tid,api=api)
         route(c,uid,'',parts[1]+':'+tid,message,api,admin)
         if parts[1]=='take':return channel_feed_for_task(c,uid,message,tid)
-        return channel_feed(c,uid,message,after_id=tid,success='✅ Подписка подтверждена, награда начислена!')
+        return channel_feed(c,uid,message,after_id=tid,success='✅ Подписка подтверждена, награда начислена!',api=api)
     if action.startswith('new:'):
         kind = action.split(':')[1]
         if kind not in KINDS:
