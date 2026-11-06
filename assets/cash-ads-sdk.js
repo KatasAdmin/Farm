@@ -57,7 +57,7 @@
       });
       await post('finish',telegramData,{ymid:attempt.ymid});
       handlers.onFinished?.();
-      return {ok:true,payable:false,pending_postback:true,estimated_paid:adResult?.reward_event_type==='valued',event_type:adResult?.reward_event_type||'unknown'};
+      return {ok:true,ymid:attempt.ymid,payable:false,pending_postback:true,estimated_paid:adResult?.reward_event_type==='valued',event_type:adResult?.reward_event_type||'unknown'};
     }catch(error){
       if(attempt){
         try{if(!launched)await post('cancel',telegramData,{ymid:attempt.ymid});}
