@@ -486,6 +486,13 @@ def advance(c,p,now=None):
  return upgrade_production(c,update_incubation(c,result,now),now)
 @app.get("/",response_class=HTMLResponse)
 def index():return HTMLResponse(open("index.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
+
+@app.get("/cash-ads-preview.html",response_class=HTMLResponse)
+def cash_ads_preview_page():
+ # Dedicated preview route: independent from the farm's static-file mount.
+ return HTMLResponse(open("cash-ads-preview.html",encoding="utf8").read(),
+                     headers={"Cache-Control":"no-store"})
+
 # No raw postback secrets in application access logs. Railway edge logging must
 # also keep query strings disabled; see docs/MONETAG_AUDIT.md.
 class PostbackSecretRedaction:
@@ -520,6 +527,22 @@ def cash_ads_preview_auth(q:dict):
  uid=telegram_identity(raw)
  return {"ok":True,"telegram_id":uid,"enabled":False,"cash_rewards":False,
          "status":"awaiting_monetag_approval"}
+
+@app.post("/api/ads/cash/status")
+def cash_ads_status(q:dict):
+ raw=q.get("telegram_data","")
+ if not isinstance(raw,str):
+  raise HTTPException(400,"Invalid Telegram data")
+ uid=telegram_identity(raw)
+ with db() as c:
+  quota=bot_monetag_cash.cash_attempt_quota(c,int(uid))
+ return {"ok":True,"enabled":False,"cash_rewards":False,
+         "status":"awaiting_monetag_approval",
+         "retry_after":quota["retry_after"],
+         "active_attempt":quota["active"],
+         "block_launches":quota["block_launches"],
+         "break_every":10,"break_seconds":30}
+
 
 @app.post("/api/ads/cash/prepare")
 def cash_ads_prepare(q:dict):
