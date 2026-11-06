@@ -93,13 +93,15 @@ def settings(c, uid, section):
     cfg = b.bot_economy.config(c)
     rows = []
     if section == 'prices':
-        text = tr('💰 <b>Тарифы и комиссии</b>\n\n<b>Цена → награда исполнителю</b>\n', html_mode=True, section='bot_admin', limit=3000)
-        for kind, name in KINDS.items():
-            p = b.bot_economy.quote(c, kind)
-            text += f"{name}: {b.money(p['cost'])} → {b.money(p['reward'])}\n"
-            rows.append([b.button(name + ' · ' + b.money(p['cost']), 'admin:field:price_' + kind)])
-        rows += [[b.button('📊 Комиссия заданий · ' + b.bot_economy.pct(cfg['fee']) + '%', 'admin:field:fee')], [b.button('💸 Комиссия вывода', 'admin:field:withdraw_fee')]]
-        text += tr('\nКомиссия удерживается из указанной цены для всех видов заданий и постов. В ручном задании заказчик задаёт полную цену сам; тариф здесь — только пример расчёта.\nИзменения действуют для новых заказов.', html_mode=True, section='bot_admin', limit=3000)
+        text='💰 <b>Тарифы заданий</b>\n\n'
+        for kind,name in KINDS.items():
+            p=b.bot_economy.quote(c,kind)
+            short={'channel':'Подписка','group':'Группа','bot':'Бот','post':'Пост','manual':'Задание'}[kind]
+            text+=short+': награда '+b.money(p['reward'])+' / цена '+b.money(p['cost'])+'\n'
+            rows.append([b.button('🎁 Награда · '+short,'admin:field:reward_'+kind),
+                         b.button('💳 Цена · '+short,'admin:field:price_'+kind)])
+        rows += [[b.button('📊 Комиссия заданий','admin:field:fee'),b.button('💸 Комиссия вывода','admin:field:withdraw_fee')]]
+        text+='\nИзменения применяются к новым заказам. В ручном задании рекламодатель указывает цену сам.'
     elif section == 'rewards':
         n = c.execute('SELECT daily FROM bot_settings WHERE id=1').fetchone()['daily']
         text = tr('🎁 <b>Награды и партнёры</b>\n\nЕжедневная награда: {v0}\n\n', {'v0': b.money(n)}, html_mode=True, section='bot_admin', limit=3000)
@@ -119,7 +121,7 @@ def settings(c, uid, section):
                 continue
             value = str(current[k]) if k.startswith('max_') else b.money(current[k])
             rows.append([b.button(TITLES[k] + ' · ' + value, 'admin:field:' + k)])
-    return b.bot_ui.screen(uid, text, rows + [[b.button('⬅️ Управление', 'admin')]])
+    return b.bot_ui.screen(uid, text, rows + [[b.button('⬅️ Управление', 'admin:section:manage')]])
 
 def field_value(c, key):
     b = core()
@@ -127,8 +129,9 @@ def field_value(c, key):
     if key.startswith('price_') and key[6:] in KINDS:
         p = c.execute('SELECT cost FROM bot_prices WHERE kind=%s', (key[6:],)).fetchone()
         return (KINDS[key[6:]], b.money(p['cost']))
-    if key == 'post_reward':
-        raise b.UserError('Награда за пост рассчитывается из цены и общей комиссии. Измени цену поста или комиссию.')
+    if key.startswith('reward_') and key[7:] in KINDS:
+        p=c.execute('SELECT reward FROM bot_prices WHERE kind=%s',(key[7:],)).fetchone()
+        return ('Награда · '+KINDS[key[7:]],b.money(p['reward']))
     if key in ('fee', 'ref1', 'ref2', 'ref3', 'ref4', 'ref5'):
         return ('Комиссия заданий' if key == 'fee' else 'Реферальный уровень ' + key[-1], b.bot_economy.pct(cfg[key]) + '%')
     if key == 'daily':
