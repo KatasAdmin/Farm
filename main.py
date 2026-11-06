@@ -7,6 +7,8 @@ import market_allocation
 import incubation_rules
 import stars_validation
 import monetag_ads
+import bot_monetag_cash
+import bot_economy
 import ad_inventory
 import farm_ranking
 import release_grants
@@ -50,6 +52,8 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS monetag_reward_grants(id text PRIMARY KEY,player_id text NOT NULL,item text NOT NULL,quantity integer NOT NULL CHECK(quantity>0),created double precision NOT NULL,claimed_at double precision)")
   c.execute("CREATE INDEX IF NOT EXISTS monetag_reward_grants_player_idx ON monetag_reward_grants(player_id,claimed_at)")
   monetag_ads.initialize(c)
+  bot_monetag_cash.initialize_cash_attempts(c)
+  bot_economy.initialize_monetag_cash_staging(c)
   ad_inventory.initialize(c)
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
@@ -560,6 +564,21 @@ def monetag_claim(authorization:str=Header(default="")):
 def monetag_postback(request:HTTPRequest,ymid:str="",zone_id:int=0,sub_zone_id:int=0,event_type:str="",reward_event_type:str="",request_var:str="",telegram_id:str="",estimated_price:str=""):
  with db() as c:
   monetag_ads.lock(c)
+  if ymid.startswith("cash_"):
+   # Isolated cash staging. No credits, no withdrawals, no farm goods.
+   if not telegram_id.isdecimal():
+    raise HTTPException(400,"Invalid Telegram ID")
+   try:
+    return bot_monetag_cash.stage_verified_cash_postback(
+     c,secret=getattr(request.state,"monetag_secret",""),ymid=ymid,
+     telegram_uid=int(telegram_id),zone_id=zone_id,
+     request_var=request_var.removeprefix(str(zone_id)+"_"),
+     event_type=event_type,reward_event_type=reward_event_type,
+     estimated_price=estimated_price,referral_chain=())
+   except PermissionError:
+    raise HTTPException(403,"Forbidden")
+   except ValueError:
+    raise HTTPException(400,"Invalid cash ad event")
   result=monetag_ads.postback(c,getattr(request.state,"monetag_secret",""),ymid,zone_id,sub_zone_id,event_type,reward_event_type,request_var,telegram_id,estimated_price)
   pid=result.pop("player_id",None)
   if pid:
