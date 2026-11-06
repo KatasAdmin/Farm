@@ -536,7 +536,7 @@ def cash_ads_status(q:dict):
  uid=telegram_identity(raw)
  with db() as c:
   quota=bot_monetag_cash.cash_attempt_quota(c,int(uid))
- return {"ok":True,"enabled":cash_ads_enabled(),"cash_rewards":cash_ads_enabled(),
+ return {"ok":True,"enabled":cash_ads_enabled(),"cash_rewards":False,"test_mode":cash_ads_enabled(),
          "status":"enabled" if cash_ads_enabled() else "awaiting_monetag_approval",
          "retry_after":quota["retry_after"],
          "active_attempt":quota["active"],
