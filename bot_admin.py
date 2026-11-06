@@ -48,7 +48,7 @@ def panel(c, uid):
     pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
     shortage=max(0,b.liability(c)-pool)
     alert=tr('\n⚠️ Нехватка покрытия: {v0}\n',{'v0':b.money(shortage)},html_mode=True,section='bot_admin') if shortage else ''
-    text=tr('🛡 <b>Админ-панель · Farm</b>\n\n📋 <b>На проверке</b>\n📝 Задания: <b>{v0}</b>  ·  💸 Выплаты: <b>{v1}</b>\n💳 Пополнения: <b>{v2}</b>\n{v3}\n👇 Выбери раздел',{'v0':tasks,'v1':payouts,'v2':receipts,'v3':alert},html_mode=True,section='bot_admin')
+    text=tr('🛡 <b>Панель администратора</b> · Farm\n\n📋 <b>На проверке</b>\n📝 Задания: <b>{v0}</b>  ·  💸 Выплаты: <b>{v1}</b>\n💳 Пополнения: <b>{v2}</b>\n{v3}\n👇 Выбери раздел',{'v0':tasks,'v1':payouts,'v2':receipts,'v3':alert},html_mode=True,section='bot_admin')
     text+='\n\n<i>Версия: '+RELEASE+'</i>'
     return b.bot_ui.screen(uid,text,[
         [b.button('⚙️ Управление','admin:section:manage'),b.button('💸 Выплаты','admin:payouts')],
