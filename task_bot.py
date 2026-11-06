@@ -349,7 +349,7 @@ def route(c, uid, text, action, message, api, admin):
     if text in sum(MENU, []) or cmd in ('/start', '/help', '/menu', '/cancel'):
         state(c, uid, 'clear')
     if action == 'watch_ads_info':
-        return say(uid, '🎬 Просмотр рекламы\n\nСкоро здесь появятся рекламные задания. Пока реклама доступна в самой ферме.', [[button('⬅️ Заработать', 'earn')]])
+        return say(uid, '🎬 Денежные награды за рекламу\n\nСейчас система готовится и ожидает разрешения рекламной сети. Реальные начисления и вывод выключены.\n\nМожно открыть тестовый экран, но просмотр пока не запускает рекламу и не начисляет деньги.', [[{'text': '🧪 Открыть тестовый экран', 'web_app': {'url': farm_url() + 'cash-ads-preview.html'}}], [button('⬅️ Заработать', 'earn')]])
     if text == '🚀 Заработать' or action == 'earn':
         return bot_ui.earn(c, uid)
     if text == '🎮 Игры' or action == 'games':
