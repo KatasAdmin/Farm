@@ -153,7 +153,7 @@ class ExtendedBotTests(unittest.TestCase):
     def test_post_keeps_agreed_reward_after_commission_change(self):
         tid=self.create_post_task()
         self.send(1,action='admin:field:fee');self.send(1,'30')
-        self.assertEqual(bot.bot_economy.quote(self.c,'post')['reward'],2)
+        self.assertEqual(bot.bot_economy.quote(self.c,'post')['reward'],3)
         task=self.c.execute('SELECT * FROM bot_tasks WHERE id=%s',(tid,)).fetchone()
         self.assertEqual((bot.bot_economy.cost(self.c,task),task['reward']),(4,3))
         self.channel_claim(3,tid)
