@@ -176,7 +176,13 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
     rows=c.execute("""SELECT uid,referral_chain FROM bot_adsgram_attempts
       WHERE state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s
       ORDER BY confirmed_at,id FOR UPDATE""",(start,start+86400)).fetchall()
-    if len(rows)!=provider_impressions:
+    farm_count=c.execute("""SELECT COUNT(*) AS n FROM bot_adsgram_farm_attempts
+      WHERE state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s""",
+      (start,start+86400)).fetchone()["n"]
+    # The same AdsGram unit serves both the cash bot and the farm. Each
+    # confirmed farm view contributes to publisher impressions and revenue,
+    # but receives GOODS, not a second cash reward.
+    if len(rows)+int(farm_count)!=provider_impressions:
         raise ValueError("Publisher impressions do not match confirmed user events; review before credit")
     rate=nbu_usd_uah(c)
     per_view=revenue/Decimal(provider_impressions)
@@ -220,4 +226,5 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
               (credited_total,day))
     return {"ok":True,"day":day,"provider_impressions":provider_impressions,
             "publisher_usd":str(revenue),"credited_kopeks":credited_total,
+            "cash_views":len(rows),"farm_views":int(farm_count),
             "platform_usd_at_least":str(revenue*Decimal("0.35"))}
