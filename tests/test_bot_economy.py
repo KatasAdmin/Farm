@@ -47,23 +47,23 @@ class EconomyTests(unittest.TestCase):
         self.c.raw.commit()
         self.assertEqual(self.row('bot_settings')['daily'],25)
 
-    def test_all_kinds_deduct_commission_from_gross_including_posts(self):
-        # Even the old independent post reward cannot override the common formula.
+    def test_manual_commission_and_independent_catalog_rewards(self):
         self.c.execute("UPDATE bot_prices SET reward=1 WHERE kind='post'")
         for kind in ('channel','group','bot','manual','post'):
             q=eco.quote(self.c,kind,1000)
             self.assertEqual((q['cost'],q['reward']),(1000,800))
-        self.assertEqual(eco.quote(self.c,'post')['reward'],3)
+        self.assertEqual(eco.quote(self.c,'post')['reward'],1)
         self.c.raw.commit()
         self.send(1,action='admin:field:price_post');self.send(1,'10')
-        self.assertEqual(eco.quote(self.c,'post')['reward'],800)
+        self.assertEqual(eco.quote(self.c,'post')['cost'],1000)
+        self.assertEqual(eco.quote(self.c,'post')['reward'],1)
+        self.send(1,action='admin:field:reward_post');self.send(1,'7')
+        self.assertEqual(eco.quote(self.c,'post')['reward'],700)
         self.send(1,action='admin:field:fee');self.send(1,'30')
         for kind in ('channel','group','bot','manual','post'):
             self.assertEqual(eco.quote(self.c,kind,1000)['reward'],700)
-        self.assertNotIn('admin:field:post_reward',str(self.send(1,action='admin:economy')))
-        self.send(1,action='admin:field:post_reward');self.send(1,'9')
         self.assertEqual(eco.quote(self.c,'post')['reward'],700)
-
+        self.assertIn('admin:field:reward_post',str(self.send(1,action='admin:economy')))
     def test_five_levels_exact_from_gross_not_net_reward(self):
         # 3 -> 4 -> 5 -> 6 -> 7 -> 8, each registered with an existing parent.
         self.send(8,'/start')
