@@ -58,6 +58,23 @@ class PostbackAttemptTests(unittest.TestCase):
              'request_var':'cash_rewarded_interstitial'}
         self.assertEqual(self.lookup(row),row)
 
+    def test_confirmed_attempt_cannot_be_reused(self):
+        self.assertIsNone(self.lookup({
+            'state':'confirmed','launched_at':50,'created_at':10,
+            'zone_id':12193261,'viewer_uid':123,
+            'request_var':'cash_rewarded_interstitial'}))
+
+    def test_expired_postback_rejected(self):
+        from bot_monetag_cash import CASH_POSTBACK_TTL
+        cursor=FakePostbackCursor({
+            'state':'launched','launched_at':1,'created_at':1,
+            'zone_id':12193261,'viewer_uid':123,
+            'request_var':'cash_rewarded_interstitial'})
+        self.assertIsNone(lookup_cash_attempt_for_postback(
+            cursor,ymid='cash_test',telegram_uid=123,
+            zone_id=12193261,request_var='cash_rewarded_interstitial',
+            now=CASH_POSTBACK_TTL+2))
+
     def test_wrong_viewer_rejected(self):
         self.assertIsNone(self.lookup({
             'state':'launched','launched_at':50,'created_at':10,
