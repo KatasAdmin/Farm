@@ -69,8 +69,9 @@ class BotScreenTests(unittest.TestCase):
         self.assert_valid_html(response)
         self.assertIn('Награды в доступных заданиях: 0,00 грн',response['text'])
         buttons=str(response['reply_markup'])
-        for value in ('0,32 грн','0,56 грн','0,48 грн','0,03 грн','0,50 грн'):
+        for value in ('0,32 грн','0,56 грн','0,48 грн','0,50 грн'):
             self.assertIn(value,buttons)
+        self.assertIn('🎬 Смотреть рекламу',buttons)
         self.assertNotIn('0.75',buttons)
         self.assertNotIn('₽',str(response))
         self.assertEqual(self.balance(3),0)
@@ -264,12 +265,11 @@ class BotScreenTests(unittest.TestCase):
         self.assertEqual(self.balance(3),0)
         self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_tasks').fetchone()['n'],0)
 
-    def test_posts_button_opens_connected_channel_directly(self):
-        self.send(1,'/botchannel @ChannelTest')
+    def test_ads_button_opens_separate_preview(self):
         response=self.send(3,action='earn')
-        posts=response['reply_markup']['inline_keyboard'][3][0]
-        self.assertEqual(posts['url'],'https://t.me/ChannelTest')
-        self.assertNotIn('callback_data',posts)
+        ads=response['reply_markup']['inline_keyboard'][3][0]
+        self.assertEqual(ads['callback_data'],'bot:watch_ads_info')
+        self.assertIn('Смотреть рекламу',ads['text'])
 
     def test_existing_order_reward_used_in_overview_instead_of_new_default_rate(self):
         self.credit()
