@@ -37,14 +37,17 @@
     watch.removeAttribute('aria-disabled');
     watch.style.cursor='pointer';
     watch.textContent='Смотреть рекламу';
-    watch.addEventListener('click',async()=>{
+    const startAd=async()=>{
       watch.disabled=true;watch.textContent='Загрузка рекламы…';
       try{
         await window.FarmCashAds.showCashAd(app.initData);
         quotaLabel.textContent='Тестовый просмотр завершён. Денежных начислений нет.';
       }catch(error){quotaLabel.textContent=error.message||'Реклама недоступна';}
       finally{watch.disabled=false;watch.textContent='Смотреть рекламу';}
-    });
+    };
+    // Opening the bot's ad link starts the first view automatically.
+    // Keep the button only for retry after an unavailable ad.
+    if(Number(quota.retry_after||0)===0 && !quota.active_attempt)startAd();
   }
   const deadline=Date.now()+Math.max(0,Number(quota.retry_after)||0)*1000;
   if(quota.enabled){document.querySelector('.status').textContent='🎬 Рекламный просмотр';}
