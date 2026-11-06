@@ -256,7 +256,7 @@ def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
     if result['recorded']:
         c.execute("""
             UPDATE bot_monetag_cash_attempts SET state='confirmed',confirmed_at=%s
-            WHERE ymid=%s AND state IN ('prepared','launched')
+            WHERE ymid=%s AND state IN ('launched','finished')
         """,(now,ymid))
     return {'ok':True,'staged':result['recorded'],
             'status':'pending_review','payable':False}
