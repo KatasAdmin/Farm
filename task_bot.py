@@ -342,7 +342,7 @@ def route(c, uid, text, action, message, api, admin):
         return bot_promos.command(c,uid,text,admin)
     if admin and cmd=='/start' and text not in ('/start wallet','/start support') and not text.startswith('/start link_'):
         return bot_admin.panel(c,uid)
-    if action.startswith('admin') or cmd.startswith('/bot'):
+    if action.startswith('admin') or cmd.startswith('/bot') or cmd in ('/adsgramurl','/adsgramsettle'):
         if not admin:
             return say(uid, tr('Доступ только администратору.', html_mode=False, section='task_bot', limit=3000))
         return administration(c, uid, text, action, api)
