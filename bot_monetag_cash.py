@@ -59,6 +59,14 @@ def initialize_cash_attempts(c):
     """)
 
 
+def lock_cash_viewer(c, viewer_uid):
+    """Serialize ad attempts for one Telegram UID inside a DB transaction."""
+    if not isinstance(viewer_uid,int) or viewer_uid<=0:
+        raise ValueError('Invalid viewer')
+    # Namespace lock key avoids collisions with other advisory-lock users.
+    c.execute("SELECT pg_advisory_xact_lock(%s,%s)",(3563430,viewer_uid % 2147483647))
+
+
 def cash_cooldown(launch_times, now):
     """Rolling 10-ad block: elapsed time between launches counts toward 30s.
 
@@ -112,6 +120,7 @@ def cash_attempt_quota(c, viewer_uid, now=None):
 def mark_cash_attempt_launched(c, viewer_uid, ymid, now=None):
     """Record one SDK launch. Caller must authenticate viewer and serialize updates."""
     now=time.time() if now is None else now
+    lock_cash_viewer(c,viewer_uid)
     row=c.execute("""
         SELECT * FROM bot_monetag_cash_attempts
         WHERE ymid=%s AND viewer_uid=%s FOR UPDATE
@@ -130,6 +139,7 @@ def mark_cash_attempt_launched(c, viewer_uid, ymid, now=None):
 
 def cancel_unlaunched_cash_attempt(c, viewer_uid, ymid):
     """A failed SDK start must not consume a view or earn a reward."""
+    lock_cash_viewer(c,viewer_uid)
     row=c.execute("""
         UPDATE bot_monetag_cash_attempts SET state='rejected'
         WHERE ymid=%s AND viewer_uid=%s AND state='prepared'
@@ -148,6 +158,7 @@ def prepare_cash_attempt(c, verified_telegram_uid, now=None):
         raise ValueError('Telegram identity must be verified')
     now=time.time() if now is None else now
     # Caller must serialize attempts per viewer (transaction advisory lock).
+    lock_cash_viewer(c,verified_telegram_uid)
     quota=cash_attempt_quota(c,verified_telegram_uid,now)
     if quota['active'] or quota['retry_after']:
         raise ValueError('Cash ad cooldown or active attempt')
