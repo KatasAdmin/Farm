@@ -14,10 +14,10 @@ from fastapi import HTTPException
 REWARDS={'grain':(1,1),'eggs':(2,2),'milk':(5,1),'chickens':(20,1),'geese':(80,1),'cows':(250,1),'coins':(1,2)}
 TMA_ZONE=12193261
 LOCK=1984533
-DAY_LIMIT=50
-HOUR_LIMIT=10
-COOLDOWN=30
-ADS_PER_BREAK=5
+DAY_LIMIT=0  # Unlimited confirmed rewarded views per day
+HOUR_LIMIT=0  # Unlimited confirmed rewarded views per hour
+COOLDOWN=0
+ADS_PER_BREAK=0
 PREPARE_TTL=600
 CONFIRM_WAIT=120
 POSTBACK_TTL=48*3600
@@ -53,12 +53,8 @@ def limits(c,pid,now):
  rows=c.execute('SELECT created_at,launched_at FROM monetag_ad_attempts WHERE player_id=%s AND launched_at IS NOT NULL AND created_at>=%s',(pid,now//86400*86400-3600)).fetchall()
  day=sum(r['created_at']>=now//86400*86400 for r in rows)
  hour=sum(r['launched_at']>=now-3600 for r in rows)
- # Five launches in a row, then a 30-second rest after the fifth.
- # The count is server-side and shared between Telegram and web sessions.
- recent=sorted((r['launched_at'] for r in rows if r['launched_at'] is not None and r['launched_at']>=now-3600))
- last=recent[-1] if recent else 0
- wait=max(0,int(last+COOLDOWN-now+0.999)) if recent and len(recent)%ADS_PER_BREAK==0 else 0
- return dict(remaining_today=max(0,DAY_LIMIT-day),remaining_hour=max(0,HOUR_LIMIT-hour),retry_after=wait)
+ # Zero means no player-facing hourly/daily cap or cooldown.
+ return dict(remaining_today=None,remaining_hour=None,retry_after=0)
 
 def prepare(c,p,item,platform,now=None):
  now=time.time() if now is None else now
@@ -67,7 +63,7 @@ def prepare(c,p,item,platform,now=None):
  if item not in REWARDS:raise HTTPException(400,'Награда не найдена')
  if not cfg['enabled']:raise HTTPException(503,cfg['reason'] or 'Рекламные награды пока настраиваются')
  quota=limits(c,p['id'],now)
- if not quota['remaining_today'] or not quota['remaining_hour'] or quota['retry_after']:raise HTTPException(429,'Лимит рекламы. Попробуйте позже')
+ if quota['retry_after']:raise HTTPException(429,'Подождите перед следующим просмотром')
  old=c.execute('SELECT * FROM monetag_ad_attempts WHERE player_id=%s AND placement=%s AND platform=%s AND zone_id=%s AND launched_at IS NULL AND blocked_at IS NULL AND created_at>%s ORDER BY created_at DESC LIMIT 1',(p['id'],item+'_reward',platform,cfg['zone_id'],now-PREPARE_TTL)).fetchone()
  if old:return dict(ymid=old['ymid'],expires_at=old['created_at']+PREPARE_TTL,**cfg)
  # Bound reservation spam as well as genuine launches; unused preparations are not impressions.
@@ -85,7 +81,7 @@ def report(c,p,ymid,event,result='',error='',now=None):
  if row['blocked_at'] is not None:return {'ok':False,'state':'rate_limited'}
  if row['launched_at'] is None:
   quota=limits(c,p['id'],now)
-  if now-row['created_at']>PREPARE_TTL or not quota['remaining_today'] or not quota['remaining_hour'] or quota['retry_after']:
+  if now-row['created_at']>PREPARE_TTL or quota['retry_after']:
    c.execute('UPDATE monetag_ad_attempts SET blocked_at=%s WHERE ymid=%s',(now,ymid))
    return {'ok':False,'state':'rate_limited'}
   c.execute('UPDATE monetag_ad_attempts SET launched_at=%s WHERE ymid=%s',(now,ymid))
@@ -137,9 +133,6 @@ def postback(c,secret,ymid,zone_id,sub_zone_id,event_type,reward_event_type,requ
  # A forged SDK callback cannot bypass these limits. Late legitimate postbacks
  # use the attempt's original UTC day, rather than resetting yesterday's budget.
  day=row['created_at']//86400*86400
- count_day=c.execute('SELECT count(*) AS n FROM monetag_ad_attempts WHERE player_id=%s AND rewarded_at IS NOT NULL AND created_at>=%s AND created_at<%s',(row['player_id'],day,day+86400)).fetchone()['n']
- count_hour=c.execute('SELECT count(*) AS n FROM monetag_ad_attempts WHERE player_id=%s AND rewarded_at IS NOT NULL AND created_at>=%s AND created_at<%s',(row['player_id'],row['created_at']//3600*3600,row['created_at']//3600*3600+3600)).fetchone()['n']
- if count_day>=DAY_LIMIT or count_hour>=HOUR_LIMIT:return {'ok':True,'rewarded':False,'reason':'reward_limit'}
  kind=row['placement'][:-7];views,qty=REWARDS[kind]
  count=c.execute('SELECT count(*) AS n FROM monetag_ad_attempts WHERE player_id=%s AND placement=%s AND rewarded_at IS NOT NULL',(row['player_id'],row['placement'])).fetchone()['n']
  c.execute('UPDATE monetag_ad_attempts SET rewarded_at=%s WHERE ymid=%s',(now,ymid))
