@@ -26,6 +26,15 @@ class CashCooldownTests(unittest.TestCase):
     def test_no_pause_before_tenth_launch(self):
         self.assertEqual(cash_cooldown([0]*9,1)['retry_after'],0)
 
+    def test_tenth_launch_after_29_seconds_has_one_second_wait(self):
+        self.assertEqual(cash_cooldown([0]*9+[29],29)['retry_after'],1)
+
+    def test_tenth_launch_after_30_seconds_starts_new_session(self):
+        self.assertEqual(cash_cooldown([0]*9+[30],30)['retry_after'],0)
+
+    def test_cooldown_released_at_exact_deadline(self):
+        self.assertEqual(cash_cooldown([0]*10,30)['retry_after'],0)
+
     def test_failed_preparations_not_counted(self):
         self.assertEqual(cash_cooldown([],100)['retry_after'],0)
 
