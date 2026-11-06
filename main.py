@@ -579,7 +579,9 @@ def cash_ads_status(q:dict):
          "retry_after":quota["retry_after"],
          "active_attempt":quota["active"],
          "block_launches":quota["block_launches"],
-         "break_every":10,"break_seconds":30}
+         "break_every":10,"break_seconds":30,
+         "adsgram_enabled":os.getenv("ADSGRAM_FALLBACK_ENABLED","").lower()=="true",
+         "adsgram_block_id":os.getenv("ADSGRAM_REWARDED_BLOCK_ID","58218")}
 
 
 def cash_ads_enabled():
@@ -614,6 +616,21 @@ def cash_ads_attempt_id(q):
  if not isinstance(ymid,str) or len(ymid)!=45 or not ymid.startswith("cash_") or any(ch not in "0123456789abcdef" for ch in ymid[5:]):
   raise HTTPException(400,"Invalid advertising attempt")
  return ymid
+
+@app.post("/api/ads/cash/attempt-result")
+def cash_ads_attempt_result(q:dict):
+ uid=cash_ads_require_verified_identity(q)
+ ymid=cash_ads_attempt_id(q)
+ with db() as c:
+  attempt=c.execute("""SELECT state,non_valued_at FROM bot_monetag_cash_attempts
+    WHERE ymid=%s AND viewer_uid=%s""",(ymid,uid)).fetchone()
+ if not attempt:
+  raise HTTPException(404,"Advertising attempt not found")
+ status=("valued" if attempt["state"]=="confirmed"
+         else "non_valued" if attempt["non_valued_at"] is not None
+         else "pending")
+ return {"ok":True,"status":status,"payable":status=="valued"}
+
 
 @app.post("/api/ads/cash/prepare")
 def cash_ads_prepare(q:dict):
