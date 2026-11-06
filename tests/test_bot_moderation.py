@@ -26,7 +26,7 @@ class ModerationTests(unittest.TestCase):
         self.assertEqual(a,b);self.assertEqual(b,c)
         with patch.object(main,'db',return_value=self.c):self.assertEqual(main.farm_admin_panel(1),a)
         rows=a['reply_markup']['inline_keyboard']
-        self.assertEqual([r['callback_data'] for r in rows[0]],['bot:admin:section:manage','bot:admin:payouts'])
+        self.assertEqual([r['callback_data'] for r in rows[0]],['bot:admin:section:manage','bot:admin:section:finance'])
         self.assertNotIn('/bot',str(self.send(1,action='admin:section:manage')))
         self.assertNotIn('bot:admin',str(self.send(2,action='cabinet')))
 
