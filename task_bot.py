@@ -190,6 +190,39 @@ def task_card(t, uid, c):
         return say(uid, tr('🤖 {v0}\n\n{v1}\n\nНаграда: {v2}\nВозьми задание, запусти бота и перешли сюда свежий ответ от него. Это проверка источника пересылки, не гарантия первого запуска. Не пересылай пароли и коды.', {'v0': f"{t['title']}", 'v1': f"{t['description']}", 'v2': f"{money(t['reward'])}"}, html_mode=False, section='task_bot', limit=3000), [[{'text': tr('Перейти к боту', html_mode=False, section='task_bot', limit=3000), 'url': t['url']}], [button('Взять / отправить пересылку', 'take:' + t['id'])], [button('Пропустить', 'skip_bot')]])
     return say(uid, tr('{v0}\n\n{v1}\n\nНаграда: {v2}{v3}', {'v0': f"{t['title']}", 'v1': f"{t['description']}", 'v2': f"{money(t['reward'])}", 'v3': bot_economy.rule_text(c, t)}, html_mode=False, section='task_bot', limit=3000), [[{'text': tr('Открыть', html_mode=False, section='task_bot', limit=3000), 'url': t['url']}], [button('Взять задание', 'take:' + t['id']), button('Проверить', 'check:' + t['id'])], [button('⬅️ Задания', 'earn')]])
 
+def channel_feed(c,uid,message,after_id=None,success=''):
+    params=[uid,uid,uid]
+    condition=''
+    if after_id:
+        prev=c.execute("SELECT created,id FROM bot_tasks WHERE id=%s AND kind='channel'",(after_id,)).fetchone()
+        if not prev:raise UserError('Задание не найдено.')
+        condition=' AND (t.created,t.id)>(%s,%s)'
+        params.extend([prev['created'],prev['id']])
+    row=c.execute('SELECT t.* FROM bot_tasks t WHERE '+bot_ui.catalog_filter()+' AND t.kind=\'channel\''+condition+' ORDER BY t.created,t.id LIMIT 1',tuple(params)).fetchone()
+    if row:
+        claim=c.execute('SELECT status FROM bot_claims WHERE task=%s AND uid=%s',(row['id'],uid)).fetchone()
+        started=bool(claim and claim['status']=='started')
+        text=(success+'\n\n' if success else '')+'📣 <b>Подписаться на канал</b>\n\n🎁 Награда: <b>'+money(row['reward'])+'</b>\n\nОткрой канал, подпишись и вернись для проверки.'
+        buttons=[[{'text':'📣 Открыть канал','url':row['url']}],[button('✅ Проверить подписку' if started else '📥 Взять задание','channel:check:'+row['id'] if started else 'channel:take:'+row['id'])],[button('➡️ Дальше','channel:skip:'+row['id'])],[button('⬅️ Заработать','earn')]]
+    else:
+        text=(success+'\n\n' if success else '')+'📣 <b>Пока больше нет заданий на подписку.</b>'
+        buttons=[[button('🔄 Сначала','channel:feed')],[button('⬅️ Заработать','earn')]]
+    out=bot_ui.screen(uid,text,buttons)
+    if message.get('_callback_id') and isinstance(message.get('message_id'),int):
+        out['method']='editMessageText'
+        out['message_id']=message['message_id']
+    return out
+
+def channel_feed_for_task(c,uid,message,tid):
+    t=c.execute("SELECT * FROM bot_tasks WHERE id=%s AND kind='channel'",(tid,)).fetchone()
+    if not t:raise UserError('Задание не найдено.')
+    out=bot_ui.screen(uid,'📣 <b>Подписаться на канал</b>\n\n🎁 Награда: <b>'+money(t['reward'])+'</b>\n\nПодпишись на канал и нажми «Проверить подписку».',
+      [[{'text':'📣 Открыть канал','url':t['url']}],[button('✅ Проверить подписку','channel:check:'+tid)],[button('➡️ Дальше','channel:skip:'+tid)],[button('⬅️ Заработать','earn')]])
+    if message.get('_callback_id') and isinstance(message.get('message_id'),int):
+        out['method']='editMessageText'
+        out['message_id']=message['message_id']
+    return out
+
 def can_close_order(c,t):
     if t['kind']=='post' and c.execute("SELECT 1 FROM bot_post_publications WHERE task=%s AND status IN ('sending','uncertain')",(t['id'],)).fetchone():
         raise UserError('Сначала нужно проверить результат публикации поста.')
@@ -424,6 +457,19 @@ def route(c, uid, text, action, message, api, admin):
         state(c, uid, action)
         rules = bot_admin.limits(c)
         return input_prompt(uid, tr('💸 Вывод средств\n\nС баланса: от {v0} до {v1}\nКомиссия: {v2}%\n\nВведи сумму в гривнах. Затем укажешь реквизиты для ручной выплаты.', {'v0': money(rules['withdraw_min']), 'v1': money(rules['withdraw_max']), 'v2': bot_economy.pct(rules['withdraw_fee'])}, section='task_bot'))
+    if action=='channel:feed':
+        return channel_feed(c,uid,message)
+    if action.startswith('channel:'):
+        parts=action.split(':')
+        if len(parts)!=3 or parts[1] not in ('take','check','skip'):
+            raise UserError('Неизвестное действие с подпиской.')
+        tid=parts[2]
+        item=c.execute('SELECT kind FROM bot_tasks WHERE id=%s',(tid,)).fetchone()
+        if not item or item['kind']!='channel':raise UserError('Задание на подписку не найдено.')
+        if parts[1]=='skip':return channel_feed(c,uid,message,after_id=tid)
+        route(c,uid,'',parts[1]+':'+tid,message,api,admin)
+        if parts[1]=='take':return channel_feed_for_task(c,uid,message,tid)
+        return channel_feed(c,uid,message,after_id=tid,success='✅ Подписка подтверждена, награда начислена!')
     if action.startswith('new:'):
         kind = action.split(':')[1]
         if kind not in KINDS:
