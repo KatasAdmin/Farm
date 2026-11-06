@@ -507,6 +507,16 @@ def ads_platform(p,raw):
 
 def deliver_ads(c,p):return monetag_ads.deliver(c,p,advance,coop_limit,storage_limit)
 
+@app.post("/api/ads/cash/preview-auth")
+def cash_ads_preview_auth(q:dict):
+ # Safe identity check for the future cash-ad Mini App. No payout or ad launch.
+ raw=q.get("telegram_data","")
+ if not isinstance(raw,str):
+  raise HTTPException(400,"Invalid Telegram data")
+ uid=telegram_identity(raw)
+ return {"ok":True,"telegram_id":uid,"enabled":False,"cash_rewards":False,
+         "status":"awaiting_monetag_approval"}
+
 @app.get("/api/ads/monetag/status")
 def monetag_status(authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
  with db() as c:
