@@ -196,7 +196,7 @@ def prepare_cash_attempt(c, verified_telegram_uid, now=None):
         INSERT INTO bot_monetag_cash_attempts
         (ymid,viewer_uid,zone_id,placement,request_var,created_at,expires_at)
         VALUES(%s,%s,%s,%s,%s,%s,%s)
-    """,(ymid,verified_telegram_uid,CASH_ZONE_ID,request_var,now,
+    """,(ymid,verified_telegram_uid,CASH_ZONE_ID,request_var,request_var,now,
          now+CASH_ATTEMPT_TTL))
     return {'ymid':ymid,'zone_id':CASH_ZONE_ID,'request_var':request_var,
             'expires_at':now+CASH_ATTEMPT_TTL,'payable':False}
