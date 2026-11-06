@@ -131,6 +131,18 @@ def mark_cash_attempt_launched(c, viewer_uid, ymid, now=None):
     quota=cash_attempt_quota(c,viewer_uid,now)
     if quota['retry_after']:
         raise ValueError('Cash ad cooldown')
+    # The prepared attempt itself is active, but no *other* prepared or
+    # in-progress attempt may coexist. This is protected by the viewer lock.
+    others=c.execute("""
+        SELECT 1 FROM bot_monetag_cash_attempts
+        WHERE viewer_uid=%s AND ymid<>%s
+          AND ((state='prepared' AND expires_at>%s)
+            OR (state='launched' AND finished_at IS NULL
+                AND launched_at>%s))
+        LIMIT 1
+    """,(viewer_uid,ymid,now,now-120)).fetchone()
+    if others:
+        raise ValueError('Another cash ad attempt is active')
     c.execute("""
         UPDATE bot_monetag_cash_attempts SET state='launched',launched_at=%s
         WHERE ymid=%s
