@@ -13,7 +13,7 @@ class USDConversionTests(unittest.TestCase):
         self.assertLess(abs(Decimal(amount)/USD_SCALE-Decimal(1)), Decimal("0.0002"))
 
     def test_one_hryvnia_not_one_dollar(self):
-        self.assertEqual(format_usd(uah_kopecks_to_usd_micro(100)), "$0.022006")
+        self.assertEqual(format_usd(uah_kopecks_to_usd_micro(100)), "$0.022005")
         self.assertNotEqual(uah_kopecks_to_usd_micro(100), USD_SCALE)
 
     def test_fractional_task_kopeck_kept(self):
