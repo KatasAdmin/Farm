@@ -39,7 +39,9 @@ def quote(c, kind, custom=None):
     cfg = config(c)
     p = c.execute('SELECT * FROM bot_prices WHERE kind=%s', (kind,)).fetchone()
     gross = custom if custom is not None else p['cost']
-    reward = gross * (10000 - cfg['fee']) // 10000
+    # Ordinary marketplace prices and worker rewards are independently editable.
+    # Custom-priced manual tasks still calculate the worker share from the fee.
+    reward = p['reward'] if custom is None else gross * (10000 - cfg['fee']) // 10000
     refs = [cfg['ref' + str(i)] for i in range(1, 6)]
     if reward <= 0 or reward * SCALE + gross * sum(refs) > gross * SCALE:
         raise core().UserError(tr('Цена слишком мала для награды и реферальных отчислений. Увеличь цену.', html_mode=False, section='bot_economy', limit=3000))
