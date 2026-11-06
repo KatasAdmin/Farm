@@ -64,7 +64,7 @@ def earn(c, uid):
     text = tr('🚀 <b>Как хочешь заработать?</b>\n\n<b>💼 Доступные задания</b>\n📣 Подписаться на канал: <b>{v0}</b>\n👁 Посмотреть пост: <b>{v1}</b>\n🤖 Перейти в бота: <b>{v2}</b>\n👥 Вступить в группу: <b>{v3}</b>\n📝 Выполнить задание: <b>{v4}</b>\n🤝 Приглашать друзей: <b>можно</b>\n⭐ Квесты: <i>готовятся</i>\n\n<b>💎 Награды в доступных заданиях: {v5}</b>\n<i>За каждое задание награда выдаётся один раз после проверки.</i>', {'v0': f"{count('channel')}", 'v1': f"{count('post')}", 'v2': f"{count('bot')}", 'v3': f"{count('group')}", 'v4': f"{count('manual')}", 'v5': f'{b.money(total)}'}, html_mode=True, section='bot_ui', limit=3000)
     text=text.replace('⭐ Квесты: <i>готовятся</i>','⭐ Квесты: <b>20 этапов</b>')
     # The page verifies VIP server-side before any SDK attempt; no payout without postback.
-    posts_button = {'text': '🎬 Смотреть рекламу', 'web_app': {'url': b.farm_url() + 'cash-ads-preview.html'}}
+    posts_button = b.button('🎬 Смотреть рекламу', 'watch_ads_info')
     return screen(uid, text, [[b.button(label('🤖 Перейти в бота', 'bot'), 'list:bot:0')], [b.button(label('📣 Подписаться на канал', 'channel'), 'list:channel:0')], [b.button(label('👥 Вступить в группу', 'group'), 'list:group:0')], [posts_button], [b.button('⭐ Квесты', 'quests'), b.button('📝 Задания', 'list:manual:0')], [b.button('🎁 Бонус ' + b.money(daily), 'daily'), b.button('🤝 За друга', 'friends')]])
 
 def promotion(c, uid):
@@ -153,10 +153,15 @@ def route(c, uid, text, action, message):
         return home(c, uid, bool(message.get('_new_referral')))
     if action in ('quests','quests:claim'):
         b.state(c,uid,'clear')
+        unlocked=False
         if action=='quests:claim':
+            was=bot_quests.completed(c,uid)
             if not bot_quests.claim(c,uid):
                 return screen(uid,'⏳ Сначала выполни текущее задание. Новое пока закрыто.',[[b.button('🔄 Проверить','quests')]])
+            unlocked=(was==2 and bot_quests.completed(c,uid)==3)
         txt,buttons=bot_quests.show(c,uid)
+        if unlocked:
+            txt='🎉 <b>VIP РАЗБЛОКИРОВАН!</b>\nТеперь можешь смотреть рекламу и выполнять рекламные квесты.\n\n'+txt
         return screen(uid,txt,buttons)
     if action.startswith('top:'):
         period = action.split(':', 1)[1]
