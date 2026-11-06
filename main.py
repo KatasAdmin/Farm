@@ -525,8 +525,8 @@ def cash_ads_preview_auth(q:dict):
  if not isinstance(raw,str):
   raise HTTPException(400,"Invalid Telegram data")
  uid=telegram_identity(raw)
- return {"ok":True,"telegram_id":uid,"enabled":cash_ads_enabled(),"cash_rewards":cash_ads_enabled(),
-         "status":"awaiting_monetag_approval"}
+ return {"ok":True,"telegram_id":uid,"enabled":cash_ads_enabled(),"cash_rewards":False,"test_mode":cash_ads_enabled(),
+         "status":"test_mode" if cash_ads_enabled() else "awaiting_monetag_approval"}
 
 @app.post("/api/ads/cash/status")
 def cash_ads_status(q:dict):
@@ -545,8 +545,8 @@ def cash_ads_status(q:dict):
 
 
 def cash_ads_enabled():
- # Default OFF. Operator may enable only after written Monetag permission.
- return os.getenv("MONETAG_CASH_APPROVED","").lower() == "true"
+ # Test mode shows ads but never credits money. Cash payouts remain unavailable.
+ return os.getenv("MONETAG_AD_VIEW_TEST_ENABLED","").lower() == "true"
 
 def cash_ads_require_verified_identity(q):
  raw=q.get("telegram_data","")
