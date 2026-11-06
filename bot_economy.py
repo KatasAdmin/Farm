@@ -299,6 +299,8 @@ def monetag_cash_allocation(estimated_usd, referral_chain):
         raise ValueError('Invalid advertising revenue')
     if len(referral_chain) > 7:
         raise ValueError('Referral depth exceeds seven')
+    if any(uid is not None and (not isinstance(uid, int) or uid <= 0) for uid in referral_chain):
+        raise ValueError('Invalid referral UID')
     if sum(MONETAG_CASH_REFERRAL_BPS) != 2200:
         raise AssertionError('Referral allocation must equal 22%')
     if len(set(uid for uid in referral_chain if uid is not None)) != len(
