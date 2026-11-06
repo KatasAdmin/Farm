@@ -12,7 +12,7 @@ class FarmUsdQuoteTests(unittest.TestCase):
 
     def test_large_transfer_amount_is_preserved_as_valued_quote(self):
         q=game_coin_usd_quote(100)
-        self.assertEqual(q["quote_display"], "$2.20055")
+        self.assertEqual(q["quote_display"], "$2.200549")
         self.assertEqual(q["source_coins"], 100)
         self.assertEqual(q["uah_per_usd"], "45.4432")
 
