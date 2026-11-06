@@ -51,9 +51,9 @@
       // No "pop": this is the separate Rewarded Interstitial placement.
       // request_var/ymid are supplied by the server, never trusted from client.
       await window['show_'+ZONE]({
+        type:'end',
         ymid:attempt.ymid,
-        requestVar:attempt.request_var,
-        telegramId:status.telegram_id
+        requestVar:attempt.request_var
       });
       await post('finish',telegramData,{ymid:attempt.ymid});
       handlers.onFinished?.();
