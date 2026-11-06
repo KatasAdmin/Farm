@@ -10,7 +10,7 @@ h1{font-size:23px;margin:4px 0 10px}p{color:#c7dacd;line-height:1.5}#msg{min-hei
 <p id="msg" role="status">Открываем рекламный ролик…</p>
 <button id="watch" disabled>Подключаем рекламу…</button>
 <button id="back" type="button">← Вернуться в бот</button>
-<small>Деньги за подтверждённый оплаченный показ Monetag поступают на баланс бота. AdsGram пока доступен для просмотра без денежной награды.</small>
+<small>Monetag начисляет подтверждённые награды сразу. AdsGram учитывает просмотры для суточного распределения подтверждённого дохода. До сверки с сетью сумма не гарантирована.</small>
 </main>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/assets/cash-ads-sdk.js?v=20261106-r37"></script>
@@ -34,9 +34,21 @@ h1{font-size:23px;margin:4px 0 10px}p{color:#c7dacd;line-height:1.5}#msg{min-hei
  async function tryAdsgram(){
   if(!adsgramEnabled)return false;
   msg.textContent='Загружаем рекламу AdsGram…';
-  await window.FarmAdsgramFallback.show(adsgramBlockId);
-  msg.textContent='Просмотр AdsGram завершён.';
-  return true;
+  const prepared=await fetch('/api/ads/adsgram/prepare',{
+   method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({telegram_data:data})
+  }).then(async r=>{const j=await r.json();if(!r.ok)throw new Error(j.detail||'AdsGram временно недоступен');return j});
+  try{
+   await window.FarmAdsgramFallback.show(adsgramBlockId);
+   msg.textContent='Просмотр AdsGram завершён. Награда будет рассчитана по подтверждённой выручке сети.';
+   return true;
+  }catch(e){
+   try{await fetch('/api/ads/adsgram/cancel',{
+    method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({telegram_data:data,attempt_id:prepared.attempt_id})
+   })}catch(_){}
+   throw e;
+  }
  }
  async function monetagResult(ymid){
   for(let attempt=0;attempt<7;attempt++){
