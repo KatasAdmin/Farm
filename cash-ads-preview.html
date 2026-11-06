@@ -5,7 +5,24 @@
 :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(160deg,#101b32,#10131f);color:#f4f7ff;font:16px system-ui,-apple-system,sans-serif;padding:24px}main{max-width:460px;margin:7vh auto;padding:24px;border:1px solid #34435d;border-radius:22px;background:#ffffff0a;box-shadow:0 14px 40px #0003}h1{font-size:24px}p{line-height:1.55;color:#c6d2e7}.status{display:inline-block;padding:7px 12px;border-radius:30px;background:#394052;color:#f1d69d;font-size:13px}.shares{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:22px 0}.shares div{padding:12px 6px;text-align:center;background:#253047;border-radius:12px;font-size:12px}.shares strong{display:block;font-size:22px;margin-bottom:4px}button{width:100%;padding:15px;background:#45536c;border:0;border-radius:12px;color:#fff;font-size:16px;cursor:not-allowed}small{display:block;color:#9eacc3;line-height:1.5;margin-top:14px}</style></head>
 <body><main><span class="status">⏳ Ожидаем разрешения Monetag</span><h1>🎬 Смотреть рекламу</h1><p>Подготавливаем денежные вознаграждения за подтверждённые просмотры рекламы.</p>
 <section class="shares"><div><strong>50%</strong>Зрителю</div><div><strong>22%</strong>Рефералам</div><div><strong>28%</strong>Проекту*</div></section>
-<button disabled aria-disabled="true">Просмотр пока недоступен</button>
+<p id="identity" role="status">Проверяем Telegram…</p><button disabled aria-disabled="true">Просмотр пока недоступен</button>
 <small>* При полной реферальной цепочке. Если какого-то уровня нет, его доля остаётся проекту.</small>
 <small>Это тестовый экран. Реклама здесь не запускается, начисления и вывод денег отключены. Открытие страницы не считается просмотром.</small></main>
-<script>try{window.Telegram?.WebApp?.ready?.();window.Telegram?.WebApp?.expand?.()}catch(e){}</script></body></html>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+(async()=>{
+ const label=document.getElementById('identity');
+ const app=window.Telegram?.WebApp;
+ try{
+  app?.ready?.();app?.expand?.();
+  if(!app?.initData){label.textContent='Откройте экран внутри Telegram для проверки аккаунта.';return}
+  const response=await fetch('/api/ads/cash/preview-auth',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({telegram_data:app.initData}),credentials:'same-origin'
+  });
+  if(!response.ok){label.textContent='Не удалось подтвердить Telegram. Откройте экран заново.';return}
+  const result=await response.json();
+  label.textContent=result.ok?'✓ Telegram-аккаунт подтверждён. Денежные награды пока отключены.':'Проверка недоступна.';
+ }catch(e){label.textContent='Сервер проверки временно недоступен.'}
+})();
+</script></body></html>
