@@ -213,13 +213,97 @@ def statistics(c):
  return dict(total=aggregate(attempts),platforms={k:aggregate([r for r in attempts if r['platform']==k]) for k in ('telegram','web','legacy')},items={k:dict(aggregate([r for r in attempts if r['placement']==k+'_reward']),granted=sum(r['quantity'] for r in grants if r['item']==k and r['claimed_at'] is not None),pending=sum(r['quantity'] for r in grants if r['item']==k and r['claimed_at'] is None)) for k in REWARDS},estimated_usd=str(sum(prices.values(),Decimal(0))) if prices else None,events_with_estimate=len(prices),settled_revenue=None)
 
 
-def admin_text(c,platform=None):
- stats=statistics(c);n=stats['platforms'].get(platform,stats['total'])
- labels={'telegram':'Telegram','web':'Браузер','legacy':'До обновления'}
- text='🎬 <b>Реклама Monetag</b> · '+labels.get(platform,'Все платформы')+'\n\n'
- for key,label in [('starts','Запусков'),('completed','Завершений SDK'),('paid','Оплаченных подтверждений'),('credited','Просмотров для наград'),('unpaid','Неоплаченных событий'),('sdk_errors','Ошибок SDK'),('unconfirmed','Без подтверждения')]:text+=label+': <b>'+str(n[key])+'</b>\n'
- text+='\n<b>Товары · все платформы</b>\n'
- for item,title in [('grain','Зерно'),('eggs','Яйца'),('milk','Молоко'),('chickens','Куры'),('geese','Гуси'),('cows','Коровы'),('coins','Монеты для покупок')]:
-  row=stats['items'][item];text+=title+': '+str(row['starts'])+' запусков · '+str(row['paid'])+' оплаченных · выдано '+str(row['granted'])+' · ждёт места '+str(row['pending'])+'\n'
- text+='\nОценка Monetag по postback: '+('$'+stats['estimated_usd'] if stats['estimated_usd'] is not None else 'нет данных')+' ('+str(stats['events_with_estimate'])+' событий с ценой).\nЭто estimated_price, не окончательный доход. Фактический доход и расчёты — в кабинете Monetag. Данные старых неподтверждённых попыток восстановить нельзя.'
+def advertising_dashboard(c,platform=None):
+ from datetime import datetime, timedelta, timezone
+ from zoneinfo import ZoneInfo
+ today=datetime.now(ZoneInfo('Europe/Kyiv')).replace(hour=0,minute=0,second=0,microsecond=0)
+ start=today.timestamp()
+ next_start=(today+timedelta(days=1)).timestamp()
+ condition=" AND a.platform=%s" if platform in ('telegram','web','legacy') else ""
+ args=[platform] if condition else []
+ def counts(extra="",params=()):
+  row=c.execute("""SELECT count(*) FILTER (WHERE a.launched_at IS NOT NULL) AS launches,
+   count(*) FILTER (WHERE a.valued_at IS NOT NULL OR (a.platform='legacy' AND a.rewarded_at IS NOT NULL)) AS confirmed,
+   count(*) FILTER (WHERE a.rewarded_at IS NOT NULL) AS progress,
+   count(*) FILTER (WHERE a.sdk_error IS NOT NULL) AS errors
+   FROM monetag_ad_attempts a WHERE 1=1"""+condition+extra,tuple(args)+tuple(params)).fetchone()
+  return {k:int(row[k] or 0) for k in ('launches','confirmed','progress','errors')}
+ all_counts=counts()
+ day_counts=counts(" AND a.valued_at >= %s AND a.valued_at < %s",(start,next_start))
+ # Sum one estimate per impression, not one per sub-zone or repeated callback.
+ # Join to the attempt to apply platform filtering without trusting client-reported values.
+ query="""WITH per_impression AS (
+ SELECT e.ymid,max(e.estimated_usd) AS usd,
+ min(e.received_at) AS first_seen
+ FROM monetag_postback_events e
+ WHERE e.reward_event_type='valued' AND e.estimated_usd IS NOT NULL
+ GROUP BY e.ymid
+ )
+ SELECT COALESCE(sum(p.usd),0) AS amount,count(*) AS events
+ FROM per_impression p JOIN monetag_ad_attempts a ON a.ymid=p.ymid
+ WHERE 1=1"""+condition
+ vals=c.execute(query,tuple(args)).fetchone()
+ revenue=Decimal(str(vals['amount'] or 0))
+ today_query="""WITH per_impression AS (
+ SELECT e.ymid,max(e.estimated_usd) AS usd
+ FROM monetag_postback_events e
+ WHERE e.reward_event_type='valued' AND e.estimated_usd IS NOT NULL
+ GROUP BY e.ymid
+ )
+ SELECT COALESCE(sum(p.usd),0) AS amount
+ FROM per_impression p JOIN monetag_ad_attempts a ON a.ymid=p.ymid
+ WHERE a.valued_at >= %s AND a.valued_at < %s"""+condition
+ today_vals=c.execute(today_query,(start,next_start,*args)).fetchone()
+ today_revenue=Decimal(str(today_vals['amount'] or 0))
+ # Daily best is based only on confirmed views, Kyiv-local dates.
+ record_query="""SELECT to_char(to_timestamp(a.valued_at) AT TIME ZONE 'Europe/Kyiv','YYYY-MM-DD') AS day,
+ count(*) AS n
+ FROM monetag_ad_attempts a
+ WHERE a.valued_at IS NOT NULL"""+condition+"""
+ GROUP BY day ORDER BY n DESC,day DESC LIMIT 1"""
+ record=c.execute(record_query,tuple(args)).fetchone()
+ summary=statistics(c)
+ return dict(all=all_counts,today=day_counts,total_usd=revenue,today_usd=today_revenue,
+             priced_events=int(vals['events'] or 0),record=record,items=summary['items'])
+
+def _dollars(amount):
+ return '$'+format(amount,'.7f')
+
+def admin_text(c,platform=None,detail=False):
+ labels={'telegram':'Telegram','web':'Браузер','legacy':'Старая версия'}
+ scope=labels.get(platform,'Все платформы')
+ data=advertising_dashboard(c,platform)
+ n=data['all']
+ today=data['today']
+ if detail:
+  text='🔎 <b>Реклама — подробности</b>\n📱 '+scope+'\n\n'
+  text+='Запусков: '+str(n['launches'])+'\n'
+  text+='Подтверждений от Monetag: '+str(n['confirmed'])+'\n'
+  text+='Просмотров в прогрессе наград: '+str(n['progress'])+'\n'
+  text+='Ошибок SDK: '+str(n['errors'])+'\n'
+  text+='Событий с ценой: '+str(data['priced_events'])+'\n'
+  text+='Внимание: одна награда может требовать несколько просмотров.\n'
+  text+='\n<b>Выдано игрокам (все платформы)</b>\n'
+  for item,title in [('grain','🌾 Зерно'),('eggs','🥚 Яйца'),('milk','🥛 Молоко'),('chickens','🐔 Куры'),('geese','🪿 Гуси'),('cows','🐄 Коровы'),('coins','🪙 Монеты для покупок')]:
+   row=data['items'][item]
+   text+=title+': '+str(row['paid'])+' подтверждений / '+str(row['granted'])+' выдано'
+   if row['pending']:text+=' / '+str(row['pending'])+' ожидают места'
+   text+='\n'
+  text+='\nОценка Monetag не является окончательным балансом или выводом.'
+  return text
+ text='📊 <b>Реклама — мой доход</b>\n📱 '+scope+'\n\n'
+ text+='💵 <b>Сегодня: '+_dollars(data['today_usd'])+'</b>\n'
+ text+='💰 <b>За всё время: '+_dollars(data['total_usd'])+'</b>\n'
+ text+='👀 Подтверждённых просмотров: <b>'+str(n['confirmed'])+'</b>\n'
+ text+='📅 Сегодня подтверждено: <b>'+str(today['confirmed'])+'</b>\n'
+ if data['record']:
+  text+='🏆 Рекорд дня: '+str(data['record']['n'])+' ('+str(data['record']['day'])+')\n'
+ text+='\n🎁 Зачтено в прогресс игровых наград: '+str(n['progress'])+'\n'
+ text+='\n💸 <b>Распределение дохода</b>\n'
+ text+='👥 Зрителям: денежные выплаты пока не настроены\n'
+ text+='🤝 Рефералам: денежные выплаты пока не настроены\n'
+ text+='🏡 Проекту: окончательная чистая сумма неизвестна\n'
+ text+='\nℹ️ Здесь предварительные суммы из подтверждений Monetag. '
+ text+='Это не деньги на балансе рекламного кабинета. '
+ text+='Фактический доход может отличаться после проверки сети.'
  return text
