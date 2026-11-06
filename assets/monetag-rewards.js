@@ -32,7 +32,7 @@ function decorate(){
  const purchaseFree=el('purchase-ad-free');
  if(purchaseFree){const item=purchase?.item;purchaseFree.hidden=false;purchaseFree.dataset.adFree=purchase?.kind==='bundle'?'coins':adRewards[item]?item:'coins';}
  const shortage=el('free-grain-shortage');if(shortage)shortage.hidden=!(state?.farm?.effective_grain_shortage>0);
- document.querySelectorAll('#wallet [data-ad-free="coins"]').forEach(button=>button.remove());
+ document.querySelectorAll('[data-ad-free="coins"]').forEach(button=>button.remove());
  document.querySelectorAll('[data-ad-free]').forEach(button=>{
   const item=button.dataset.adFree;const r=adRewards[item];if(!r)return;
   const ready=cfg?.enabled&&!cfg.retry_after&&cfg.remaining_today&&cfg.remaining_hour&&prepared.has(item)&&typeof window['show_'+cfg.zone_id]==='function';
@@ -81,7 +81,7 @@ async function recover(force=false){
    const data=await adApi('status');if(owner!==session)return;
    cfg=data;cooldownUntil=Date.now()+Math.max(0,Number(data.retry_after)||0)*1000;if(!data.enabled){const note=el('ad-inline-status');if(note)note.textContent=data.reason||'Рекламные награды пока настраиваются';}
    adProgress=Object.fromEntries(Object.entries(data.rewards||{}).map(([k,v])=>[k,v.progress]));
-   historyUI(data);const wallet=el('wallet');if(wallet&&!el('ad-purchase-credit')){const b=itemButton('coins');b.id='ad-purchase-credit';wallet.prepend(b);}decorate();
+   historyUI(data);const wallet=el('wallet');decorate();
    if(data.granted?.length){notify('Награда получена');await refresh();}
    if(data.pending)notify('Награда сохранена. Освободите место на складе или для птицы');
    if(data.enabled){try{await sdk(data);await reserve();}catch(error){notify(error.message);}}
