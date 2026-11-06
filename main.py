@@ -538,9 +538,8 @@ def cash_ads_preview_auth(q:dict):
  if not isinstance(raw,str):
   raise HTTPException(400,"Invalid Telegram data")
  uid=telegram_identity(raw)
- cash_ads_require_vip(uid)
- return {"ok":True,"telegram_id":uid,"enabled":cash_ads_enabled(),"cash_rewards":cash_ads_enabled(),"test_mode":False,
-         "status":"views_enabled" if cash_ads_enabled() else "temporarily_disabled"}
+ return {"ok":True,"telegram_id":uid,"enabled":os.getenv("ADSGRAM_FALLBACK_ENABLED","").lower()=="true","cash_rewards":True,"test_mode":False,
+         "status":"views_enabled" if os.getenv("ADSGRAM_FALLBACK_ENABLED","").lower()=="true" else "temporarily_disabled"}
 
 @app.post("/api/ads/cash/earnings")
 def cash_ads_earnings(q:dict):
@@ -579,7 +578,7 @@ def cash_ads_status(q:dict):
  if not isinstance(raw,str):
   raise HTTPException(400,"Invalid Telegram data")
  uid=telegram_identity(raw)
- cash_ads_require_vip(uid)
+ # AdsGram Rewarded is available to every authenticated Telegram user.
  with db() as c:
   quota=bot_monetag_cash.cash_attempt_quota(c,int(uid))
  return {"ok":True,"enabled":os.getenv("ADSGRAM_FALLBACK_ENABLED","").lower()=="true","cash_rewards":True,"test_mode":False,
@@ -597,12 +596,12 @@ def cash_ads_enabled():
  return (os.getenv("MONETAG_CASH_ADS_ENABLED","").lower() == "true"
          or os.getenv("MONETAG_AD_VIEW_TEST_ENABLED","").lower() == "true")
 
-def cash_ads_require_verified_identity(q):
+def cash_ads_require_verified_identity(q,require_vip=True):
  raw=q.get("telegram_data","")
  if not isinstance(raw,str) or not raw:
   raise HTTPException(400,"Invalid Telegram data")
  uid=int(telegram_identity(raw))
- cash_ads_require_vip(uid)
+ if require_vip:cash_ads_require_vip(uid)
  return uid
 
 def cash_ads_require_enabled():
@@ -626,7 +625,7 @@ def cash_ads_attempt_id(q):
 
 @app.post("/api/ads/adsgram/prepare")
 def adsgram_prepare(q:dict):
- uid=cash_ads_require_verified_identity(q)
+ uid=cash_ads_require_verified_identity(q,require_vip=False)
  if os.getenv("ADSGRAM_FALLBACK_ENABLED","").lower()!="true":
   raise HTTPException(503,"AdsGram temporarily unavailable")
  with db() as c:
@@ -635,7 +634,7 @@ def adsgram_prepare(q:dict):
 
 @app.post("/api/ads/adsgram/cancel")
 def adsgram_cancel(q:dict):
- uid=cash_ads_require_verified_identity(q)
+ uid=cash_ads_require_verified_identity(q,require_vip=False)
  attempt=q.get("attempt_id","")
  if not isinstance(attempt,str) or len(attempt)!=32 or any(c not in "0123456789abcdef" for c in attempt):
   raise HTTPException(400,"Invalid attempt ID")
