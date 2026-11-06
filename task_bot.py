@@ -752,6 +752,25 @@ def _administration(c, uid, text, action, api):
         return extra
     parts = text.split()
     command = parts[0].split('@')[0] if parts else ''
+    if command == '/adsgramsettle':
+        # Only the actual bot owner may approve publisher revenue for payouts.
+        if not bot_copy.owner():
+            raise UserError('Только владелец FARM может подтверждать рекламную выручку.')
+        if len(parts)!=4:
+            raise UserError('Формат: /adsgramsettle ГГГГ-ММ-ДД Сумма_USDT Показы. Сначала сверь отчёт AdsGram за завершённый день UTC.')
+        import bot_adsgram_daily
+        try:
+            result=bot_adsgram_daily.settle_day(c,parts[1],parts[2],int(parts[3]),uid)
+        except (ValueError,TypeError) as exc:
+            raise UserError('Невозможно провести суточную сверку AdsGram: '+str(exc))
+        return bot_ui.screen(uid,
+            '✅ <b>AdsGram: суточный доход распределён</b>\n'
+            +'Дата UTC: '+result['day']+'\n'
+            +'Подтверждённых показов: '+str(result['provider_impressions'])+'\n'
+            +'Доход AdsGram: '+result['publisher_usd']+' USDT\n'
+            +'Начислено людям: '+money(result['credited_kopeks'])+'\n'
+            +'Доля проекта: не менее '+result['platform_usd_at_least']+' USD',
+            [[button('⬅️ Админ-панель','admin')]])
     if command in ('/botcredit', '/botfund', '/botpaid'):
         try:
             if command == '/botcredit':
