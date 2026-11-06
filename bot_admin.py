@@ -48,16 +48,16 @@ def panel(c, uid):
     pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
     shortage=max(0,b.liability(c)-pool)
     alert=tr('\n⚠️ Нехватка покрытия: {v0}\n',{'v0':b.money(shortage)},html_mode=True,section='bot_admin') if shortage else ''
-    text=tr('🛡 <b>Панель администратора</b>\n\n<b>Ожидают проверки</b>\n📝 Задания: {v0}\n💸 Выплаты: {v1}\n💳 Квитанции: {v2}\n{v3}\nВыбери раздел ниже.',{'v0':tasks,'v1':payouts,'v2':receipts,'v3':alert},html_mode=True,section='bot_admin')
+    text=tr('🛡 <b>Админ-панель · Farm</b>\n\n📋 <b>На проверке</b>\n📝 Задания: <b>{v0}</b>  ·  💸 Выплаты: <b>{v1}</b>\n💳 Пополнения: <b>{v2}</b>\n{v3}\n👇 Выбери раздел',{'v0':tasks,'v1':payouts,'v2':receipts,'v3':alert},html_mode=True,section='bot_admin')
     text+='\n\n<i>Версия: '+RELEASE+'</i>'
     return b.bot_ui.screen(uid,text,[
-        [b.button('⚙️ Управление','admin:section:manage'),b.button('💸 Заявки на вывод','admin:payouts')],
+        [b.button('⚙️ Управление','admin:section:manage'),b.button('💸 Выплаты','admin:payouts')],
         [b.button('💳 Пополнения','admin:cardtopups'),b.button('🆘 Обращения','admin:tickets')],
-        [b.button('📊 Статистика','admin:statistics'),b.button('🧾 История оплат','admin:payments:all:0')],
+        [b.button('📊 Статистика','admin:statistics'),b.button('🧾 Платежи','admin:payments:all:0')],
         [{'text':'⭐ Stars','callback_data':'adm:stars'},{'text':'🐔 Ферма','callback_data':'adm:farm'}],
-        [b.button('👥 Аккаунты игроков','admin:accounts:0'),b.button('🎬 Реклама','admin:ads')],
+        [b.button('👥 Игроки','admin:accounts:0'),b.button('🎬 Реклама','admin:ads')],
         [b.button('📢 Рассылка','admin:broadcast')],
-        [b.button('🔄 Обновить','admin'),b.button('⬅️ Мой кабинет','cabinet')]])
+        [b.button('🔄 Обновить','admin'),b.button('⬅️ Кабинет','cabinet')]])
 
 
 def section_screen(c,uid,key):
