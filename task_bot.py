@@ -210,8 +210,28 @@ def bot_click_card(c,t,uid):
     return bot_ui.screen(uid,'🤖 <b>Перейти в бота</b>\n\n🎁 Награда: <b>'+money(t['reward'])+'</b>\n\nОплачивается переход по ссылке, а не подтверждённый запуск или регистрация.',
        [[{'text':'🚀 Открыть бота','url':link}],
         [button('✅ Проверить переход','botclick:check:'+t['id'])],
-        [button('➡️ Дальше','list:bot:0')],
+        [button('➡️ Дальше','botclick:skip:'+t['id'])],
         [button('⬅️ Заработать','earn')]])
+def bot_click_feed(c,uid,message,after_id=None,success=''):
+    """Single editable card for paid outbound bot-link clicks."""
+    params=[uid,uid,uid,uid]
+    condition=''
+    if after_id:
+        previous=c.execute("SELECT created,id FROM bot_tasks WHERE id=%s AND kind='bot'",(after_id,)).fetchone()
+        if not previous:raise UserError('Задание не найдено.')
+        condition=' AND (t.created,t.id)>(%s,%s)'
+        params.extend([previous['created'],previous['id']])
+    task=c.execute('SELECT t.* FROM bot_tasks t JOIN bot_task_bot_modes m ON m.task=t.id WHERE '+bot_ui.catalog_filter()+" AND t.kind='bot' AND m.mode='click'"+condition+' ORDER BY t.created,t.id LIMIT 1',tuple(params)).fetchone()
+    if task:
+        out=bot_click_card(c,task,uid)
+        if success:out['text']=success+'\n\n'+out['text']
+    else:
+        out=bot_ui.screen(uid,(success+'\n\n' if success else '')+'🤖 <b>Пока больше нет заданий на переход в ботов.</b>',
+            [[button('🔄 Сначала','botclick:feed')],[button('📋 Старые задания','list:bot:0')],[button('⬅️ Заработать','earn')]])
+    if message.get('_callback_id') and isinstance(message.get('message_id'),int):
+        out['method']='editMessageText'
+        out['message_id']=message['message_id']
+    return out
 def task_card(t, uid, c):
     if t['kind']=='manual':return bot_manual.task_card(c,t,uid)
     if t['kind']=='bot' and bot_mode(c,t['id'])=='click':return bot_click_card(c,t,uid)
@@ -524,6 +544,10 @@ def route(c, uid, text, action, message, api, admin):
         if op=='take':return membership_feed(c,uid,message,kind,api=api)
         good='✅ Подписка подтверждена, награда начислена!' if kind=='channel' else '✅ Вступление подтверждено, награда начислена!'
         return membership_feed(c,uid,message,kind,after_id=tid,success=good,api=api)
+    if action=='botclick:feed':
+        return bot_click_feed(c,uid,message)
+    if action.startswith('botclick:skip:'):
+        return bot_click_feed(c,uid,message,after_id=action.split(':')[-1])
     if action.startswith('botclick:check:'):
         tid=action.split(':')[-1]
         t=c.execute('SELECT * FROM bot_tasks WHERE id=%s FOR UPDATE',(tid,)).fetchone()
@@ -537,7 +561,7 @@ def route(c, uid, text, action, message, api, admin):
         row=c.execute('INSERT INTO bot_bot_click_completions(uid,username,task,created) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING uid',(uid,name,tid,time.time())).fetchone()
         if not row:raise UserError('За переход к этому боту награда уже начислялась.')
         award(c,t,uid)
-        return bot_ui.screen(uid,'✅ Переход учтён. Начислено <b>'+money(t['reward'])+'</b>.',[[button('🤖 Следующее задание','list:bot:0')],[button('⬅️ Заработать','earn')]])
+        return bot_click_feed(c,uid,message,after_id=tid,success='✅ Переход подтверждён. Начислено '+money(t['reward'])+'.')
     if action.startswith('new:'):
         kind = action.split(':')[1]
         if kind not in KINDS:
