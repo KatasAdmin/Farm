@@ -171,9 +171,9 @@ def lookup_cash_attempt_for_postback(c, *, ymid, telegram_uid, zone_id,
     row=c.execute("""
         SELECT * FROM bot_monetag_cash_attempts WHERE ymid=%s FOR UPDATE
     """,(ymid,)).fetchone()
-    if not row or row['state'] not in ('prepared','launched'):
+    if not row or row['state']!='launched' or row.get('launched_at') is None:
         return None
-    if now>row['created_at']+CASH_POSTBACK_TTL or row['zone_id']!=zone_id:
+    if now>row['launched_at']+CASH_POSTBACK_TTL or row['zone_id']!=zone_id:
         return None
     if row['viewer_uid']!=telegram_uid or row['request_var']!=request_var:
         return None
