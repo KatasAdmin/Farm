@@ -348,6 +348,8 @@ def route(c, uid, text, action, message, api, admin):
         return confirmation(c, uid, action)
     if text in sum(MENU, []) or cmd in ('/start', '/help', '/menu', '/cancel'):
         state(c, uid, 'clear')
+    if action == 'watch_ads_info':
+        return say(uid, '🎬 Просмотр рекламы\n\nСкоро здесь появятся рекламные задания. Пока реклама доступна в самой ферме.', [[button('⬅️ Заработать', 'earn')]])
     if text == '🚀 Заработать' or action == 'earn':
         return bot_ui.earn(c, uid)
     if text == '🎮 Игры' or action == 'games':
