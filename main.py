@@ -33,7 +33,7 @@ from urllib.request import Request as URLRequest, urlopen
 import psycopg
 from psycopg.rows import dict_row
 from fastapi import FastAPI,HTTPException,Header,Request as HTTPRequest
-from fastapi.responses import HTMLResponse,JSONResponse
+from fastapi.responses import HTMLResponse,JSONResponse,RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
@@ -394,6 +394,28 @@ def award_referrals(c,child,produced,now):
     c.execute("UPDATE reward_emission SET total_minted=total_minted+5 WHERE id=1")
   ancestor=parent_id
 
+@app.get('/api/task/bot-click/{token}')
+def bot_click_redirect(token: str):
+    # A random, single-user token records an outbound link visit, NOT /start.
+    if not isinstance(token,str) or not re.fullmatch(r'[A-Za-z0-9_-]{32}',token):
+        raise HTTPException(status_code=404,detail='Ссылка не найдена')
+    with db() as c:
+        c.execute('SELECT pg_advisory_xact_lock(1984533)')
+        c.execute('SELECT pg_advisory_xact_lock(%s)',(task_bot.LOCK,))
+        item=c.execute("""SELECT x.task,x.uid,x.created,t.url,t.owner,t.status,t.kind
+          FROM bot_bot_click_tokens x JOIN bot_tasks t ON t.id=x.task WHERE x.token=%s FOR UPDATE OF x""",(token,)).fetchone()
+        if not item or item['kind']!='bot' or item['status']!='active' or item['owner']==item['uid']:
+            raise HTTPException(status_code=404,detail='Ссылка недоступна')
+        from urllib.parse import urlsplit
+        u=urlsplit(item['url'])
+        if u.scheme!='https' or u.hostname!='t.me' or not u.path.strip('/').lower().endswith('bot'):
+            raise HTTPException(status_code=404,detail='Некорректная ссылка')
+        c.execute('UPDATE bot_bot_click_tokens SET visited=COALESCE(visited,%s) WHERE token=%s',(time.time(),token))
+        target=item['url']
+    response=RedirectResponse(target,status_code=302)
+    response.headers['Cache-Control']='no-store'
+    response.headers['Referrer-Policy']='no-referrer'
+    return response
 @app.get("/api/referrals")
 def referral_info(authorization:str=Header(default="")):
  with db() as c:
