@@ -8,6 +8,7 @@ import incubation_rules
 import stars_validation
 import monetag_ads
 import bot_monetag_cash
+import bot_quests
 import bot_economy
 import ad_inventory
 import farm_ranking
@@ -525,6 +526,7 @@ def cash_ads_preview_auth(q:dict):
  if not isinstance(raw,str):
   raise HTTPException(400,"Invalid Telegram data")
  uid=telegram_identity(raw)
+ cash_ads_require_vip(uid)
  return {"ok":True,"telegram_id":uid,"enabled":cash_ads_enabled(),"cash_rewards":False,"test_mode":cash_ads_enabled(),
          "status":"test_mode" if cash_ads_enabled() else "awaiting_monetag_approval"}
 
@@ -534,6 +536,7 @@ def cash_ads_status(q:dict):
  if not isinstance(raw,str):
   raise HTTPException(400,"Invalid Telegram data")
  uid=telegram_identity(raw)
+ cash_ads_require_vip(uid)
  with db() as c:
   quota=bot_monetag_cash.cash_attempt_quota(c,int(uid))
  return {"ok":True,"enabled":cash_ads_enabled(),"cash_rewards":False,"test_mode":cash_ads_enabled(),
@@ -552,11 +555,18 @@ def cash_ads_require_verified_identity(q):
  raw=q.get("telegram_data","")
  if not isinstance(raw,str) or not raw:
   raise HTTPException(400,"Invalid Telegram data")
- return int(telegram_identity(raw))
+ uid=int(telegram_identity(raw))
+ cash_ads_require_vip(uid)
+ return uid
 
 def cash_ads_require_enabled():
  if not cash_ads_enabled():
   raise HTTPException(503,"Денежная реклама ожидает разрешения Monetag")
+
+def cash_ads_require_vip(uid):
+ with db() as c:
+  if not bot_quests.vip(c,int(uid)):
+   raise HTTPException(403,"VIP откроется после первых 3 квестов")
 
 def cash_ads_attempt_id(q):
  ymid=q.get("ymid","")
