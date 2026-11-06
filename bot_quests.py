@@ -26,6 +26,8 @@ QUESTS=[
 ]
 
 def initialize(c):
+ import bot_monetag_cash
+ bot_monetag_cash.initialize_cash_attempts(c)
  c.execute("CREATE TABLE IF NOT EXISTS bot_quest_progress(uid bigint PRIMARY KEY, completed integer NOT NULL DEFAULT 0 CHECK(completed>=0 AND completed<=20), updated_at double precision NOT NULL DEFAULT 0)")
  
 def completed(c,uid):
