@@ -16,6 +16,16 @@ class CashCooldownTests(unittest.TestCase):
         self.assertEqual(cash_cooldown([86400*i for i in range(10)],86400*9)['retry_after'],0)
         self.assertEqual(cash_cooldown([86400*i for i in range(10)],86400*9)['block_launches'],1)
 
+    def test_break_expires_without_new_launches(self):
+        self.assertEqual(cash_cooldown([0]*9+[5],29)['retry_after'],1)
+        self.assertEqual(cash_cooldown([0]*9+[5],30)['retry_after'],0)
+
+    def test_sparse_launches_reset_block(self):
+        self.assertEqual(cash_cooldown([i*35 for i in range(10)],315)['block_launches'],1)
+
+    def test_no_pause_before_tenth_launch(self):
+        self.assertEqual(cash_cooldown([0]*9,1)['retry_after'],0)
+
     def test_failed_preparations_not_counted(self):
         self.assertEqual(cash_cooldown([],100)['retry_after'],0)
 
