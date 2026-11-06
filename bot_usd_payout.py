@@ -7,7 +7,7 @@ before enabling a USD payout path.
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
 from bot_usd_currency import USD_SCALE, UAH_SCALE, _rate
 
-def payout_quote_usd(micro_usd, method, *, fee_micro_usd=0, uah_per_usd=None):
+def payout_quote_usd(micro_usd, method, *, fee_micro_usd=0, uah_per_usd=None, usdt_per_usd=None, network_fee_usdt=None, network=None):
     """Return net USD and destination amount; never round above funds held."""
     if type(micro_usd) is not int or micro_usd <= 0:
         raise ValueError("USD withdrawal must be positive micro-USD")
@@ -15,8 +15,29 @@ def payout_quote_usd(micro_usd, method, *, fee_micro_usd=0, uah_per_usd=None):
         raise ValueError("Invalid withdrawal fee")
     net = micro_usd - fee_micro_usd
     if method == "usdt":
-        # USDT is a separate asset; 1:1 USD conversion is NOT guaranteed.
-        raise ValueError("USDT payout requires a separately quoted USD/USDT rate and transfer fee")
+        if network not in ("TRC20", "TON"):
+            raise ValueError("Explicit USDT network required")
+        if usdt_per_usd is None or network_fee_usdt is None:
+            raise ValueError("USDT payout requires separate rate and network fee")
+        rate = _rate(usdt_per_usd)
+        fee = Decimal(str(network_fee_usdt))
+        if not fee.is_finite() or fee < 0:
+            raise ValueError("Invalid USDT network fee")
+        usdt_before_fee = Decimal(net) * rate / USD_SCALE
+        usdt_micro = int(((usdt_before_fee - fee) * USD_SCALE).to_integral_value(rounding=ROUND_DOWN))
+        if usdt_micro <= 0:
+            raise ValueError("USDT transfer amount too small after fees")
+        return {
+            "debit_usd_micro": micro_usd,
+            "fee_usd_micro": fee_micro_usd,
+            "net_usd_micro": net,
+            "method": method,
+            "network": network,
+            "rate_usdt_per_usd": str(rate),
+            "network_fee_usdt": str(fee),
+            "destination_usdt_micro": usdt_micro,
+            "destination_currency": "USDT",
+        }
     if method != "uah_card":
         raise ValueError("Unsupported destination method")
     if uah_per_usd is None:
