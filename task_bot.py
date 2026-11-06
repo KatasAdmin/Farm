@@ -165,14 +165,20 @@ def resolve_chat(api, target, kind):
         if path.scheme != 'https' or path.hostname not in ('t.me', 'telegram.me') or (not re.fullmatch('[A-Za-z][A-Za-z0-9_]{3,31}', path.path.strip('/'))):
             raise UserError(tr('Укажи публичную ссылку https://t.me/имя или числовой ID чата. Для закрытого чата сначала добавь нашего бота администратором.', html_mode=False, section='task_bot', limit=3000))
         key = '@' + path.path.strip('/')
-    info = api('getChat', {'chat_id': key})
+    try:
+        info = api('getChat', {'chat_id': key})
+    except Exception:
+        raise UserError('Канал не найден или недоступен. Проверь ссылку и добавь @Farmlife2026bot администратором.')
     types = ('channel',) if kind == 'channel' else ('group', 'supergroup')
     if info.get('type') not in types:
         raise UserError(tr('Тип чата не соответствует заданию.', html_mode=False, section='task_bot', limit=3000))
     me = api('getMe', {})
-    own = api('getChatMember', {'chat_id': info['id'], 'user_id': me['id']})
+    try:
+        own = api('getChatMember', {'chat_id': info['id'], 'user_id': me['id']})
+    except Exception:
+        raise UserError('Не удалось проверить права @Farmlife2026bot. Добавь нашего бота администратором канала.')
     if own.get('status') not in ('administrator', 'creator'):
-        raise UserError(tr('Добавь @Farmlife2026bot администратором этого канала/группы, затем повтори.', html_mode=False, section='task_bot', limit=3000))
+        raise UserError(tr('Наш бот @Farmlife2026bot не является администратором канала или группы. Добавь его в администраторы и повтори.', html_mode=False, section='task_bot', limit=3000))
     link = 'https://t.me/' + info['username'] if info.get('username') else info.get('invite_link')
     if not link:
         raise UserError(tr('Не удалось получить ссылку на закрытый чат. Выдай боту право приглашать участников.', html_mode=False, section='task_bot', limit=3000))
@@ -425,7 +431,9 @@ def route(c, uid, text, action, message, api, admin):
         if kind=='manual':return bot_manual.begin(c,uid)
         if kind == 'post' and (not bot_extras.settings(c)['channel_id']):
             raise UserError(tr('Канал рекламных постов ещё не подключён администратором.', html_mode=False, section='task_bot', limit=3000))
-        state(c, uid, 'task_title', {'kind': kind})
+        state(c, uid, 'task_url' if kind == 'channel' else 'task_title', {'kind': kind})
+        if kind == 'channel':
+            return input_prompt(uid,'📣 Пришли ссылку на канал (https://t.me/имя).\n\nСначала добавь @Farmlife2026bot администратором, чтобы мы могли проверять подписки.')
         return input_prompt(uid, tr('{v0}Введи название задания (до 100 символов).', {'v0': 'Пост появится в нашем канале после модерации. Оплачивается нажатие кнопки, а не доказанное прочтение.\n\n' if kind == 'post' else ''}, html_mode=False, section='task_bot', limit=3000))
     if action.startswith(('list:', 'mine:', 'reviews:')):
         parts = action.split(':')
@@ -648,10 +656,14 @@ def process_input(c, uid, text, message, current, api):
             else:
                 try:
                     data['chat_id'], data['url'] = resolve_chat(api, text, data['kind'])
+                if data['kind']=='channel':
+                    info=api('getChat', {'chat_id':data['chat_id']})
+                    data['title']='Подписаться на '+str(info.get('title') or info.get('username') or 'канал')[:75]
+                    data['description']='Подпишись на канал и нажми «Проверить подписку».'
                 except UserError:
                     raise
                 except Exception:
-                    raise UserError(tr('Telegram не подтвердил доступ к чату. Проверь ссылку и права нашего бота.', html_mode=False, section='task_bot', limit=3000))
+                    raise UserError(tr('Telegram не смог проверить канал. Проверь ссылку и добавь @Farmlife2026bot администратором.', html_mode=False, section='task_bot', limit=3000))
             if data['kind'] == 'manual':
                 default = bot_economy.quote(c, 'manual')
                 next_stage, prompt = ('task_reward', tr('Укажи полную цену одного выполнения, включая комиссию. Например: {v0}', {'v0': money(default['cost'])}, html_mode=False, section='task_bot', limit=3000))
