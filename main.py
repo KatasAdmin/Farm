@@ -569,6 +569,13 @@ def cash_ads_launch(q:dict):
  raise HTTPException(503,"Запуск денежной рекламы ожидает разрешения Monetag")
 
 
+@app.post("/api/ads/cash/finish")
+def cash_ads_finish(q:dict):
+ # Future SDK-completion endpoint. Completion is not proof of payable revenue.
+ cash_ads_require_verified_identity(q)
+ raise HTTPException(503,"Денежная реклама ожидает разрешения Monetag")
+
+
 @app.post("/api/ads/cash/cancel")
 def cash_ads_cancel(q:dict):
  # Do not mutate cash attempts while the feature is disabled.
