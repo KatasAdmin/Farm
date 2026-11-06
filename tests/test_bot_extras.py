@@ -41,12 +41,15 @@ class ExtendedBotTests(unittest.TestCase):
     def create_bot_task(self):
         self.credit()
         self.send(2, action='new:bot')
-        for text in ('Target bot', 'Start and forward a new response', 'https://t.me/TargetBot'):
-            self.send(2, text)
+        self.send(2,'https://t.me/TargetBot')
         self.assertEqual(bot.state(self.c, 2)['state'], 'task_count')
         self.send(2, '2')
         self.send(2, action='confirm_task')
         tid = self.c.execute("SELECT id FROM bot_tasks WHERE kind='bot'").fetchone()['id']
+        # Existing older campaigns keep the legacy forwarded-message verification.
+        self.c.execute("UPDATE bot_task_bot_modes SET mode='forward' WHERE task=%s",(tid,))
+        self.c.execute("UPDATE bot_tasks SET title='Target bot',description='Start and forward a new response' WHERE id=%s",(tid,))
+        self.c.raw.commit()
         return tid
     def create_post_task(self):
         self.send(1, '/botchannel @ChannelTest')
