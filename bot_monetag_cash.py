@@ -146,3 +146,25 @@ def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
         """,(now,ymid))
     return {'ok':True,'staged':result['recorded'],
             'status':'pending_review','payable':False}
+
+
+def verified_bot_referral_chain(c, viewer_uid, depth=7):
+    """Snapshot the bot's actual referral ancestors; stop at gaps or cycles."""
+    if not isinstance(viewer_uid,int) or viewer_uid<=0 or depth!=7:
+        raise ValueError('Invalid referral lookup')
+    seen={viewer_uid}
+    chain=[]
+    current=viewer_uid
+    for _ in range(depth):
+        row=c.execute(
+            'SELECT referrer FROM bot_accounts WHERE uid=%s',(current,)
+        ).fetchone()
+        parent=row['referrer'] if row else None
+        if parent is None:
+            break
+        if not isinstance(parent,int) or parent<=0 or parent in seen:
+            break
+        chain.append(parent)
+        seen.add(parent)
+        current=parent
+    return tuple(chain)
