@@ -901,6 +901,7 @@ async function cancelWithdrawalRequest(){
 }
 let gameTransferKey="";
 function openWithdrawalRequest() {
+  return toast("Перевод из фермы в бот временно отключён до завершения долларового перехода. Средства сохранены.");
   if(!state)return toast("Сначала войдите в игру");
   if(!state.me.telegram_id){
     tab("profile");
@@ -973,7 +974,7 @@ async function submitWithdrawalRequest() {
     const conversionStatus=await api("/api/withdraw/status");
     const fx=Number(conversionStatus.future_usd_preview?.uah_per_usd);
     const futureAmount=Number.isFinite(fx)&&fx>0 ? (n/fx).toFixed(6) : null;
-    const confirmation="Перевести "+number(n)+" игровых монет на баланс бота? Сейчас зачисление работает по старым условиям ("+number(n)+" грн)."+(futureAmount?"\nОценка после долларового перехода: ≈ $"+futureAmount+" (это НЕ сумма текущего зачисления).":"");
+    const confirmation="Переводы сейчас приостановлены. Ориентир после запуска USD: "+(futureAmount?"≈ $"+futureAmount:"курс появится в кошельке")+"; деньги не списаны.";
     if(!confirm(confirmation))return;
     busy(true);
     await api("/api/withdraw/request",{amount:n,transfer_id:gameTransferKey});
@@ -982,7 +983,7 @@ async function submitWithdrawalRequest() {
     await refresh();
     await loadWithdrawalStatus();
     await loadHistory();
-    toast("✅ Перевод в бот выполнен. До завершения долларового перехода зачисление остаётся гривневым.");
+    toast("✅ Перевод выполнен по подтверждённому сервером курсу.");
   }catch(error){toast(error.message);}
   finally{busy(false);}
 }
