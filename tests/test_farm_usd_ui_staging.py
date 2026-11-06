@@ -15,7 +15,8 @@ class FarmUsdUiStagingTests(unittest.TestCase):
         self.assertNotIn("перевод в бот: 1 монета = 1 грн", html)
         self.assertIn("future_usd_preview", js)
         self.assertIn("НЕ сумма текущего зачисления", js)
-        self.assertIn("гривневым", js)
+        self.assertIn("временно отключён", js)
+        self.assertIn("disabled title=", html)
 
     def test_legacy_wallet_not_mislabeled_usd(self):
         farm = (ROOT / "farm_wallet.py").read_text(encoding="utf-8")
