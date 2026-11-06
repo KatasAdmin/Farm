@@ -69,8 +69,9 @@ class BotScreenTests(unittest.TestCase):
         self.assert_valid_html(response)
         self.assertIn('Награды в доступных заданиях: 0,00 грн',response['text'])
         buttons=str(response['reply_markup'])
-        for value in ('0,32 грн','0,56 грн','0,48 грн','0,50 грн'):
+        for value in ('0,32 грн','0,56 грн','0,48 грн'):
             self.assertNotIn(value,buttons)
+        self.assertIn('🎁 Бонус 0,50 грн',buttons)
         self.assertIn('нет активных оплачиваемых заданий',response['text'])
         self.assertIn('🎬 Смотреть рекламу',buttons)
         self.assertNotIn('0.75',buttons)
