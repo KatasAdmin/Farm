@@ -531,7 +531,7 @@ def cash_ads_preview_auth(q:dict):
   raise HTTPException(400,"Invalid Telegram data")
  uid=telegram_identity(raw)
  cash_ads_require_vip(uid)
- return {"ok":True,"telegram_id":uid,"enabled":cash_ads_enabled(),"cash_rewards":False,"test_mode":cash_ads_enabled(),
+ return {"ok":True,"telegram_id":uid,"enabled":cash_ads_enabled(),"cash_rewards":cash_ads_enabled(),"test_mode":False,
          "status":"views_enabled" if cash_ads_enabled() else "temporarily_disabled"}
 
 @app.post("/api/ads/cash/earnings")
@@ -542,18 +542,26 @@ def cash_ads_earnings(q:dict):
   rows=c.execute("""SELECT COUNT(*) FILTER (WHERE finished_at IS NOT NULL) AS completed,
       COUNT(*) FILTER (WHERE state='confirmed') AS confirmed
       FROM bot_monetag_cash_attempts WHERE viewer_uid=%s""",(uid,)).fetchone()
-  last=c.execute("""SELECT ymid,allocation,received_at
-      FROM bot_monetag_cash_events
-      WHERE viewer_uid=%s AND event_type='impression'
-        AND reward_event_type='valued' AND state!='rejected'
-      ORDER BY received_at DESC LIMIT 1""",(uid,)).fetchone()
- return {"ok":True,"currency":"USD","estimated_only":True,"withdrawable":False,
+  last=c.execute("""SELECT e.ymid,e.allocation,e.received_at,
+      COALESCE(cr.credited_kopeks,0) AS credited_kopeks
+      FROM bot_monetag_cash_events e
+      LEFT JOIN bot_cash_ad_credits cr ON cr.ymid=e.ymid
+        AND cr.uid=e.viewer_uid AND cr.role='viewer'
+      WHERE e.viewer_uid=%s AND e.event_type='impression'
+        AND e.reward_event_type='valued' AND e.state!='rejected'
+      ORDER BY e.received_at DESC LIMIT 1""",(uid,)).fetchone()
+  balance=c.execute("SELECT available FROM bot_accounts WHERE uid=%s",(uid,)).fetchone()
+  credited=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS total FROM bot_cash_ad_credits WHERE uid=%s",(uid,)).fetchone()
+  fraction=c.execute("SELECT remainder FROM bot_cash_ad_fraction WHERE uid=%s",(uid,)).fetchone()
+ return {"ok":True,"currency":"USD","estimated_only":True,"withdrawable":True,
+         "credited_kopeks":int(credited["total"]),"wallet_kopeks":int(balance["available"]) if balance else 0,
+         "fractional_kopeks":str(fraction["remainder"]) if fraction else "0",
          "viewer_usd":str(value['viewer']),"referral_usd":str(value['referral']),
          "total_usd":str(value['total']),
          "levels_usd":[str(x) for x in value['levels']],
          "completed":int(rows['completed'] or 0),"confirmed":int(rows['confirmed'] or 0),
          "last_reward":({"ymid":last['ymid'],"viewer_usd":str(last['allocation']['viewer_usd']),
-                         "received_at":last['received_at'],"state":"pending_review"}
+                         "received_at":last['received_at'],"state":"credited","credited_kopeks":int(last["credited_kopeks"])}
                         if last else None)}
 
 
