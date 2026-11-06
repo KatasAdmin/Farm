@@ -59,7 +59,7 @@ class BotScreenTests(unittest.TestCase):
         response=self.send(2,action='cabinet')
         self.assert_valid_html(response)
         actions=[[b['callback_data'] for b in row] for row in response['reply_markup']['inline_keyboard']]
-        self.assertEqual(actions,[['bot:deposit','bot:withdraw'],['bot:claims'],['bot:payouts','bot:history'],['bot:identity:share']])
+        self.assertEqual(actions,[['bot:deposit','bot:withdraw'],['bot:claims'],['bot:payouts','bot:history'],['bot:ad_income'],['bot:identity:share']])
         self.assertNotIn('Эти деньги можно',response['text'])
         self.assertNotIn('Долг по штрафам: 0',response['text'])
         self.assertEqual(self.balance(2),1000)
