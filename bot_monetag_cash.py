@@ -55,6 +55,7 @@ def initialize_cash_attempts(c):
     """)
     c.execute("ALTER TABLE bot_monetag_cash_attempts ADD COLUMN IF NOT EXISTS launched_at double precision")
     c.execute("ALTER TABLE bot_monetag_cash_attempts ADD COLUMN IF NOT EXISTS finished_at double precision")
+    c.execute("ALTER TABLE bot_monetag_cash_attempts ADD COLUMN IF NOT EXISTS non_valued_at double precision")
     c.execute("""
         CREATE INDEX IF NOT EXISTS bot_monetag_cash_attempts_viewer
         ON bot_monetag_cash_attempts(viewer_uid,created_at)
@@ -252,10 +253,16 @@ def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
         request_var=request_var,now=now)
     if not attempt:
         return {'ok':False,'reason':'unknown_or_invalid_attempt'}
-    # Non-valued events are telemetry only. Positive estimated income is not
-    # enough to create a payable balance; publisher settlement is still needed.
-    if event_type!='impression' or reward_event_type!='valued' or price==0:
-        return {'ok':True,'staged':False,'reason':'not_valued'}
+    # A confirmed unpaid impression permits the UI to try AdsGram instead.
+    # Never treat a click or an unverified SDK callback as proof of no payment.
+    if event_type=='impression' and (reward_event_type=='non_valued' or price==0):
+        c.execute("""UPDATE bot_monetag_cash_attempts
+           SET non_valued_at=COALESCE(non_valued_at,%s)
+           WHERE ymid=%s AND viewer_uid=%s AND state='launched'""",
+           (now,ymid,telegram_uid))
+        return {'ok':True,'staged':False,'reason':'non_valued'}
+    if event_type!='impression' or reward_event_type!='valued':
+        return {'ok':True,'staged':False,'reason':'ignored_event'}
     # Database column is numeric(28,12). Reject values that would silently
     # round away fractional earnings or overflow the provisional ledger.
     if price != price.quantize(Decimal('0.000000000001')) or price >= Decimal('10000000000000000'):
