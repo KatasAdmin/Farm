@@ -874,6 +874,13 @@ async function loadWithdrawalStatus() {
     const cancelButton=el("withdrawal-cancel");
     if(cancelButton)cancelButton.hidden=!request||request.status!=="pending";
     const sources=value.sources||{};
+    const usdPreview=el("usd-wallet-preview");
+    if(usdPreview){
+      const quote=value.future_usd_preview;
+      usdPreview.textContent=quote?.quote_only && quote?.quote_currency==="USD"
+        ? "💵 Оценка доступной выручки в USD: ≈ "+quote.quote_display+" (расчёт по зафиксированному курсу "+quote.uah_per_usd+" ₴/$; это не подтверждение долларового зачисления)."
+        : "";
+    }
     note.textContent="Бонусные: "+number(sources.bonus||0)+" · Пополненные: "+number(sources.purchased||0)+" · Выручка: "+number(value.available||0)+" монет. "+(request
       ? "Последняя заявка: "+number(request.amount)+" монет · "+
         (request.status==="pending"?"ожидает ручной проверки":request.status==="rejected"?"отклонена":"статус: "+request.status)
