@@ -59,8 +59,8 @@ def metrics(c,uid):
   'refs':scalar("SELECT count(*) AS n FROM bot_accounts WHERE referrer=%s AND uid<>%s",(uid,uid)),
   'paid_jobs':scalar("SELECT count(*) AS n FROM bot_claims WHERE uid=%s AND status='paid'",(uid,)),
   # SDK completion is activity only, not proof of advertiser payment.
-  'ads_total':scalar("SELECT count(*) AS n FROM bot_monetag_cash_attempts WHERE viewer_uid=%s AND finished_at IS NOT NULL",(uid,)),
-  'ads_day':scalar("SELECT count(*) AS n FROM bot_monetag_cash_attempts WHERE viewer_uid=%s AND finished_at>=%s AND finished_at<%s",(uid,start.timestamp(),end.timestamp())),
+  'ads_total':scalar("SELECT count(*) AS n FROM bot_monetag_cash_attempts WHERE viewer_uid=%s AND finished_at IS NOT NULL",(uid,)) + scalar("SELECT count(*) AS n FROM bot_adsgram_attempts WHERE uid=%s AND state='confirmed'",(uid,)),
+  'ads_day':scalar("SELECT count(*) AS n FROM bot_monetag_cash_attempts WHERE viewer_uid=%s AND finished_at>=%s AND finished_at<%s",(uid,start.timestamp(),end.timestamp())) + scalar("SELECT count(*) AS n FROM bot_adsgram_attempts WHERE uid=%s AND state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s",(uid,start.timestamp(),end.timestamp())),
  }
 
 def show(c,uid):
