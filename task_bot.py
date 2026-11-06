@@ -753,7 +753,8 @@ def _administration(c, uid, text, action, api):
     parts = text.split()
     command = parts[0].split('@')[0] if parts else ''
     if command == '/adsgramurl':
-        if not bot_copy.owner():
+        owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
+        if not owner or int(owner['telegram_id'])!=uid:
             raise UserError('Эта команда доступна только владельцу.')
         import os
         import html
@@ -768,8 +769,9 @@ def _administration(c, uid, text, action, api):
           +'<i>Это секретная ссылка. Не пересылай её другим людям.</i>',
           [[button('⬅️ Админ-панель','admin')]])
     if command == '/adsgramsettle':
-        # Only the actual bot owner may approve publisher revenue for payouts.
-        if not bot_copy.owner():
+        # Additional bot moderators must not approve money transfers.
+        owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
+        if not owner or int(owner['telegram_id'])!=uid:
             raise UserError('Только владелец FARM может подтверждать рекламную выручку.')
         if len(parts)!=4:
             raise UserError('Формат: /adsgramsettle ГГГГ-ММ-ДД Сумма_USDT Показы. Сначала сверь отчёт AdsGram за завершённый день UTC.')
