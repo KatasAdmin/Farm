@@ -1,13 +1,10 @@
-/* Monetag SDK callbacks are telemetry only. Rewards come from authenticated postbacks. */
+/* AdsGram-only rewards for farm resources. Rewards are granted exclusively
+ * by the protected AdsGram server Reward URL, never by the SDK callback. */
 (()=>{
 'use strict';
-let cfg=null,owner='',working=false,recovering=null,lastRecover=0,sdkZone=null,cooldownUntil=0;
-const prepared=new Map(),prepareErrors=new Map(),timers=new Set();
+let cfg=null,working=false,recovering=null,lastRecover=0;
 const labels={grain:'зерно',eggs:'яйца',milk:'молоко',chickens:'курицу',geese:'гусыню',cows:'корову',coins:'монеты для покупок'};
-const states={pending:'Ожидается подтверждение Monetag',unconfirmed:'Подтверждение не получено. Попытка сохранена в истории',non_valued:'Событие сохранено. Для награды нужен подтверждённый показ',sdk_error:'Реклама недоступна, попробуйте позже',rate_limited:'Лимит рекламы, попробуйте позже'};
-const contextKey=()=>String(token||'')+'|'+(tgInitData()?'telegram':'web');
-const adApi=(path,payload)=>api('/api/ads/monetag/'+path,payload,tgInitData()?{'X-Telegram-Init-Data':tgInitData()}:{});
-const safeReport=(ymid,event,extra={})=>adApi('event',{ymid,event,...extra});
+const adApi=(path,payload)=>api('/api/ads/adsgram/farm/'+path,payload,tgInitData()?{'X-Telegram-Init-Data':tgInitData()}:{});
 function notify(message){toast(message);const node=el('ad-inline-status');if(node)node.textContent=message;}
 function itemButton(item){
  const button=document.createElement('button');button.type='button';button.className='btn alt small ad-free-button';button.dataset.adFree=item;
@@ -35,115 +32,68 @@ function decorate(){
  document.querySelectorAll('[data-ad-free="coins"]').forEach(button=>button.remove());
  document.querySelectorAll('[data-ad-free]').forEach(button=>{
   const item=button.dataset.adFree;const r=adRewards[item];if(!r)return;
-  const ready=cfg?.enabled&&!cfg.retry_after&&cfg.remaining_today&&cfg.remaining_hour&&prepared.has(item)&&typeof window['show_'+cfg.zone_id]==='function';
-  const reason=prepareErrors.get(item)||(!cfg?.enabled?(cfg?.reason||'Реклама недоступна'):working?'Реклама открывается':pending?'Дождитесь завершения действия':cfg?.remaining_today===0?'Дневной лимит 40/40':cfg?.remaining_hour===0?'Часовой лимит 10/10':cfg?.retry_after?'Следующая реклама через '+cfg.retry_after+' сек':typeof window['show_'+cfg?.zone_id]!=='function'?'Загружается реклама':!prepared.has(item)?'Подготавливаем рекламу':'');
+  const ready=cfg?.enabled&&!!tgInitData();
+  const reason=!tgInitData()?'Только в Telegram':!cfg?.enabled?'AdsGram недоступен':working?'Реклама открывается':pending?'Дождитесь завершения действия':'';
   button.disabled=!!reason;
   button.title=reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' подтверждённых просмотров');
   const compactReason=reason?.includes('rewarded-зона')?'Скоро':reason?.includes('лимит')||reason?.includes('Лимит')?'Лимит':reason?.includes('через')?'Таймер':reason?.includes('Загружается')?'Загрузка':reason?.includes('открывается')?'Открывается':reason?.includes('Дождитесь')?'Ожидание':reason==='Гуси доступны с 3-го уровня'?'С 3 уровня':reason?'Недоступно':'';
   button.textContent=reason?'🎬 '+compactReason:item==='coins'?'🎬 +2 монеты':'🎬 Бесплатно · '+(adProgress[item]||0)+'/'+r[0];
  });
 }
-async function sdk(config){
- if(typeof window['show_'+config.zone_id]==='function'){sdkZone=config.zone_id;return;}
- if(sdkZone===config.zone_id)return;
- sdkZone=config.zone_id;
- await new Promise((resolve,reject)=>{
-  const script=document.createElement('script');script.src=config.sdk_url;script.dataset.zone=String(config.zone_id);script.dataset.sdk='show_'+config.zone_id;
-  const timeout=setTimeout(()=>{sdkZone=null;script.remove();reject(Error('Реклама недоступна, попробуйте позже'));},10000);
-  script.onload=()=>{clearTimeout(timeout);if(typeof window['show_'+config.zone_id]==='function')resolve();else{sdkZone=null;reject(Error('SDK рекламы не загрузился'));}};
-  script.onerror=()=>{clearTimeout(timeout);sdkZone=null;script.remove();reject(Error('Реклама недоступна, попробуйте позже'));};document.head.appendChild(script);
- });
-}
-async function reserve(){
- if(!cfg?.enabled||cfg.retry_after||!cfg.remaining_today||!cfg.remaining_hour)return;
- const session=owner;
- await Promise.all(Object.keys(adRewards).map(async item=>{
-  if(prepared.get(item)?.expires_at>Date.now()/1000+20)return;
-  prepared.delete(item);
-  try{const value=await adApi('prepare',{item});if(owner===session){prepared.set(item,value);prepareErrors.delete(item);}}catch(error){if(owner===session)prepareErrors.set(item,String(error?.message||'Реклама недоступна'));}
- }));decorate();
-}
-function historyUI(data){
- let holder=el('ad-history');
- if(!holder){const wallet=el('wallet');if(!wallet)return;holder=document.createElement('details');holder.id='ad-history';holder.className='card';const title=document.createElement('summary');title.textContent='🎬 История рекламы';holder.appendChild(title);const note=document.createElement('p');note.className='muted';note.textContent='Рекламные товары и доход от них — только для покупок, без вывода.';holder.appendChild(note);const body=document.createElement('div');body.className='ad-history-rows';holder.appendChild(body);wallet.appendChild(holder);}
- const body=holder.querySelector('.ad-history-rows');body.replaceChildren();
- (data.history||[]).forEach(row=>{const node=document.createElement('p');node.className='muted';node.textContent=new Date(row.created_at*1000).toLocaleString('ru-RU')+' · '+(labels[row.item]||row.item)+' · '+(row.state==='credited'?(row.reward_quantity?(row.reward_claimed?'Награда получена':'Награда сохранена, нужно свободное место'):'Просмотр засчитан'):states[row.state]||row.state);body.appendChild(node);});
- if(!data.history?.length){const node=document.createElement('p');node.textContent='Пока нет запусков рекламы';body.appendChild(node);}
-}
+
 async function recover(force=false){
- if(!token)return;
+ if(!token||!tgInitData())return;
  if(recovering)return recovering;
  if(!force&&Date.now()-lastRecover<15000){decorate();return;}
  lastRecover=Date.now();
- const session=contextKey();if(owner!==session){owner=session;prepared.clear();prepareErrors.clear();cfg=null;}
  recovering=(async()=>{
   try{
-   const data=await adApi('status');if(owner!==session)return;
-   cfg=data;cooldownUntil=Date.now()+Math.max(0,Number(data.retry_after)||0)*1000;if(!data.enabled){const note=el('ad-inline-status');if(note)note.textContent=data.reason||'Рекламные награды пока настраиваются';}
+   const data=await adApi('status');
+   cfg=data;
    adProgress=Object.fromEntries(Object.entries(data.rewards||{}).map(([k,v])=>[k,v.progress]));
-   historyUI(data);const wallet=el('wallet');decorate();
-   if(data.granted?.length){notify('Награда получена');await refresh();}
-   if(data.pending)notify('Награда сохранена. Освободите место на складе или для птицы');
-   if(data.enabled){try{await sdk(data);await reserve();}catch(error){notify(error.message);}}
-  }catch(error){if(force)notify(error.message);}finally{recovering=null;decorate();}
- })();return recovering;
-}
-function schedulePoll(ymid,item,deadline){
- const timer=setTimeout(async()=>{
-  timers.delete(timer);if(!token)return;
-  try{
-   await recover(true);const data=cfg;const row=data?.history?.find(r=>r.ymid===ymid);
-   if(row?.state==='credited'){
-    notify(row.reward_quantity?(row.reward_claimed?'Награда получена':'Награда сохранена. Нужно свободное место'):'Просмотр засчитан: '+(adProgress[item]||0)+'/'+adRewards[item][0]);return;
+   decorate();
+   if(data.granted?.length){notify('Награда за рекламу получена!');await refresh();}
+   if(data.pending)notify('Награда ожидает свободного места в хозяйстве.');
+   const wallet=el('wallet');
+   if(wallet){
+    let holder=el('ad-history');
+    if(!holder){holder=document.createElement('details');holder.id='ad-history';holder.className='card';holder.innerHTML='<summary>🎬 История рекламы AdsGram</summary><div class="ad-history-rows"></div>';wallet.appendChild(holder);}
+    const body=holder.querySelector('.ad-history-rows');body.replaceChildren();
+    for(const row of data.history||[]){const p=document.createElement('p');p.className='muted';p.textContent=new Date(row.created_at*1000).toLocaleString('ru-RU')+' · '+(labels[row.item]||row.item)+' · '+(row.state==='credited'?'Подтверждено':'Ожидается подтверждение');body.appendChild(p);}
    }
-   if(row?.state&&row.state!=='pending'){notify(states[row.state]||'Попытка сохранена в истории');return;}
-   if(Date.now()<deadline)schedulePoll(ymid,item,deadline);
-   else notify(states.unconfirmed);
-  }catch(_){notify('Не удалось проверить результат. Попытка сохранена на сервере');}
- },5000);timers.add(timer);
+  }catch(e){if(force)notify('Статистика AdsGram недоступна: '+String(e.message||e));}
+  finally{recovering=null;decorate();}
+ })();
+ return recovering;
 }
 async function watch(item){
  if(working||pending||!adRewards[item])return;
- if(owner!==contextKey()){prepared.clear();recover(true);notify('Обновляем настройки рекламы');return;}
- if(cfg?.retry_after||cfg?.remaining_today===0||cfg?.remaining_hour===0){notify('Лимит рекламы, попробуйте позже');recover(true);return;}
- const attempt=prepared.get(item);
- if(!attempt||attempt.expires_at<=Date.now()/1000||!cfg?.enabled){notify(cfg?.reason||'Реклама подготавливается. Попробуйте через несколько секунд');recover(true);return;}
- const show=window['show_'+attempt.zone_id];if(typeof show!=='function'){notify('Реклама недоступна, попробуйте позже');return;}
- working=true;prepared.delete(item);decorate();
- const session=owner;let promise;
+ if(!tgInitData()){notify('AdsGram доступен только в Telegram Mini App');return;}
+ if(!cfg?.enabled){notify('Подключаем AdsGram…');await recover(true);if(!cfg?.enabled)return;}
+ working=true;decorate();
+ let prepared=null;
  try{
-  // Keep the SDK call synchronous with the user's tap. All network preparation
-  // happened beforehand. Do not replace advertiser URLs or await before show().
-  promise=show({type:'pop',ymid:attempt.ymid,requestVar:item+'_reward'});
-  const started=safeReport(attempt.ymid,'started').catch(()=>null);
-  let sdkTimeout;let result;try{result=await Promise.race([promise,new Promise((_,reject)=>{sdkTimeout=setTimeout(()=>reject(Error('Failed to verify the ad show')),45000);})]);}finally{clearTimeout(sdkTimeout);}if(owner!==session)return;
-  await started;
-  await safeReport(attempt.ymid,'completed',{result:result?.reward_event_type||''});
-  await recover(true);
-  const row=cfg?.history?.find(r=>r.ymid===attempt.ymid);
-  if(row?.state==='credited')notify(row.reward_quantity?(row.reward_claimed?'Награда получена':'Награда сохранена. Нужно свободное место'):'Просмотр засчитан: '+(adProgress[item]||0)+'/'+adRewards[item][0]);
-  else if(row?.state&&row.state!=='pending')notify(states[row.state]||states.unconfirmed);
-  else{notify(states.pending);schedulePoll(attempt.ymid,item,Date.now()+120000);}
- }catch(error){
-  const verification=/verify|verification/i.test(error?.message||'');
-  try{await safeReport(attempt.ymid,'failed',{error:verification?'verification_failed':'sdk_error'});}catch(_){}
-  notify(verification?states.unconfirmed:'Реклама недоступна, попробуйте позже');await recover(true);
- }finally{working=false;decorate();}
+  prepared=await adApi('prepare',{item});
+  if(!window.FarmAdsgramFallback?.show)throw new Error('SDK AdsGram ещё загружается');
+  await window.FarmAdsgramFallback.show(cfg.adsgram_block_id);
+  notify('✅ Просмотр завершён. Проверяем серверное подтверждение AdsGram…');
+  // Reward URL may arrive asynchronously. Check later without trusting the SDK.
+  for(let i=0;i<5;i++){
+   await new Promise(resolve=>setTimeout(resolve,1800));
+   await recover(true);
+   const row=cfg?.history?.find(x=>x.ymid===prepared.attempt_id);
+   if(row?.state==='credited'){notify('✅ Просмотр подтверждён AdsGram');break;}
+  }
+ }catch(e){
+  if(prepared?.attempt_id){try{await adApi('cancel',{attempt_id:prepared.attempt_id})}catch(_){}}
+  const err=String(e?.message||'Недоступно');
+  notify(/previous|pending|active/i.test(err)?'Предыдущий просмотр ещё обрабатывается. Попробуй через несколько минут.':/did not complete/i.test(err)?'Реклама не завершена. Награды нет.':err);
+ }finally{working=false;await recover(true);decorate();}
 }
 window.FarmAds={recover,watch};
-// Dialog changes add buttons without navigation. Timers contain no credentials;
-// pending progress is recovered from the authenticated account, not localStorage.
 new MutationObserver(()=>decorate()).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')recover(true);});
 window.addEventListener('telegram-sdk-ready',()=>recover(true));
-setInterval(()=>{
- if(!token||document.visibilityState!=='visible'||!cfg)return;
- if(cooldownUntil>0&&cfg.retry_after>0){
-  const remaining=Math.max(0,Math.ceil((cooldownUntil-Date.now())/1000));
-  if(remaining!==cfg.retry_after){cfg.retry_after=remaining;decorate();}
-  if(remaining===0){cooldownUntil=0;recover(true);}
- }
-},1000);
 setInterval(()=>{if(token&&document.visibilityState==='visible')recover();},30000);
 decorate();recover(true);
 })();
