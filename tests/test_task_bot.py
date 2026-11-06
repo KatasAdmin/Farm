@@ -276,7 +276,7 @@ class TaskBotTests(unittest.TestCase):
         self.invariant()
     def test_catalog_only_real_active_other_users_tasks(self):
         tid = self.task()
-        self.assertIn('Test task', self.send(3, action='list:channel:0')['reply_markup']['inline_keyboard'][0][0]['text'])
+        self.assertIn('Подписаться на ChannelTest', self.send(3, action='list:channel:0')['reply_markup']['inline_keyboard'][0][0]['text'])
         self.assertNotIn('Test task', str(self.send(2, action='list:channel:0')))
         self.c.execute("UPDATE bot_tasks SET status='pending'")
         self.c.raw.commit()
@@ -289,7 +289,7 @@ class TaskBotTests(unittest.TestCase):
         self.assertNotIn('Test task', str(self.send(1, action='list:manual:0')))
         self.assertIn('на проверке', self.send(1, action='take:' + tid)['text'])
         complete_refusal(self,2,f'rejectwork:{tid}:3')
-        self.assertIn('Test task', str(self.send(1, action='list:manual:0')))
+        self.assertIn('Подписаться на ChannelTest', str(self.send(1, action='list:manual:0')))
         self.invariant()
     def test_spent_frozen_earned_statistics_are_real(self):
         tid = self.task()
