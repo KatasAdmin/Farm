@@ -52,6 +52,7 @@ def initialize_cash_attempts(c):
             confirmed_at double precision
         )
     """)
+    c.execute("ALTER TABLE bot_monetag_cash_attempts ADD COLUMN IF NOT EXISTS launched_at double precision")
     c.execute("""
         CREATE INDEX IF NOT EXISTS bot_monetag_cash_attempts_viewer
         ON bot_monetag_cash_attempts(viewer_uid,created_at)
