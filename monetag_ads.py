@@ -14,9 +14,9 @@ from fastapi import HTTPException
 REWARDS={'grain':(1,1),'eggs':(2,2),'milk':(5,1),'chickens':(20,1),'geese':(80,1),'cows':(250,1),'coins':(1,2)}
 TMA_ZONE=12193261
 LOCK=1984533
-DAY_LIMIT=50
-HOUR_LIMIT=10
-COOLDOWN=30
+DAY_LIMIT=1000000
+HOUR_LIMIT=1000000
+COOLDOWN=0
 ADS_PER_BREAK=5
 PREPARE_TTL=600
 CONFIRM_WAIT=120
@@ -72,7 +72,7 @@ def prepare(c,p,item,platform,now=None):
  if old:return dict(ymid=old['ymid'],expires_at=old['created_at']+PREPARE_TTL,**cfg)
  # Bound reservation spam as well as genuine launches; unused preparations are not impressions.
  n=c.execute('SELECT count(*) AS n FROM monetag_ad_attempts WHERE player_id=%s AND created_at>=%s',(p['id'],now-3600)).fetchone()['n']
- if n>=60:raise HTTPException(429,'Слишком много запросов рекламы. Попробуйте позже')
+ if n>=1000:raise HTTPException(429,'Слишком много запросов рекламы. Попробуйте позже')
  ymid='farm_'+secrets.token_hex(20)
  c.execute('INSERT INTO monetag_ad_attempts(ymid,player_id,created_at,zone_id,placement,platform) VALUES(%s,%s,%s,%s,%s,%s)',(ymid,p['id'],now,cfg['zone_id'],item+'_reward',platform))
  return dict(ymid=ymid,expires_at=now+PREPARE_TTL,**cfg)
