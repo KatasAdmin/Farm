@@ -20,6 +20,7 @@ import os,time,uuid,secrets,hashlib,hmac,json,logging,base64
 import mimetypes
 mimetypes.add_type("image/webp",".webp")
 import task_bot
+import bot_branding
 from bot_release import RELEASE
 import threading
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -187,6 +188,7 @@ async def lifespan(app):
      info=json.load(info_resp)
     username=((info.get("result") or {}).get("username") or "") if info.get("ok") else ""
     logger.warning("farm_token_bot_username=%s expected=Farmlife2026bot",username)
+    bot_branding.configure(token,username)
    except Exception:
     logger.exception("farm_bot_identity_check_failed")
    payload=json.dumps({"url":"https://"+domain+"/api/telegram/webhook","secret_token":telegram_webhook_secret(),"allowed_updates":["message","callback_query","pre_checkout_query","chat_member","my_chat_member"]}).encode()
