@@ -601,6 +601,10 @@ def cash_ads_require_enabled():
   raise HTTPException(503,"Денежная реклама ожидает разрешения Monetag")
 
 def cash_ads_require_vip(uid):
+ # Admin identity is verified by the same function as bot administration.
+ # Server-side exception only; Telegram initData must still be authenticated.
+ if farm_admin_telegram(int(uid),int(uid)):
+  return
  with db() as c:
   if not bot_quests.vip(c,int(uid)):
    raise HTTPException(403,"VIP откроется после первых 3 квестов")
