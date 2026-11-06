@@ -574,7 +574,8 @@ def monetag_postback(request:HTTPRequest,ymid:str="",zone_id:int=0,sub_zone_id:i
      telegram_uid=int(telegram_id),zone_id=zone_id,
      request_var=request_var.removeprefix(str(zone_id)+"_"),
      event_type=event_type,reward_event_type=reward_event_type,
-     estimated_price=estimated_price,referral_chain=())
+     estimated_price=estimated_price,
+     referral_chain=bot_monetag_cash.verified_bot_referral_chain(c,int(telegram_id)))
    except PermissionError:
     raise HTTPException(403,"Forbidden")
    except ValueError:
