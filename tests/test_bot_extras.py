@@ -47,7 +47,6 @@ class ExtendedBotTests(unittest.TestCase):
         self.send(2, '2')
         self.send(2, action='confirm_task')
         tid = self.c.execute("SELECT id FROM bot_tasks WHERE kind='bot'").fetchone()['id']
-        self.send(1, action='admin:approve:' + tid)
         return tid
     def create_post_task(self):
         self.send(1, '/botchannel @ChannelTest')
