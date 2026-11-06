@@ -244,7 +244,7 @@ def handle(payload, db, api, is_admin):
         return None
     if not channel_claim and (chat.get('id') != uid or chat.get('type') != 'private'):
         return None
-    if channel_claim:
+    if callback.get('id'):
         message = dict(message, _callback_id=callback['id'])
     text = '' if callback or message.get('forward_origin') else (message.get('text') or '').strip()
     cmd = text.split(maxsplit=1)[0].split('@')[0] if text else ''
@@ -355,7 +355,11 @@ def route(c, uid, text, action, message, api, admin):
         state(c, uid, 'clear')
     if action == 'watch_ads_info':
         if not bot_quests.vip(c,uid):
-            return bot_ui.screen(uid,'🔒 <b>Реклама доступна VIP</b>\n\nПройди первые 3 квеста, познакомься с приглашениями и открой доступ.\nПросмотр без оплаты рекламной сети не приносит денежных начислений.',[[button('⭐ Открыть квесты','quests')],[button('🤝 Пригласить друзей','friends')]])
+            if message.get('_callback_id'):
+                return {'method':'answerCallbackQuery','callback_query_id':message['_callback_id'],
+                        'text':'🔒 Пройди первые 3 квеста, чтобы разблокировать VIP и смотреть рекламу.',
+                        'show_alert':True}
+            return bot_ui.screen(uid,'🔒 <b>Доступ к рекламе закрыт</b>\n\nПройди первые 3 квеста, чтобы разблокировать VIP.',[[button('⭐ Открыть квесты','quests')]])
         return bot_ui.screen(uid,'💎 <b>VIP · Смотреть рекламу</b>\n\n🎬 Цель активности: 10 завершённых просмотров за день.\nНеоплаченные просмотры учитываются только для активности, не для денежной выручки.\n\n<i>Денежные выплаты за просмотры пока отключены.</i>',[[{'text':'🎬 Смотреть рекламу','web_app':{'url':farm_url()+'cash-ads-preview.html'}}],[button('⭐ Квесты','quests')]])
 
     if text == '🚀 Заработать' or action == 'earn':
