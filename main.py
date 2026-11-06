@@ -582,8 +582,8 @@ def cash_ads_status(q:dict):
  cash_ads_require_vip(uid)
  with db() as c:
   quota=bot_monetag_cash.cash_attempt_quota(c,int(uid))
- return {"ok":True,"enabled":cash_ads_enabled(),"cash_rewards":cash_ads_enabled(),"test_mode":False,
-         "status":"enabled" if cash_ads_enabled() else "temporarily_disabled",
+ return {"ok":True,"enabled":os.getenv("ADSGRAM_FALLBACK_ENABLED","").lower()=="true","cash_rewards":True,"test_mode":False,
+         "status":"enabled" if os.getenv("ADSGRAM_FALLBACK_ENABLED","").lower()=="true" else "temporarily_disabled",
          "retry_after":quota["retry_after"],
          "active_attempt":quota["active"],
          "block_launches":quota["block_launches"],
@@ -714,6 +714,37 @@ def cash_ads_abandon(q:dict):
   bot_monetag_cash.abandon_cash_attempt(c,uid,cash_ads_attempt_id(q))
  return {"ok":True,"payable":False}
 
+
+@app.get("/api/ads/adsgram/farm/status")
+def adsgram_farm_status(authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
+ with db() as c:
+  p=person(c,authorization,True)
+  ads_platform(p,telegram_data)
+  delivered=deliver_ads(c,p)
+  value=bot_adsgram_daily.farm_status(c,p["id"])
+  enabled=os.getenv("ADSGRAM_FALLBACK_ENABLED","").lower()=="true"
+  return {"ok":True,"enabled":enabled,"adsgram_block_id":os.getenv("ADSGRAM_REWARDED_BLOCK_ID","58218"),**value,**delivered}
+
+@app.post("/api/ads/adsgram/farm/prepare")
+def adsgram_farm_prepare(q:dict,authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
+ if os.getenv("ADSGRAM_FALLBACK_ENABLED","").lower()!="true":
+  raise HTTPException(503,"AdsGram disabled")
+ with db() as c:
+  p=person(c,authorization,True)
+  platform=ads_platform(p,telegram_data)
+  if platform!="telegram":raise HTTPException(403,"AdsGram is only available inside Telegram")
+  try:return bot_adsgram_daily.prepare_farm(c,int(p["telegram_id"]),p["id"],str(q.get("item","grain")))
+  except ValueError as exc:raise HTTPException(409,str(exc))
+
+@app.post("/api/ads/adsgram/farm/cancel")
+def adsgram_farm_cancel(q:dict,authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
+ with db() as c:
+  p=person(c,authorization,True)
+  ads_platform(p,telegram_data)
+  aid=str(q.get("attempt_id",""))
+  if len(aid)!=32 or any(x not in "0123456789abcdef" for x in aid):raise HTTPException(400,"Invalid ad attempt")
+  bot_adsgram_daily.cancel_farm(c,int(p["telegram_id"]),aid)
+ return {"ok":True}
 
 @app.get("/api/ads/monetag/status")
 def monetag_status(authorization:str=Header(default=""),telegram_data:str=Header(default="",alias="X-Telegram-Init-Data")):
