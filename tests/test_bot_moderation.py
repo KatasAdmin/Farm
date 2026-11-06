@@ -66,7 +66,7 @@ class ModerationTests(unittest.TestCase):
         self.send(1,action='admin:taskcontrol:'+nonce);self.assertEqual(self.balance(2),before+70)
         self.assertEqual(self.balance(3),56)
         self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_ad_orders').fetchone()['n'],1)
-        self.assertIn('Test task',str(self.send(1,action='admin:tasklist:closed:0')))
+        self.assertIn('Подписаться на ChannelTest',str(self.send(1,action='admin:tasklist:closed:0')))
         self.invariant()
 
     def test_archive_waits_for_manual_reviews_and_uncertain_publication(self):
@@ -82,7 +82,7 @@ class ModerationTests(unittest.TestCase):
         tid=self.task();self.send(1,action='admin:tasksearch')
         response=self.send(1,tid)
         for text in (tid,'ID автора','0,70 грн','0,56 грн'):self.assertIn(text,response['text'])
-        self.assertIn('Test task',str(self.send(1,action='admin:tasklist:active:0')))
+        self.assertIn('Подписаться на ChannelTest',str(self.send(1,action='admin:tasklist:active:0')))
         self.send(3,action='take:'+tid)
         self.assertIn('3',self.send(1,action='admin:taskclaims:'+tid+':0')['text'])
         self.assertIn('Исполнитель',self.send(1,action='admin:taskwork:'+tid+':3')['text'])
