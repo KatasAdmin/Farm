@@ -39,7 +39,7 @@
     let attempt=null,launched=false;
     try{
       const status=await post('status',telegramData);
-      if(!status.enabled||!status.test_mode)throw new Error('Тестовый просмотр пока отключён');
+      if(!status.enabled)throw new Error('Просмотр рекламы пока недоступен');
       if(status.active_attempt||status.retry_after>0)
         throw new Error('Подождите перед следующим просмотром');
       // SDK must be loaded before preparing a server-side attempt.
@@ -57,10 +57,10 @@
       });
       await post('finish',telegramData,{ymid:attempt.ymid});
       handlers.onFinished?.();
-      return {ok:true,payable:false,pending_postback:true,monetized:adResult?.reward_event_type==='valued',event_type:adResult?.reward_event_type||'unknown'};
+      return {ok:true,payable:false,pending_postback:true,estimated_paid:adResult?.reward_event_type==='valued',event_type:adResult?.reward_event_type||'unknown'};
     }catch(error){
       if(attempt){
-        try{await post(launched?'finish':'cancel',telegramData,{ymid:attempt.ymid});}
+        try{if(!launched)await post('cancel',telegramData,{ymid:attempt.ymid});}
         catch(_){/* No client-side credits on error. */}
       }
       handlers.onError?.(error);
