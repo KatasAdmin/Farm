@@ -108,7 +108,7 @@ class DailyAdsGramTests(unittest.TestCase):
 
     def test_reject_current_day(self):
         with self.assertRaises(ValueError):
-            ads._day(datetime.now(timezone.utc).date().isoformat())
+            ads._day(datetime.now(ads.KYIV).date().isoformat())
 
 
 if __name__=='__main__':
