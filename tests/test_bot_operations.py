@@ -159,7 +159,7 @@ class OperationTests(unittest.TestCase):
     def test_quick_queue_buttons_and_back_navigation(self):
         self.card_request();self.payout()
         root=self.send(1,action='admin')
-        for action in ('bot:admin:cardtopups','bot:admin:payouts'):self.assertIn(action,str(root['reply_markup']))
+        self.assertIn('bot:admin:section:finance',str(root['reply_markup']))
         for action in ('admin:cardtopups','admin:payouts','admin:topupsettings'):
             markup=self.send(1,action=action)['reply_markup']
             self.assertIn('bot:admin:section:finance',str(markup))
