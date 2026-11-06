@@ -214,12 +214,37 @@ def statistics(c):
 
 
 def admin_text(c,platform=None):
- stats=statistics(c);n=stats['platforms'].get(platform,stats['total'])
- labels={'telegram':'Telegram','web':'Браузер','legacy':'До обновления'}
- text='🎬 <b>Реклама Monetag</b> · '+labels.get(platform,'Все платформы')+'\n\n'
- for key,label in [('starts','Запусков'),('completed','Завершений SDK'),('paid','Оплаченных подтверждений'),('credited','Просмотров для наград'),('unpaid','Неоплаченных событий'),('sdk_errors','Ошибок SDK'),('unconfirmed','Без подтверждения')]:text+=label+': <b>'+str(n[key])+'</b>\n'
- text+='\n<b>Товары · все платформы</b>\n'
- for item,title in [('grain','Зерно'),('eggs','Яйца'),('milk','Молоко'),('chickens','Куры'),('geese','Гуси'),('cows','Коровы'),('coins','Монеты для покупок')]:
-  row=stats['items'][item];text+=title+': '+str(row['starts'])+' запусков · '+str(row['paid'])+' оплаченных · выдано '+str(row['granted'])+' · ждёт места '+str(row['pending'])+'\n'
- text+='\nОценка Monetag по postback: '+('$'+stats['estimated_usd'] if stats['estimated_usd'] is not None else 'нет данных')+' ('+str(stats['events_with_estimate'])+' событий с ценой).\nЭто estimated_price, не окончательный доход. Фактический доход и расчёты — в кабинете Monetag. Данные старых неподтверждённых попыток восстановить нельзя.'
+ stats=statistics(c)
+ n=stats['platforms'].get(platform,stats['total'])
+ labels={'telegram':'Telegram','web':'Браузер','legacy':'Старая версия'}
+ scope=labels.get(platform,'Все платформы')
+ revenue=stats['estimated_usd']
+ text='📊 <b>Реклама — понятный отчёт</b>\n📱 '+scope+'\n\n'
+ text+='👀 <b>Просмотры</b>\n'
+ text+='✅ Подтверждено рекламной сетью: <b>'+str(n['paid'])+'</b>\n'
+ text+='🎬 Всего запусков: '+str(n['starts'])+'\n'
+ text+='🎁 Засчитано в прогресс наград: '+str(n['credited'])+'\n'
+ if n['unconfirmed']:
+  text+='⏳ Ожидают подтверждения: '+str(n['unconfirmed'])+'\n'
+ if n['unpaid']:
+  text+='⚪ Неоплаченные: '+str(n['unpaid'])+'\n'
+ if n['sdk_errors']:
+  text+='⚠️ Технические ошибки: '+str(n['sdk_errors'])+'\n'
+ text+='\n💵 <b>Деньги от рекламы</b>\n'
+ text+='Предварительно: <b>'+('$'+revenue if revenue is not None else 'нет данных')+'</b>\n'
+ text+='Учтено денежных событий: '+str(stats['events_with_estimate'])+'\n'
+ text+='ℹ️ Сумма — оценка Monetag, не деньги на балансе. Окончательный доход смотри в кабинете Monetag.\n'
+ if platform:
+  text+='ℹ️ Деньги показаны за все платформы, а просмотры выше — только '+scope+'.\n'
+ text+='\n🐔 <b>Что получили игроки</b> (все платформы)\n'
+ for item,title in [('grain','🌾 Зерно'),('eggs','🥚 Яйца'),('milk','🥛 Молоко'),('chickens','🐔 Куры'),('geese','🪿 Гуси'),('cows','🐄 Коровы'),('coins','🪙 Монеты для покупок')]:
+  row=stats['items'][item]
+  text+=title+': '+str(row['paid'])+' подтверждений, выдано '+str(row['granted'])
+  if row['pending']:text+=', ожидает места '+str(row['pending'])
+  text+='\n'
+ text+='\n<b>Как это понимать?</b>\n'
+ text+='«Подтверждено» — Monetag сообщил об оплачиваемом событии.\n'
+ text+='«Выдано» — количество товаров или монет, а не просмотров. Награда может требовать несколько просмотров.\n'
+ text+='«Предварительно» — сумма из postback, не окончательный расчёт.\n'
+ text+='Старые неподтверждённые попытки восстановить нельзя.'
  return text
