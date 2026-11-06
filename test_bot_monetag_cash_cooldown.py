@@ -58,6 +58,13 @@ class PostbackAttemptTests(unittest.TestCase):
              'request_var':'cash_rewarded_interstitial'}
         self.assertEqual(self.lookup(row),row)
 
+    def test_sdk_finish_does_not_block_verified_postback(self):
+        # Finished display is recorded separately; payout still requires postback.
+        row={'state':'launched','launched_at':50,'finished_at':70,
+             'created_at':10,'zone_id':12193261,'viewer_uid':123,
+             'request_var':'cash_rewarded_interstitial'}
+        self.assertEqual(self.lookup(row),row)
+
     def test_confirmed_attempt_cannot_be_reused(self):
         self.assertIsNone(self.lookup({
             'state':'confirmed','launched_at':50,'created_at':10,
