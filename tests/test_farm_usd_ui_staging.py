@@ -14,7 +14,7 @@ class FarmUsdUiStagingTests(unittest.TestCase):
         self.assertIn('id="usd-wallet-preview"', html)
         self.assertNotIn("перевод в бот: 1 монета = 1 грн", html)
         self.assertIn("future_usd_preview", js)
-        self.assertIn("НЕ сумма текущего зачисления", js)
+        self.assertIn("Перевод из фермы в бот временно отключён", js)
         self.assertIn("временно отключён", js)
         self.assertIn("disabled title=", html)
 
