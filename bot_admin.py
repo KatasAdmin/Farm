@@ -146,16 +146,20 @@ def field_value(c, key):
 def save_field(c, uid, key, text):
     b = core()
     cfg = b.bot_economy.config(c)
-    if key == 'post_reward':
-        raise b.UserError('Награда за пост рассчитывается из цены и общей комиссии.')
-    if key.startswith('price_'):
-        kinds = ['channel', 'bot', 'group', 'post', 'manual']
-        prices = {r['kind']: r for r in c.execute('SELECT * FROM bot_prices').fetchall()}
-        args = [prices[k]['cost'] for k in kinds]
-        index = kinds.index(key[6:])
-        args[index] = b.amount(text)
-        b.bot_economy.edit(c, uid, ' '.join((decimal(n) for n in args)), {'field': 'prices'})
-        section = 'prices'
+    if (key.startswith('price_') and key[6:] in KINDS) or (key.startswith('reward_') and key[7:] in KINDS):
+        is_price=key.startswith('price_')
+        kind=key[6:] if is_price else key[7:]
+        new_amount=b.amount(text)
+        previous=c.execute('SELECT * FROM bot_prices WHERE kind=%s FOR UPDATE',(kind,)).fetchone()
+        cost=new_amount if is_price else previous['cost']
+        reward=previous['reward'] if is_price else new_amount
+        refs=sum(cfg['ref'+str(i)] for i in range(1,6))
+        if reward*10000+cost*refs>cost*10000:
+            raise b.UserError('Цена не покрывает награду и рефералов. Увеличь цену задания или уменьши награду.')
+        c.execute('UPDATE bot_prices SET cost=%s,reward=%s WHERE kind=%s',(cost,reward,kind))
+        c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'economy_config',%s,%s)",
+                  (uuid.uuid4().hex,uid,'tariff '+kind+' '+('price' if is_price else 'reward')+': '+str(previous['cost'] if is_price else previous['reward'])+' → '+str(new_amount),time.time()))
+        section='prices'
     elif key in ('fee', 'ref1', 'ref2', 'ref3', 'ref4', 'ref5'):
         keys = ['fee', 'ref1', 'ref2', 'ref3', 'ref4', 'ref5']
         values = [b.bot_economy.pct(cfg[k]) for k in keys]
