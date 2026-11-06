@@ -540,11 +540,19 @@ def cash_ads_earnings(q:dict):
   rows=c.execute("""SELECT COUNT(*) FILTER (WHERE finished_at IS NOT NULL) AS completed,
       COUNT(*) FILTER (WHERE state='confirmed') AS confirmed
       FROM bot_monetag_cash_attempts WHERE viewer_uid=%s""",(uid,)).fetchone()
+  last=c.execute("""SELECT ymid,allocation,received_at
+      FROM bot_monetag_cash_events
+      WHERE viewer_uid=%s AND event_type='impression'
+        AND reward_event_type='valued' AND state!='rejected'
+      ORDER BY received_at DESC LIMIT 1""",(uid,)).fetchone()
  return {"ok":True,"currency":"USD","estimated_only":True,"withdrawable":False,
          "viewer_usd":str(value['viewer']),"referral_usd":str(value['referral']),
          "total_usd":str(value['total']),
          "levels_usd":[str(x) for x in value['levels']],
-         "completed":int(rows['completed'] or 0),"confirmed":int(rows['confirmed'] or 0)}
+         "completed":int(rows['completed'] or 0),"confirmed":int(rows['confirmed'] or 0),
+         "last_reward":({"ymid":last['ymid'],"viewer_usd":str(last['allocation']['viewer_usd']),
+                         "received_at":last['received_at'],"state":"pending_review"}
+                        if last else None)}
 
 
 @app.post("/api/ads/cash/status")
