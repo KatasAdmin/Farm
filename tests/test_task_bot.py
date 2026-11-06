@@ -113,7 +113,7 @@ class TaskBotTests(unittest.TestCase):
     def task(self, kind='channel', count='2'):
         self.credit()
         self.send(2, action='new:' + kind)
-        fields=(['https://t.me/ChannelTest'] if kind=='channel' else ['Test task', 'Join the channel please', 'https://t.me/ChannelTest'] + (['1.00'] if kind=='manual' else []))
+        fields=(['https://t.me/ChannelTest'] if kind in ('channel','group') else ['Test task', 'Join the channel please', 'https://t.me/ChannelTest'] + (['1.00'] if kind=='manual' else []))
         for text in fields + [count]:
             self.send(2, text)
         if kind=='manual':self.send(2,action='manual:photos_done')
