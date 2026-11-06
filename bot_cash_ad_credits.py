@@ -39,7 +39,7 @@ def nbu_usd_uah(c):
     day=datetime.now(ZoneInfo("Europe/Kyiv")).date().isoformat()
     row=c.execute("SELECT rate FROM bot_cash_ad_fx WHERE day=%s",(day,)).fetchone()
     if row:return Decimal(str(row["rate"]))
-    req=Request("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json",
+    req=Request("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&date="+day.replace("-","")+"&json",
         headers={"User-Agent":"Farm-Rewards/1.0"})
     with urlopen(req,timeout=4) as response: data=json.load(response)
     if not isinstance(data,list) or len(data)!=1:raise ValueError("NBU USD rate unavailable")
