@@ -66,7 +66,7 @@ def earn(c, uid):
     # Ad viewing is public; VIP remains a separate quest achievement.
     posts_button = {'text':'🎬 Смотреть рекламу',
                     'web_app':{'url':b.farm_url()+'cash-ads-preview.html'}}
-    return screen(uid, text, [[b.button(label('🤖 Перейти в бота', 'bot'), 'list:bot:0')], [b.button(label('📣 Подписаться на канал', 'channel'), 'list:channel:0')], [b.button(label('👥 Вступить в группу', 'group'), 'list:group:0')], [posts_button], [b.button('⭐ Квесты', 'quests'), b.button('📝 Задания', 'list:manual:0')], [b.button('🎁 Бонус ' + b.money(daily), 'daily'), b.button('🤝 За друга', 'friends')]])
+    return screen(uid, text, [[b.button(label('🤖 Перейти в бота', 'bot'), 'list:bot:0')], [b.button(label('📣 Подписаться на канал', 'channel'), 'channel:feed')], [b.button(label('👥 Вступить в группу', 'group'), 'list:group:0')], [posts_button], [b.button('⭐ Квесты', 'quests'), b.button('📝 Задания', 'list:manual:0')], [b.button('🎁 Бонус ' + b.money(daily), 'daily'), b.button('🤝 За друга', 'friends')]])
 
 def promotion(c, uid):
     b = core()
