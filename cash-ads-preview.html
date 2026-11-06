@@ -33,7 +33,7 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
  const app=window.Telegram?.WebApp;
  const el=id=>document.getElementById(id);
  const watch=el('watch'),quota=el('quota'),label=el('identity');
- let signed='',active=false,retryUntil=0,lastRewardId=null,watching=false;
+ let signed='',active=false,retryUntil=0,lastRewardId=null,watching=false,hasLoadedRewards=false;
  const post=async(path,payload={})=>{
   const r=await fetch('/api/ads/cash/'+path,{method:'POST',credentials:'same-origin',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_data:signed,...payload})});
@@ -50,11 +50,12 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
   el('refs').textContent=usd(stats.referral_usd);
   const latest=stats.last_reward;
   if(latest?.ymid && latest.ymid!==lastRewardId){
-   if(lastRewardId!==null && watching){
+   if(hasLoadedRewards && watching){
     el('rewardMessage').textContent='🎉 Награда начислена: +'+usd(latest.viewer_usd)+'! Ожидает окончательного расчёта Monetag.';
    }
    lastRewardId=latest.ymid;
   }
+  hasLoadedRewards=true;
   active=Boolean(status.active_attempt);
   retryUntil=Date.now()+Math.max(0,Number(status.retry_after)||0)*1000;
   if(!status.enabled){watch.disabled=true;watch.textContent='Реклама временно недоступна';quota.textContent='Просмотры сейчас отключены';return}
