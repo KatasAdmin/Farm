@@ -265,15 +265,15 @@ class BotScreenTests(unittest.TestCase):
         self.assertEqual(self.balance(3),0)
         self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_tasks').fetchone()['n'],0)
 
-    def test_ads_button_checks_vip_and_shows_lock_popup(self):
+    def test_ads_button_open_to_non_vip_without_changing_vip_quest(self):
         response=self.send(3,action='earn')
         ads=response['reply_markup']['inline_keyboard'][3][0]
-        self.assertEqual(ads['callback_data'],'bot:watch_ads_info')
+        self.assertIn('cash-ads-preview.html',ads['web_app']['url'])
         self.assertIn('Смотреть рекламу',ads['text'])
-        locked=self.send(3,action='watch_ads_info')
-        self.assertEqual(locked['method'],'answerCallbackQuery')
-        self.assertTrue(locked['show_alert'])
-        self.assertIn('3 квеста',locked['text'])
+        legacy=self.send(3,action='watch_ads_info')
+        self.assertIn('Смотреть рекламу',legacy['text'])
+        self.assertIn('cash-ads-preview.html',legacy['reply_markup']['inline_keyboard'][0][0]['web_app']['url'])
+        self.assertFalse(bot.bot_quests.vip(self.c,3))
 
     def test_existing_order_reward_used_in_overview_instead_of_new_default_rate(self):
         self.credit()
