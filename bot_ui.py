@@ -66,13 +66,13 @@ def earn(c, uid):
     # Ad viewing is public; VIP remains a separate quest achievement.
     posts_button = {'text':'🎬 Смотреть рекламу',
                     'web_app':{'url':b.farm_url()+'cash-ads-preview.html'}}
-    return screen(uid, text, [[b.button(label('🤖 Перейти в бота', 'bot'), 'list:bot:0')], [b.button(label('📣 Подписаться на канал', 'channel'), 'channel:feed')], [b.button(label('👥 Вступить в группу', 'group'), 'list:group:0')], [posts_button], [b.button('⭐ Квесты', 'quests'), b.button('📝 Задания', 'list:manual:0')], [b.button('🎁 Бонус ' + b.money(daily), 'daily'), b.button('🤝 За друга', 'friends')]])
+    return screen(uid, text, [[b.button(label('🤖 Перейти в бота', 'bot'), 'list:bot:0')], [b.button(label('📣 Подписаться на канал', 'channel'), 'channel:feed')], [b.button(label('👥 Вступить в группу', 'group'), 'group:feed')], [posts_button], [b.button('⭐ Квесты', 'quests'), b.button('📝 Задания', 'list:manual:0')], [b.button('🎁 Бонус ' + b.money(daily), 'daily'), b.button('🤝 За друга', 'friends')]])
 
 def promotion(c, uid):
     b = core()
     b.state(c, uid, 'clear')
     a = b.account(c, uid)
-    return screen(uid, tr('📣 <b>Что хочешь продвинуть?</b>\n\n<b>💰 Баланс: {v0}</b>\n\nВыбери формат и создай свой заказ.\nПолная стоимость резервируется после подтверждения. Публикация — после модерации.', {'v0': b.money(a['available'])}, html_mode=True, section='bot_ui', limit=3000), [[b.button('👁 Пост', 'new:post'), b.button('📣 Канал', 'new:channel')], [b.button('🤖 Бота', 'new:bot'), b.button('👥 Группу', 'new:group')], [b.button('📝 Задание', 'new:manual')], [b.button('📋 Мои заказы', 'mine:0'), b.button('✅ Проверить работы', 'reviews:0')], [b.button('➕ Пополнить', 'deposit')]])
+    return screen(uid, tr('📣 <b>Что хочешь продвинуть?</b>\n\n<b>💰 Баланс: {v0}</b>\n\nВыбери формат и создай свой заказ.\nПолная стоимость резервируется после подтверждения. Оплаченные задания публикуются сразу. Возможна остановка нарушающих правила заказов.', {'v0': b.money(a['available'])}, html_mode=True, section='bot_ui', limit=3000), [[b.button('👁 Пост', 'new:post'), b.button('📣 Канал', 'new:channel')], [b.button('🤖 Бота', 'new:bot'), b.button('👥 Группу', 'new:group')], [b.button('📝 Задание', 'new:manual')], [b.button('📋 Мои заказы', 'mine:0'), b.button('✅ Проверить работы', 'reviews:0')], [b.button('➕ Пополнить', 'deposit')]])
 
 def team_rows(c, uid):
     return c.execute("WITH RECURSIVE team(uid,depth,path) AS (\n      SELECT uid,1,',' || CAST(%s AS text) || ',' || CAST(uid AS text) || ','\n        FROM bot_accounts WHERE referrer=%s AND uid<>%s\n      UNION ALL\n      SELECT a.uid,t.depth+1,t.path || CAST(a.uid AS text) || ','\n        FROM bot_accounts a JOIN team t ON a.referrer=t.uid\n        WHERE t.depth<5 AND replace(t.path,',' || CAST(a.uid AS text) || ',','')=t.path)\n      SELECT depth,count(*) AS n,sum(CASE WHEN EXISTS(\n        SELECT 1 FROM bot_claims x WHERE x.uid=team.uid AND x.status='paid') THEN 1 ELSE 0 END) AS active\n        FROM team GROUP BY depth", (uid, uid, uid)).fetchall()
