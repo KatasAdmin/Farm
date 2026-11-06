@@ -15,7 +15,7 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
 <p id="identity">Проверяем доступ через Telegram…</p>
 <div class="metrics">
  <div class="metric"><small>Завершено просмотров</small><strong id="completed">—</strong></div>
- <div class="metric"><small>Подтверждено Monetag</small><strong id="confirmed">—</strong></div>
+ <div class="metric"><small>Наград учтено</small><strong id="confirmed">—</strong></div>
  <div class="metric"><small>🎁 Начислено за свои просмотры · ожидает расчёта</small><strong id="viewer">$0</strong></div>
  <div class="metric"><small>🤝 Начислено от команды · ожидает расчёта</small><strong id="refs">$0</strong></div>
 </div>
@@ -72,7 +72,7 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
   if(!app?.initData){label.textContent='Открой страницу через Telegram Mini App.';quota.textContent='';return}
   signed=app.initData;
   await post('preview-auth');
-  label.textContent='✅ VIP открыт · реклама доступна';
+  label.textContent='✅ VIP открыт · награды за рекламу активны';
   await refresh();
   el('retry').onclick=async()=>{try{await refresh()}catch(e){quota.textContent=e.message}};
   watch.onclick=async()=>{
