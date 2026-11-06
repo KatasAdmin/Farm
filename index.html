@@ -23,13 +23,7 @@
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
-      <!-- Temporarily hide all rewarded-ad controls; implementation remains available for later. -->
-    <style id="rewarded-ads-ui-paused">
-      [data-ad-free], .ad-free-button, #resource-action-free,
-      #resource-action-ad-progress, #free-grain-shortage,
-      #purchase-ad-free, #ad-purchase-credit, #ad-inline-status,
-      #ad-history { display: none !important; }
-    </style>
+
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -904,6 +898,6 @@
     </dialog>
   <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
 <script src="/assets/fields.js?v=9" defer></script>
-<!-- Rewarded ads temporarily disabled: no paid inventory; keep implementation in repository. -->
+<script src="/assets/monetag-rewards.js?v=2" defer></script>
 </body>
 </html>
