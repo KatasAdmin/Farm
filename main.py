@@ -637,6 +637,26 @@ def admin_ads(authorization:str=Header(default="")):
  require_farm_admin(authorization)
  with db() as c:return monetag_ads.statistics(c)
 
+@app.get("/api/admin/ads/cash-staging")
+def admin_cash_ads_staging(authorization:str=Header(default="")):
+ # Read-only internal overview. Estimated income is NOT withdrawable revenue.
+ require_farm_admin(authorization)
+ with db() as c:
+  attempts=c.execute("""
+   SELECT state,COUNT(*) AS count
+   FROM bot_monetag_cash_attempts GROUP BY state
+  """).fetchall()
+  events=c.execute("""
+   SELECT state,COUNT(*) AS count,COALESCE(SUM(estimated_usd),0) AS estimated_usd
+   FROM bot_monetag_cash_events GROUP BY state
+  """).fetchall()
+ return {"enabled":False,"withdrawals_enabled":False,
+         "currency":"USD","estimated_only":True,
+         "attempts":{row["state"]:int(row["count"]) for row in attempts},
+         "events":[{"state":row["state"],"count":int(row["count"]),
+                    "estimated_usd":str(row["estimated_usd"])} for row in events]}
+
+
 @app.get("/health")
 def health():return {"ok":True,"release":RELEASE}
 @app.get("/health/db")
