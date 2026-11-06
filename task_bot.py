@@ -146,11 +146,11 @@ def cabinet(c, uid):
     debt = debt['amount'] if debt else 0
     state(c, uid, 'clear')
     debt_line = tr('\n⚠️ Задолженность: {v0}', {'v0': money(debt)}, html_mode=True, section='task_bot', limit=3000) if debt else ''
-    text = tr('👤 <b>Мой кабинет</b>\n🆔 ID: <code>{v0}</code>\n\n<b>💰 Доступный баланс: {v1}</b>{v2}\n\n<b>📊 Статистика</b>\n💳 Пополнений: {v3}\n📣 Потрачено на рекламу: {v4}\n💵 Заработано на заданиях: {v5}\n🎁 Бонусы и рефералы: {v6}\n\n❄️ В бюджете заданий: {v7}\n⌛ Ожидает выплаты: {v8}\n💸 Выведено всего: {v9}', {'v0': f'{uid}', 'v1': f"{money(a['available'])}", 'v2': f'{debt_line}', 'v3': f'{money(deposits)}', 'v4': f'{money(spent)}', 'v5': f'{money(earned)}', 'v6': f'{money(bonuses)}', 'v7': f'{money(frozen)}', 'v8': f'{money(pending)}', 'v9': f'{money(paid)}'}, html_mode=True, section='task_bot', limit=3000)
+    text = tr('👤 <b>Мой кабинет</b>\n🆔 <code>{v0}</code>\n\n💰 <b>Доступно: {v1}</b>{v2}\n\n📊 <b>Движение средств</b>\n💳 Пополнено: {v3}\n📣 На рекламу: {v4}\n✅ За задания: {v5}\n🎁 Бонусы и партнёры: {v6}\n\n📌 <b>Остальные средства</b>\n❄️ В рекламных заданиях: {v7}\n⏳ Ожидает вывода: {v8}\n💸 Выведено: {v9}', {'v0': f'{uid}', 'v1': f"{money(a['available'])}", 'v2': f'{debt_line}', 'v3': f'{money(deposits)}', 'v4': f'{money(spent)}', 'v5': f'{money(earned)}', 'v6': f'{money(bonuses)}', 'v7': f'{money(frozen)}', 'v8': f'{money(pending)}', 'v9': f'{money(paid)}'}, html_mode=True, section='task_bot', limit=3000)
     buttons = [[button('➕ Пополнить', 'deposit'), button('💸 Вывести', 'withdraw')], [button('✅ Мои выполнения', 'claims')], [button('📥 Мои заявки', 'payouts'), button('📜 История', 'history')]]
-    buttons.append([button('📱 Привязать свой номер','identity:share')])
+    buttons.append([button('📱 Привязать номер','identity:share')])
     if bot_copy.owner():
-        buttons.append([button('🛠 Управление ботом', 'admin')])
+        buttons.append([button('🛡 Админ-панель', 'admin')])
     return bot_ui.screen(uid, text, buttons)
 
 def resolve_chat(api, target, kind):
@@ -309,6 +309,9 @@ def handle(payload, db, api, is_admin):
 
 def route(c, uid, text, action, message, api, admin):
     cmd = text.split(maxsplit=1)[0].split('@')[0] if text else ''
+    if cmd == '/menu':
+        state(c,uid,'clear')
+        return say(uid,'🏠 Главное меню восстановлено. Выбирай раздел ниже 👇')
     if cmd.startswith('/bonus'):
         return bot_promos.command(c,uid,text,admin)
     if admin and cmd=='/start' and text not in ('/start wallet','/start support') and not text.startswith('/start link_'):
