@@ -767,13 +767,35 @@ def _administration(c, uid, text, action, api):
           +'<code>'+html.escape(url)+'</code>\n'
           +'<i>Это секретная ссылка. Не пересылай её другим людям.</i>',
           [[button('⬅️ Админ-панель','admin')]])
+    if command == '/adsincome':
+        # Only the primary FARM owner may allocate actual publisher revenue.
+        owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
+        if not owner or int(owner['telegram_id'])!=uid:
+            raise UserError('Только владелец FARM может распределять рекламный доход.')
+        if len(parts)!=2:
+            raise UserError('Формат: /adsincome 0.25 — фактический доход AdsGram за вчера по Киеву в USDT. Без суммы за другие даты.')
+        import bot_adsgram_daily
+        try:
+            result=bot_adsgram_daily.settle_yesterday(c,parts[1].replace(',','.'),uid)
+        except (ValueError,TypeError) as exc:
+            raise UserError('Начисления НЕ выполнены: '+str(exc))
+        return bot_ui.screen(uid,
+            '✅ <b>AdsGram: вчерашний доход распределён</b>\\n'
+            +'Дата по Киеву: '+result['day']+'\\n'
+            +'Всего подтверждённых реклам: '+str(result['provider_impressions'])+'\\n'
+            +'Из них за игровые ресурсы: '+str(result['farm_views'])+'\\n'
+            +'За деньги в боте: '+str(result['cash_views'])+'\\n'
+            +'Доход AdsGram: '+result['publisher_usd']+' USDT\\n'
+            +'Начислено зрителям и рефералам: '+money(result['credited_kopeks'])+'\\n'
+            +'Остаток FARM: не менее '+result['platform_usd_at_least']+' USD',
+            [[button('⬅️ Админ-панель','admin')]])
     if command == '/adsgramsettle':
         # Additional bot moderators must not approve money transfers.
         owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
         if not owner or int(owner['telegram_id'])!=uid:
             raise UserError('Только владелец FARM может подтверждать рекламную выручку.')
         if len(parts)!=4:
-            raise UserError('Формат: /adsgramsettle ГГГГ-ММ-ДД Сумма_USDT Показы. Сначала сверь отчёт AdsGram за завершённый день UTC.')
+            raise UserError('Формат: /adsgramsettle ГГГГ-ММ-ДД Сумма_USDT Показы. Сначала сверь отчёт AdsGram за завершённый день по Киеву.')
         import bot_adsgram_daily
         try:
             result=bot_adsgram_daily.settle_day(c,parts[1],parts[2],int(parts[3]),uid)
@@ -781,7 +803,7 @@ def _administration(c, uid, text, action, api):
             raise UserError('Невозможно провести суточную сверку AdsGram: '+str(exc))
         return bot_ui.screen(uid,
             '✅ <b>AdsGram: суточный доход распределён</b>\n'
-            +'Дата UTC: '+result['day']+'\n'
+            +'Дата по Киеву: '+result['day']+'\n'
             +'Подтверждённых показов: '+str(result['provider_impressions'])+'\n'
             +'Доход AdsGram: '+result['publisher_usd']+' USDT\n'
             +'Начислено людям: '+money(result['credited_kopeks'])+'\n'
