@@ -320,3 +320,76 @@ def monetag_cash_allocation(estimated_usd, referral_chain):
         'platform_usd': str(amount - viewer - ref_total),
         'status': 'preview_only_not_payable',
     }
+
+
+def initialize_monetag_cash_staging(c):
+    """Create isolated pending-review tables; deliberately NOT called by initialize()."""
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS bot_monetag_cash_events(
+            ymid text PRIMARY KEY,
+            viewer_uid bigint NOT NULL,
+            zone_id bigint NOT NULL,
+            placement text NOT NULL,
+            event_type text NOT NULL CHECK(event_type IN ('impression','click')),
+            reward_event_type text NOT NULL CHECK(reward_event_type IN ('valued','non_valued')),
+            estimated_usd numeric(28,12) NOT NULL CHECK(estimated_usd>=0),
+            referral_chain jsonb NOT NULL,
+            allocation jsonb NOT NULL,
+            state text NOT NULL DEFAULT 'pending_review'
+                CHECK(state IN ('pending_review','reconciled','rejected')),
+            received_at double precision NOT NULL
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS bot_monetag_cash_event_audit(
+            id bigserial PRIMARY KEY,
+            ymid text NOT NULL REFERENCES bot_monetag_cash_events(ymid),
+            action text NOT NULL,
+            created_at double precision NOT NULL,
+            details jsonb NOT NULL
+        )
+    """)
+
+
+def stage_monetag_cash_event(c, *, ymid, viewer_uid, zone_id, placement,
+                            event_type, reward_event_type, estimated_usd,
+                            referral_chain):
+    """Idempotently record a trusted, server-verified event; NEVER credit wallets.
+
+    Caller must verify Monetag postback secret, zone, placement, event identity,
+    Telegram identity, and referral graph BEFORE calling this function.
+    Event-type precedence and publisher reconciliation are not implemented yet.
+    """
+    from decimal import Decimal
+    from psycopg.types.json import Jsonb
+    if not ymid or len(ymid)>256 or not placement or len(placement)>128:
+        raise ValueError('Invalid event identifier or placement')
+    if event_type not in ('impression','click'):
+        raise ValueError('Invalid event type')
+    if reward_event_type not in ('valued','non_valued'):
+        raise ValueError('Invalid reward event type')
+    if not isinstance(viewer_uid,int) or viewer_uid<=0:
+        raise ValueError('Invalid viewer')
+    if not isinstance(zone_id,int) or zone_id<=0:
+        raise ValueError('Invalid zone')
+    price=Decimal(str(estimated_usd))
+    if not price.is_finite() or price<0:
+        raise ValueError('Invalid estimated revenue')
+    # Never pay non-valued events, even if a nonzero estimate was supplied.
+    allocated=monetag_cash_allocation(
+        price if reward_event_type=='valued' else Decimal(0), referral_chain
+    )
+    row=c.execute("""
+        INSERT INTO bot_monetag_cash_events
+        (ymid,viewer_uid,zone_id,placement,event_type,reward_event_type,
+         estimated_usd,referral_chain,allocation,received_at)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (ymid) DO NOTHING RETURNING ymid
+    """,(ymid,viewer_uid,zone_id,placement,event_type,reward_event_type,
+         price,Jsonb(referral_chain),Jsonb(allocated),time.time())).fetchone()
+    if row:
+        c.execute("""
+            INSERT INTO bot_monetag_cash_event_audit(ymid,action,created_at,details)
+            VALUES(%s,'staged',%s,%s)
+        """,(ymid,time.time(),Jsonb({'state':'pending_review'})))
+    return {'recorded':bool(row),'ymid':ymid,'state':'pending_review'}
