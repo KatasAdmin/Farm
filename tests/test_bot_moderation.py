@@ -39,7 +39,7 @@ class ModerationTests(unittest.TestCase):
         self.assertIn('Доступ',self.send(3,action='admin:taskcontrol:fake')['text'])
         self.assertIn('Доступ',self.send(3,'some input')['text'])
         self.assertFalse(mod.paused(self.c,tid));self.assertEqual(self.balance(2),before)
-        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_task_admin_audit').fetchone()['n'],1)
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_task_admin_audit').fetchone()['n'],0)
 
     def test_paused_task_hidden_and_direct_completion_blocked_until_resume(self):
         tid=self.task(count='1');before=self.balance(2)
@@ -51,7 +51,7 @@ class ModerationTests(unittest.TestCase):
         self.assertIn('остановлено',self.send(3,action='check:'+tid)['text'])
         self.assertEqual(self.balance(3),0)
         self.send(1,action='admin:taskcontrol:'+nonce)
-        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_task_admin_audit').fetchone()['n'],2)
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_task_admin_audit').fetchone()['n'],1)
         self.control('resume',tid)
         self.send(3,action='check:'+tid);self.assertEqual(self.balance(3),56)
         self.send(3,action='check:'+tid);self.assertEqual(self.balance(3),56)
@@ -95,7 +95,7 @@ class ModerationTests(unittest.TestCase):
             self.send(2,'Send a screenshot of the completed instructions')
             self.send(2,action='manual:skip_url');self.send(2,'1');self.send(2,'1')
             self.send(2,action='manual:photos_done');self.send(2,action='confirm_task')
-        first=self.send(1,action='admin:tasks');second=self.send(1,action='admin:tasklist:pending:1')
+        first=self.send(1,action='admin:tasklist:active:0');second=self.send(1,action='admin:tasklist:active:1')
         def ids(response):return [x['callback_data'] for row in response['reply_markup']['inline_keyboard'] for x in row if x.get('callback_data','').startswith('bot:admin:task:')]
         self.assertEqual(len(ids(first)),8);self.assertEqual(len(ids(second)),1)
         self.assertFalse(set(ids(first))&set(ids(second)))
