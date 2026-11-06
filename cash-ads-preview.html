@@ -42,8 +42,23 @@
       try{
         await window.FarmCashAds.showCashAd(app.initData);
         quotaLabel.textContent='Тестовый просмотр завершён. Денежных начислений нет.';
-      }catch(error){quotaLabel.textContent=error.message||'Реклама недоступна';}
-      finally{watch.disabled=false;watch.textContent='Смотреть рекламу';}
+      }catch(error){
+        const message=String(error?.message||'Реклама недоступна');
+        quotaLabel.textContent=message;
+        const noFill=/no.?ads|no.?fill|no.?inventory|no.?available|not.?available|no.?ad|нет доступной рекламы|реклама недоступна/i.test(message);
+        if(noFill){
+          watch.disabled=true;
+          watch.setAttribute('aria-disabled','true');
+          watch.style.background='#45536c';
+          watch.style.cursor='not-allowed';
+          watch.textContent='Нет доступной рекламы';
+          quotaLabel.textContent='Сейчас нет доступной рекламы. Попробуйте открыть экран позже.';
+        }else{
+          watch.disabled=false;
+          watch.textContent='Повторить просмотр';
+        }
+      }
+      finally{if(watch.textContent==='Загрузка рекламы…'){watch.disabled=false;watch.textContent='Смотреть рекламу';}}
     };
     // Opening the bot's ad link starts the first view automatically.
     // Keep the button only for retry after an unavailable ad.
