@@ -231,7 +231,7 @@ def membership_feed(c,uid,message,kind='channel',after_id=None,success='',api=No
         params.extend([prev['created'],prev['id']])
     row=None
     for _ in range(40):
-        row=c.execute('SELECT t.* FROM bot_tasks t WHERE '+bot_ui.catalog_filter()+' AND t.kind=%s'+condition+' ORDER BY t.created,t.id LIMIT 1',tuple(params[:3]+[kind]+params[3:])).fetchone()
+        row=c.execute('SELECT t.* FROM bot_tasks t WHERE '+bot_ui.catalog_filter()+' AND t.kind=%s'+condition+' ORDER BY t.created,t.id LIMIT 1',tuple(params[:3]+[uid,kind]+params[3:])).fetchone()
         if not row:break
         claim=c.execute('SELECT status FROM bot_claims WHERE task=%s AND uid=%s',(row['id'],uid)).fetchone()
         if claim and claim['status']=='started':break
@@ -566,7 +566,7 @@ def route(c, uid, text, action, message, api, admin):
             buttons = [[button(f"{r['title'][:30]} · {r['status']}", 'own:' + r['id'])] for r in rows]
         else:
             kind = parts[1]
-            rows = c.execute('SELECT t.* FROM bot_tasks t WHERE ' + bot_ui.catalog_filter() + ' AND t.kind=%s ORDER BY t.created LIMIT 8 OFFSET %s', (uid, uid, uid, kind, offset)).fetchall()
+            rows = c.execute('SELECT t.* FROM bot_tasks t WHERE ' + bot_ui.catalog_filter() + ' AND t.kind=%s ORDER BY t.created LIMIT 8 OFFSET %s', (uid, uid, uid, uid, kind, offset)).fetchall()
             buttons = [[button(r['title'][:35] + ' · ' + money(r['reward']), 'task:' + r['id'])] for r in rows]
         if len(rows) == 8:
             buttons.append([button('Далее →', ':'.join(parts[:-1]) + ':' + str(offset + 8))])
