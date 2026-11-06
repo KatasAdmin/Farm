@@ -159,7 +159,7 @@ def finish_cash_attempt(c, viewer_uid, ymid):
     lock_cash_viewer(c,viewer_uid)
     row=c.execute("""
         UPDATE bot_monetag_cash_attempts SET finished_at=%s
-        WHERE ymid=%s AND viewer_uid=%s AND state='launched' AND finished_at IS NULL
+        WHERE ymid=%s AND viewer_uid=%s AND state IN ('launched','confirmed') AND finished_at IS NULL
         RETURNING ymid
     """,(time.time(),ymid,viewer_uid)).fetchone()
     return {'ok':bool(row),'payable':False}
