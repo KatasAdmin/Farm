@@ -36,12 +36,12 @@ def active_order_filter():
     return "t.status='active' AND NOT EXISTS(SELECT 1 FROM bot_task_controls k WHERE k.task=t.id AND k.paused=1)\n      AND t.remaining>=coalesce((SELECT cost FROM bot_task_terms q WHERE q.task=t.id),t.reward)*\n        (1+(SELECT count(*) FROM bot_claims r WHERE r.task=t.id AND r.status='review'))\n      AND (t.kind<>'post' OR EXISTS(SELECT 1 FROM bot_post_publications p WHERE p.task=t.id AND p.status='posted'))"
 
 def catalog_filter():
-    return active_order_filter() + " AND t.owner<>%s\n      AND NOT EXISTS(SELECT 1 FROM bot_claims x WHERE x.task=t.id AND x.uid=%s\n        AND x.status IN ('paid','rejected','review'))\n      AND (t.kind<>'bot' OR t.chat_id IS NULL OR NOT EXISTS(\n        SELECT 1 FROM bot_bot_completions done WHERE done.uid=%s AND done.bot_id=t.chat_id))"
+    return active_order_filter() + " AND t.owner<>%s\n      AND NOT EXISTS(SELECT 1 FROM bot_claims x WHERE x.task=t.id AND x.uid=%s\n        AND x.status IN ('paid','rejected','review'))\n      AND (t.kind<>'bot' OR t.chat_id IS NULL OR NOT EXISTS(\n        SELECT 1 FROM bot_bot_completions done WHERE done.uid=%s AND done.bot_id=t.chat_id))\n      AND (t.kind<>'bot' OR NOT EXISTS(\n        SELECT 1 FROM bot_bot_click_completions bcd WHERE bcd.uid=%s\n        AND lower(t.url) LIKE 'https://t.me/' || bcd.username || '%'))"
 
 def earn(c, uid):
     b = core()
     b.state(c, uid, 'clear')
-    rows = c.execute('SELECT kind,count(*) AS n,sum(reward) AS total,\n      min(reward) AS low,max(reward) AS high FROM bot_tasks t WHERE ' + catalog_filter() + ' GROUP BY kind', (uid, uid, uid)).fetchall()
+    rows = c.execute('SELECT kind,count(*) AS n,sum(reward) AS total,\n      min(reward) AS low,max(reward) AS high FROM bot_tasks t WHERE ' + catalog_filter() + ' GROUP BY kind', (uid, uid, uid, uid)).fetchall()
     kinds = {r['kind']: r for r in rows}
     total = sum((r['total'] for r in rows))
     settings = c.execute('SELECT daily,channel_url FROM bot_settings WHERE id=1').fetchone()
