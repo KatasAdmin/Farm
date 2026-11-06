@@ -324,7 +324,17 @@ def route(c, uid, text, action, message, api, admin):
         return bot_ui.partners(c,uid)
     if cmd=='/adincome' or action=='ad_income':
         earnings=bot_monetag_cash.estimated_earnings(c,uid)
-        price=lambda x:'
+        price=lambda x:'$'+format(x,'.9f')
+        lines=['💵 <b>Мой рекламный доход · предварительно</b>',
+               '', '👀 За свои просмотры: <b>'+price(earnings['viewer'])+'</b>',
+               '🤝 От рефералов: <b>'+price(earnings['referral'])+'</b>',
+               '📊 Всего: <b>'+price(earnings['total'])+'</b>', '',
+               '🌱 <b>Реферальные уровни</b>']
+        for index,amount in enumerate(earnings['levels'],1):
+            lines.append(str(index)+' уровень: '+price(amount))
+        lines.extend(['','🔒 <i>Это оценка по подтверждённым postback Monetag, не баланс для вывода. '
+                      'Доступные для вывода средства могут появиться только после сверки с окончательным доходом сети.</i>'])
+        return bot_ui.screen(uid,'\n'.join(lines),[[button('🎬 Смотреть рекламу','watch_ads_info')],[button('🤝 Моя команда','friends')],[button('⬅️ Кабинет','cabinet')]])
     if cmd.startswith('/bonus'):
         return bot_promos.command(c,uid,text,admin)
     if admin and cmd=='/start' and text not in ('/start wallet','/start support') and not text.startswith('/start link_'):
