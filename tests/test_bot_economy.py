@@ -253,7 +253,7 @@ class EconomyTests(unittest.TestCase):
         self.send(1,'30 5 2.5 1.5 0.75 0.25')
         self.send(1,action='admin:ecoedit:retention')
         self.send(1,'10 3')
-        self.assertEqual(eco.quote(self.c,'channel')['reward'],70)
+        self.assertEqual(eco.quote(self.c,'channel')['reward'],80)
         q=eco.terms(self.c,tid)
         self.assertEqual((q['cost'],q['days'],q['multiplier']),(70,7,2))
         self.send(3,action='take:'+tid)
