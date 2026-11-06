@@ -8,6 +8,7 @@ import incubation_rules
 import stars_validation
 import monetag_ads
 import bot_monetag_cash
+import bot_cash_ad_credits
 import bot_quests
 import bot_economy
 import ad_inventory
@@ -56,6 +57,7 @@ async def lifespan(app):
   monetag_ads.initialize(c)
   bot_monetag_cash.initialize_cash_attempts(c)
   bot_economy.initialize_monetag_cash_staging(c)
+  bot_cash_ad_credits.initialize(c)
   ad_inventory.initialize(c)
   c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
@@ -679,13 +681,17 @@ def monetag_postback(request:HTTPRequest,ymid:str="",zone_id:int=0,sub_zone_id:i
    if zone_id!=bot_monetag_cash.CASH_ZONE_ID:
     raise HTTPException(400,"Invalid cash advertising zone")
    try:
-    return bot_monetag_cash.stage_verified_cash_postback(
+    staged=bot_monetag_cash.stage_verified_cash_postback(
      c,secret=getattr(request.state,"monetag_secret",""),ymid=ymid,
      telegram_uid=int(telegram_id),zone_id=zone_id,
      request_var=request_var.removeprefix(str(zone_id)+"_"),
      event_type=event_type,reward_event_type=reward_event_type,
      estimated_price=estimated_price,
      referral_chain=bot_monetag_cash.verified_bot_referral_chain(c,int(telegram_id)))
+    if staged.get("ok") and reward_event_type=="valued" and event_type=="impression":
+     result=bot_cash_ad_credits.credit_verified_event(c,ymid)
+     return {**staged,**result,"payable":True,"advance_funded_by_publisher":True}
+    return staged
    except PermissionError:
     raise HTTPException(403,"Forbidden")
    except ValueError:
