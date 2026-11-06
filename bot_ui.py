@@ -133,8 +133,8 @@ def home(c, uid, invited=False):
         welcome = c.execute('SELECT w.body,a.name FROM bot_ref_welcomes w JOIN bot_accounts a ON a.uid=w.uid WHERE w.uid=%s', (a['referrer'],)).fetchone()
         if welcome:
             text += tr('✉️ <b>Сообщение от пригласившего {v0}:</b>\n{v1}\n\n', {'v0': esc(welcome['name'][:32]), 'v1': esc(welcome['body'])}, html_mode=True, section='bot_ui', limit=3000)
-    text += tr('🌾 Развивай ферму и собирай урожай\n✅ Выполняй задания и проходи 20 квестов\n🤝 Приглашай друзей в команду\n💎 Пройди первые 3 квеста и получи статус VIP\n🏆 Повышай активность и поднимайся в топ\n\n👇 Начни с ежедневного бонуса и квестов!', html_mode=True, section='bot_ui', limit=3000)
-    return screen(uid, text, [[b.button('🚀 Заработать','earn'),b.button('⭐ Квесты','quests')], [{'text':'🌾 Открыть ферму','web_app':{'url':b.farm_url()}}], [b.button('❓ Как начать','help')]])
+    text += tr('🌾 Развивай ферму и собирай урожай\n✅ Выполняй задания и проходи 20 квестов\n🤝 Приглашай друзей в команду\n💎 Пройди первые 3 квеста и получи статус VIP\n🏆 Повышай активность и поднимайся в топ\n\n👇 Открой «Заработать» в меню ниже, получи ежедневный бонус и начни квесты!', html_mode=True, section='bot_ui', limit=3000)
+    return screen(uid, text)
 
 def welcome(c, uid):
     b = core()
