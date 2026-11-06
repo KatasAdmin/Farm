@@ -226,14 +226,14 @@ def cash_ad_revenue_screen(c, uid):
     refs=sum((Decimal(str(x['usd'])) for r in data for x in r['allocation'].get('referrals',[])),Decimal('0'))
     project=total-viewer-refs
     format_usd=lambda n:'USD '+format(n,'.12f')
-    body=('🎬 <b>Monetag — доход от рекламы</b>\n\n'
+    body=('🎬 <b>Денежные рекламные награды (отдельная система)</b>\n\n'
           +'Запусков: '+str(a)+'\n'
           +'Подтверждённых оплачиваемых показов: '+str(len(data))+'\n'
           +'Предварительный доход: <b>'+format_usd(total)+'</b>\n\n'
           +'Зрителям: '+format_usd(viewer)+'\n'
           +'Рефералам: '+format_usd(refs)+'\n'
           +'Проекту: '+format_usd(project)+'\n\n'
-          +'<i>Это оценка по postback Monetag, не подтверждённая окончательным расчётом. На баланс и вывод не начисляется.</i>')
+          +'<i>Это только отдельная система денежных рекламных наград, а не весь доход фермы от Monetag. Если здесь ноль, общая реклама всё равно может приносить деньги. Это оценка по postback, не окончательный расчёт; на баланс и вывод не начисляется.</i>')
     return b.bot_ui.screen(uid,body,[[b.button('Обновить','admin:ads:revenue')],[b.button('Назад','admin:ads')]])
 
 def admin(c, uid, text, action, api):
@@ -247,10 +247,20 @@ def admin(c, uid, text, action, api):
     if moderation is not None:return moderation
     if action=='admin:ads:revenue':
         return cash_ad_revenue_screen(c,uid)
-    if action=='admin:ads' or action in ('admin:ads:telegram','admin:ads:web','admin:ads:legacy'):
+    if action=='admin:ads' or action in ('admin:ads:telegram','admin:ads:web','admin:ads:legacy','admin:ads:details','admin:ads:details:telegram','admin:ads:details:web','admin:ads:details:legacy'):
         b.state(c,uid,'clear')
-        platform=action.split(':')[2] if action.count(':')==2 else None
-        return ui.screen(uid,monetag_ads.admin_text(c,platform),[[b.button('Все','admin:ads'),b.button('Telegram','admin:ads:telegram'),b.button('Браузер','admin:ads:web')],[b.button('Доход Monetag','admin:ads:revenue')],[b.button('До обновления','admin:ads:legacy'),b.button('⬅️ Админ-панель','admin')]])
+        parts=action.split(':')
+        detail='details' in parts
+        platform=parts[-1] if parts[-1] in ('telegram','web','legacy') else None
+        suffix=':'+platform if platform else ''
+        buttons=[[b.button('🌍 Все','admin:ads'),b.button('📱 Telegram','admin:ads:telegram'),b.button('🌐 Браузер','admin:ads:web')]]
+        if detail:
+            buttons.append([b.button('⬅️ К доходу','admin:ads'+suffix)])
+        else:
+            buttons.append([b.button('📋 Награды и детали','admin:ads:details'+suffix)])
+        buttons.append([b.button('💰 Денежные награды (отдельно)','admin:ads:revenue')])
+        buttons.append([b.button('🕰️ Старая версия','admin:ads:legacy'),b.button('⬅️ Админ-панель','admin')])
+        return ui.screen(uid,monetag_ads.admin_text(c,platform,detail),buttons)
     if action=='admin:statistics':
         b.state(c,uid,'clear')
         pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
