@@ -40,7 +40,7 @@ def initialize_cash_attempts(c):
             viewer_uid bigint NOT NULL,
             zone_id integer NOT NULL,
             placement text NOT NULL CHECK(placement='cash_rewarded_interstitial'),
-            request_var text NOT NULL UNIQUE,
+            request_var text NOT NULL,
             created_at double precision NOT NULL,
             expires_at double precision NOT NULL,
             state text NOT NULL DEFAULT 'prepared'
