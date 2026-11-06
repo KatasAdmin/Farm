@@ -63,19 +63,9 @@ def earn(c, uid):
         return text + (' · ' + reward if reward else '')
     text = tr('🚀 <b>Как хочешь заработать?</b>\n\n<b>💼 Доступные задания</b>\n📣 Подписаться на канал: <b>{v0}</b>\n👁 Посмотреть пост: <b>{v1}</b>\n🤖 Перейти в бота: <b>{v2}</b>\n👥 Вступить в группу: <b>{v3}</b>\n📝 Выполнить задание: <b>{v4}</b>\n🤝 Приглашать друзей: <b>можно</b>\n⭐ Квесты: <i>готовятся</i>\n\n<b>💎 Награды в доступных заданиях: {v5}</b>\n<i>За каждое задание награда выдаётся один раз после проверки.</i>', {'v0': f"{count('channel')}", 'v1': f"{count('post')}", 'v2': f"{count('bot')}", 'v3': f"{count('group')}", 'v4': f"{count('manual')}", 'v5': f'{b.money(total)}'}, html_mode=True, section='bot_ui', limit=3000)
     text=text.replace('⭐ Квесты: <i>готовятся</i>','⭐ Квесты: <b>20 этапов</b>')
-    # The page verifies VIP server-side before any SDK attempt; no payout without postback.
-    # Open the Mini App in one tap for eligible VIP/admin accounts.
-    # Keep the locked action for newcomers; actual entitlement is rechecked
-    # server-side using signed Telegram initData.
-    eligible = b.bot_copy.owner()
-    if not eligible:
-        import bot_quests
-        eligible = bot_quests.vip(c, uid)
-    posts_button = (
-        {'text':'🎬 Смотреть рекламу',
-         'web_app':{'url':b.farm_url()+'cash-ads-preview.html'}}
-        if eligible else b.button('🎬 Смотреть рекламу', 'watch_ads_info')
-    )
+    # Ad viewing is public; VIP remains a separate quest achievement.
+    posts_button = {'text':'🎬 Смотреть рекламу',
+                    'web_app':{'url':b.farm_url()+'cash-ads-preview.html'}}
     return screen(uid, text, [[b.button(label('🤖 Перейти в бота', 'bot'), 'list:bot:0')], [b.button(label('📣 Подписаться на канал', 'channel'), 'list:channel:0')], [b.button(label('👥 Вступить в группу', 'group'), 'list:group:0')], [posts_button], [b.button('⭐ Квесты', 'quests'), b.button('📝 Задания', 'list:manual:0')], [b.button('🎁 Бонус ' + b.money(daily), 'daily'), b.button('🤝 За друга', 'friends')]])
 
 def promotion(c, uid):
