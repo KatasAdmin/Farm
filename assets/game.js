@@ -14,10 +14,35 @@ function showStartupError() {
   if(screen) {screen.hidden=false;el("boot-status").textContent="Не удалось загрузить ферму. Проверь соединение и повтори попытку.";}
 }
 function retryFarmStartup() {
+  clearTimeout(startupRetryTimer);
+  startupRetryTimer=null;
+  startupRetryCount=0;
   if(el("boot-status"))el("boot-status").textContent="Загружаем ферму…";
   if(token)refresh();else showLogin();
 }
-function hideStartup() { const screen=el("boot-screen");if(screen)screen.hidden=true; }
+function hideStartup() {
+  clearTimeout(startupRetryTimer);
+  startupRetryTimer=null;
+  startupRetryCount=0;
+  const screen=el("boot-screen");
+  if(screen)screen.hidden=true;
+}
+function retryTransientStartup(error) {
+  // Only transient server/database outages. Never retry bad credentials.
+  const transient=error?.status===503||error?.status===502||error?.status===504||
+    /Сервер не ответил вовремя|Failed to fetch|NetworkError|Load failed/i.test(String(error?.message||""));
+  if(!transient||startupRetryCount>=STARTUP_RETRIES)return false;
+  const delays=[1500,2500,4000,6000,8500,11000];
+  const delay=delays[startupRetryCount++];
+  const label=el("boot-status");
+  if(label)label.textContent="Сервер занят. Подключаемся автоматически… ("+startupRetryCount+"/"+STARTUP_RETRIES+")";
+  clearTimeout(startupRetryTimer);
+  startupRetryTimer=setTimeout(()=>{
+    startupRetryTimer=null;
+    if(token&&el("app")?.hidden)refresh();
+  },delay);
+  return true;
+}
 
 const art = {
   grain: "redesign/grain",
@@ -41,6 +66,9 @@ let state = null,
   purchase = null;
 let refreshPromise = null,
   refreshedAt = 0;
+let startupRetryTimer = null;
+let startupRetryCount = 0;
+const STARTUP_RETRIES = 6;
 let lastTimerRefresh = 0;
 function safe(s) {
   return String(s).replace(
@@ -1285,10 +1313,13 @@ async function refresh() {
       state = await api("/api/state");
       refreshedAt = Date.now();
       render();
+      hideStartup();
       window.FarmAds?.recover();
     } catch (error) {
-      if (error.status === 401) showLogin();
-      else if(el("app").hidden)showStartupError();
+      if (error.status === 401) {hideStartup();showLogin();}
+      else if(el("app").hidden){
+        if(!retryTransientStartup(error))showStartupError();
+      }
       else toast("Не удалось обновить данные: " + error.message);
     } finally {
       refreshPromise = null;
