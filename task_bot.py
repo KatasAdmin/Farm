@@ -227,7 +227,7 @@ def bot_click_feed(c,uid,message,after_id=None,success=''):
         if success:out['text']=success+'\n\n'+out['text']
     else:
         out=bot_ui.screen(uid,(success+'\n\n' if success else '')+'🤖 <b>Пока больше нет заданий на переход в ботов.</b>',
-            [[button('🔄 Сначала','botclick:feed')],[button('📋 Старые задания','list:bot:0')],[button('⬅️ Заработать','earn')]])
+            [[button('🔄 Сначала','botclick:feed')],[button('⬅️ Заработать','earn')]])
     if message.get('_callback_id') and isinstance(message.get('message_id'),int):
         out['method']='editMessageText'
         out['message_id']=message['message_id']
