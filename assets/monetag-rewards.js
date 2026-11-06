@@ -2,7 +2,7 @@
 (()=>{
 'use strict';
 let cfg=null,owner='',working=false,recovering=null,lastRecover=0,sdkZone=null,cooldownUntil=0;
-const prepared=new Map(),timers=new Set();
+const prepared=new Map(),prepareErrors=new Map(),timers=new Set();
 const labels={grain:'зерно',eggs:'яйца',milk:'молоко',chickens:'курицу',geese:'гусыню',cows:'корову',coins:'монеты для покупок'};
 const states={pending:'Ожидается подтверждение Monetag',unconfirmed:'Подтверждение не получено. Попытка сохранена в истории',non_valued:'Событие сохранено. Для награды нужен подтверждённый показ',sdk_error:'Реклама недоступна, попробуйте позже',rate_limited:'Лимит рекламы, попробуйте позже'};
 const contextKey=()=>String(token||'')+'|'+(tgInitData()?'telegram':'web');
@@ -36,10 +36,10 @@ function decorate(){
  document.querySelectorAll('[data-ad-free]').forEach(button=>{
   const item=button.dataset.adFree;const r=adRewards[item];if(!r)return;
   const ready=cfg?.enabled&&!cfg.retry_after&&cfg.remaining_today&&cfg.remaining_hour&&prepared.has(item)&&typeof window['show_'+cfg.zone_id]==='function';
-  const reason=!cfg?.enabled?(cfg?.reason||'Реклама недоступна'):working?'Реклама открывается':pending?'Дождитесь завершения действия':cfg?.remaining_today===0?'Дневной лимит 40/40':cfg?.remaining_hour===0?'Часовой лимит 10/10':cfg?.retry_after?'Следующая реклама через '+cfg.retry_after+' сек':typeof window['show_'+cfg?.zone_id]!=='function'?'Загружается реклама':!prepared.has(item)?'Подготавливаем рекламу':'';
+  const reason=prepareErrors.get(item)||(!cfg?.enabled?(cfg?.reason||'Реклама недоступна'):working?'Реклама открывается':pending?'Дождитесь завершения действия':cfg?.remaining_today===0?'Дневной лимит 40/40':cfg?.remaining_hour===0?'Часовой лимит 10/10':cfg?.retry_after?'Следующая реклама через '+cfg.retry_after+' сек':typeof window['show_'+cfg?.zone_id]!=='function'?'Загружается реклама':!prepared.has(item)?'Подготавливаем рекламу':'');
   button.disabled=!!reason;
   button.title=reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' подтверждённых просмотров');
-  const compactReason=reason?.includes('rewarded-зона')?'Скоро':reason?.includes('лимит')||reason?.includes('Лимит')?'Лимит':reason?.includes('через')?'Таймер':reason?.includes('Загружается')?'Загрузка':reason?.includes('открывается')?'Открывается':reason?.includes('Дождитесь')?'Ожидание':reason?'Недоступно':'';
+  const compactReason=reason?.includes('rewarded-зона')?'Скоро':reason?.includes('лимит')||reason?.includes('Лимит')?'Лимит':reason?.includes('через')?'Таймер':reason?.includes('Загружается')?'Загрузка':reason?.includes('открывается')?'Открывается':reason?.includes('Дождитесь')?'Ожидание':reason==='Гуси доступны с 3-го уровня'?'С 3 уровня':reason?'Недоступно':'';
   button.textContent=reason?'🎬 '+compactReason:item==='coins'?'🎬 +2 монеты':'🎬 Бесплатно · '+(adProgress[item]||0)+'/'+r[0];
  });
 }
@@ -60,7 +60,7 @@ async function reserve(){
  await Promise.all(Object.keys(adRewards).map(async item=>{
   if(prepared.get(item)?.expires_at>Date.now()/1000+20)return;
   prepared.delete(item);
-  try{const value=await adApi('prepare',{item});if(owner===session)prepared.set(item,value);}catch(_){}
+  try{const value=await adApi('prepare',{item});if(owner===session){prepared.set(item,value);prepareErrors.delete(item);}}catch(error){if(owner===session)prepareErrors.set(item,String(error?.message||'Реклама недоступна'));}
  }));decorate();
 }
 function historyUI(data){
@@ -75,7 +75,7 @@ async function recover(force=false){
  if(recovering)return recovering;
  if(!force&&Date.now()-lastRecover<15000){decorate();return;}
  lastRecover=Date.now();
- const session=contextKey();if(owner!==session){owner=session;prepared.clear();cfg=null;}
+ const session=contextKey();if(owner!==session){owner=session;prepared.clear();prepareErrors.clear();cfg=null;}
  recovering=(async()=>{
   try{
    const data=await adApi('status');if(owner!==session)return;
