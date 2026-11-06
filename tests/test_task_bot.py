@@ -318,7 +318,7 @@ class TaskBotTests(unittest.TestCase):
         self.assertNotIn('Test task', str(self.send(1, action='list:manual:0')))
         self.assertIn('на проверке', self.send(1, action='take:' + tid)['text'])
         complete_refusal(self,2,f'rejectwork:{tid}:3')
-        self.assertIn('Подписаться на ChannelTest', str(self.send(1, action='list:manual:0')))
+        self.assertIn('Test task', str(self.send(1, action='list:manual:0')))
         self.invariant()
     def test_spent_frozen_earned_statistics_are_real(self):
         tid = self.task()
