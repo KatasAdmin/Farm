@@ -23,7 +23,7 @@
   });
   if(!response.ok){label.textContent='Не удалось подтвердить Telegram. Откройте экран заново.';return}
   const result=await response.json();
-  label.textContent=result.ok?'✓ Telegram-аккаунт подтверждён. Денежные награды пока отключены.':'Проверка недоступна.';
+  label.textContent=result.ok?(result.enabled?'✓ Telegram-аккаунт подтверждён.':'✓ Telegram-аккаунт подтверждён. Денежные награды пока отключены.'):'Проверка недоступна.';
   const quotaLabel=document.getElementById('quota');
   const quotaResponse=await fetch('/api/ads/cash/status',{
    method:'POST',headers:{'Content-Type':'application/json'},
@@ -47,11 +47,11 @@
     });
   }
   const deadline=Date.now()+Math.max(0,Number(quota.retry_after)||0)*1000;
+  if(quota.enabled){document.querySelector('.status').textContent='🎬 Рекламный просмотр';}
   const render=()=>{
    const remaining=Math.max(0,Math.ceil((deadline-Date.now())/1000));
-   quotaLabel.textContent=remaining
-    ?'До следующего блока рекламы: '+remaining+' сек.'
-    :'Правило: 10 просмотров подряд, затем до 30 секунд отдыха. Без дневного лимита.';
+   if(remaining)quotaLabel.textContent='До следующего блока рекламы: '+remaining+' сек.';
+   else if(!quota.enabled)quotaLabel.textContent='Правило: 10 просмотров подряд, затем до 30 секунд отдыха. Без дневного лимита.';
   };
   render();
   if(quota.retry_after>0){const timer=setInterval(()=>{render();if(Date.now()>=deadline)clearInterval(timer)},1000)}
