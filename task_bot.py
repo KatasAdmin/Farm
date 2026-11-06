@@ -780,13 +780,13 @@ def _administration(c, uid, text, action, api):
         except (ValueError,TypeError) as exc:
             raise UserError('Начисления НЕ выполнены: '+str(exc))
         return bot_ui.screen(uid,
-            '✅ <b>AdsGram: вчерашний доход распределён</b>\\n'
-            +'Дата по Киеву: '+result['day']+'\\n'
-            +'Всего подтверждённых реклам: '+str(result['provider_impressions'])+'\\n'
-            +'Из них за игровые ресурсы: '+str(result['farm_views'])+'\\n'
-            +'За деньги в боте: '+str(result['cash_views'])+'\\n'
-            +'Доход AdsGram: '+result['publisher_usd']+' USDT\\n'
-            +'Начислено зрителям и рефералам: '+money(result['credited_kopeks'])+'\\n'
+            '✅ <b>AdsGram: вчерашний доход распределён</b>\n'
+            +'Дата по Киеву: '+result['day']+'\n'
+            +'Всего подтверждённых реклам: '+str(result['provider_impressions'])+'\n'
+            +'Из них за игровые ресурсы: '+str(result['farm_views'])+'\n'
+            +'За деньги в боте: '+str(result['cash_views'])+'\n'
+            +'Доход AdsGram: '+result['publisher_usd']+' USDT\n'
+            +'Начислено зрителям и рефералам: '+money(result['credited_kopeks'])+'\n'
             +'Остаток FARM: не менее '+result['platform_usd_at_least']+' USD',
             [[button('⬅️ Админ-панель','admin')]])
     if command == '/adsgramsettle':
