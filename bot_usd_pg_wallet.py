@@ -43,8 +43,13 @@ def _amount(micro):
 def _event(c, uid, key, kind, micro):
     if not isinstance(key,str) or not 6<=len(key)<=128:
         raise ValueError("Stable unique payment or operation id required")
-    return bool(c.execute("""INSERT INTO bot_usd_wallet_operations VALUES(%s,%s,%s,%s,%s)
-      ON CONFLICT DO NOTHING RETURNING id""",(key,uid,kind,micro,time.time())).fetchone())
+    inserted=c.execute("""INSERT INTO bot_usd_wallet_operations VALUES(%s,%s,%s,%s,%s)
+      ON CONFLICT DO NOTHING RETURNING id""",(key,uid,kind,micro,time.time())).fetchone()
+    if inserted:return True
+    old=c.execute("SELECT uid,kind,amount_micro FROM bot_usd_wallet_operations WHERE id=%s",(key,)).fetchone()
+    if not old or (old['uid'],old['kind'],old['amount_micro'])!=(uid,kind,micro):
+        raise ValueError("Reused operation id with different owner, source or amount")
+    return False
 
 def credit_verified(c,uid,key,source,micro):
     """Caller must first verify external receipt/referral/task settlement."""
@@ -61,6 +66,11 @@ def credit_verified(c,uid,key,source,micro):
 def reserve_cashout(c,uid,payout_id,micro):
     _amount(micro)
     row=snapshot(c,uid)
+    old=c.execute("SELECT uid,amount_micro FROM bot_usd_cashouts WHERE id=%s",(payout_id,)).fetchone()
+    if old:
+        if (old['uid'],old['amount_micro'])!=(uid,micro):
+            raise ValueError("Payout id is already bound to a different request")
+        return False
     if row['earned_micro']-row['reserved_micro']<micro:
         raise ValueError("Not enough verified earnings")
     if not _event(c,uid,"reserve:"+payout_id,"cashout_reserve",micro):
