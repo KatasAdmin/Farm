@@ -138,7 +138,15 @@ class TaskBotTests(unittest.TestCase):
         self.assertIn('ChannelTest',task['title'])
         self.assertIn('Проверить подписку',task['description'])
 
+    def _group_telegram_api(self):
+        original=self.api
+        def api(method,args):
+            if method=='getChat':return {'id':-10012,'type':'supergroup','username':'ChannelTest'}
+            return original(method,args)
+        self.api=api
+
     def test_simple_group_order_and_one_card_reward(self):
+        self._group_telegram_api()
         self.credit()
         first=self.send(2,action='new:group')
         self.assertIn('ссылку на группу',first['text'])
@@ -161,6 +169,7 @@ class TaskBotTests(unittest.TestCase):
         self.invariant()
 
     def test_group_skip_does_not_award(self):
+        self._group_telegram_api()
         tid=self.task('group')
         first=self.send(3,action='group:feed')
         self.assertIn('Проверить вступление',str(first))
