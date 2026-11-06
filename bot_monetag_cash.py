@@ -31,6 +31,7 @@ import time
 
 CASH_ZONE_ID = 12193261
 CASH_ATTEMPT_TTL = 600
+CASH_POSTBACK_TTL = 48 * 3600
 
 
 def initialize_cash_attempts(c):
@@ -86,8 +87,62 @@ def lookup_cash_attempt_for_postback(c, *, ymid, telegram_uid, zone_id,
     """,(ymid,)).fetchone()
     if not row or row['state'] not in ('prepared','launched'):
         return None
-    if now>row['expires_at'] or row['zone_id']!=zone_id:
+    if now>row['created_at']+CASH_POSTBACK_TTL or row['zone_id']!=zone_id:
         return None
     if row['viewer_uid']!=telegram_uid or row['request_var']!=request_var:
         return None
     return row
+
+
+def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
+                                 request_var, event_type, reward_event_type,
+                                 estimated_price, referral_chain=(), now=None):
+    """Stage a Monetag event without touching any payable wallet.
+
+    Requires the configured secret from the trusted server request context.
+    Does not authorize cash withdrawals, and does not update farm goods.
+    """
+    import os
+    import hmac
+    from decimal import Decimal
+    import bot_economy
+
+    configured=os.getenv('MONETAG_POSTBACK_SECRET','')
+    if len(configured)<24 or not isinstance(secret,str) or not hmac.compare_digest(secret,configured):
+        raise PermissionError('Invalid Monetag postback authorization')
+    now=time.time() if now is None else now
+    if not isinstance(telegram_uid,int) or telegram_uid<=0:
+        raise ValueError('Invalid Telegram identity')
+    if event_type not in ('impression','click') or reward_event_type not in ('valued','non_valued'):
+        raise ValueError('Invalid Monetag event')
+    try:
+        price=Decimal(str(estimated_price))
+    except Exception as exc:
+        raise ValueError('Invalid Monetag price') from exc
+    if not price.is_finite() or price<0:
+        raise ValueError('Invalid Monetag price')
+    attempt=lookup_cash_attempt_for_postback(
+        c,ymid=ymid,telegram_uid=telegram_uid,zone_id=zone_id,
+        request_var=request_var,now=now)
+    if not attempt:
+        return {'ok':False,'reason':'unknown_or_invalid_attempt'}
+    # Non-valued events are telemetry only. Positive estimated income is not
+    # enough to create a payable balance; publisher settlement is still needed.
+    if reward_event_type!='valued' or price==0:
+        return {'ok':True,'staged':False,'reason':'not_valued'}
+    # Prevent referral self-rewards and duplicate ancestors.
+    chain=tuple(referral_chain)
+    if telegram_uid in chain:
+        raise ValueError('Self referral')
+    result=bot_economy.stage_monetag_cash_event(
+        c,ymid=ymid,viewer_uid=telegram_uid,zone_id=zone_id,
+        placement=attempt['placement'],event_type=event_type,
+        reward_event_type=reward_event_type,estimated_usd=price,
+        referral_chain=chain)
+    if result['recorded']:
+        c.execute("""
+            UPDATE bot_monetag_cash_attempts SET state='confirmed',confirmed_at=%s
+            WHERE ymid=%s AND state IN ('prepared','launched')
+        """,(now,ymid))
+    return {'ok':True,'staged':result['recorded'],
+            'status':'pending_review','payable':False}
