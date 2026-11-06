@@ -39,7 +39,7 @@
     let attempt=null,launched=false;
     try{
       const status=await post('status',telegramData);
-      if(!status.enabled||!status.cash_rewards)throw new Error('Денежная реклама пока отключена');
+      if(!status.enabled||!status.test_mode)throw new Error('Тестовый просмотр пока отключён');
       if(status.active_attempt||status.retry_after>0)
         throw new Error('Подождите перед следующим просмотром');
       // SDK must be loaded before preparing a server-side attempt.
