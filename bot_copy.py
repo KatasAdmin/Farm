@@ -64,6 +64,16 @@ def render(kind,original,values=None,html_mode=False,section='public',key=None,l
             row=dict(key=key,kind=kind,section=section,original=original,custom=None,html_mode=int(html_mode),max_length=limit)
             ctx['rows'][key]=row; ctx['new'][key]=row
         body=ctx['rows'][key]['custom'] or original
+    # USD UI staging: replace denomination words in the fixed template only.
+    # Values supplied by users and financial amounts are never rewritten.
+    if __import__("os").environ.get("FARM_DOLLAR_UI_STAGING") == "1" and kind == "text":
+        for source, target in (
+            ("в гривнах", "в долларах США"), ("гривнах", "долларах США"),
+            ("гривны", "доллары США"), ("гривен", "долларов США"),
+            ("гривна", "доллар США"), ("грн.", "USD"), ("грн", "USD"),
+            ("копейки", "минимальной денежной доли"), ("копейка", "минимальной денежной доли"),
+        ):
+            body = body.replace(source, target)
     def format_body(value):
         return value.format_map(values) if values is not None else value
     try:
