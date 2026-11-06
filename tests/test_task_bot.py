@@ -71,6 +71,7 @@ class TaskBotTests(unittest.TestCase):
         self.c = Database()
         bot.initialize(self.c)
         self.c.execute('CREATE TABLE players(id text,telegram_id bigint UNIQUE,coins int)')
+        self.c.execute("CREATE TABLE bot_adsgram_attempts(uid bigint,state text,confirmed_at real)")
         self.c.execute('CREATE TABLE support_tickets(id text,telegram_id bigint,nickname text,message text,created float)')
         self.c.execute('CREATE TABLE money_log(id text,player_id text,kind text,delta int,details text,created float)')
         self.c.raw.commit()
