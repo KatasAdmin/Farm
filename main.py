@@ -1763,13 +1763,13 @@ def admin_summary(authorization:str=Header(default="")):
 
 @app.post("/api/withdraw/request")
 def request_withdrawal(q:Request,authorization:str=Header(default="")):
- if os.environ.get("FARM_TRANSFER_TO_BOT_ENABLED","0") != "1":
-  raise HTTPException(503,"Перевод из фермы в бот временно приостановлен на время перехода на USD. Монеты сохранены.")
  if q.amount<100:raise HTTPException(400,"Минимальный перевод — 100 монет")
  if q.amount>1000000:raise HTTPException(400,"Сумма перевода слишком большая")
  try:
   key=str(uuid.UUID(q.transfer_id))
  except (ValueError,AttributeError):raise HTTPException(400,"Обновите окно перевода и повторите попытку")
+ if os.environ.get("FARM_TRANSFER_TO_BOT_ENABLED","0") != "1":
+  raise HTTPException(503,"Перевод из фермы в бот временно приостановлен на время перехода на USD. Монеты сохранены.")
  with db() as c:
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   c.execute("SELECT pg_advisory_xact_lock(%s)",(task_bot.LOCK,))
