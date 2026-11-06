@@ -31,12 +31,14 @@
   });
   if(!quotaResponse.ok){quotaLabel.textContent='Статус ограничений пока недоступен.';return}
   const quota=await quotaResponse.json();
+  quotaLabel.textContent=quota.retry_after>0?'Пауза между просмотрами':'Проверка завершена.';
   const watch=document.getElementById('watch');
   if(result.enabled===true && quota.enabled===true && quota.test_mode===true){
     watch.disabled=false;
     watch.removeAttribute('aria-disabled');
     watch.style.cursor='pointer';
     watch.textContent='Смотреть рекламу';
+    quotaLabel.textContent='Проверка завершена. Загружаем рекламу…';
     const startAd=async()=>{
       watch.disabled=true;watch.textContent='Загрузка рекламы…';
       try{
