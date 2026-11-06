@@ -76,8 +76,8 @@ def show(c,uid):
        "🏅 Выполнено: <b>%s/20</b>\n💎 VIP: <b>%s</b>\n\n"
        "🎯 <b>Квест %s/20</b>\n%s\n"
        "Прогресс: <b>%s/%s</b>\n\n"
-       "Следующий квест откроется после нажатия «Завершить».\n"
-       "VIP откроется после третьего квеста." %
+       "💡 %s\n\n"
+       "Следующий этап откроется после нажатия «Завершить»." %
        (level,'активен ✅' if level>=3 else 'закрыт 🔒',level+1,name,count,target,TIPS[key]))
  # Live counters are computed from verified bot accounts and SDK-completed ad attempts.
  now=dt.datetime.now(ZoneInfo('Europe/Kyiv'))
@@ -87,7 +87,7 @@ def show(c,uid):
  minutes=(remaining.seconds%3600)//60
  text+=("\n📊 <b>Твой прогресс</b>\n"
         "🤝 Приглашено: %s человек\n"
-        "🎬 Реклама сегодня: %s/10\n"
+        "🎬 Просмотров сегодня: %s\n"
         "📺 Всего завершённых: %s\n"
         "📅 Дней с бонусом: %s\n"
         "⏰ До нового дня: %s ч %s мин (Киев)\n" %
