@@ -124,6 +124,35 @@ class TaskBotTests(unittest.TestCase):
     def invariant(self):
         pool = self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount']
         self.assertGreaterEqual(pool, bot.liability(self.c))
+    def test_simple_channel_order_needs_only_link_and_quantity(self):
+        self.credit()
+        screen=self.send(2,action='new:channel')
+        self.assertIn('ссылку на канал',screen['text'])
+        preview=self.send(2,'https://t.me/ChannelTest')
+        self.assertIn('На сколько выполнений',preview['text'])
+        self.send(2,'2')
+        result=self.send(2,action='confirm_task')
+        self.assertIn('ожидает модерации',result['text'])
+        task=self.c.execute('SELECT title,description FROM bot_tasks').fetchone()
+        self.assertIn('ChannelTest',task['title'])
+        self.assertIn('Проверить подписку',task['description'])
+
+    def test_channel_feed_reuses_card_and_advances_after_reward(self):
+        tid=self.task()
+        first=self.send(3,action='channel:feed')
+        self.assertEqual(first['method'],'editMessageText')
+        self.assertIn('📣 Открыть канал',str(first))
+        self.assertIn('channel:take:',str(first))
+        taken=self.send(3,action='channel:take:'+tid)
+        self.assertEqual(taken['method'],'editMessageText')
+        self.assertIn('Проверить подписку',str(taken))
+        self.joined=True
+        paid=self.send(3,action='channel:check:'+tid)
+        self.assertEqual(paid['method'],'editMessageText')
+        self.assertIn('награда начислена',paid['text'])
+        self.assertEqual(self.balance(3),56)
+        self.assertNotIn('channel:check:',str(paid))
+        self.invariant()
     def test_menu_and_no_deferred_games(self):
         reply = self.send(3, '/start')
         self.assertEqual(reply['reply_markup']['keyboard'], bot.MENU)
