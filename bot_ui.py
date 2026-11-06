@@ -74,7 +74,7 @@ def earn(c, uid):
     posts_button = (
         {'text':'🎬 Смотреть рекламу',
          'web_app':{'url':b.farm_url()+'cash-ads-preview.html'}}
-        if eligible else b.button('🔒 VIP · Смотреть рекламу', 'watch_ads_info')
+        if eligible else b.button('🎬 Смотреть рекламу', 'watch_ads_info')
     )
     return screen(uid, text, [[b.button(label('🤖 Перейти в бота', 'bot'), 'list:bot:0')], [b.button(label('📣 Подписаться на канал', 'channel'), 'list:channel:0')], [b.button(label('👥 Вступить в группу', 'group'), 'list:group:0')], [posts_button], [b.button('⭐ Квесты', 'quests'), b.button('📝 Задания', 'list:manual:0')], [b.button('🎁 Бонус ' + b.money(daily), 'daily'), b.button('🤝 За друга', 'friends')]])
 
