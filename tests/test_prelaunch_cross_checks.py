@@ -183,7 +183,7 @@ class PrelaunchCrossChecks(unittest.TestCase):
                 self.last_sql = sql
                 return self
         db = DB()
-        with patch.dict(main.os.environ,{"FARM_TRANSFER_TO_BOT_ENABLED":"1"}), patch.object(main, "db", return_value=db), patch.object(main, "person", return_value={"id": "p"}), patch.object(main, "advance", side_effect=lambda c,p:p), patch.object(main.farm_wallet, "transfer", return_value={"ok": True}) as transfer, patch.object(main.task_bot.bot_notifications, "wake"):
+        with patch.object(main, "db", return_value=db), patch.object(main, "person", return_value={"id": "p"}), patch.object(main, "advance", side_effect=lambda c,p:p), patch.object(main.farm_wallet, "transfer", return_value={"ok": True}) as transfer, patch.object(main.task_bot.bot_notifications, "wake"):
             self.assertEqual(main.request_withdrawal(main.Request(amount=100, transfer_id=key), "Bearer p"), {"ok": True})
             transfer.assert_called_once()
             args = transfer.call_args.args

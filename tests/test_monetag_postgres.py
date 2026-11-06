@@ -33,14 +33,14 @@ class MonetagPostgres(unittest.TestCase):
    with self.connect() as c:
     ads.lock(c);return ads.postback(c,SECRET,a['ymid'],ads.TMA_ZONE,999,'impression',reward_type,str(ads.TMA_ZONE)+'_grain_reward','7','0.0037' if reward_type=='valued' else '0',now)
   with ThreadPoolExecutor(max_workers=6) as pool:results=list(pool.map(callback,range(12)))
-  self.assertEqual(sum(x['rewarded'] for x in results),int(reward_type=='valued'))
+  self.assertEqual(sum(x['rewarded'] for x in results),1)
   def claim(_):
    with self.connect() as c:
     ads.lock(c);p=c.execute("SELECT * FROM players WHERE id='p' FOR UPDATE").fetchone();return ads.deliver(c,p,lambda c,p:p,lambda p:10,lambda p:100)
   with ThreadPoolExecutor(max_workers=5) as pool:results=list(pool.map(claim,range(10)))
-  self.assertEqual(sum(len(x['granted']) for x in results),int(reward_type=='valued'))
+  self.assertEqual(sum(len(x['granted']) for x in results),1)
   with self.connect() as c:
-   p=c.execute("SELECT * FROM players WHERE id='p'").fetchone();expected=int(reward_type=='valued');self.assertEqual((p['grain'],p['coins'],p['ad_grain']),(expected,100,expected));self.assertEqual(ads.statistics(c)['estimated_usd'],'0.0037000' if reward_type=='valued' else None)
+   p=c.execute("SELECT * FROM players WHERE id='p'").fetchone();self.assertEqual((p['grain'],p['coins'],p['ad_grain']),(1,100,1));self.assertEqual(ads.statistics(c)['estimated_usd'],'0.0037000' if reward_type=='valued' else None)
    self.assertEqual(ads.statistics(c)['total']['paid'],int(reward_type=='valued'))
  def test_duplicate_postbacks_and_claims_are_serialized(self):self.assert_parallel_rewards('valued')
  def test_unpaid_parallel_postbacks_reward_once_without_paid_income(self):self.assert_parallel_rewards('non_valued')

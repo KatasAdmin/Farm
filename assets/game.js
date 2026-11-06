@@ -874,13 +874,6 @@ async function loadWithdrawalStatus() {
     const cancelButton=el("withdrawal-cancel");
     if(cancelButton)cancelButton.hidden=!request||request.status!=="pending";
     const sources=value.sources||{};
-    const usdPreview=el("usd-wallet-preview");
-    if(usdPreview){
-      const quote=value.future_usd_preview;
-      usdPreview.textContent=quote?.quote_only && quote?.quote_currency==="USD"
-        ? "💵 Оценка доступной выручки в USD: ≈ "+quote.quote_display+" (расчёт по зафиксированному курсу "+quote.uah_per_usd+" ₴/$; это не подтверждение долларового зачисления)."
-        : "";
-    }
     note.textContent="Бонусные: "+number(sources.bonus||0)+" · Пополненные: "+number(sources.purchased||0)+" · Выручка: "+number(value.available||0)+" монет. "+(request
       ? "Последняя заявка: "+number(request.amount)+" монет · "+
         (request.status==="pending"?"ожидает ручной проверки":request.status==="rejected"?"отклонена":"статус: "+request.status)
@@ -901,7 +894,6 @@ async function cancelWithdrawalRequest(){
 }
 let gameTransferKey="";
 function openWithdrawalRequest() {
-  return toast("Перевод из фермы в бот временно отключён до завершения долларового перехода. Средства сохранены.");
   if(!state)return toast("Сначала войдите в игру");
   if(!state.me.telegram_id){
     tab("profile");
@@ -971,11 +963,7 @@ async function submitWithdrawalRequest() {
   try{
     const n=amount("withdrawal-amount",1000000);
     if(n<100)throw Error("Минимальная заявка — 100 монет");
-    const conversionStatus=await api("/api/withdraw/status");
-    const fx=Number(conversionStatus.future_usd_preview?.uah_per_usd);
-    const futureAmount=Number.isFinite(fx)&&fx>0 ? (n/fx).toFixed(6) : null;
-    const confirmation="Переводы сейчас приостановлены. Ориентир после запуска USD: "+(futureAmount?"≈ $"+futureAmount:"курс появится в кошельке")+"; деньги не списаны.";
-    if(!confirm(confirmation))return;
+    if(!confirm("Перевести "+number(n)+" монет на свой баланс бота? Будет зачислено "+number(n)+" грн."))return;
     busy(true);
     await api("/api/withdraw/request",{amount:n,transfer_id:gameTransferKey});
     gameTransferKey="";
@@ -983,7 +971,7 @@ async function submitWithdrawalRequest() {
     await refresh();
     await loadWithdrawalStatus();
     await loadHistory();
-    toast("✅ Перевод выполнен по подтверждённому сервером курсу.");
+    toast("✅ На баланс бота зачислено "+number(n)+" грн");
   }catch(error){toast(error.message);}
   finally{busy(false);}
 }

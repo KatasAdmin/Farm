@@ -1768,8 +1768,6 @@ def request_withdrawal(q:Request,authorization:str=Header(default="")):
  try:
   key=str(uuid.UUID(q.transfer_id))
  except (ValueError,AttributeError):raise HTTPException(400,"Обновите окно перевода и повторите попытку")
- if os.environ.get("FARM_TRANSFER_TO_BOT_ENABLED","0") != "1":
-  raise HTTPException(503,"Перевод из фермы в бот временно приостановлен на время перехода на USD. Монеты сохранены.")
  with db() as c:
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   c.execute("SELECT pg_advisory_xact_lock(%s)",(task_bot.LOCK,))
@@ -1796,9 +1794,7 @@ def withdrawal_status(authorization:str=Header(default="")):
   last=c.execute("SELECT id,amount,status,created,reserved FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
   money_sources=farm_wallet.balances(c,p)
   eligible=money_sources["earned"]
- from farm_usd_quotes import game_coin_usd_quote
- usd_preview=game_coin_usd_quote(eligible)
- return {"sources":money_sources,"minimum":100,"request":last,"payouts_enabled":True,"available":eligible,"rate":1,"message":"Перевод на баланс бота · 1 монета = 1 грн", "future_usd_preview":usd_preview}
+ return {"sources":money_sources,"minimum":100,"request":last,"payouts_enabled":True,"available":eligible,"rate":1,"message":"Перевод на баланс бота · 1 монета = 1 грн"}
 
 @app.post("/api/promo/redeem")
 def redeem_promo(q:Request,authorization:str=Header(default="")):

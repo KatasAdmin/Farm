@@ -41,22 +41,7 @@ LOCK = 1984534
 class UserError(Exception):
     pass
 
-def currency_ui_usd():
-    # Only the staged currency UI flag. No activation in production until
-    # deposit, withdrawal and ledger cutover are enabled together.
-    return os.environ.get("FARM_DOLLAR_UI_STAGING") == "1"
-
 def amount(text):
-    if currency_ui_usd():
-        from bot_usd_currency import parse_usd_micro, usd_micro_to_uah_kopecks, MIGRATION_RATE_UAH_PER_USD
-        try:
-            usd_micro = parse_usd_micro(text)
-            n = usd_micro_to_uah_kopecks(usd_micro, MIGRATION_RATE_UAH_PER_USD)
-        except (ValueError, TypeError, InvalidOperation) as exc:
-            raise UserError("Укажи сумму в USD: например 5 или 0.50, максимум шесть знаков после точки.") from exc
-        if not 1 <= n <= 100000000:
-            raise UserError("Сумма USD слишком мала или превышает лимит. Минимум равен одному внутреннему денежному шагу.")
-        return n
     if not re.fullmatch('\\d{1,7}([.,]\\d{1,2})?', text.strip()):
         raise UserError(tr('Укажи сумму в гривнах, например 5 или 0,50. Максимум два знака после запятой.', html_mode=False, section='task_bot', limit=3000))
     try:
@@ -68,9 +53,6 @@ def amount(text):
     return n
 
 def money(n):
-    if currency_ui_usd():
-        from bot_usd_currency import format_usd, uah_kopecks_to_usd_micro
-        return format_usd(uah_kopecks_to_usd_micro(int(n)))
     return f'{int(n) // 100},{int(n) % 100:02d} грн'
 
 def member(info):
