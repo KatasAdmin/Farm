@@ -571,7 +571,7 @@ def route(c, uid, text, action, message, api, admin):
             raise UserError(tr('Канал рекламных постов ещё не подключён администратором.', html_mode=False, section='task_bot', limit=3000))
         state(c, uid, 'task_url' if kind in ('channel','group','bot') else 'task_title', {'kind': kind})
         if kind=='bot':
-            return input_prompt(uid,'🤖 Пришли HTTPS-ссылку на своего Telegram-бота.\n\nАдрес должен начинаться с https://t.me/ и содержать имя твоего бота.\n\nПроверка задания подтверждает переход по ссылке, а не запуск или регистрацию.')
+            return input_prompt(uid,'🤖 Пришли ссылку на Telegram-бота (HTTPS, t.me).\n\nАдрес должен начинаться с https://t.me/ и содержать имя твоего бота.\n\nПроверка задания подтверждает переход по ссылке, а не запуск или регистрацию.')
         if kind in ('channel','group'):
             label='📣 Пришли ссылку на канал' if kind=='channel' else '👥 Пришли ссылку на группу'
             return input_prompt(uid,label+' (https://t.me/имя).\n\nСначала добавь @Farmlife2026bot администратором, чтобы мы могли проверять участников.')
