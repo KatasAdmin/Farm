@@ -41,31 +41,43 @@
     label.textContent='';
     quotaLabel.textContent='Загружаем рекламу…';
     const startAd=async()=>{
-      watch.disabled=true;watch.textContent='Загрузка рекламы…';
+      watch.disabled=true;
+      watch.setAttribute('aria-disabled','true');
+      watch.textContent='Загрузка рекламы…';
+      quotaLabel.textContent='';
       try{
-        await window.FarmCashAds.showCashAd(app.initData);
-        quotaLabel.textContent='Просмотр завершён. Ожидаем подтверждение рекламной сети.';
+        const ad=await window.FarmCashAds.showCashAd(app.initData);
+        quotaLabel.textContent=ad.monetized
+          ?'Оплачиваемый просмотр подтверждён рекламной сетью. Выплаты пока недоступны.'
+          :'Просмотр завершён, но оплата рекламной сетью не подтверждена.';
+        watch.disabled=false;
+        watch.removeAttribute('aria-disabled');
+        watch.textContent='Смотреть рекламу';
       }catch(error){
-        const message=String(error?.message||'Реклама недоступна');
-        quotaLabel.textContent=message;
+        const message=String(error?.message||'Не удалось показать рекламу');
         const noFill=/no.?ads|no.?fill|no.?inventory|no.?available|not.?available|no.?ad|нет доступной рекламы|реклама недоступна/i.test(message);
         if(noFill){
           watch.disabled=true;
           watch.setAttribute('aria-disabled','true');
-          watch.style.background='#45536c';
-          watch.style.cursor='not-allowed';
           watch.textContent='Нет доступной рекламы';
-          quotaLabel.textContent='Сейчас нет доступной рекламы. Попробуйте открыть экран позже.';
+          quotaLabel.textContent='Сейчас оплачиваемая реклама недоступна.';
         }else{
+          quotaLabel.textContent=message;
           watch.disabled=false;
+          watch.removeAttribute('aria-disabled');
           watch.textContent='Повторить просмотр';
         }
       }
-      finally{if(watch.textContent==='Загрузка рекламы…'){watch.disabled=false;watch.textContent='Смотреть рекламу';}}
     };
-    // Opening the bot's ad link starts the first view automatically.
-    // Keep the button only for retry after an unavailable ad.
+    watch.addEventListener('click',startAd);
     if(Number(quota.retry_after||0)===0 && !quota.active_attempt)startAd();
+    else{
+      watch.disabled=true;
+      watch.textContent='Ожидаем доступность рекламы';
+      quotaLabel.textContent=quota.retry_after>0
+        ?'Следующий просмотр через '+Math.ceil(quota.retry_after)+' сек.'
+        :'Предыдущий просмотр ещё обрабатывается.';
+    }
   }
   if(!quota.enabled){label.textContent='Реклама временно недоступна';watch.textContent='Недоступно';}
   const deadline=Date.now()+Math.max(0,Number(quota.retry_after)||0)*1000;
