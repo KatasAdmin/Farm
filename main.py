@@ -664,6 +664,27 @@ def admin_cash_ads_staging(authorization:str=Header(default="")):
                     "estimated_usd":str(row["estimated_usd"])} for row in events]}
 
 
+@app.get("/api/admin/ads/cash-events")
+def admin_cash_ads_events(authorization:str=Header(default=""),limit:int=50):
+ # Pending publisher estimates are NOT wallet balances.
+ require_farm_admin(authorization)
+ limit=max(1,min(int(limit),100))
+ with db() as c:
+  rows=c.execute("""
+   SELECT ymid,viewer_uid,zone_id,event_type,reward_event_type,
+          estimated_usd,state,received_at
+   FROM bot_monetag_cash_events
+   ORDER BY received_at DESC LIMIT %s
+  """,(limit,)).fetchall()
+ return {"ok":True,"payable":False,"publisher_reconciled":False,
+         "events":[{"ymid":r["ymid"],"viewer_uid":r["viewer_uid"],
+                    "zone_id":r["zone_id"],"event_type":r["event_type"],
+                    "reward_event_type":r["reward_event_type"],
+                    "estimated_usd":str(r["estimated_usd"]),
+                    "state":r["state"],"received_at":r["received_at"]}
+                   for r in rows]}
+
+
 @app.get("/health")
 def health():return {"ok":True,"release":RELEASE}
 @app.get("/health/db")
