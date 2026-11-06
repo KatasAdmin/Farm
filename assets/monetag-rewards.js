@@ -54,7 +54,7 @@ async function sdk(config){
  });
 }
 async function reserve(){
- if(!cfg?.enabled||cfg.retry_after||!cfg.remaining_today||!cfg.remaining_hour)return;
+ if(!cfg?.enabled||cfg.retry_after||cfg.remaining_today===0||cfg.remaining_hour===0)return;
  const session=owner;
  await Promise.all(Object.keys(adRewards).map(async item=>{
   if(prepared.get(item)?.expires_at>Date.now()/1000+20)return;
