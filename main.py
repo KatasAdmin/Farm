@@ -1794,7 +1794,9 @@ def withdrawal_status(authorization:str=Header(default="")):
   last=c.execute("SELECT id,amount,status,created,reserved FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
   money_sources=farm_wallet.balances(c,p)
   eligible=money_sources["earned"]
- return {"sources":money_sources,"minimum":100,"request":last,"payouts_enabled":True,"available":eligible,"rate":1,"message":"Перевод на баланс бота · 1 монета = 1 грн"}
+ from farm_usd_quotes import game_coin_usd_quote
+ usd_preview=game_coin_usd_quote(eligible)
+ return {"sources":money_sources,"minimum":100,"request":last,"payouts_enabled":True,"available":eligible,"rate":1,"message":"Перевод на баланс бота · 1 монета = 1 грн", "future_usd_preview":usd_preview}
 
 @app.post("/api/promo/redeem")
 def redeem_promo(q:Request,authorization:str=Header(default="")):
