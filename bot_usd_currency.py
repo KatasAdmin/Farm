@@ -52,3 +52,17 @@ def format_usd(micro):
     decimals = f"{fraction:06d}".rstrip("0")
     decimals = decimals.ljust(2, "0")
     return f"{sign}$" + str(whole) + "." + decimals
+
+def farm_coins_to_usd_micro(coins, rate=MIGRATION_RATE_UAH_PER_USD):
+    """Legacy farm coin = 1 UAH. This is not a USD dollar."""
+    if type(coins) is not int:
+        raise TypeError("coins must be an integer")
+    return uah_kopecks_to_usd_micro(coins * UAH_SCALE, rate)
+
+def usd_micro_to_farm_coins(micro, rate=MIGRATION_RATE_UAH_PER_USD):
+    """Round to whole game coins at a fixed disclosed exchange rate."""
+    return usd_micro_to_uah_kopecks(micro, rate) // UAH_SCALE
+
+def legacy_stars_rate_to_usd_micro(kopecks_per_star, rate=MIGRATION_RATE_UAH_PER_USD):
+    """Old Stars wallet rate was UAH kopecks per XTR; preserve its value."""
+    return uah_kopecks_to_usd_micro(kopecks_per_star, rate)
