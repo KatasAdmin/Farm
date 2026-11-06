@@ -426,9 +426,9 @@
               title="Пополнение через Telegram Stars"
             >
               + Пополнить</button
-            ><button class="btn blue" onclick="openWithdrawalRequest()">→ На баланс бота</button>
+            ><button class="btn blue" disabled title="Перевод в бот отключён на время перехода на USD">💵 Перевод временно недоступен</button>
           </div>
-          <p class="muted">Покупка игровых монет: 1 монета = 2 ⭐. Бонусные монеты доступны только для покупок. Долларовый эквивалент доступного вывода показывается отдельно; до завершения перехода фактический перевод рассчитывается по действующим правилам.</p><p id="usd-wallet-preview" class="muted" aria-live="polite"></p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
+          <p class="muted">Покупка игровых монет: 1 монета = 2 ⭐. Во время перехода на USD перевод в бот отключён. Баланс и игровое имущество остаются на месте; долларовый эквивалент показан для справки.</p><p id="usd-wallet-preview" class="muted" aria-live="polite"></p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
         </div>
         <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
           <h2 class="cardtitle">🎁 Бонусный код</h2>
@@ -452,7 +452,7 @@
 </dialog>
 <dialog id="withdrawal-dialog" class="recovery-dialog">
           <h2>💸 На баланс бота</h2>
-          <p>Переведите заработанные на продаже товаров игровые монеты на баланс бота. Минимум — 100 монет. Бонусные, стартовые и промокодные монеты переводить нельзя. Пока переход в USD не завершён, сумма фактического зачисления подтверждается перед переводом. Оценка в долларах доступна в кошельке.</p>
+          <p>Переводы из фермы в бот временно отключены во время перехода на USD. Заработанные игровые средства сохранены. После включения вывода будет показываться точная сумма в USD до подтверждения.</p>
           <label for="withdrawal-amount">Сумма в монетах</label>
           <input id="withdrawal-amount" type="number" inputmode="numeric" min="100" max="1000000" value="100">
           <button class="btn wide" onclick="submitWithdrawalRequest()">Перевести в бот</button>
