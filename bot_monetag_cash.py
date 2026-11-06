@@ -258,7 +258,7 @@ def stage_verified_cash_postback(c, *, secret, ymid, telegram_uid, zone_id,
         return {'ok':True,'staged':False,'reason':'not_valued'}
     # Database column is numeric(28,12). Reject values that would silently
     # round away fractional earnings or overflow the provisional ledger.
-    if price.as_tuple().exponent < -12 or price >= Decimal('10000000000000000'):
+    if price != price.quantize(Decimal('0.000000000001')) or price >= Decimal('10000000000000000'):
         raise ValueError('Estimated price exceeds supported precision')
     # Prevent referral self-rewards and duplicate ancestors.
     chain=tuple(referral_chain)
