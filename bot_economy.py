@@ -276,3 +276,47 @@ def edit(c, uid, text, data):
     c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'economy_config',%s,%s)", (uuid.uuid4().hex, uid, json.dumps({'field': field, 'before': cfg, 'input': text}, ensure_ascii=False), time.time()))
     b.state(c, uid, 'clear')
     return admin(c, uid, '', 'admin:economy')
+
+
+# Prepared only: Monetag cash-reward allocation. Not wired to postbacks or wallets.
+# Existing farm production referral rates and task-marketplace rates remain unchanged.
+MONETAG_CASH_REFERRAL_BPS = (500, 300, 200, 300, 300, 400, 200)
+MONETAG_CASH_VIEWER_BPS = 5000
+MONETAG_CASH_TOTAL_BPS = 10000
+
+
+def monetag_cash_allocation(estimated_usd, referral_chain):
+    """Preview exact USD revenue shares; NEVER issue payments from this function.
+
+    referral_chain: ordered, verified Telegram UID values (nearest referrer first).
+    A missing level is retained by the platform, never reassigned.
+    estimated_usd is only an estimate; settlement requires publisher reconciliation.
+    Returns decimal strings so sub-cent amounts are never rounded up to cash.
+    """
+    from decimal import Decimal
+    amount = Decimal(str(estimated_usd))
+    if not amount.is_finite() or amount < 0:
+        raise ValueError('Invalid advertising revenue')
+    if len(referral_chain) > 7:
+        raise ValueError('Referral depth exceeds seven')
+    if sum(MONETAG_CASH_REFERRAL_BPS) != 2200:
+        raise AssertionError('Referral allocation must equal 22%')
+    if len(set(uid for uid in referral_chain if uid is not None)) != len(
+        [uid for uid in referral_chain if uid is not None]
+    ):
+        raise ValueError('Referral cycle or duplicate')
+    viewer = amount * MONETAG_CASH_VIEWER_BPS / MONETAG_CASH_TOTAL_BPS
+    refs = [
+        {'level': level, 'uid': uid, 'usd': str(amount * bps / MONETAG_CASH_TOTAL_BPS)}
+        for level, (uid, bps) in enumerate(
+            zip(referral_chain, MONETAG_CASH_REFERRAL_BPS), start=1
+        ) if uid is not None
+    ]
+    ref_total = sum((Decimal(item['usd']) for item in refs), Decimal(0))
+    return {
+        'estimated_gross_usd': str(amount),
+        'viewer_usd': str(viewer),
+        'referrals': refs,
+        'platform_usd': str(amount - viewer - ref_total),
+        'status': 'preview_only_not_payable',
+    }
