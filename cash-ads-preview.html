@@ -1,114 +1,66 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>VIP · Смотреть рекламу</title>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Смотреть рекламу</title>
 <style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(155deg,#132a25,#10131f);color:#f4f7ff;font:16px system-ui,-apple-system,sans-serif;padding:18px}
-main{max-width:490px;margin:3vh auto;padding:22px;border:1px solid #34544b;border-radius:24px;background:#ffffff0b;box-shadow:0 14px 40px #0003}
-h1{font-size:25px;margin:0 0 12px}h2{font-size:17px;margin:20px 0 10px}p{line-height:1.5;color:#cbd8d2}
-.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.metric{background:#243a34;border:1px solid #3e594c;border-radius:13px;padding:12px}.metric small{display:block;font-size:12px;color:#b6c8bb}.metric strong{font-size:19px;word-break:break-all}
-button{width:100%;padding:15px;border-radius:13px;color:white;background:#26965b;font-weight:700;border:0;font-size:17px;cursor:pointer}
-button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:#32493d}
-.info{font-size:13px;color:#b6c8bb;margin-top:14px;line-height:1.6}.note{border-top:1px solid #3d5449;margin-top:15px;padding-top:10px;font-size:13px}
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#101d19;color:#effff6;font:16px system-ui,-apple-system,sans-serif;min-height:100vh;display:grid;place-items:center;padding:18px}
+main{width:min(100%,430px);padding:26px 20px;background:#1c3229;border:1px solid #39584a;border-radius:22px;text-align:center}
+h1{font-size:23px;margin:4px 0 10px}p{color:#c7dacd;line-height:1.5}#msg{min-height:50px}button{display:block;width:100%;margin:11px 0 0;padding:14px;background:#21935b;border:0;border-radius:12px;color:white;font-size:17px;font-weight:650;cursor:pointer}button[disabled]{opacity:.55;cursor:not-allowed}#back{background:#355344}small{display:block;margin-top:18px;color:#a8bdb0;font-size:12px;line-height:1.5}
 </style></head>
 <body><main>
-<h1>💎 VIP · Реклама</h1>
-<p id="identity">Проверяем доступ через Telegram…</p>
-<div class="metrics">
- <div class="metric"><small>Завершено просмотров</small><strong id="completed">—</strong></div>
- <div class="metric"><small>Оплаченных просмотров</small><strong id="confirmed">—</strong></div>
- <div class="metric"><small>🎁 За свои просмотры (оценка USD)</small><strong id="viewer">$0</strong></div>
- <div class="metric"><small>🤝 От команды (оценка USD)</small><strong id="refs">$0</strong></div>
-</div>
-<p class="info">💰 Переведено на гривневый баланс за рекламу: <strong id="credited">0,00 грн</strong><br>💳 Общий доступный баланс: <strong id="wallet">0,00 грн</strong></p>
-<p id="rewardMessage" role="status" style="color:#9fedba;font-weight:700"></p>
-<p id="quota" role="status">Проверяем доступность рекламы…</p>
-<button id="watch" disabled>Подключаем…</button>
-<button id="retry" type="button">↻ Обновить статистику</button>
-<p class="info">💚 Зритель — 30% · Рефералы 7 уровней — до 35% · Проект — остаток. Доля отсутствующего реферала остаётся проекту.</p>
-<p class="info note">После серверного подтверждения оплачиваемого события Monetag награды переводятся в гривневый баланс автоматически. Доли меньше 1 копейки накапливаются до полного зачисления. Владелец проекта берёт на себя риск последующей корректировки дохода сетью. Неоплаченные показы считаются только для активности.</p>
+<h1>🎬 Смотреть рекламу</h1>
+<p id="msg" role="status">Открываем рекламный ролик…</p>
+<button id="watch" disabled>Подключаем рекламу…</button>
+<button id="back" type="button">← Вернуться в бот</button>
+<small>Награда за оплаченный просмотр автоматически поступит на баланс после подтверждения Monetag. Неоплаченные просмотры не приносят денег.</small>
 </main>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/assets/cash-ads-sdk.js"></script>
 <script>
 (async()=>{
  const app=window.Telegram?.WebApp;
- const el=id=>document.getElementById(id);
- const watch=el('watch'),quota=el('quota'),label=el('identity');
- let signed='',active=false,retryUntil=0,lastRewardId=null,watching=false,hasLoadedRewards=false;
- const post=async(path,payload={})=>{
-  const r=await fetch('/api/ads/cash/'+path,{method:'POST',credentials:'same-origin',
-    headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_data:signed,...payload})});
-  const data=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(typeof data.detail==='string'?data.detail:'Сервис временно недоступен');
-  return data;
+ const msg=document.getElementById('msg'),watch=document.getElementById('watch'),back=document.getElementById('back');
+ const close=()=>{if(app?.close)app.close();else msg.textContent='Вернись в чат с ботом.'};
+ back.onclick=close;
+ const data=app?.initData;
+ const post=async(path)=>{
+  const response=await fetch('/api/ads/cash/'+path,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_data:data})});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(typeof result.detail==='string'?result.detail:'Не удалось проверить доступ');
+  return result;
  };
- function uah(kopeks){return (Number(kopeks||0)/100).toFixed(2).replace('.',',')+' грн'}
- function usd(x){const v=Number(x||0);return '$'+(Number.isFinite(v)?v.toFixed(9):'0.000000000')}
- async function refresh(){
-  const [stats,status]=await Promise.all([post('earnings'),post('status')]);
-  el('completed').textContent=stats.completed;
-  el('confirmed').textContent=stats.confirmed;
-  el('viewer').textContent=usd(stats.viewer_usd);
-  el('refs').textContent=usd(stats.referral_usd);
-  el('credited').textContent=uah(stats.credited_kopeks);
-  el('wallet').textContent=uah(stats.wallet_kopeks);
-  const latest=stats.last_reward;
-  if(latest?.ymid && latest.ymid!==lastRewardId){
-   if(hasLoadedRewards && watching){
-    el('rewardMessage').textContent='🎉 Награда за рекламу получена! Доля '+usd(latest.viewer_usd)+'; на баланс сейчас +'+uah(latest.credited_kopeks)+' (суммы меньше копейки копятся).';
-   }
-   lastRewardId=latest.ymid;
-  }
-  hasLoadedRewards=true;
-  active=Boolean(status.active_attempt);
-  retryUntil=Date.now()+Math.max(0,Number(status.retry_after)||0)*1000;
-  if(!status.enabled){watch.disabled=true;watch.textContent='Реклама временно недоступна';quota.textContent='Просмотры сейчас отключены';return}
-  render();
+ let busy=false;
+ async function show(){
+  if(busy)return;
+  busy=true;watch.disabled=true;watch.textContent='Загружаем…';msg.textContent='Открываем рекламный ролик…';
+  try{
+   const result=await window.FarmCashAds.showCashAd(data);
+   msg.textContent='✅ Просмотр завершён. Если реклама оплачена, награда поступит на баланс после подтверждения Monetag.';
+   watch.textContent='Готово';
+   close();
+  }catch(error){
+   const message=String(error?.message||'Реклама временно недоступна');
+   msg.textContent=/no.?ads|no.?fill|unavailable|not available|нет доступной рекламы/i.test(message)
+    ?'Сейчас нет доступной рекламы. Попробуй позже.':message;
+   watch.disabled=false;
+   watch.textContent='🎬 Повторить просмотр';
+  }finally{busy=false}
  }
- function render(){
-  const seconds=Math.max(0,Math.ceil((retryUntil-Date.now())/1000));
-  if(active){watch.disabled=true;watch.textContent='Обрабатывается просмотр';quota.textContent='Предыдущий показ ещё обрабатывается. Попробуй обновить статистику.'}
-  else if(seconds){watch.disabled=true;watch.textContent='Пауза '+seconds+' сек.';quota.textContent='После блока из 10 запусков короткий перерыв.'}
-  else{watch.disabled=false;watch.textContent='🎬 Смотреть рекламу';quota.textContent='Просмотры запускаются только по нажатию.'}
- }
+ watch.onclick=show;
  try{
   app?.ready?.();app?.expand?.();
-  if(!app?.initData){label.textContent='Открой страницу через Telegram Mini App.';quota.textContent='';return}
-  signed=app.initData;
+  if(!data){throw new Error('Открой просмотр из Telegram-бота.')}
   await post('preview-auth');
-  label.textContent='✅ VIP открыт · реальные награды на баланс активны';
-  await refresh();
-  el('retry').onclick=async()=>{try{await refresh()}catch(e){quota.textContent=e.message}};
-  watch.onclick=async()=>{
-   watch.disabled=true;watch.textContent='Загрузка рекламы…';quota.textContent='';
-   el('rewardMessage').textContent='';watching=true;
-   try{
-    const result=await window.FarmCashAds.showCashAd(signed);
-    quota.textContent='Просмотр завершён. Проверяем серверное подтверждение и начисление награды…';
-   }catch(e){
-    const message=String(e?.message||'Реклама сейчас недоступна');
-    quota.textContent=message;
-   }finally{
-    active=false;
-    try{
-     await refresh();
-     if(!el('rewardMessage').textContent){
-      quota.textContent='Показ завершён. Оплачиваемое подтверждение пока не получено; если оно придёт, ожидающая награда появится в статистике.';
-      for(let attempt=0;attempt<6;attempt++){
-       await new Promise(resolve=>setTimeout(resolve,2000));
-       await refresh();
-       if(el('rewardMessage').textContent)break;
-      }
-     }
-    }catch(e){watch.disabled=false;watch.textContent='Повторить';quota.textContent=e.message}
-    finally{watching=false}
-   }
-  };
-  setInterval(()=>{if(!watch.disabled || retryUntil>Date.now())render()},1000);
- }catch(e){
-  label.textContent=String(e?.message||'Не удалось открыть рекламу');
-  quota.textContent='Если VIP ещё закрыт, пройди первые три квеста в боте.';
-  watch.disabled=true;watch.textContent='Недоступно';
+  const status=await post('status');
+  if(!status.enabled)throw new Error('Реклама сейчас отключена.');
+  if(status.active_attempt)throw new Error('Предыдущий просмотр ещё обрабатывается. Попробуй позже.');
+  if(status.retry_after>0)throw new Error('Пауза после десяти просмотров: '+Math.ceil(status.retry_after)+' секунд.');
+  watch.disabled=false;watch.textContent='🎬 Смотреть рекламу';
+  // Try to start immediately on entry. Some iOS/Telegram WebViews require
+  // a direct gesture for ad SDK; the one fallback button remains available.
+  await show();
+ }catch(error){
+  msg.textContent=String(error?.message||'Не удалось открыть рекламу');
+  watch.disabled=true;
+  watch.textContent='Недоступно';
  }
 })();
 </script></body></html>
