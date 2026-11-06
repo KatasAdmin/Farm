@@ -113,13 +113,14 @@ class TaskBotTests(unittest.TestCase):
     def task(self, kind='channel', count='2'):
         self.credit()
         self.send(2, action='new:' + kind)
-        for text in ['Test task', 'Join the channel please', 'https://t.me/ChannelTest'] + (['1.00'] if kind=='manual' else []) + [count]:
+        fields=(['https://t.me/ChannelTest'] if kind=='channel' else ['Test task', 'Join the channel please', 'https://t.me/ChannelTest'] + (['1.00'] if kind=='manual' else []))
+        for text in fields + [count]:
             self.send(2, text)
         if kind=='manual':self.send(2,action='manual:photos_done')
         result = self.send(2, action='confirm_task')
-        self.assertIn('ожидает модерации', result['text'])
+        self.assertIn('опубликовано', result['text'])
         tid = self.c.execute('SELECT id FROM bot_tasks').fetchone()['id']
-        self.send(1, action='admin:approve:' + tid)
+        self.assertEqual(self.c.execute('SELECT status FROM bot_tasks WHERE id=%s',(tid,)).fetchone()['status'],'active')
         return tid
     def invariant(self):
         pool = self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount']
@@ -132,7 +133,7 @@ class TaskBotTests(unittest.TestCase):
         self.assertIn('На сколько выполнений',preview['text'])
         self.send(2,'2')
         result=self.send(2,action='confirm_task')
-        self.assertIn('ожидает модерации',result['text'])
+        self.assertIn('опубликовано',result['text'])
         task=self.c.execute('SELECT title,description FROM bot_tasks').fetchone()
         self.assertIn('ChannelTest',task['title'])
         self.assertIn('Проверить подписку',task['description'])
