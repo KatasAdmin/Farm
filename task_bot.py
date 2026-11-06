@@ -314,6 +314,13 @@ def route(c, uid, text, action, message, api, admin):
     if cmd == '/menu':
         state(c,uid,'clear')
         return say(uid,'🏠 Главное меню восстановлено. Выбирай раздел ниже 👇')
+    if cmd=='/farm':
+        return say(uid,'🌾 Открой свою ферму и развивай хозяйство!',[[{'text':'🌾 Играть в ферму','web_app':{'url':farm_url()}}]])
+    if cmd=='/profile':
+        return cabinet(c,uid)
+    if cmd=='/friends':
+        return bot_ui.partners(c,uid)
+
     if cmd.startswith('/bonus'):
         return bot_promos.command(c,uid,text,admin)
     if admin and cmd=='/start' and text not in ('/start wallet','/start support') and not text.startswith('/start link_'):
