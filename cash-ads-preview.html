@@ -15,16 +15,17 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
 <p id="identity">Проверяем доступ через Telegram…</p>
 <div class="metrics">
  <div class="metric"><small>Завершено просмотров</small><strong id="completed">—</strong></div>
- <div class="metric"><small>Наград учтено</small><strong id="confirmed">—</strong></div>
- <div class="metric"><small>🎁 Начислено за свои просмотры · ожидает расчёта</small><strong id="viewer">$0</strong></div>
- <div class="metric"><small>🤝 Начислено от команды · ожидает расчёта</small><strong id="refs">$0</strong></div>
+ <div class="metric"><small>Оплаченных просмотров</small><strong id="confirmed">—</strong></div>
+ <div class="metric"><small>🎁 За свои просмотры (оценка USD)</small><strong id="viewer">$0</strong></div>
+ <div class="metric"><small>🤝 От команды (оценка USD)</small><strong id="refs">$0</strong></div>
 </div>
+<p class="info">💰 Переведено на гривневый баланс за рекламу: <strong id="credited">0,00 грн</strong><br>💳 Общий доступный баланс: <strong id="wallet">0,00 грн</strong></p>
 <p id="rewardMessage" role="status" style="color:#9fedba;font-weight:700"></p>
 <p id="quota" role="status">Проверяем доступность рекламы…</p>
 <button id="watch" disabled>Подключаем…</button>
 <button id="retry" type="button">↻ Обновить статистику</button>
 <p class="info">💚 Зритель — 30% · Рефералы 7 уровней — до 35% · Проект — остаток. Доля отсутствующего реферала остаётся проекту.</p>
-<p class="info note">Суммы сразу записываются в ожидающие награды после подтверждения оплачиваемого события сервером Monetag. Это предварительный баланс: пока его нельзя вывести, поскольку сеть ещё может скорректировать доход. Неоплаченные показы учитываются только для активности.</p>
+<p class="info note">После серверного подтверждения оплачиваемого события Monetag награды переводятся в гривневый баланс автоматически. Доли меньше 1 копейки накапливаются до полного зачисления. Владелец проекта берёт на себя риск последующей корректировки дохода сетью. Неоплаченные показы считаются только для активности.</p>
 </main>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/assets/cash-ads-sdk.js"></script>
@@ -41,6 +42,7 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
   if(!r.ok)throw new Error(typeof data.detail==='string'?data.detail:'Сервис временно недоступен');
   return data;
  };
+ function uah(kopeks){return (Number(kopeks||0)/100).toFixed(2).replace('.',',')+' грн'}
  function usd(x){const v=Number(x||0);return '$'+(Number.isFinite(v)?v.toFixed(9):'0.000000000')}
  async function refresh(){
   const [stats,status]=await Promise.all([post('earnings'),post('status')]);
@@ -48,10 +50,12 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
   el('confirmed').textContent=stats.confirmed;
   el('viewer').textContent=usd(stats.viewer_usd);
   el('refs').textContent=usd(stats.referral_usd);
+  el('credited').textContent=uah(stats.credited_kopeks);
+  el('wallet').textContent=uah(stats.wallet_kopeks);
   const latest=stats.last_reward;
   if(latest?.ymid && latest.ymid!==lastRewardId){
    if(hasLoadedRewards && watching){
-    el('rewardMessage').textContent='🎉 Награда начислена: +'+usd(latest.viewer_usd)+'! Ожидает окончательного расчёта Monetag.';
+    el('rewardMessage').textContent='🎉 Награда за рекламу получена! Доля '+usd(latest.viewer_usd)+'; на баланс сейчас +'+uah(latest.credited_kopeks)+' (суммы меньше копейки копятся).';
    }
    lastRewardId=latest.ymid;
   }
@@ -72,7 +76,7 @@ button:disabled{opacity:.5;cursor:not-allowed}#retry{margin-top:10px;background:
   if(!app?.initData){label.textContent='Открой страницу через Telegram Mini App.';quota.textContent='';return}
   signed=app.initData;
   await post('preview-auth');
-  label.textContent='✅ VIP открыт · награды за рекламу активны';
+  label.textContent='✅ VIP открыт · реальные награды на баланс активны';
   await refresh();
   el('retry').onclick=async()=>{try{await refresh()}catch(e){quota.textContent=e.message}};
   watch.onclick=async()=>{
