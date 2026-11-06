@@ -20,6 +20,12 @@ def initialize(c):
       referral_chain jsonb NOT NULL DEFAULT '[]'::jsonb)""")
     c.execute("""CREATE INDEX IF NOT EXISTS bot_adsgram_attempt_uid
       ON bot_adsgram_attempts(uid,state,started_at DESC)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS bot_adsgram_farm_attempts(
+      id text PRIMARY KEY,uid bigint NOT NULL,player_id text NOT NULL,
+      item text NOT NULL,started_at double precision NOT NULL,
+      confirmed_at double precision,state text NOT NULL CHECK(state IN ('pending','confirmed','cancelled','expired')) )""")
+    c.execute("""CREATE INDEX IF NOT EXISTS bot_adsgram_farm_attempt_uid
+      ON bot_adsgram_farm_attempts(uid,state,started_at DESC)""")
     c.execute("""CREATE TABLE IF NOT EXISTS bot_adsgram_daily_settlements(
       utc_day text PRIMARY KEY, publisher_usd numeric(25,12) NOT NULL CHECK(publisher_usd>=0),
       impressions integer NOT NULL CHECK(impressions>0), credited_kopeks bigint NOT NULL DEFAULT 0,
@@ -44,6 +50,9 @@ def prepare(c,uid):
       WHERE uid=%s AND state='pending' AND started_at<%s""",(uid,now-600))
     existing=c.execute("""SELECT id FROM bot_adsgram_attempts WHERE uid=%s
       AND state='pending' LIMIT 1""",(uid,)).fetchone()
+    if not existing:
+        existing=c.execute("""SELECT id FROM bot_adsgram_farm_attempts WHERE uid=%s
+          AND state='pending' AND started_at>%s LIMIT 1""",(uid,now-600)).fetchone()
     if existing:raise ValueError("Previous AdsGram attempt is still pending")
     attempt=uuid.uuid4().hex
     chain=verified_bot_referral_chain(c,uid)
@@ -62,13 +71,80 @@ def confirm(c,uid):
     # A duplicate callback cannot confirm the same attempt again.
     now=time.time()
     c.execute("SELECT pg_advisory_xact_lock(%s)",(125492051,))
-    row=c.execute("""SELECT id FROM bot_adsgram_attempts
+    cash=c.execute("""SELECT id,started_at FROM bot_adsgram_attempts
       WHERE uid=%s AND state='pending' AND started_at BETWEEN %s AND %s
       ORDER BY started_at LIMIT 1 FOR UPDATE""",(uid,now-600,now)).fetchone()
-    if not row:return {"ok":True,"confirmed":False,"reason":"no_fresh_attempt"}
+    farm=c.execute("""SELECT id,player_id,item,started_at FROM bot_adsgram_farm_attempts
+      WHERE uid=%s AND state='pending' AND started_at BETWEEN %s AND %s
+      ORDER BY started_at LIMIT 1 FOR UPDATE""",(uid,now-600,now)).fetchone()
+    if cash and farm:
+        # Ambiguous callbacks cannot be safely assigned.
+        return {"ok":True,"confirmed":False,"reason":"ambiguous_active_attempts"}
+    if farm:return _confirm_farm(c,farm,now)
+    if not cash:return {"ok":True,"confirmed":False,"reason":"no_fresh_attempt"}
     c.execute("""UPDATE bot_adsgram_attempts SET state='confirmed',confirmed_at=%s
+      WHERE id=%s AND state='pending'""",(now,cash["id"]))
+    return {"ok":True,"confirmed":True,"reward":"cash"}
+
+
+
+def prepare_farm(c,uid,player_id,item):
+    # Both cash and farm AdsGram placements use one Reward URL per block.
+    from monetag_ads import REWARDS
+    if item not in REWARDS:raise ValueError("Unknown farm ad resource")
+    now=time.time()
+    c.execute("SELECT pg_advisory_xact_lock(%s)",(125492051,))
+    c.execute("""UPDATE bot_adsgram_farm_attempts SET state='expired'
+      WHERE uid=%s AND state='pending' AND started_at<%s""",(uid,now-600))
+    existing=c.execute("""SELECT id FROM bot_adsgram_farm_attempts
+      WHERE uid=%s AND state='pending' LIMIT 1""",(uid,)).fetchone()
+    if not existing:
+        existing=c.execute("""SELECT id FROM bot_adsgram_attempts
+          WHERE uid=%s AND state='pending' AND started_at>%s LIMIT 1""",(uid,now-600)).fetchone()
+    if existing:raise ValueError("Previous AdsGram attempt still active")
+    aid=uuid.uuid4().hex
+    c.execute("""INSERT INTO bot_adsgram_farm_attempts
+      (id,uid,player_id,item,started_at,state)
+      VALUES(%s,%s,%s,%s,%s,'pending')""",(aid,uid,player_id,item,now))
+    return {"ok":True,"attempt_id":aid}
+
+
+def cancel_farm(c,uid,attempt_id):
+    c.execute("""UPDATE bot_adsgram_farm_attempts SET state='cancelled'
+      WHERE id=%s AND uid=%s AND state='pending'""",(attempt_id,uid))
+
+
+def farm_status(c,player_id):
+    from monetag_ads import REWARDS
+    totals={}
+    for item,(views,quantity) in REWARDS.items():
+        row=c.execute("""SELECT COUNT(*) AS n FROM bot_adsgram_farm_attempts
+           WHERE player_id=%s AND item=%s AND state='confirmed'""",(player_id,item)).fetchone()
+        confirmed=int(row["n"])
+        totals[item]={"views":views,"quantity":quantity,
+                      "progress":confirmed%views,"confirmed":confirmed}
+    history=c.execute("""SELECT id,item,state,started_at FROM bot_adsgram_farm_attempts
+      WHERE player_id=%s ORDER BY started_at DESC LIMIT 12""",(player_id,)).fetchall()
+    return {"rewards":totals,"history":[{"ymid":r["id"],"item":r["item"],
+            "state":"credited" if r["state"]=="confirmed" else r["state"],
+            "created_at":r["started_at"]} for r in history]}
+
+
+def _confirm_farm(c,row,now):
+    from monetag_ads import REWARDS
+    # Only invoked by protected AdsGram Reward URL endpoint.
+    item=row["item"]
+    views,qty=REWARDS[item]
+    count=c.execute("""SELECT COUNT(*) AS n FROM bot_adsgram_farm_attempts
+      WHERE player_id=%s AND item=%s AND state='confirmed'""",(row["player_id"],item)).fetchone()["n"]
+    c.execute("""UPDATE bot_adsgram_farm_attempts SET state='confirmed',confirmed_at=%s
       WHERE id=%s AND state='pending'""",(now,row["id"]))
-    return {"ok":True,"confirmed":True}
+    if (int(count)+1)%views==0:
+        c.execute("""INSERT INTO monetag_reward_grants
+          (id,player_id,item,quantity,created)
+          VALUES(%s,%s,%s,%s,%s) ON CONFLICT(id) DO NOTHING""",
+          ("adsgram-"+row["id"],row["player_id"],item,qty,now))
+    return {"ok":True,"confirmed":True,"reward":"farm","item":item}
 
 
 def _day(date_text):
