@@ -50,14 +50,14 @@
       launched=true;
       // No "pop": this is the separate Rewarded Interstitial placement.
       // request_var/ymid are supplied by the server, never trusted from client.
-      await window['show_'+ZONE]({
+      const adResult=await window['show_'+ZONE]({
         type:'end',
         ymid:attempt.ymid,
         requestVar:attempt.request_var
       });
       await post('finish',telegramData,{ymid:attempt.ymid});
       handlers.onFinished?.();
-      return {ok:true,payable:false,pending_postback:true};
+      return {ok:true,payable:false,pending_postback:true,monetized:adResult?.reward_event_type==='valued',event_type:adResult?.reward_event_type||'unknown'};
     }catch(error){
       if(attempt){
         try{await post(launched?'finish':'cancel',telegramData,{ymid:attempt.ymid});}
