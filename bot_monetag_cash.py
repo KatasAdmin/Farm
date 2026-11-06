@@ -48,7 +48,7 @@ def initialize_cash_attempts(c):
             launched_at double precision,
             expires_at double precision NOT NULL,
             state text NOT NULL DEFAULT 'prepared'
-                CHECK(state IN ('prepared','launched','confirmed','expired','rejected')),
+                CHECK(state IN ('prepared','launched','finished','confirmed','expired','rejected')),
             confirmed_at double precision
         )
     """)
@@ -106,8 +106,9 @@ def cash_attempt_quota(c, viewer_uid, now=None):
         )
         ORDER BY launched_at DESC NULLS LAST
     """,(viewer_uid,now-3600,now)).fetchall()
-    active=any(r['state'] in ('prepared','launched') and
-               r['expires_at']>now for r in rows)
+    active=any((r['state']=='prepared' and r['expires_at']>now) or
+               (r['state']=='launched' and r['launched_at'] is not None and
+                r['launched_at']+120>now) for r in rows)
     launches=[r['launched_at'] for r in rows if r['launched_at'] is not None]
     cooldown=cash_cooldown(launches,now)
     return {'active':active,'retry_after':cooldown['retry_after'],
@@ -135,6 +136,21 @@ def mark_cash_attempt_launched(c, viewer_uid, ymid, now=None):
         WHERE ymid=%s
     """,(now,ymid))
     return {'ok':True,'ymid':ymid,'payable':False}
+
+
+def finish_cash_attempt(c, viewer_uid, ymid):
+    """SDK finished displaying; free the active slot, NEVER credit money.
+
+    This signal is untrusted for earnings; only a verified Monetag postback
+    can stage estimated income.
+    """
+    lock_cash_viewer(c,viewer_uid)
+    row=c.execute("""
+        UPDATE bot_monetag_cash_attempts SET state='finished'
+        WHERE ymid=%s AND viewer_uid=%s AND state='launched'
+        RETURNING ymid
+    """,(ymid,viewer_uid)).fetchone()
+    return {'ok':bool(row),'payable':False}
 
 
 def cancel_unlaunched_cash_attempt(c, viewer_uid, ymid):
@@ -183,7 +199,7 @@ def lookup_cash_attempt_for_postback(c, *, ymid, telegram_uid, zone_id,
     row=c.execute("""
         SELECT * FROM bot_monetag_cash_attempts WHERE ymid=%s FOR UPDATE
     """,(ymid,)).fetchone()
-    if not row or row['state']!='launched' or row.get('launched_at') is None:
+    if not row or row['state'] not in ('launched','finished') or row.get('launched_at') is None:
         return None
     if now>row['launched_at']+CASH_POSTBACK_TTL or row['zone_id']!=zone_id:
         return None
