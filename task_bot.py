@@ -15,6 +15,7 @@ import uuid
 import bot_extras
 import bot_economy
 import bot_ui
+import bot_quests
 import bot_about
 import bot_topups
 import bot_copy
@@ -65,6 +66,7 @@ def initialize(c):
     bot_extras.initialize(c)
     bot_economy.initialize(c)
     bot_ui.initialize(c)
+    bot_quests.initialize(c)
     bot_about.initialize(c)
     bot_topups.initialize(c)
     bot_copy.initialize(c)
@@ -352,7 +354,10 @@ def route(c, uid, text, action, message, api, admin):
     if text in sum(MENU, []) or cmd in ('/start', '/help', '/menu', '/cancel'):
         state(c, uid, 'clear')
     if action == 'watch_ads_info':
-        return say(uid, '🎬 Просмотр рекламы\n\nНажми кнопку ниже, чтобы открыть рекламу. После просмотра система проверит подтверждение рекламной сети.\n\n🧪 Сейчас тестовый режим: денежные начисления и вывод отключены.', [[{'text': '🎬 Смотреть рекламу', 'web_app': {'url': farm_url() + 'cash-ads-preview.html'}}], [button('⬅️ Заработать', 'earn')]])
+        if not bot_quests.vip(c,uid):
+            return bot_ui.screen(uid,'🔒 <b>Реклама доступна VIP</b>\n\nПройди первые 3 квеста, познакомься с приглашениями и открой доступ.\nПросмотр без оплаты рекламной сети не приносит денежных начислений.',[[button('⭐ Открыть квесты','quests')],[button('🤝 Пригласить друзей','friends')]])
+        return bot_ui.screen(uid,'💎 <b>VIP · Смотреть рекламу</b>\n\n🎬 Цель активности: 10 завершённых просмотров за день.\nНеоплаченные просмотры учитываются только для активности, не для денежной выручки.\n\n<i>Денежные выплаты за просмотры пока отключены.</i>',[[{'text':'🎬 Смотреть рекламу','web_app':{'url':farm_url()+'cash-ads-preview.html'}}],[button('⭐ Квесты','quests')]])
+
     if text == '🚀 Заработать' or action == 'earn':
         return bot_ui.earn(c, uid)
     if text == '🎮 Игры' or action == 'games':
