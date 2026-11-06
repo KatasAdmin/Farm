@@ -70,11 +70,10 @@ def lock_cash_viewer(c, viewer_uid):
 
 
 def cash_cooldown(launch_times, now):
-    """Rolling 10-ad block: elapsed time between launches counts toward 30s.
+    """A tenth launch is allowed; afterward wait until 30s after launch #1.
 
-    A gap of >=30s resets the block. On the tenth launch, the wait is
-    max(0, 30 - elapsed since the first launch of that block).
-    This avoids penalizing people who watch infrequently.
+    Breaks between launches count. A long gap clears the unfinished series.
+    No daily cap and no carryover across sessions.
     """
     from math import ceil
     times=sorted(t for t in launch_times if t is not None and t<=now)
@@ -82,18 +81,17 @@ def cash_cooldown(launch_times, now):
     for t in times:
         if block and t-block[-1]>=CASH_BREAK_SECONDS:
             block=[]
-        if len(block)==CASH_ADS_PER_BREAK:
-            # A completed block has already consumed its cooldown by now.
+        if len(block)>=CASH_ADS_PER_BREAK:
             if t-block[0]>=CASH_BREAK_SECONDS:
                 block=[]
             else:
-                # Historical invalid overlapping launch: ignore it for quota.
+                # Invalid historical overlap; do not extend a completed block.
                 continue
         block.append(t)
     if len(block)<CASH_ADS_PER_BREAK:
         return {'retry_after':0,'block_launches':len(block)}
-    remaining=max(0,ceil(CASH_BREAK_SECONDS-(now-block[0])))
-    return {'retry_after':remaining,'block_launches':len(block)}
+    return {'retry_after':max(0,ceil(CASH_BREAK_SECONDS-(now-block[0]))),
+            'block_launches':len(block)}
 
 
 def cash_attempt_quota(c, viewer_uid, now=None):
