@@ -142,10 +142,8 @@ class TaskBotTests(unittest.TestCase):
         first=self.send(3,action='channel:feed')
         self.assertEqual(first['method'],'editMessageText')
         self.assertIn('📣 Открыть канал',str(first))
-        self.assertIn('channel:take:',str(first))
-        taken=self.send(3,action='channel:take:'+tid)
-        self.assertEqual(taken['method'],'editMessageText')
-        self.assertIn('Проверить подписку',str(taken))
+        self.assertIn('channel:check:',str(first))
+        self.assertIn('Проверить подписку',str(first))
         self.joined=True
         paid=self.send(3,action='channel:check:'+tid)
         self.assertEqual(paid['method'],'editMessageText')
