@@ -530,7 +530,22 @@ def cash_ads_preview_auth(q:dict):
  uid=telegram_identity(raw)
  cash_ads_require_vip(uid)
  return {"ok":True,"telegram_id":uid,"enabled":cash_ads_enabled(),"cash_rewards":False,"test_mode":cash_ads_enabled(),
-         "status":"test_mode" if cash_ads_enabled() else "awaiting_monetag_approval"}
+         "status":"views_enabled" if cash_ads_enabled() else "temporarily_disabled"}
+
+@app.post("/api/ads/cash/earnings")
+def cash_ads_earnings(q:dict):
+ uid=cash_ads_require_verified_identity(q)
+ with db() as c:
+  value=bot_monetag_cash.estimated_earnings(c,uid)
+  rows=c.execute("""SELECT COUNT(*) FILTER (WHERE finished_at IS NOT NULL) AS completed,
+      COUNT(*) FILTER (WHERE state='confirmed') AS confirmed
+      FROM bot_monetag_cash_attempts WHERE viewer_uid=%s""",(uid,)).fetchone()
+ return {"ok":True,"currency":"USD","estimated_only":True,"withdrawable":False,
+         "viewer_usd":str(value['viewer']),"referral_usd":str(value['referral']),
+         "total_usd":str(value['total']),
+         "levels_usd":[str(x) for x in value['levels']],
+         "completed":int(rows['completed'] or 0),"confirmed":int(rows['confirmed'] or 0)}
+
 
 @app.post("/api/ads/cash/status")
 def cash_ads_status(q:dict):
@@ -542,7 +557,7 @@ def cash_ads_status(q:dict):
  with db() as c:
   quota=bot_monetag_cash.cash_attempt_quota(c,int(uid))
  return {"ok":True,"enabled":cash_ads_enabled(),"cash_rewards":False,"test_mode":cash_ads_enabled(),
-         "status":"enabled" if cash_ads_enabled() else "awaiting_monetag_approval",
+         "status":"enabled" if cash_ads_enabled() else "temporarily_disabled",
          "retry_after":quota["retry_after"],
          "active_attempt":quota["active"],
          "block_launches":quota["block_launches"],
@@ -550,8 +565,10 @@ def cash_ads_status(q:dict):
 
 
 def cash_ads_enabled():
- # Test mode shows ads but never credits money. Cash payouts remain unavailable.
- return os.getenv("MONETAG_AD_VIEW_TEST_ENABLED","").lower() == "true"
+ # Officially allowed Monetag interstitials. Earnings remain provisional until
+ # the publisher revenue is reconciled; enabling views never enables withdrawals.
+ return (os.getenv("MONETAG_CASH_ADS_ENABLED","").lower() == "true"
+         or os.getenv("MONETAG_AD_VIEW_TEST_ENABLED","").lower() == "true")
 
 def cash_ads_require_verified_identity(q):
  raw=q.get("telegram_data","")
