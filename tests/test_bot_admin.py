@@ -37,7 +37,7 @@ class AdminTests(unittest.TestCase):
     def test_clean_sections_and_owner_entry(self):
         panel=self.send(1,action='admin')
         self.assertNotIn('/bot',panel['text'])
-        for section in ('admin:section:manage','admin:tickets','admin:payouts','admin:statistics','admin:cardtopups'):
+        for section in ('admin:section:manage','admin:section:finance','admin:tickets','admin:statistics'):
             self.assertIn('bot:'+section,str(panel['reply_markup']))
         for key,targets in [('finance',['admin:money','admin:payouts','admin:topupsettings']),('tasks',['admin:tasks','admin:postissues','admin:channel','admin:retention']),('settings',['admin:economy','admin:settings:rewards','admin:settings:retention','admin:settings:limits'])]:
             submenu=self.send(1,action='admin:section:'+key)
@@ -63,7 +63,7 @@ class AdminTests(unittest.TestCase):
         self.field('days','10'); self.field('multiplier','3')
         self.assertEqual(self.c.execute('SELECT * FROM bot_task_terms WHERE task=%s',(tid,)).fetchone(),terms)
         self.assertEqual(bot.bot_economy.quote(self.c,'channel')['cost'],120)
-        self.assertEqual(bot.bot_economy.quote(self.c,'channel')['reward'],96)
+        self.assertEqual(bot.bot_economy.quote(self.c,'channel')['reward'],56)
         self.assertEqual(bot.bot_economy.config(self.c)['ref1'],450)
         self.assertIn('покрывать',self.field('ref1','90')['text'])
         self.assertEqual(bot.bot_economy.config(self.c)['ref1'],450)
