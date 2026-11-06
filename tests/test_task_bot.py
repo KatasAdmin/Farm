@@ -138,6 +138,36 @@ class TaskBotTests(unittest.TestCase):
         self.assertIn('ChannelTest',task['title'])
         self.assertIn('Проверить подписку',task['description'])
 
+    def test_simple_group_order_and_one_card_reward(self):
+        self.credit()
+        first=self.send(2,action='new:group')
+        self.assertIn('ссылку на группу',first['text'])
+        self.send(2,'https://t.me/ChannelTest')
+        self.send(2,'2')
+        created=self.send(2,action='confirm_task')
+        self.assertIn('опубликовано',created['text'])
+        task=self.c.execute("SELECT * FROM bot_tasks WHERE kind='group'").fetchone()
+        self.assertEqual(task['status'],'active')
+        card=self.send(3,action='group:feed')
+        self.assertEqual(card['method'],'editMessageText')
+        self.assertIn('Проверить вступление',str(card))
+        self.assertIn('group:skip:',str(card))
+        self.assertIn('Открыть группу',str(card))
+        self.joined=True
+        done=self.send(3,action='group:check:'+task['id'])
+        self.assertEqual(done['method'],'editMessageText')
+        self.assertIn('Вступление подтверждено',done['text'])
+        self.assertEqual(self.balance(3),48)
+        self.invariant()
+
+    def test_group_skip_does_not_award(self):
+        tid=self.task('group')
+        first=self.send(3,action='group:feed')
+        self.assertIn('Проверить вступление',str(first))
+        skipped=self.send(3,action='group:skip:'+tid)
+        self.assertIn('Пока больше нет',skipped['text'])
+        self.assertEqual(self.balance(3),0)
+
     def test_channel_feed_reuses_card_and_advances_after_reward(self):
         tid=self.task()
         first=self.send(3,action='channel:feed')
