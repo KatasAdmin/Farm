@@ -32,6 +32,8 @@ import time
 CASH_ZONE_ID = 12193261
 CASH_ATTEMPT_TTL = 600
 CASH_POSTBACK_TTL = 48 * 3600
+CASH_ADS_PER_BREAK = 10
+CASH_BREAK_SECONDS = 30
 
 
 def initialize_cash_attempts(c):
@@ -55,6 +57,32 @@ def initialize_cash_attempts(c):
     """)
 
 
+def cash_attempt_quota(c, viewer_uid, now=None):
+    """Ten launches, then 30 seconds' rest; no daily cap.
+
+    A pending prepared attempt blocks a second simultaneous launch. Abandoned
+    attempts stop blocking after their short preparation TTL.
+    """
+    now=time.time() if now is None else now
+    rows=c.execute("""
+        SELECT created_at,expires_at,state
+        FROM bot_monetag_cash_attempts
+        WHERE viewer_uid=%s AND created_at>=%s
+        ORDER BY created_at DESC
+    """,(viewer_uid,now-3600)).fetchall()
+    active=any(r['state'] in ('prepared','launched') and
+               r['expires_at']>now for r in rows)
+    # Prepared attempts are counted conservatively to prevent rapid retries.
+    recent=[r['created_at'] for r in rows if r['state']!='rejected']
+    count=len(recent)
+    # Break applies after each block of 10 attempts in the rolling hour.
+    last=recent[0] if recent else 0
+    wait=max(0,int(last+CASH_BREAK_SECONDS-now+0.999)) if count and count%CASH_ADS_PER_BREAK==0 else 0
+    return {'active':active,'retry_after':wait,'hour_attempts':count,
+            'daily_limit':None,'break_every':CASH_ADS_PER_BREAK,
+            'break_seconds':CASH_BREAK_SECONDS}
+
+
 def prepare_cash_attempt(c, verified_telegram_uid, now=None):
     """For future use AFTER publisher approval and server-side rate limiting.
 
@@ -64,6 +92,10 @@ def prepare_cash_attempt(c, verified_telegram_uid, now=None):
     if not isinstance(verified_telegram_uid,int) or verified_telegram_uid<=0:
         raise ValueError('Telegram identity must be verified')
     now=time.time() if now is None else now
+    # Caller must serialize attempts per viewer (transaction advisory lock).
+    quota=cash_attempt_quota(c,verified_telegram_uid,now)
+    if quota['active'] or quota['retry_after']:
+        raise ValueError('Cash ad cooldown or active attempt')
     ymid='cash_'+secrets.token_hex(20)
     request_var='cash_rewarded_interstitial'
     c.execute("""
