@@ -254,7 +254,7 @@ class BotScreenTests(unittest.TestCase):
 
     def test_new_earn_buttons_and_promotion_reach_working_routes_without_mutations(self):
         response=self.send(3,action='earn')
-        actions=[button['callback_data'][4:] for row in response['reply_markup']['inline_keyboard'] for button in row]
+        actions=[button['callback_data'][4:] for row in response['reply_markup']['inline_keyboard'] for button in row if 'callback_data' in button]
         for action in actions:
             if action=='daily':
                 continue
@@ -268,7 +268,7 @@ class BotScreenTests(unittest.TestCase):
     def test_ads_button_opens_separate_preview(self):
         response=self.send(3,action='earn')
         ads=response['reply_markup']['inline_keyboard'][3][0]
-        self.assertEqual(ads['callback_data'],'bot:watch_ads_info')
+        self.assertIn('cash-ads-preview.html',ads['web_app']['url'])
         self.assertIn('Смотреть рекламу',ads['text'])
 
     def test_existing_order_reward_used_in_overview_instead_of_new_default_rate(self):
