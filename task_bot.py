@@ -213,8 +213,6 @@ def channel_feed(c,uid,message,after_id=None,success='',api=None):
             raise UserError('Проверка канала временно недоступна. Убедись, что наш бот является его администратором.')
         if not member(member_status):
             c.execute("INSERT INTO bot_claims(task,uid,status,created) VALUES(%s,%s,'started',%s) ON CONFLICT DO NOTHING",(row['id'],uid,time.time()))
-            if bot_economy.terms(c,row['id']):
-                c.execute('INSERT INTO bot_membership_accept VALUES(%s,%s,%s) ON CONFLICT DO NOTHING',(row['id'],uid,time.time()))
             break
         # Already a member before opening this offer: move past it without pay.
         condition=' AND (t.created,t.id)>(%s,%s)'
@@ -222,6 +220,8 @@ def channel_feed(c,uid,message,after_id=None,success='',api=None):
         row=None
     if row:
         body=(success+'\n\n' if success else '')+'📣 <b>Подписаться на канал</b>\n\n🎁 Награда: <b>'+money(row['reward'])+'</b>\n\nОткрой канал, подпишись и вернись для проверки.'
+        rules=bot_economy.rule_text(c,row).replace('Нажимая «Взять задание»','Нажимая «Проверить подписку»')
+        body+=rules
         buttons=[[{'text':'📣 Открыть канал','url':row['url']}],[button('✅ Проверить подписку','channel:check:'+row['id'])],[button('➡️ Дальше','channel:skip:'+row['id'])],[button('⬅️ Заработать','earn')]]
     else:
         body=(success+'\n\n' if success else '')+'📣 <b>Пока больше нет заданий на подписку.</b>'
@@ -485,6 +485,8 @@ def route(c, uid, text, action, message, api, admin):
         item=c.execute('SELECT kind FROM bot_tasks WHERE id=%s',(tid,)).fetchone()
         if not item or item['kind']!='channel':raise UserError('Задание на подписку не найдено.')
         if parts[1]=='skip':return channel_feed(c,uid,message,after_id=tid,api=api)
+        if parts[1]=='check' and bot_economy.terms(c,tid):
+            c.execute('INSERT INTO bot_membership_accept VALUES(%s,%s,%s) ON CONFLICT DO NOTHING',(tid,uid,time.time()))
         route(c,uid,'',parts[1]+':'+tid,message,api,admin)
         if parts[1]=='take':return channel_feed_for_task(c,uid,message,tid)
         return channel_feed(c,uid,message,after_id=tid,success='✅ Подписка подтверждена, награда начислена!',api=api)
