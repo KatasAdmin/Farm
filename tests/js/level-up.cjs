@@ -2,7 +2,7 @@ const fs=require('fs'), vm=require('vm'), assert=require('assert');
 const source=fs.readFileSync('assets/game.js','utf8');
 const body=source.slice(source.indexOf('function celebrateLevel('),source.indexOf('\nfunction farmerTitle('));
 const saved=new Map(),nodes={};let shown=0;
-const context={localStorage:{getItem:k=>saved.get(k),setItem:(k,v)=>saved.set(k,v)},el:id=>nodes[id]||(nodes[id]={textContent:'',showModal:()=>shown++})};
+const context={storage:{getItem:k=>saved.get(k),setItem:(k,v)=>saved.set(k,v)},el:id=>nodes[id]||(nodes[id]={textContent:'',showModal:()=>shown++})};
 vm.runInNewContext(body,context);
 context.celebrateLevel('a',1);assert.equal(shown,0);
 context.celebrateLevel('a',2);assert.equal(shown,1);assert.equal(nodes['level-up-number'].textContent,'2');

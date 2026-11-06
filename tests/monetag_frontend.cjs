@@ -7,7 +7,7 @@ async function scenario(result,configured=true){
  const dom=new JSDOM(`<div><p id="warning"></p></div><section id="shop"><div class="product"><div class="trade-dual-actions"><button onclick="showShop('milk')">Buy</button></div></div></section><section id="coop"><div data-animal-card="cows"><div class="buttons"><button onclick="showShop('cows')">Buy cow</button></div><button onclick="upgradeBuilding('cowshed')">Upgrade</button></div></section><section id="wallet"></section><button id="incubator-action" onclick="incubatorAction()">Buy incubator</button><dialog id="purchase-dialog"></dialog>`,{url:'https://farm.test',runScripts:'outside-only'});
  const w=dom.window,calls=[],notes=[];let sdkCalls=0,credited=false;
  w.setInterval=()=>0;
- const cfg={enabled:configured,zone_id:12193261,sdk_url:'https://libtl.com/sdk.js',remaining_today:40,remaining_hour:10,retry_after:0,rewards:{grain:{progress:0},eggs:{progress:0},milk:{progress:3},chickens:{progress:0}},history:[],granted:[]};
+ const cfg={provider:configured?'monetag':'disabled',visible:true,enabled:configured,zone_id:12193261,sdk_url:'https://libtl.com/sdk.js',remaining_today:40,remaining_hour:10,retry_after:0,rewards:{grain:{progress:0},eggs:{progress:0},milk:{progress:3},chickens:{progress:0}},history:[],granted:[]};
  w.api=async(path,payload,headers)=>{calls.push({path,payload,headers});if(path.endsWith('/status'))return {...cfg,history:credited?[{ymid:'mock-milk',item:'milk',created_at:1,state:'credited'}]:[]};if(path.endsWith('/prepare'))return {ymid:'mock-'+payload.item,zone_id:12193261,expires_at:Date.now()/1000+600};if(payload?.event==='completed'&&result==='paid'){credited=true;}return {ok:true};};
  w.show_12193261=options=>{sdkCalls++;calls.push({sdk:options});if(result==='error')return Promise.reject(Error('SDK unavailable'));return Promise.resolve(result==='undefined'?undefined:{reward_event_type:'valued'});};
  w.toast=x=>notes.push(x);w.refresh=async()=>{};w.el=id=>w.document.getElementById(id);
@@ -30,4 +30,4 @@ async function scenario(result,configured=true){
  }else assert.equal(sdkCalls,0,'Unconfigured browser must never reuse TMA zone');
  dom.window.close();
 }
-(async()=>{for(const result of ['paid','undefined','error'])await scenario(result);await scenario('undefined',false);console.log('4 mock SDK scenarios passed: gesture, progress, failure, unconfigured zone; dynamic buttons and auth headers verified.');})().catch(e=>{console.error(e);process.exitCode=1;});
+(async()=>{for(const result of ['paid','undefined','error'])await scenario(result);await scenario('undefined',false);console.log('4 mock SDK scenarios passed: gesture, progress, failure, unconfigured zone; dynamic buttons and auth headers verified.');await require('./adsgram_frontend.cjs')();})().catch(e=>{console.error(e);process.exitCode=1;});

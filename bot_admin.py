@@ -10,6 +10,7 @@ import bot_payments
 import bot_accounts_admin
 import bot_account_controls
 import monetag_ads
+import adsgram_ads
 import farm_wallet
 from bot_release import RELEASE
 LIMITS = {'withdraw_min': 1, 'withdraw_max': 100000000, 'withdraw_fee': 0, 'max_stars': 10000, 'max_executions': 10000, 'card_min': 1, 'card_max': 100000000}
@@ -224,10 +225,12 @@ def admin(c, uid, text, action, api):
     if accounts is not None:return accounts
     moderation=b.bot_moderation.route(c,uid,action)
     if moderation is not None:return moderation
+    if action=='admin:ads:adsgram':
+        return ui.screen(uid,adsgram_ads.admin_text(c),[[b.button('Monetag','admin:ads'),b.button('⬅️ Админ-панель','admin')]])
     if action=='admin:ads' or action in ('admin:ads:telegram','admin:ads:web','admin:ads:legacy'):
         b.state(c,uid,'clear')
         platform=action.split(':')[2] if action.count(':')==2 else None
-        return ui.screen(uid,monetag_ads.admin_text(c,platform),[[b.button('Все','admin:ads'),b.button('Telegram','admin:ads:telegram'),b.button('Браузер','admin:ads:web')],[b.button('До обновления','admin:ads:legacy'),b.button('⬅️ Админ-панель','admin')]])
+        return ui.screen(uid,monetag_ads.admin_text(c,platform),[[b.button('Все','admin:ads'),b.button('Telegram','admin:ads:telegram'),b.button('Браузер','admin:ads:web')],[b.button('До обновления','admin:ads:legacy'),b.button('AdsGram','admin:ads:adsgram')],[b.button('⬅️ Админ-панель','admin')]])
     if action=='admin:statistics':
         b.state(c,uid,'clear')
         pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
