@@ -58,8 +58,35 @@ def initialize_cash_attempts(c):
     """)
 
 
+def cash_cooldown(launch_times, now):
+    """Rolling 10-ad block: elapsed time between launches counts toward 30s.
+
+    A gap of >=30s resets the block. On the tenth launch, the wait is
+    max(0, 30 - elapsed since the first launch of that block).
+    This avoids penalizing people who watch infrequently.
+    """
+    from math import ceil
+    times=sorted(t for t in launch_times if t is not None and t<=now)
+    block=[]
+    for t in times:
+        if block and t-block[-1]>=CASH_BREAK_SECONDS:
+            block=[]
+        if len(block)==CASH_ADS_PER_BREAK:
+            # A completed block has already consumed its cooldown by now.
+            if t-block[0]>=CASH_BREAK_SECONDS:
+                block=[]
+            else:
+                # Historical invalid overlapping launch: ignore it for quota.
+                continue
+        block.append(t)
+    if len(block)<CASH_ADS_PER_BREAK:
+        return {'retry_after':0,'block_launches':len(block)}
+    remaining=max(0,ceil(CASH_BREAK_SECONDS-(now-block[0])))
+    return {'retry_after':remaining,'block_launches':len(block)}
+
+
 def cash_attempt_quota(c, viewer_uid, now=None):
-    """Pause 30s after each tenth *launched* ad; failed preparations do not count."""
+    """No daily cap; only launched ads count toward a 10-ad block."""
     now=time.time() if now is None else now
     rows=c.execute("""
         SELECT created_at,launched_at,expires_at,state
@@ -73,11 +100,11 @@ def cash_attempt_quota(c, viewer_uid, now=None):
     active=any(r['state'] in ('prepared','launched') and
                r['expires_at']>now for r in rows)
     launches=[r['launched_at'] for r in rows if r['launched_at'] is not None]
-    count=len(launches)
-    last=launches[0] if launches else 0
-    wait=max(0,int(last+CASH_BREAK_SECONDS-now+0.999)) if count and count%CASH_ADS_PER_BREAK==0 else 0
-    return {'active':active,'retry_after':wait,'hour_launches':count,
-            'daily_limit':None,'break_every':CASH_ADS_PER_BREAK,
+    cooldown=cash_cooldown(launches,now)
+    return {'active':active,'retry_after':cooldown['retry_after'],
+            'block_launches':cooldown['block_launches'],
+            'hour_launches':len(launches),'daily_limit':None,
+            'break_every':CASH_ADS_PER_BREAK,
             'break_seconds':CASH_BREAK_SECONDS}
 
 
