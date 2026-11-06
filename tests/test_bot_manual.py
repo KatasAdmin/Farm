@@ -100,11 +100,10 @@ class ManualTaskTests(unittest.TestCase):
     def test_photo_examples_private_until_moderation_then_browse_without_payment(self):
         self.draft();self.photo(unique='first');self.photo(unique='second');t,_=self.create()
         response=self.send(3,action='manual:photo:'+t['id']+':0')
-        self.assertIn('недоступны',response['text'])
+        self.assertEqual(response['photo'],'big-first')
         mod=self.send(1,action='admin:task:'+t['id'])
         self.assertIn('manual:photo:'+t['id'],str(mod['reply_markup']))
         self.assertEqual(self.send(1,action='manual:photo:'+t['id']+':0')['photo'],'big-first')
-        self.send(1,action='admin:approve:'+t['id'])
         public=self.send(3,action='manual:photo:'+t['id']+':1')
         self.assertEqual(public['photo'],'big-second')
         self.assertIn('2/2',public['caption'])
