@@ -270,6 +270,14 @@ def quote_usdt(net,c=None):
         cap=0
     if c is not None:
         cap=min(cap,payout_cap(c))
+        # Avoid trapping additional user balances while Crypto Pay's CDN blocks
+        # outbound payout requests. This pauses new requests, not reconciliation.
+        outage=c.execute("""SELECT reason,created FROM bot_crypto_incidents
+            WHERE reason LIKE 'HTTP 403:%' ORDER BY created DESC LIMIT 1""").fetchone()
+        if outage and time.time()-outage['created']<600:
+            raise CryptoPayError(
+                'CryptoBot временно не принимает новые выплаты. '
+                'Уже созданные заявки сохранены. Выбери вывод на карту или повтори позже.')
     if type(net) is not int or net<100 or net>cap*100:
         raise CryptoPayError('Сумма криптовывода вне разрешённого лимита.')
     rates=call('getExchangeRates')
