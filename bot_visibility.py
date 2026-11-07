@@ -3,8 +3,6 @@
 Hiding a feature never deletes payments or changes the settlement of invoices
 already issued. Only entry to new actions is blocked.
 """
-from bot_copy import tr
-
 # key -> (human label, default visible, category, canonical Telegram actions)
 FEATURES={
     'main_earn':('🚀 Заработать',1,'main',('🚀 Заработать',)),
@@ -31,7 +29,6 @@ FEATURES={
     'earn_friends':('🤝 Пригласить друга',1,'earn',('friends',)),
     'orders':('📋 Мои заказы',1,'promotion',('mine:0',)),
     'proof_review':('✅ Проверить работы',1,'promotion',('reviews:0',)),
-    'promo_topup':('➕ Пополнить из продвижения',1,'promotion',('deposit',)),
 }
 GROUPS=(('main','🏠 Главное меню'),('finance','💳 Деньги'),('earn','🚀 Заработок'),('promotion','📣 Продвижение'))
 MENU_KEYS={name:key for key,(_,_,group,actions) in FEATURES.items() if group=='main' for name in actions}
@@ -86,7 +83,7 @@ def screen(c,uid,group=None):
     from task_bot import bot_ui,button,state
     state(c,uid,'clear')
     if group is None:
-        text='👁 <b>Видимость кнопок</b>\\n\\nОтключённая функция исчезает из меню и не открывается по старой кнопке. Существующие платежи, чеки и история сохраняются.\\n\\nВыбери раздел:'
+        text='👁 <b>Видимость кнопок</b>\n\nОтключённая функция исчезает из меню и не открывается по старой кнопке. Существующие платежи, чеки и история сохраняются.\n\nВыбери раздел:'
         rows=[]
         for section,label in GROUPS:
             count=sum(1 for key,(_,_,g,_) in FEATURES.items() if g==section and enabled(c,key))
@@ -97,7 +94,7 @@ def screen(c,uid,group=None):
     if group not in dict(GROUPS):
         from task_bot import UserError
         raise UserError('Неизвестный раздел видимости.')
-    text=dict(GROUPS)[group]+'\\n\\n✅ видна · ⛔ скрыта\\nИзменения действуют сразу для новых действий.'
+    text=dict(GROUPS)[group]+'\n\n✅ видна · ⛔ скрыта\nИзменения действуют сразу для новых действий.'
     rows=[]
     items=[(key,label) for key,(label,_,g,_) in FEATURES.items() if g==group]
     for idx in range(0,len(items),2):
