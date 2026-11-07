@@ -16,6 +16,10 @@ def core():
 def initialize(c):
     for sql in ["CREATE TABLE IF NOT EXISTS bot_topup_config(id integer PRIMARY KEY CHECK(id=1),\n          star_rate bigint NOT NULL DEFAULT 0 CHECK(star_rate>=0),card text NOT NULL DEFAULT '',\n          recipient text NOT NULL DEFAULT '')", 'INSERT INTO bot_topup_config(id) VALUES(1) ON CONFLICT DO NOTHING', 'CREATE TABLE IF NOT EXISTS bot_topup_migrations(id text PRIMARY KEY)', "CREATE TABLE IF NOT EXISTS bot_wallet_stars(id text PRIMARY KEY,uid bigint NOT NULL,\n          stars integer NOT NULL CHECK(stars>0),amount bigint NOT NULL CHECK(amount>0),\n          status text NOT NULL CHECK(status IN ('created','checkout','paid','refunded')),\n          charge_id text UNIQUE,checkout_id text,created double precision NOT NULL)", "CREATE TABLE IF NOT EXISTS bot_card_topups(id text PRIMARY KEY,uid bigint NOT NULL,\n          amount bigint NOT NULL CHECK(amount>0),card text NOT NULL,recipient text NOT NULL,\n          file_id text NOT NULL,receipt_key text NOT NULL,media text NOT NULL,\n          status text NOT NULL CHECK(status IN ('pending','approved','rejected')),\n          reference text NOT NULL DEFAULT '',created double precision NOT NULL)", 'CREATE INDEX IF NOT EXISTS bot_card_receipt ON bot_card_topups(receipt_key,status)']:
         c.execute(sql)
+    # Old deployments enforced one pending receipt per user. Remove this
+    # obsolete partial index while retaining all existing requests and money.
+    c.execute("DROP INDEX IF EXISTS bot_one_pending_card")
+    c.execute("CREATE INDEX IF NOT EXISTS bot_card_pending_user ON bot_card_topups(uid,status)")
     applied = c.execute("INSERT INTO bot_topup_migrations VALUES('wallet-stars-rate-50-2026-10-31') ON CONFLICT DO NOTHING RETURNING id").fetchone()
     if applied:
         c.execute('UPDATE bot_topup_config SET star_rate=50 WHERE id=1')
@@ -235,9 +239,27 @@ def admin(c, uid, action):
             raise b.UserError(tr('Неизвестная настройка.', html_mode=False, section='bot_topups', limit=3000))
         b.state(c, uid, 'topup_config', {'field': field})
         return ui.input_screen(uid, tr('Введи сумму в гривнах за 1 Star. 0 отключает оплату.', html_mode=True, section='bot_topups', limit=3000) if field == 'rate' else tr('Пришли две строки: номер карты (16 цифр) и имя получателя. Минус (-) отключает способ.', html_mode=True, section='bot_topups', limit=3000))
-    if action == 'admin:cardtopups':
-        rows = c.execute("SELECT id,amount FROM bot_card_topups WHERE status='pending' ORDER BY created LIMIT 10").fetchall()
-        return ui.screen(uid, tr('📨 <b>Квитанции на проверке</b>\n\nПроверяй фактическое поступление в банке перед зачислением.', html_mode=True, section='bot_topups', limit=3000), [[b.button(r['id'] + ' · ' + b.money(r['amount']), 'admin:cardview:' + r['id'])] for r in rows] + [[b.button('⬅️ Пополнения', 'admin:topupsettings')]])
+    if action=='admin:cardtopups' or action.startswith('admin:cardtopups:'):
+        page=0
+        if action.startswith('admin:cardtopups:'):
+            raw=action.rsplit(':',1)[-1]
+            if not raw.isdecimal() or len(raw)>4:
+                raise b.UserError('Неверная страница квитанций.')
+            page=min(int(raw),999)
+        rows=c.execute("""SELECT id,uid,amount FROM bot_card_topups
+            WHERE status='pending' ORDER BY created,id LIMIT 11 OFFSET %s""",(page*10,)).fetchall()
+        buttons=[[b.button('💳 '+b.money(r['amount'])+' · '+str(r['uid']), 'admin:cardview:'+r['id'])]
+                 for r in rows[:10]]
+        nav=[]
+        if page:nav.append(b.button('⬅️ Назад','admin:cardtopups:'+str(page-1)))
+        if len(rows)>10:nav.append(b.button('Далее ➡️','admin:cardtopups:'+str(page+1)))
+        if nav:buttons.append(nav)
+        buttons.append([b.button('⬅️ Настройки пополнений','admin:topupsettings')])
+        return ui.screen(uid,
+            '📨 <b>Квитанции на проверке</b>\n\n'
+            'Заявок: '+str(len(rows[:10]))+' на странице '+str(page+1)+'. '
+            'Сверяй сумму и операцию в банке, прежде чем нажимать «Зачислить».',
+            buttons)
     if action.startswith(('admin:cardview:', 'admin:cardapprove:', 'admin:cardreject:')):
         tid = action.split(':')[-1]
         row = c.execute("SELECT * FROM bot_card_topups WHERE id=%s FOR UPDATE", (tid,)).fetchone()
