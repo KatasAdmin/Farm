@@ -59,64 +59,121 @@ def listing(c,uid,page=0,query='',review=False,flock=False):
     else:
         rows=c.execute('SELECT * FROM bot_accounts ORDER BY created DESC,uid LIMIT 9 OFFSET %s',(page*8,)).fetchall()
     limit=20 if query else 8
-    buttons=[[b.button(r['name'][:24]+(' · '+str(r['birds'])+' птиц' if flock else '')+' · '+str(r['uid']),'admin:account:'+str(r['uid']))] for r in rows[:limit]]
+    # Compact two-column results; keep the full Telegram ID in the account card.
+    def short_label(r):
+        name=(r['name'] or 'Игрок').strip()
+        if flock:
+            return name[:13]+' · '+str(r['birds'])+' 🐔'
+        return name[:22]
+    found=rows[:limit]
+    buttons=[]
+    for i in range(0,len(found),2):
+        buttons.append([b.button(short_label(r),'admin:account:'+str(r['uid'])) for r in found[i:i+2]])
     nav=[]
     prefix='admin:accountflock:' if flock else 'admin:accountreviews:' if review else 'admin:accounts:'
     if not query:
-        if page:nav.append(b.button('⬅️ Назад',prefix+str(page-1)))
-        if len(rows)>limit:nav.append(b.button('Далее ➡️',prefix+str(page+1)))
+        if page:nav.append(b.button('◀️ Назад',prefix+str(page-1)))
+        if len(rows)>limit:nav.append(b.button('Далее ▶️',prefix+str(page+1)))
     if nav:buttons.append(nav)
-    buttons.append([b.button('🐔 По размеру стада','admin:accountflock:0')])
-    buttons.append([b.button('👥 Все аккаунты' if review else '⚠️ Отмеченные и заблокированные','admin:accounts:0' if review else 'admin:accountreviews:0')])
-    buttons.extend([[b.button('🔎 Поиск игрока','admin:accountsearch')],[b.button('⬅️ Админ-панель','admin')]])
-    return b.bot_ui.screen(uid,('⚠️ <b>Отмеченные и заблокированные</b>\n\n' if review else '👥 <b>Аккаунты игроков</b>\n\n')+('Выбери аккаунт. Поиск по Telegram ID точный.' if rows else 'Аккаунты не найдены.'),buttons)
-
+    buttons.append([b.button('🔎 Поиск','admin:accountsearch'),
+                    b.button('🐔 Стадо','admin:accountflock:0')])
+    buttons.append([b.button('👥 Все' if review else '⚠️ Проверка','admin:accounts:0' if review else 'admin:accountreviews:0'),
+                    b.button('⬅️ Админка','admin')])
+    if review:
+        title='⚠️ <b>Отмеченные аккаунты</b>'
+    elif flock:
+        title='🐔 <b>По размеру стада</b>'
+    elif query:
+        title='🔎 <b>Результаты поиска</b>'
+    else:
+        title='👥 <b>Игроки</b>'
+    subtitle=('Найдено: '+str(len(found))+'. Нажми на имя, чтобы открыть профиль.'
+              if found else 'Никого не найдено.')
+    if not query:
+        subtitle+=' · Стр. '+str(page+1)
+    return b.bot_ui.screen(uid,title+'\n'+subtitle,buttons)
 
 def card(c,uid,target):
     b=core();a=get(c,target);b.state(c,uid,'clear');esc=b.bot_ui.esc
     farm=c.execute('SELECT * FROM players WHERE telegram_id=%s',(target,)).fetchone()
     debt=c.execute('SELECT amount FROM bot_debts WHERE uid=%s',(target,)).fetchone()
-    text=('👤 <b>Аккаунт игрока</b>\n'
-          '<b>'+esc(a['name'])+'</b>\n'
-          'Telegram ID: <code>'+str(target)+'</code>\n'
-          '💰 Доступно: <b>'+b.money(a['available'])+'</b>'
-          ' · долг: '+b.money(debt['amount'] if debt else 0)+'\n'
-          '📅 С нами: '+date(a['created']))
-    if farm:
-        text+='\n\n🐔 <b>Ферма</b> · '+esc(farm.get('name','—'))
-        text+='\nID фермы: <code>'+esc(farm['id'])+'</code>'
-        text+='\nМонеты: '+str(farm['coins'])+' · Куры: '+str(farm.get('chickens',0))
-        text+=' · Гуси: '+str(farm.get('geese',0))
-    else:
-        text+='\n\n🐔 Ферма не привязана'
-    identity=c.execute('SELECT username,phone FROM bot_identities WHERE uid=%s',(target,)).fetchone()
-    if identity and identity['username']:
-        text+='\nTelegram: @'+esc(identity['username'])
-    if identity and identity['phone']:
-        text+=' · '+esc(identity['phone'])
     control=controls.get(c,target)
-    text+='\n\n🔒 Вывод: <b>'+('заблокирован' if control['withdraw_blocked'] else 'разрешён')+'</b>'
-    if control['withdraw_blocked']:text+='\nПричина блокировки: '+esc(control['block_reason'][:120])
-    text+='\n🔎 Проверка: <b>'+('требует проверки' if control['suspicious'] else 'без отметки')+'</b>'
-    if control['suspicious']:text+='\nЗаметка администратора: '+esc(control['flag_reason'][:120])
-    payouts=c.execute('SELECT * FROM bot_payouts WHERE uid=%s ORDER BY created DESC,id LIMIT 5',(target,)).fetchall()
-    labels={'pending':'ожидает','paid':'выплачено','rejected':'отклонено','cancelled':'отменено'}
-    buttons=[[{'text':'↗️ Профиль Telegram','url':'tg://user?id='+str(target)}],
-             [b.button('➕ Начислить в бот','admin:accountop:credit:'+str(target)),b.button('➖ Списать из бота','admin:accountop:debit:'+str(target))],
-             [b.button('🧾 Операции баланса','admin:accountledger:'+str(target)+':0')]]
-    buttons.append([b.button('📋 Подробности фермы','admin:accountdetail:farm:'+str(target)+':0'),
-                    b.button('📲 Связь и профиль','admin:accountdetail:support:'+str(target)+':0')])
-    for pair in (('farm','finance'),('payments','payouts'),('referrals','tasks'),('farmledger','activity'),('market','incubator')):
-        buttons.append([b.button(details.TITLES[k],'admin:accountdetail:'+k+':'+str(target)+':0') for k in pair])
-    buttons.append([b.button(details.TITLES['support'],'admin:accountdetail:support:'+str(target)+':0')])
-    buttons.append([b.button('🔓 Разблокировать вывод' if control['withdraw_blocked'] else '🔒 Заблокировать вывод','admin:accountcontrol:'+('unblock' if control['withdraw_blocked'] else 'block')+':'+str(target))])
-    buttons.append([b.button('✅ Снять отметку' if control['suspicious'] else '⚠️ Требует проверки','admin:accountcontrol:'+('unflag' if control['suspicious'] else 'flag')+':'+str(target))])
-    buttons.append([b.button('🛡 История проверок и блокировок','admin:accountaudit:'+str(target))])
-    if payouts:
-        text+='\n\n💸 <b>Последние заявки на вывод</b>'
-        for p in payouts:buttons.append([b.button(b.money(p['amount'])+' · '+labels[p['status']]+' · '+p['id'][:6],'admin:payview:'+p['id'])])
-    buttons.extend([[b.button('🔄 Обновить','admin:account:'+str(target))],[b.button('⬅️ Аккаунты','admin:accounts:0')]])
+    identity=c.execute('SELECT username,phone FROM bot_identities WHERE uid=%s',(target,)).fetchone()
+    text=('👤 <b>'+esc(a['name'])+'</b>\n'
+          'ID: <code>'+str(target)+'</code> · '+date(a['created'])+'\n'
+          '💰 <b>'+b.money(a['available'])+'</b>')
+    if debt and debt['amount']:
+        text+=' · Долг: '+b.money(debt['amount'])
+    if identity and identity['username']:
+        text+='\n📲 @'+esc(identity['username'])
+    if farm:
+        text+='\n🐔 '+esc(farm.get('name','—'))+' · '+str(farm['coins'])+' монет'
+        text+=' · '+str(farm.get('chickens',0))+' 🐔 · '+str(farm.get('geese',0))+' 🪿'
+    else:
+        text+='\n🐔 Нет привязанной фермы'
+    text+='\n\n'+('🔒 <b>Вывод заблокирован</b>' if control['withdraw_blocked'] else '✅ Вывод разрешён')
+    if control['suspicious']:
+        text+=' · ⚠️ Проверка'
+    if control['withdraw_blocked'] and control['block_reason']:
+        text+='\nПричина: '+esc(control['block_reason'][:100])
+    if control['suspicious'] and control['flag_reason']:
+        text+='\nОтметка: '+esc(control['flag_reason'][:100])
+    buttons=[
+        [{'text':'↗️ Telegram','url':'tg://user?id='+str(target)},
+         b.button('🔄 Обновить','admin:account:'+str(target))],
+        [b.button('➕ Начислить','admin:accountop:credit:'+str(target)),
+         b.button('➖ Списать','admin:accountop:debit:'+str(target))],
+        [b.button('💰 Финансы','admin:accountmenu:finance:'+str(target)),
+         b.button('🐔 Ферма','admin:accountmenu:farm:'+str(target))],
+        [b.button('📊 Активность','admin:accountmenu:activity:'+str(target)),
+         b.button('🛡 Контроль','admin:accountmenu:control:'+str(target))],
+        [b.button('⬅️ Все игроки','admin:accounts:0')]
+    ]
     return b.bot_ui.screen(uid,text,buttons)
+
+
+def submenu(c,uid,target,section):
+    b=core();a=get(c,target);b.state(c,uid,'clear')
+    esc=b.bot_ui.esc
+    if section=='finance':
+        title='💰 Финансы'
+        buttons=[
+            [b.button('🧾 Операции баланса','admin:accountledger:'+str(target)+':0')],
+            [b.button('💰 Сводка','admin:accountdetail:finance:'+str(target)+':0'),
+             b.button('💳 Пополнения','admin:accountdetail:payments:'+str(target)+':0')],
+            [b.button('💸 Все выплаты','admin:accountdetail:payouts:'+str(target)+':0')]
+        ]
+    elif section=='farm':
+        title='🐔 Ферма'
+        buttons=[
+            [b.button('🌾 Производство','admin:accountdetail:farm:'+str(target)+':0')],
+            [b.button('🛒 Рынок','admin:accountdetail:market:'+str(target)+':0'),
+             b.button('🥚 Инкубатор','admin:accountdetail:incubator:'+str(target)+':0')],
+            [b.button('🪙 Операции','admin:accountdetail:farmledger:'+str(target)+':0')]
+        ]
+    elif section=='activity':
+        title='📊 Активность'
+        buttons=[
+            [b.button('👥 Рефералы','admin:accountdetail:referrals:'+str(target)+':0'),
+             b.button('📝 Задания','admin:accountdetail:tasks:'+str(target)+':0')],
+            [b.button('📊 События фермы','admin:accountdetail:activity:'+str(target)+':0'),
+             b.button('🆘 Обращения','admin:accountdetail:support:'+str(target)+':0')]
+        ]
+    elif section=='control':
+        title='🛡 Контроль аккаунта'
+        control=controls.get(c,target)
+        buttons=[
+            [b.button('🔓 Разблокировать вывод' if control['withdraw_blocked'] else '🔒 Заблокировать вывод',
+                      'admin:accountcontrol:'+('unblock' if control['withdraw_blocked'] else 'block')+':'+str(target))],
+            [b.button('✅ Снять отметку' if control['suspicious'] else '⚠️ Проверить',
+                      'admin:accountcontrol:'+('unflag' if control['suspicious'] else 'flag')+':'+str(target))],
+            [b.button('🛡 История проверок','admin:accountaudit:'+str(target))],
+            [b.button('📲 Связь и профиль','admin:accountdetail:support:'+str(target)+':0')]
+        ]
+    else:
+        raise b.UserError('Неизвестный раздел аккаунта.')
+    buttons.append([b.button('⬅️ Карточка игрока','admin:account:'+str(target))])
+    return b.bot_ui.screen(uid,title+'\n<b>'+esc(a['name'])+'</b> · <code>'+str(target)+'</code>',buttons)
 
 
 def ledger(c,uid,target,page):
@@ -134,6 +191,10 @@ def ledger(c,uid,target,page):
 
 def route(c,uid,action):
     b=core()
+    if action.startswith('admin:accountmenu:'):
+        parts=action.split(':')
+        if len(parts)!=4:raise b.UserError('Неизвестный раздел аккаунта.')
+        return submenu(c,uid,target_id(parts[3]),parts[2])
     if action.startswith('admin:accountdetail:'):
         parts=action.split(':')
         if len(parts)!=5:raise b.UserError('Неизвестная страница.')
