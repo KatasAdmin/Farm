@@ -40,9 +40,6 @@ def enqueue_paid(c, payout_id, amount_formatted, recipient_uid=None):
     """Call in the same database transaction which changes payout status to paid."""
     if not payout_id or not amount_formatted:
         raise ValueError("Missing confirmed payout")
-    enabled=c.execute("SELECT enabled FROM bot_payout_channel_options WHERE key='publish_paid'").fetchone()
-    if not enabled or not enabled['enabled']:
-        return  # No unsolicited public announcement; private payout notices still send.
     body = (
         "✅ Выплата выполнена!\n\n"
         "💸 Сумма: " + str(amount_formatted) + "\n"
