@@ -27,8 +27,11 @@ def menu(c, uid):
     b = core()
     b.state(c, uid, 'clear')
     crypto_ready=(b.bot_admin.method_enabled(c,'crypto_deposit') and bot_crypto_pay.available())
-    description=('💎 <b>Crypto Bot</b> — автоматическое зачисление после подтверждения оплаты.\n' if crypto_ready else '')
-    rows=[[b.button('⭐ Telegram Stars','topup:stars')]]
+    import bot_visibility
+    stars_ready=bot_visibility.enabled(c,'stars')
+    description=('⭐ <b>Stars</b> — автоматическое зачисление после оплаты.\n' if stars_ready else '')
+    description+=('💎 <b>Crypto Bot</b> — автоматическое зачисление после оплаты.\n' if crypto_ready else '')
+    rows=([[b.button('⭐ Telegram Stars','topup:stars')]] if stars_ready else [])
     if crypto_ready:
         rows.append([b.button('💎 Crypto Bot','topup:crypto')])
     rows.extend([[b.button('💳 Банковская карта','topup:card')],
@@ -36,7 +39,6 @@ def menu(c, uid):
                  [b.button('⬅️ Мой кабинет','cabinet')]])
     return b.bot_ui.screen(uid,
         '➕ <b>Пополнение баланса</b>\n\nВыбери способ оплаты:\n\n'
-        '⭐ <b>Telegram Stars</b> — зачисление после оплаты.\n'
         +description+'💳 <b>Карта</b> — перевод и квитанция на проверку.',rows)
 
 def route(c, uid, action):
