@@ -581,10 +581,12 @@ def route(c, uid, text, action, message, api, admin):
         return say(uid, tr('✅ Мои выполнения\n{v0}', {'v0': '\n'.join((r['title'] + ' · ' + labels.get(r['status'], r['status']) for r in rows)) or 'Пока нет взятых заданий.'}, html_mode=False, section='task_bot', limit=3000))
     if action.startswith('payout:detail:'):
         pid=action.split(':')[-1]
-        row=c.execute("""SELECT p.*,ch.check_id,ch.check_url,ch.state AS check_state,cp.crypto_amount
+        row=c.execute("""SELECT p.*,ch.check_id,ch.check_url,ch.state AS check_state,cp.crypto_amount,
+                   h.payout_id AS liquidity_hold
             FROM bot_payouts p
             LEFT JOIN bot_crypto_checks ch ON ch.payout_id=p.id
             LEFT JOIN bot_crypto_payouts cp ON cp.payout_id=p.id
+            LEFT JOIN bot_crypto_liquidity_wait h ON h.payout_id=p.id
             WHERE p.id=%s AND p.uid=%s""",(pid,uid)).fetchone()
         if not row:
             raise UserError('Выплата не найдена.')
@@ -593,7 +595,9 @@ def route(c, uid, text, action, message, api, admin):
         when=datetime.fromtimestamp(row['created'],ZoneInfo('Europe/Kyiv')).strftime('%d.%m.%Y %H:%M')
         status={'pending':'⏳ Обрабатывается','paid':'✅ Выплачено',
             'cancelled':'↩️ Отменено','rejected':'❌ Отклонено'}.get(row['status'],'На проверке')
-        if row['check_state']=='active' and row['status']=='pending':
+        if row['liquidity_hold']:
+            status='⏳ Дополнительная проверка · пополнение резерва'
+        elif row['check_state']=='active' and row['status']=='pending':
             status='🎁 Чек готов · ожидает активации'
         elif row['check_state']=='review':
             status='⚠️ Чек требует проверки'
@@ -614,16 +618,19 @@ def route(c, uid, text, action, message, api, admin):
         return bot_ui.screen(uid,'\n'.join(lines),rows)
     if action == 'payouts':
         rows=c.execute("""SELECT p.id,p.amount,p.status,ch.state AS check_state,
-                   cp.state AS crypto_state FROM bot_payouts p
+                   cp.state AS crypto_state,h.payout_id AS liquidity_hold FROM bot_payouts p
             LEFT JOIN bot_crypto_checks ch ON ch.payout_id=p.id
             LEFT JOIN bot_crypto_payouts cp ON cp.payout_id=p.id
+            LEFT JOIN bot_crypto_liquidity_wait h ON h.payout_id=p.id
             WHERE p.uid=%s ORDER BY p.created DESC LIMIT 10""",(uid,)).fetchall()
         labels={'pending':'⏳ Ожидает','paid':'✅ Выплачено',
             'rejected':'❌ Отклонено','cancelled':'↩️ Отменено'}
         buttons=[]
         for r in rows:
             label='🎁 Чек готов' if r['check_state']=='active' and r['status']=='pending' else labels.get(r['status'],'⏳ Проверка')
-            if r['check_state']=='review':
+            if r['liquidity_hold']:
+                label='⏳ Дополнительная проверка'
+            elif r['check_state']=='review':
                 label='⚠️ Проверка CryptoBot'
             elif r['status']=='pending' and r['crypto_state']=='review' and r['check_state'] is None:
                 label='⚠️ Сверка CryptoBot'
