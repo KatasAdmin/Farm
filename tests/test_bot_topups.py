@@ -98,8 +98,8 @@ class TopupTests(unittest.TestCase):
             self.assertEqual(method,'getInvoices')
             self.assertEqual(args['invoice_ids'],'762431')
             return {'count':1,'items':[invoice]}
-        with patch.object(crypto,'available',return_value=True), \\
-             patch.object(crypto,'call',side_effect=provider):
+        with (patch.object(crypto,'available',return_value=True),
+              patch.object(crypto,'call',side_effect=provider)):
             self.assertTrue(crypto.settle_invoice(lambda:self.c,order))
             self.assertFalse(crypto.settle_invoice(lambda:self.c,order))
         self.assertEqual(self.balance(3),1000)
