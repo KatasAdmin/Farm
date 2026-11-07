@@ -454,7 +454,9 @@ def _check_dispatch(db):
     if row:
         try:
             remote=next(iter(_check_items(row['check_id'])),None)
-            if remote and _verified_check(row,remote):
+            # An unclaimed active check must not stall other customers' payouts.
+            # Only an activated check can be finalized and short-circuit this cycle.
+            if remote and _verified_check(row,remote) and remote.get('status')=='activated':
                 return _finalize_check(db,row,remote)
         except Exception:
             log.warning('Crypto Pay check reconciliation temporarily unavailable payout=%s',row['payout_id'])
