@@ -4,6 +4,7 @@ No bank credit is inferred from a receipt, and Stars do not create UAH cash.
 """
 from bot_copy import tr
 import re
+import bot_crypto_pay
 import time
 import uuid
 PREFIX = 'wallet_'
@@ -25,7 +26,7 @@ def config(c):
 def menu(c, uid):
     b = core()
     b.state(c, uid, 'clear')
-    return b.bot_ui.screen(uid, tr('➕ <b>Пополнение баланса</b>\n\nВыбери способ оплаты:\n\n⭐ <b>Telegram Stars</b> — зачисление автоматически после оплаты.\n💎 <b>Криптобот</b> — подключим позже.\n💳 <b>Карта</b> — перевод по реквизитам и квитанция на проверку.', html_mode=True, section='bot_topups', limit=3000), [[b.button('⭐ Telegram Stars', 'topup:stars')], [b.button('💎 Криптобот · скоро', 'topup:crypto')], [b.button('💳 Банковская карта', 'topup:card')], [b.button('📥 Мои пополнения', 'topup:mine')], [b.button('⬅️ Мой кабинет', 'cabinet')]])
+    return b.bot_ui.screen(uid, tr('➕ <b>Пополнение баланса</b>\n\nВыбери способ оплаты:\n\n⭐ <b>Telegram Stars</b> — зачисление автоматически после оплаты.\n💎 <b>Crypto Bot</b> — оплата криптовалютой после включения API.\n💳 <b>Карта</b> — перевод по реквизитам и квитанция на проверку.', html_mode=True, section='bot_topups', limit=3000), [[b.button('⭐ Telegram Stars', 'topup:stars')], [b.button('💎 Crypto Bot', 'topup:crypto')], [b.button('💳 Банковская карта', 'topup:card')], [b.button('📥 Мои пополнения', 'topup:mine')], [b.button('⬅️ Мой кабинет', 'cabinet')]])
 
 def route(c, uid, action):
     b = core()
@@ -33,8 +34,10 @@ def route(c, uid, action):
     if action == 'deposit':
         return menu(c, uid)
     if action == 'topup:crypto':
-        b.state(c, uid, 'clear')
-        return ui.screen(uid, tr('💎 <b>Криптобот</b>\n\nЭтот способ ещё не подключён.', html_mode=True, section='bot_topups', limit=3000), [[b.button('⬅️ Пополнение', 'deposit')]])
+        if not bot_crypto_pay.available():
+            return ui.screen(uid,'💎 <b>Crypto Bot</b>\n\nПодключение платежного API пока не завершено. До этого криптопополнения отключены.',[[b.button('⬅️ Пополнение','deposit')]])
+        b.state(c,uid,'topup_crypto_amount',{})
+        return ui.input_screen(uid,'💎 <b>Crypto Bot</b>\n\nВведи сумму пополнения в гривнах (от 1 до 10 000). Бот создаст счёт, который можно оплатить USDT, TON и другими поддерживаемыми монетами. Зачисление — только после подтверждения Crypto Pay.',cancel_action='deposit')
     if action == 'topup:stars':
         cfg = config(c)
         if not cfg['star_rate']:
@@ -52,9 +55,10 @@ def route(c, uid, action):
         return ui.input_screen(uid, tr('💳 <b>Перевод на карту</b>\n\nВведи сумму пополнения в гривнах. Затем получишь реквизиты и сможешь прикрепить квитанцию.', html_mode=True, section='bot_topups', limit=3000), cancel_action='deposit')
     if action == 'topup:mine':
         b.state(c, uid, 'clear')
-        rows = c.execute("SELECT id,amount,status,created,'card' AS kind FROM bot_card_topups WHERE uid=%s\n          UNION ALL SELECT id,amount,status,created,'stars' AS kind FROM bot_wallet_stars WHERE uid=%s\n          ORDER BY created DESC LIMIT 15", (uid, uid)).fetchall()
+        rows = c.execute("SELECT id,amount,status,created,'card' AS kind FROM bot_card_topups WHERE uid=%s\n          UNION ALL SELECT id,amount,status,created,'stars' AS kind FROM bot_wallet_stars WHERE uid=%s
+          UNION ALL SELECT id,amount,status,created,'crypto' AS kind FROM bot_crypto_invoices WHERE uid=%s\n          ORDER BY created DESC LIMIT 15", (uid, uid, uid)).fetchall()
         labels = {'created': tr('Счёт создан', html_mode=False, section='bot_topups', limit=3000), 'checkout': tr('Ожидаем подтверждение Telegram', html_mode=False, section='bot_topups', limit=3000), 'paid': tr('Зачислено', html_mode=False, section='bot_topups', limit=3000), 'refunded': tr('Возвращено', html_mode=False, section='bot_topups', limit=3000), 'pending': tr('На проверке', html_mode=False, section='bot_topups', limit=3000), 'approved': tr('Зачислено', html_mode=False, section='bot_topups', limit=3000), 'rejected': tr('Отклонено', html_mode=False, section='bot_topups', limit=3000)}
-        return ui.screen(uid, tr('📥 <b>Мои пополнения</b>\n\n{v0}', {'v0': '\n'.join((('⭐' if r['kind'] == 'stars' else '💳') + ' ' + b.money(r['amount']) + ' · ' + labels[r['status']] + ' · ' + r['id'][:8] for r in rows)) or 'Пополнений пока нет.'}, html_mode=True, section='bot_topups', limit=3000), [[b.button('🔄 Обновить', 'topup:mine')], [b.button('⬅️ Пополнение', 'deposit')]])
+        return ui.screen(uid, tr('📥 <b>Мои пополнения</b>\n\n{v0}', {'v0': '\n'.join((('⭐' if r['kind'] == 'stars' else '💎' if r['kind']=='crypto' else '💳') + ' ' + b.money(r['amount']) + ' · ' + labels[r['status']] + ' · ' + r['id'][:8] for r in rows)) or 'Пополнений пока нет.'}, html_mode=True, section='bot_topups', limit=3000), [[b.button('🔄 Обновить', 'topup:mine')], [b.button('⬅️ Пополнение', 'deposit')]])
     return None
 
 def input_text(c, uid, text, message, current):
@@ -62,6 +66,17 @@ def input_text(c, uid, text, message, current):
     ui = b.bot_ui
     stage = current['state']
     data = current['data']
+    if stage == 'topup_crypto_amount':
+        n=b.amount(text)
+        try:
+            order,url=bot_crypto_pay.create_invoice(c,uid,n)
+        except bot_crypto_pay.CryptoPayError as exc:
+            raise b.UserError(str(exc))
+        b.state(c,uid,'clear')
+        return b.say(uid,'💎 Счёт Crypto Bot создан.\n\nК оплате: '+b.money(n)+'\n\nПосле оплаты баланс обновится автоматически. Не переводи криптовалюту напрямую — используй только этот счёт.',[
+            [{'text':'💎 Оплатить через Crypto Bot','url':url}],
+            [b.button('📥 Мои пополнения','topup:mine')]
+        ])
     if stage == 'topup_stars':
         if not re.fullmatch('\\d{1,5}', text) or not 1 <= int(text) <= data.get('max', 10000):
             raise b.UserError(tr('Количество Stars: целое число от 1 до {v0}.', {'v0': str(data.get('max', 10000))}, html_mode=False, section='bot_topups', limit=3000))
