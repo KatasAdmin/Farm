@@ -23,9 +23,10 @@ def initialize(c):
       message_id bigint,
       error text NOT NULL DEFAULT '')""")
     c.execute("CREATE INDEX IF NOT EXISTS bot_payout_channel_queue ON bot_payout_channel_posts(state,created)")
+    c.execute("ALTER TABLE bot_payout_channel_posts ADD COLUMN IF NOT EXISTS recipient_uid bigint")
 
 
-def enqueue_paid(c, payout_id, amount_formatted):
+def enqueue_paid(c, payout_id, amount_formatted, recipient_uid=None):
     """Call in the same database transaction which changes payout status to paid."""
     if not payout_id or not amount_formatted:
         raise ValueError("Missing confirmed payout")
@@ -35,9 +36,11 @@ def enqueue_paid(c, payout_id, amount_formatted):
         "🎉 Ещё одна подтверждённая выплата в TREVIXO.\n\n"
         "🚀 Выполняй задания, приглашай друзей и развивайся вместе с нами!"
     )
-    c.execute("""INSERT INTO bot_payout_channel_posts(payout_id,body,created)
-      VALUES(%s,%s,%s) ON CONFLICT(payout_id) DO NOTHING""",
-      (str(payout_id),body,time.time()))
+    if recipient_uid is not None and (type(recipient_uid) is not int or recipient_uid<=0):
+        raise ValueError("Invalid payout recipient")
+    c.execute("""INSERT INTO bot_payout_channel_posts(payout_id,body,created,recipient_uid)
+      VALUES(%s,%s,%s,%s) ON CONFLICT(payout_id) DO NOTHING""",
+      (str(payout_id),body,time.time(),recipient_uid))
 
 
 def public_channel(link):
@@ -69,14 +72,20 @@ def dispatch(db,api):
         target=public_channel(cfg['news']) if cfg else None
         if target is None:
             return False  # Can safely remain pending until admin configures public news URL.
-        row=c.execute("""SELECT payout_id,body FROM bot_payout_channel_posts
+        row=c.execute("""SELECT payout_id,body,recipient_uid FROM bot_payout_channel_posts
           WHERE state='pending' ORDER BY created,payout_id LIMIT 1 FOR UPDATE""").fetchone()
         if not row:
             return False
         c.execute("UPDATE bot_payout_channel_posts SET state='sending' WHERE payout_id=%s",
                   (row['payout_id'],))
     try:
-        result=api('sendMessage',{'chat_id':target,'text':row['body']})
+        payload={'chat_id':target,'text':row['body']}
+        if row['recipient_uid']:
+            payload['reply_markup']={'inline_keyboard':[[{
+                'text':'✅ Выплата выполнена · Получатель',
+                'url':'tg://user?id='+str(row['recipient_uid'])
+            }]]}
+        result=api('sendMessage',payload)
         chat=(result or {}).get('chat') or {}
         if (type((result or {}).get('message_id')) is not int
                 or chat.get('type')!='channel'
