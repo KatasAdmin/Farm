@@ -69,6 +69,27 @@ class SafetyAuditTests(unittest.TestCase):
         self.assertIsNone(bot.bot_payouts.work(self.c,pid))
         self.assertEqual(self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount'],500)
 
+    def test_paid_payout_queues_one_privacy_safe_channel_post(self):
+        self.credit(); pid=self.payout()
+        self.send(1,action='admin:payref:'+pid)
+        self.send(1,action='admin:payrecord:'+pid)
+        self.send(1,'confirmed-bank-reference')
+        self.send(1,action='admin:payconfirm')
+        row=self.c.execute(
+            'SELECT * FROM bot_payout_channel_posts WHERE payout_id=%s',(pid,)
+        ).fetchone()
+        self.assertEqual(row['state'],'pending')
+        self.assertIn('5,00 грн',row['body'])
+        self.assertIn('TREVIXO',row['body'])
+        self.assertNotIn('TEST BANK RECIPIENT',row['body'])
+        self.assertNotIn('confirmed-bank-reference',row['body'])
+        self.assertNotIn(pid,row['body'])
+        self.send(1,action='admin:payconfirm')
+        self.assertEqual(self.c.execute(
+            'SELECT count(*) AS n FROM bot_payout_channel_posts WHERE payout_id=%s',
+            (pid,)
+        ).fetchone()['n'],1)
+
     def test_manual_payouts_can_be_processed_despite_low_cash_accounting(self):
         self.credit(2,'5','deposit-two');self.credit(3,'5','deposit-three')
         p2=self.payout(2);p3=self.payout(3)
