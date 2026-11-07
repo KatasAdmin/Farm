@@ -68,7 +68,17 @@ def route(c, uid, action):
         b.state(c, uid, 'clear')
         rows = c.execute("SELECT id,amount,status,created,'card' AS kind FROM bot_card_topups WHERE uid=%s\n          UNION ALL SELECT id,amount,status,created,'stars' AS kind FROM bot_wallet_stars WHERE uid=%s\n          UNION ALL SELECT id,amount,status,created,'crypto' AS kind FROM bot_crypto_invoices WHERE uid=%s\n          ORDER BY created DESC LIMIT 15", (uid, uid, uid)).fetchall()
         labels = {'created': tr('Счёт создан', html_mode=False, section='bot_topups', limit=3000), 'checkout': tr('Ожидаем подтверждение Telegram', html_mode=False, section='bot_topups', limit=3000), 'paid': tr('Зачислено', html_mode=False, section='bot_topups', limit=3000), 'refunded': tr('Возвращено', html_mode=False, section='bot_topups', limit=3000), 'pending': tr('На проверке', html_mode=False, section='bot_topups', limit=3000), 'approved': tr('Зачислено', html_mode=False, section='bot_topups', limit=3000), 'rejected': tr('Отклонено', html_mode=False, section='bot_topups', limit=3000)}
-        return ui.screen(uid, tr('📥 <b>Мои пополнения</b>\n\n{v0}', {'v0': '\n'.join((('⭐' if r['kind'] == 'stars' else '💎' if r['kind']=='crypto' else '💳') + ' ' + b.money(r['amount']) + ' · ' + labels[r['status']] + ' · ' + r['id'][:8] for r in rows)) or 'Пополнений пока нет.'}, html_mode=True, section='bot_topups', limit=3000), [[b.button('🔄 Обновить', 'topup:mine')], [b.button('⬅️ Пополнение', 'deposit')]])
+        # Pending card receipt needs owner review. Pending Crypto Pay invoice
+        # needs the payer to pay through Crypto Bot, not admin approval.
+        def status_label(item):
+            if item['kind']=='crypto' and item['status']=='pending':
+                return 'Ожидает оплаты Crypto Bot'
+            return labels[item['status']]
+        listing='\n'.join((('⭐' if r['kind']=='stars' else '💎' if r['kind']=='crypto' else '💳')+
+            ' '+b.money(r['amount'])+' · '+status_label(r)+' · '+r['id'][:8]) for r in rows)
+        return ui.screen(uid,tr('📥 <b>Мои пополнения</b>\n\n{v0}',
+            {'v0':listing or 'Пополнений пока нет.'},html_mode=True,section='bot_topups',limit=3000),
+            [[b.button('🔄 Обновить','topup:mine')],[b.button('⬅️ Пополнение','deposit')]])
     return None
 
 def input_text(c, uid, text, message, current):
