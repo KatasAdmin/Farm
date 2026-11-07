@@ -77,7 +77,8 @@ def card(c,uid,target):
     farm=c.execute('SELECT * FROM players WHERE telegram_id=%s',(target,)).fetchone()
     debt=c.execute('SELECT amount FROM bot_debts WHERE uid=%s',(target,)).fetchone()
     text=('👤 <b>Аккаунт игрока</b>\n'
-          '<b>'+esc(a['name'])+'</b> · <code>'+str(target)+'</code>\n'
+          '<b>'+esc(a['name'])+'</b>\n'
+          'Telegram ID: <code>'+str(target)+'</code>\n'
           '💰 Доступно: <b>'+b.money(a['available'])+'</b>'
           ' · долг: '+b.money(debt['amount'] if debt else 0)+'\n'
           '📅 С нами: '+date(a['created']))
@@ -90,6 +91,8 @@ def card(c,uid,target):
     identity=c.execute('SELECT username,phone FROM bot_identities WHERE uid=%s',(target,)).fetchone()
     if identity and identity['username']:
         text+='\nTelegram: @'+esc(identity['username'])
+    if identity and identity['phone']:
+        text+=' · '+esc(identity['phone'])
     control=controls.get(c,target)
     text+='\n\n🔒 Вывод: <b>'+('заблокирован' if control['withdraw_blocked'] else 'разрешён')+'</b>'
     if control['withdraw_blocked']:text+='\nПричина блокировки: '+esc(control['block_reason'][:120])
