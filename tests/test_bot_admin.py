@@ -90,7 +90,8 @@ class AdminTests(unittest.TestCase):
             self.assertIn('отключены',self.send(2,action='topup:crypto')['text'])
         # If the owner enabled the method but Railway still forbids transfers,
         # expose a clear explanatory entry instead of silently hiding Crypto Bot.
-        menu=self.send(2,action='withdraw:back')
+        self.send(2,action='withdraw')
+        menu=self.send(2,'5')
         self.assertIn('Crypto Bot · пока недоступен',str(menu['reply_markup']))
         self.assertIn('временно недоступен',self.send(2,action='withdraw:crypto')['text'])
 
