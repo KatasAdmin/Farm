@@ -30,6 +30,8 @@ class FakeDB:
         query=' '.join(sql.lower().split())
         if query.startswith('select pg_advisory_xact_lock'):
             return Query()
+        if query.startswith('select observed_at from bot_adsgram_balance_checkpoints'):
+            return Query(rows=[])
         if query.startswith('select 1 from bot_adsgram_daily_settlements'):
             return Query({'found':1} if args[0] in self.settlements else None)
         if query.startswith('select uid,referral_chain from bot_adsgram_attempts'):
