@@ -31,6 +31,7 @@ def initialize(c):
         c.execute('INSERT INTO bot_controls VALUES(%s,%s) ON CONFLICT DO NOTHING', (key, value))
     for key, (_, enabled) in PAYMENT_METHODS.items():
         c.execute('INSERT INTO bot_controls VALUES(%s,%s) ON CONFLICT DO NOTHING',(key,enabled))
+    c.execute("INSERT INTO bot_controls VALUES('crypto_payout_cap',10000) ON CONFLICT DO NOTHING")
 
 PAYMENT_METHODS = {
     'card_withdraw': ('💳 Вывод на карту', 1),
@@ -67,20 +68,23 @@ def payment_methods_screen(c,uid):
 
 def payment_credentials_screen(c,uid):
     b=core()
-    return b.bot_ui.screen(uid,
-        '🔑 <b>Подключение Crypto Pay</b>\n\n'
-        'Токен можно заменить в Railway → KatasAdmin-Farm → Farm-Web → Variables → '
-        '<code>CRYPTOPAY_API_TOKEN</code>.\n\n'
-        '🔒 Не отправляй токен в Telegram: сообщения могут храниться в истории. '
-        'Бот никогда не показывает его значение.\n\n'
-        'Дополнительные защищённые настройки Railway:\n'
-        '<code>CRYPTOPAY_DEPOSITS_ENABLED</code> = 1\n'
-        '<code>CRYPTOPAY_AUTO_PAYOUTS_ENABLED</code> = 0 до безопасного теста\n'
-        '<code>CRYPTOPAY_MAX_PAYOUT_UAH</code> = лимит в гривнах\n'
-        '<code>CRYPTOPAY_TESTNET</code> = 0 для основной сети.\n\n'
-        'Переключатели в админке работают отдельно от переменных Railway. '
-        'Для автопереводов необходимо разрешить Transfers в Crypto Pay.',
-        [[b.button('⬅️ Способы оплаты','admin:paymethods')]])
+    import bot_crypto_pay as crypto
+    cap=crypto.payout_cap(c)
+    msg=('🔑 <b>Crypto Pay — настройки</b>\n\n'
+         'API-токен: <b>'+('установлен' if crypto.token() else 'не установлен')+'</b>\n'
+         'Максимум одной автовыплаты: <b>'+str(cap)+' грн</b>\n'
+         'Жёсткий потолок — CRYPTOPAY_MAX_PAYOUT_UAH в Railway.\n\n'
+         '🔒 Секрет шифруется в базе. При смене токена бот попытается удалить сообщение с ним из Telegram, '
+         'но полностью исключить его хранение на стороне Telegram нельзя. '
+         'Самый безопасный способ — хранить токен в Railway Variables.\n\n'
+         'Автовыплаты дополнительно защищены переменной CRYPTOPAY_AUTO_PAYOUTS_ENABLED '
+         'и отдельным переключателем админки.')
+    return b.bot_ui.screen(uid,msg,[
+        [b.button('🔑 Заменить API-токен','admin:paymethods:token')],
+        [b.button('♻️ Использовать токен Railway','admin:paymethods:tokenreset')],
+        [b.button('💰 Лимит криптовывода','admin:paymethods:cap')],
+        [b.button('⬅️ Способы оплаты','admin:paymethods')]])
+
 
 def limits(c):
     return {r['key']: r['value'] for r in c.execute('SELECT * FROM bot_controls').fetchall()}
@@ -336,6 +340,22 @@ def admin(c, uid, text, action, api):
         return payment_methods_screen(c,uid)
     if action == 'admin:paymethods:credentials':
         return payment_credentials_screen(c,uid)
+    if action == 'admin:paymethods:token':
+        b.state(c,uid,'admin_crypto_token',{})
+        return ui.input_screen(uid,'🔐 <b>Замена API-токена Crypto Pay</b>\n\n'
+            'Отправь токен отдельным сообщением в этот приватный чат. Бот сразу попробует удалить сообщение '
+            'и проверит токен через Crypto Pay. Если удаление не удалось, токен не сохраняется. '
+            '⚠️ Используй этот способ только если принимаешь риск временного хранения секрета в Telegram.',
+            cancel_action='admin:paymethods:credentials')
+    if action == 'admin:paymethods:cap':
+        b.state(c,uid,'admin_crypto_cap',{})
+        return ui.input_screen(uid,'💰 Укажи максимальную сумму одной автоматической криптовыплаты в гривнах.\n'
+            '0 — остановить новые переводы. Значение нельзя увеличить выше жёсткого лимита Railway.',
+            cancel_action='admin:paymethods:credentials')
+    if action == 'admin:paymethods:tokenreset':
+        import bot_crypto_pay as crypto
+        crypto.reset_token(c)
+        return payment_credentials_screen(c,uid)
     if action.startswith('admin:paymethods:toggle:'):
         key=action.rsplit(':',1)[-1]
         if key not in PAYMENT_METHODS:
@@ -449,6 +469,38 @@ def input_text(c, uid, text, message, current, api):
         return b.bot_moderation.input_text(c,uid,text,current)
     if stage in ('admin_rejection_reason','admin_rejection_confirm'):
         return b.bot_decisions.input_text(c,uid,text,current)
+    if stage == 'admin_crypto_cap':
+        import bot_crypto_pay as crypto
+        if not text.isdecimal() or len(text)>7:
+            raise b.UserError('Введи сумму целым числом в гривнах.')
+        n=int(text)
+        try:
+            hard=int(os.getenv('CRYPTOPAY_MAX_PAYOUT_UAH','0'))
+        except ValueError:
+            hard=0
+        if n>hard:
+            raise b.UserError('Нельзя превысить лимит Railway: '+str(hard)+' грн.')
+        c.execute("UPDATE bot_controls SET value=%s WHERE key='crypto_payout_cap'",(n,))
+        b.state(c,uid,'clear')
+        return payment_credentials_screen(c,uid)
+    if stage == 'admin_crypto_token':
+        import bot_crypto_pay as crypto
+        msgid=message.get('message_id')
+        if type(msgid) is not int or not msgid>0:
+            raise b.UserError('Для ввода токена используй отдельное сообщение.')
+        # Delete before token is validated or stored, never echo token back.
+        try:
+            deleted=api('deleteMessage',{'chat_id':uid,'message_id':msgid})
+        except Exception:
+            deleted=False
+        if deleted is not True:
+            raise b.UserError('Telegram не подтвердил удаление сообщения. Токен не сохранён. Используй Railway Variables.')
+        try:
+            crypto.replace_token(c,text)
+        except crypto.CryptoPayError:
+            raise b.UserError('Не удалось подтвердить токен Crypto Pay. Проверь настройки приложения.')
+        b.state(c,uid,'clear')
+        return payment_credentials_screen(c,uid)
     if stage == 'admin_field':
         return save_field(c, uid, data['key'], text)
     if stage == 'admin_channel':
