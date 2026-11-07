@@ -493,12 +493,12 @@ def route(c, uid, text, action, message, api, admin):
         if not current or current['state']!='payout_confirm' or action.split(':')[-1]!=current['data'].get('nonce'):
             raise UserError('Подтверждение заявки устарело.')
         data=current['data']
-        data['public_profile']=not data.get('public_profile',False)
+        data['public_profile']=not data.get('public_profile',True)
         state(c,uid,'payout_confirm',data)
         label='Да' if data['public_profile'] else 'Нет'
-        return say(uid, '👤 Публичная ссылка на мой Telegram-профиль в канале выплат: '+label+
+        return say(uid, '👤 Аккаунт в канале выплат: '+label+
             '\n\nЕсли разрешить, посетители канала смогут открыть твой профиль после подтверждённой выплаты.',
-            [[button('👤 Профиль в посте: '+label, 'payout_public:'+data['nonce'])],
+            [[button('👤 Аккаунт в канале: '+label, 'payout_public:'+data['nonce'])],
              [button('✅ Подтвердить', 'confirm_payout:'+data['nonce']),button('Отмена','cancel_input')]])
     if action.startswith(('confirm_task:', 'confirm_payout:')):
         return confirmation(c, uid, action, api)
@@ -771,9 +771,9 @@ def process_input(c, uid, text, message, current, api):
             raise UserError(tr('Реквизиты должны содержать от 8 до 250 символов.', html_mode=False, section='task_bot', limit=3000))
         data['destination'] = text
         data['nonce'] = uuid.uuid4().hex[:12]
-        data['public_profile'] = False
+        data['public_profile'] = True
         state(c, uid, 'payout_confirm', data)
-        return say(uid, tr('Проверить заявку\nСумма с баланса: {v0}\nКомиссия: {v1}\nК выплате: {v2}\nРеквизиты: {v3}\n\nПосле подтверждения сумма будет зарезервирована до ручной выплаты.\n\nПо умолчанию профиль скрыт. Разрешить ссылку на свой Telegram в канале выплат можно кнопкой ниже.', {'v0': f"{money(data['amount'])}", 'v1': f"{money(data.get('fee', 0))}", 'v2': f"{money(data.get('net', data['amount']))}", 'v3': f'{text}'}, html_mode=False, section='task_bot', limit=3000), [[button('👤 Профиль в канале выплат: Нет', 'payout_public:' + data['nonce'])], [button('✅ Подтвердить', 'confirm_payout:' + data['nonce']), button('Отмена', 'cancel_input')]])
+        return say(uid, tr('Проверить заявку\nСумма с баланса: {v0}\nКомиссия: {v1}\nК выплате: {v2}\nРеквизиты: {v3}\n\nПосле подтверждения сумма будет зарезервирована до ручной выплаты.\n\n👤 Аккаунт в канале выплат: Да. После подтверждённой выплаты посетители канала смогут открыть твой Telegram-профиль. Если не хочешь, выбери «Нет» кнопкой ниже.', {'v0': f"{money(data['amount'])}", 'v1': f"{money(data.get('fee', 0))}", 'v2': f"{money(data.get('net', data['amount']))}", 'v3': f'{text}'}, html_mode=False, section='task_bot', limit=3000), [[button('👤 Аккаунт в канале: Да', 'payout_public:' + data['nonce'])], [button('✅ Подтвердить', 'confirm_payout:' + data['nonce']), button('Отмена', 'cancel_input')]])
     if stage == 'proof':
         photos = message.get('photo') or []
         proof = (text or message.get('text') or message.get('caption') or '').strip()
