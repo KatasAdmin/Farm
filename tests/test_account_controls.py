@@ -23,7 +23,7 @@ class AccountControlTests(unittest.TestCase):
         return action
 
     def prepare_payout(self):
-        self.send(2,action='withdraw');self.send(2,'5');self.send(2,'4441111056522018')
+        self.send(2,action='withdraw');self.send(2,'5');self.send(2,action='withdraw:card');self.send(2,'4441111056522018')
 
     def test_block_rechecks_open_form_and_does_not_debit_or_cancel_funds(self):
         self.credit();self.prepare_payout()
