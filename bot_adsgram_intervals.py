@@ -80,6 +80,12 @@ def report(c,owner_uid,new_balance,now=None):
     start=prev['observed_at']
     _unsettled_daily(c,start,now)
     delta=balance-Decimal(str(prev['cumulative_usd']))
+    # If the publisher total has not moved, keep the previous checkpoint:
+    # later revenue can still cover callbacks that arrived in the meantime.
+    if delta==0:
+        return {'baseline':False,'unchanged':True,'balance':str(balance),
+                'delta':'0','cash_views':0,'farm_views':0,
+                'credited_kopeks':0,'platform_usd_at_least':'0'}
     cash=c.execute("""SELECT id,uid,referral_chain FROM bot_adsgram_attempts
       WHERE state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s
       ORDER BY confirmed_at,id FOR UPDATE""",(start,now)).fetchall()
