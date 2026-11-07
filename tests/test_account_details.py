@@ -54,7 +54,7 @@ class AccountDetailsTests(unittest.TestCase):
 
     def test_all_paid_and_cancelled_payouts_paginate_and_link(self):
         self.prepare_farm()
-        for i in range(5):self.c.execute("INSERT INTO bot_payouts VALUES(%s,2,500,%s,%s,%s,%s)",(str(i),'Карта <recipient>','paid' if i%2 else 'cancelled','ref-'+str(i),100+i))
+        for i in range(5):self.c.execute("INSERT INTO bot_payouts(id,uid,amount,destination,status,reference,created) VALUES(%s,2,500,%s,%s,%s,%s)",(str(i),'Карта <recipient>','paid' if i%2 else 'cancelled','ref-'+str(i),100+i))
         self.c.raw.commit()
         r=self.send(1,action='admin:accountdetail:payouts:2:0')
         self.assertIn('bot:admin:accountdetail:payouts:2:1',str(r))
