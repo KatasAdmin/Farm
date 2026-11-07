@@ -84,6 +84,7 @@ def card(c,uid,target):
           '📅 С нами: '+date(a['created']))
     if farm:
         text+='\n\n🐔 <b>Ферма</b> · '+esc(farm.get('name','—'))
+        text+='\nID фермы: <code>'+esc(farm['id'])+'</code>'
         text+='\nМонеты: '+str(farm['coins'])+' · Куры: '+str(farm.get('chickens',0))
         text+=' · Гуси: '+str(farm.get('geese',0))
     else:
