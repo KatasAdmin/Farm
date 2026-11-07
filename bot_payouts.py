@@ -44,6 +44,7 @@ def view(c,uid,pid):
     b=core();ui=b.bot_ui
     p=c.execute('SELECT * FROM bot_payouts WHERE id=%s',(pid,)).fetchone()
     if not p:raise b.UserError('Заявка не найдена.')
+    crypto=c.execute("SELECT state,asset,crypto_amount FROM bot_crypto_payouts WHERE payout_id=%s",(pid,)).fetchone()
     active=work(c,pid)
     status='🏦 В работе' if active else {'pending':'⏳ Ожидает проверки','paid':'✅ Выплачено','rejected':'❌ Отклонено','cancelled':'Отменено'}[p['status']]
     text=tr('💸 <b>Заявка на вывод</b>\n\nНомер: <code>{v0}</code>\nИгрок: {v1}\nСтатус: <b>{v2}</b>\nС баланса: {v3}\nК переводу: <b>{v4}</b>\nРеквизиты: {v5}',{'v0':pid,'v1':p['uid'],'v2':status,'v3':b.money(p['amount']),'v4':b.money(b.bot_admin.net(c,p)),'v5':ui.esc(p['destination'])},html_mode=True,section='bot_payouts')
@@ -58,7 +59,10 @@ def view(c,uid,pid):
     if debt and debt['amount']:
         text+=tr('\n\n⚠️ Задолженность получателя: {v0}. Проверь, выполнен ли уже банковский перевод. Не подтверждай отказ, если перевод отправлен или его результат неизвестен.',{'v0':b.money(debt['amount'])},html_mode=True,section='bot_payouts')
     rows=[[b.button('👤 Открыть аккаунт игрока','admin:account:'+str(p['uid']))]]
-    if p['status']=='pending':
+    if p['status']=='pending' and crypto:
+        text+='\n\n💎 <b>Crypto Bot</b>: '+ui.esc(crypto['crypto_amount'])+' '+ui.esc(crypto['asset'])+' · '+ui.esc(crypto['state'])
+        text+='\nСумма зарезервирована. При неизвестном результате API повторный перевод не выполняется.'
+    elif p['status']=='pending':
         if active:
             require(c,pid,uid)
             rows.append([b.button('✅ Перевод выполнен','admin:payrecord:'+pid)])
@@ -75,10 +79,15 @@ def route(c,uid,action):
         return view(c,uid,action.split(':')[-1])
     if action.startswith('admin:payref:'):
         b.state(c,uid,'clear')
-        pid=action.split(':')[-1];claim(c,pid,uid)
+        pid=action.split(':')[-1]
+        if c.execute('SELECT 1 FROM bot_crypto_payouts WHERE payout_id=%s',(pid,)).fetchone():
+            raise b.UserError('Этот вывод выполняется через Crypto Bot и не подтверждается вручную.')
+        claim(c,pid,uid)
         return view(c,uid,pid)
     if action.startswith('admin:payrecord:'):
         pid=action.split(':')[-1]
+        if c.execute('SELECT 1 FROM bot_crypto_payouts WHERE payout_id=%s',(pid,)).fetchone():
+            raise b.UserError('Этот вывод выполняется через Crypto Bot.')
         require(c,pid,uid)
         return b.complete_manual_payout(c,uid,pid)
     return None
