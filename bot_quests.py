@@ -79,20 +79,6 @@ def show(c,uid):
        "💡 %s\n\n"
        "Следующий этап откроется после нажатия «Завершить»." %
        (level,'активен ✅' if level>=3 else 'закрыт 🔒',level+1,name,count,target,TIPS[key]))
- # Live counters are computed from verified bot accounts and SDK-completed ad attempts.
- now=dt.datetime.now(ZoneInfo('Europe/Kyiv'))
- tomorrow=(now+dt.timedelta(days=1)).replace(hour=0,minute=0,second=0,microsecond=0)
- remaining=tomorrow-now
- hours=remaining.seconds//3600
- minutes=(remaining.seconds%3600)//60
- text+=("\n📊 <b>Твой прогресс</b>\n"
-        "🤝 Приглашено: %s человек\n"
-        "🎬 Просмотров сегодня: %s\n"
-        "📺 Всего завершённых: %s\n"
-        "📅 Дней с бонусом: %s\n"
-        "⏰ До нового дня: %s ч %s мин (Киев)\n" %
-        (m['refs'],m['ads_day'],m['ads_total'],m['daily'],hours,minutes))
- text+="\n<i>Завершённые показы считаются для активности; их оплата сетью учитывается отдельно.</i>"
  buttons=[]
  if count>=target:buttons.append([button('✅ Завершить квест','quests:claim')])
  else:buttons.append([button('🔄 Проверить прогресс','quests')])
