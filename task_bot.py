@@ -1267,9 +1267,152 @@ def _administration(c, uid, text, action, api):
         owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
         if not owner or int(owner['telegram_id'])!=uid:
             raise UserError('Только владелец FARM может фиксировать рекламный доход.')
-        if len(parts)!=2:
-            raise UserError('Формат: /reklama 1.65 — накопленный баланс AdsGram в USD.')
         import bot_adsgram_intervals
+        if len(parts)==3 and parts[1].lower()=='reset':
+            try:
+                result=bot_adsgram_intervals.reset_baseline(c,uid,parts[2].replace(',','.'))
+            except (ValueError,TypeError) as exc:
+                raise UserError('Старт не изменён: '+str(exc))
+            return bot_ui.screen(uid,
+                '🔄 <b>AdsGram: новая точка отсчёта</b>\n\n'
+                'Начальный баланс: <b>
+        except (ValueError,TypeError) as exc:
+            raise UserError('Начисления не выполнены: '+str(exc))
+        if result['baseline']:
+            output='📍 <b>AdsGram: первый баланс сохранён</b>\n\nБаланс: $'+result['balance']+'\nНачислений пока нет.'
+        elif result.get('unchanged'):
+            output='🕒 <b>AdsGram: баланс не изменился</b>\n\nБаланс: $'+result['balance']+'\nКонтрольная точка сохранена прежней. Просмотры ожидают прироста дохода.'
+        else:
+            output=('✅ <b>AdsGram: начисления за интервал</b>\n\n'
+                 +'Баланс: $'+result['balance']
+                 +'\nПрирост: $'+result['delta']
+                 +'\nПросмотры в боте: '+str(result['cash_views'])
+                 +'\nПросмотры в ферме: '+str(result['farm_views'])
+                 +'\nНачислено: '+money(result['credited_kopeks']))
+        return bot_ui.screen(uid,output,[[button('⬅️ Кабинет','cabinet')]])
+    if command == '/adsincome':
+        # Only the primary FARM owner may allocate actual publisher revenue.
+        owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
+        if not owner or int(owner['telegram_id'])!=uid:
+            raise UserError('Только владелец FARM может распределять рекламный доход.')
+        if len(parts)!=2:
+            raise UserError('Формат: /adsincome 0.25 — фактический доход AdsGram за вчера по Киеву в USDT. Без суммы за другие даты.')
+        import bot_adsgram_daily
+        try:
+            result=bot_adsgram_daily.settle_yesterday(c,parts[1].replace(',','.'),uid)
+        except (ValueError,TypeError) as exc:
+            raise UserError('Начисления НЕ выполнены: '+str(exc))
+        return bot_ui.screen(uid,
+            '✅ <b>AdsGram: вчерашний доход распределён</b>\n'
+            +'Дата по Киеву: '+result['day']+'\n'
+            +'Всего подтверждённых реклам: '+str(result['provider_impressions'])+'\n'
+            +'Из них за игровые ресурсы: '+str(result['farm_views'])+'\n'
+            +'За деньги в боте: '+str(result['cash_views'])+'\n'
+            +'Доход AdsGram: '+result['publisher_usd']+' USDT\n'
+            +'Начислено зрителям и рефералам: '+money(result['credited_kopeks'])+'\n'
+            +'Остаток FARM: не менее '+result['platform_usd_at_least']+' USD',
+            [[button('⬅️ Админ-панель','admin')]])
+    if command == '/adsgramsettle':
+        # Additional bot moderators must not approve money transfers.
+        owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
+        if not owner or int(owner['telegram_id'])!=uid:
+            raise UserError('Только владелец FARM может подтверждать рекламную выручку.')
+        if len(parts)!=4:
+            raise UserError('Формат: /adsgramsettle ГГГГ-ММ-ДД Сумма_USDT Показы. Сначала сверь отчёт AdsGram за завершённый день по Киеву.')
+        import bot_adsgram_daily
+        try:
+            result=bot_adsgram_daily.settle_day(c,parts[1],parts[2],int(parts[3]),uid)
+        except (ValueError,TypeError) as exc:
+            raise UserError('Невозможно провести суточную сверку AdsGram: '+str(exc))
+        return bot_ui.screen(uid,
+            '✅ <b>AdsGram: суточный доход распределён</b>\n'
+            +'Дата по Киеву: '+result['day']+'\n'
+            +'Подтверждённых показов: '+str(result['provider_impressions'])+'\n'
+            +'Доход AdsGram: '+result['publisher_usd']+' USDT\n'
+            +'Начислено людям: '+money(result['credited_kopeks'])+'\n'
+            +'Доля проекта: не менее '+result['platform_usd_at_least']+' USD',
+            [[button('⬅️ Админ-панель','admin')]])
+    if command in ('/botcredit', '/botfund', '/botpaid'):
+        try:
+            if command == '/botcredit':
+                if len(parts) not in (4, 5) or not parts[1].isdecimal() or (not 3 <= len(parts[3]) <= 80) or (len(parts) == 5 and parts[4] not in ('main', 'ads')):
+                    raise UserError(tr('Формат: /botcredit TelegramID Сумма УникальныйНомерПлатежа Только после фактического получения денег. Игрок должен открыть бота хотя бы раз.', html_mode=False, section='task_bot', limit=3000))
+                target, n, ref = (int(parts[1]), amount(parts[2]), parts[3])
+                if not account(c, target):
+                    raise UserError(tr('Игрок ещё не зарегистрирован в боте.', html_mode=False, section='task_bot', limit=3000))
+                inserted = c.execute('INSERT INTO bot_deposits VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING reference', (ref, target, n, time.time())).fetchone()
+                if not inserted:
+                    raise UserError(tr('Такой платёж уже учтён. Повторного начисления нет.', html_mode=False, section='task_bot', limit=3000))
+                c.execute('UPDATE bot_cash_pool SET amount=amount+%s WHERE id=1', (n,))
+                change(c, target, n, 'manual_deposit', 'Подтверждённый платёж ' + ref)
+                return say(uid, tr('Зачислено {v0} пользователю {v1} на единый баланс.', {'v0': f'{money(n)}', 'v1': f'{target}'}, html_mode=False, section='task_bot', limit=3000))
+            if command == '/botfund':
+                if len(parts) != 3 or not 3 <= len(parts[2]) <= 80:
+                    raise UserError(tr('Формат: /botfund Сумма УникальныйНомерВзноса\nУчёт собственных денег, фактически выделенных на выплаты.', html_mode=False, section='task_bot', limit=3000))
+                n, ref = (amount(parts[1]), parts[2])
+                if not c.execute('INSERT INTO bot_deposits VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING reference', (ref, uid, n, time.time())).fetchone():
+                    raise UserError(tr('Этот взнос уже учтён.', html_mode=False, section='task_bot', limit=3000))
+                c.execute('UPDATE bot_cash_pool SET amount=amount+%s WHERE id=1', (n,))
+                c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'reserve_funding',%s,%s)", (uuid.uuid4().hex, uid, money(n) + ' · ' + ref, time.time()))
+                return say(uid, tr('Резерв увеличен на {v0}', {'v0': money(n)}, html_mode=False, section='task_bot', limit=3000))
+            if len(parts) != 3 or not 3 <= len(parts[2]) <= 80:
+                raise UserError(tr('Формат: /botpaid НомерЗаявки НомерБанковскойОперации\nТолько после фактической выплаты. Команда не переводит деньги.', html_mode=False, section='task_bot', limit=3000))
+            p = c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending' FOR UPDATE", (parts[1],)).fetchone()
+            if not p:
+                raise UserError(tr('Нет ожидающей заявки с таким номером.', html_mode=False, section='task_bot', limit=3000))
+            work=bot_payouts.require(c,p['id'],uid)
+            state(c, uid, 'admin_pay_confirm', {'id': p['id'], 'reference': parts[2], 'work_token':work['token'],'nonce': uuid.uuid4().hex[:12]})
+            current = state(c, uid)
+            return say(uid, tr('Подтвердить фактическую выплату?\nЗаявка: {v0}\nПолучатель: {v1}\nСумма: {v2}\nРеквизиты: {v3}\nОперация: {v4}', {'v0': f"{p['id']}", 'v1': f"{p['uid']}", 'v2': f'{money(bot_admin.net(c, p))}', 'v3': f"{p['destination']}", 'v4': f'{parts[2]}'}, html_mode=False, section='task_bot', limit=3000), [[button('✅ Выплачено, подтвердить', 'admin:payconfirm:' + current['data']['nonce']), button('Отмена', 'admin:cancel')]])
+        except (ValueError, IndexError):
+            raise UserError(tr('Проверь введённые данные и открой управление ботом кнопкой в кабинете.', html_mode=False, section='task_bot', limit=3000))
+    if action == 'admin:cancel':
+        state(c, uid, 'clear')
+        return say(uid, tr('Подтверждение отменено.', html_mode=False, section='task_bot', limit=3000))
+    if action.startswith('admin:payconfirm:'):
+        current = state(c, uid)
+        if not current or current['state'] != 'admin_pay_confirm':
+            raise UserError(tr('Подтверждение устарело.', html_mode=False, section='task_bot', limit=3000))
+        data = current['data']
+        if action.split(':')[-1] != data.get('nonce'):
+            raise UserError(tr('Подтверждение относится к другой выплате.', html_mode=False, section='task_bot', limit=3000))
+        p=c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending' FOR UPDATE",(data['id'],)).fetchone()
+        if not p:raise UserError('Заявка уже закрыта.')
+        work=bot_payouts.require(c,p['id'],uid)
+        if data.get('work_token')!=work['token']:
+            raise UserError('Подтверждение устарело. Открой заявку заново.')
+        return complete_manual_payout(c,uid,p['id'],reference=data['reference'])
+    if action.startswith(('admin:approve:', 'admin:rejecttask:')):
+        op, tid = action.split(':')[1:]
+        t = c.execute("SELECT * FROM bot_tasks WHERE id=%s AND status='pending' FOR UPDATE", (tid,)).fetchone()
+        if not t:
+            raise UserError(tr('Задание уже прошло модерацию.', html_mode=False, section='task_bot', limit=3000))
+        if op == 'approve':
+            if t['kind'] == 'post':
+                bot_extras.queue_post(c, t, api)
+            if t['kind'] in ('channel', 'group'):
+                me = api('getMe', {})
+                info = api('getChatMember', {'chat_id': t['chat_id'], 'user_id': me['id']})
+                if info.get('status') not in ('administrator', 'creator'):
+                    raise UserError(tr('Сначала выдай нашему боту права администратора в целевом чате.', html_mode=False, section='task_bot', limit=3000))
+            c.execute("UPDATE bot_tasks SET status='active' WHERE id=%s", (tid,))
+            c.execute('INSERT INTO bot_task_admin_audit VALUES(%s,%s,%s,%s,%s,%s,%s)',(uuid.uuid4().hex,tid,uid,'approve','Одобрено модератором',0,time.time()))
+            return say(uid, tr('Пост одобрен и поставлен в очередь публикации. Проверь результат кнопкой «Публикации» в управлении ботом.', html_mode=False, section='task_bot', limit=3000) if t['kind'] == 'post' else tr('Задание опубликовано.', html_mode=False, section='task_bot', limit=3000))
+        return bot_decisions.begin(c,uid,'task',tid)
+    if action == 'admin:postissues':
+        rows = c.execute("SELECT task,status FROM bot_post_publications WHERE status IN ('sending','uncertain') LIMIT 8").fetchall()
+        return say(uid, tr('Если пост опубликован, привяжи его пересылкой. Если публикации нет — обратись к разработчику для проверки, не отправляй её повторно вслепую.', html_mode=False, section='task_bot', limit=3000), [[button(r['task'] + ' · ' + r['status'], 'admin:bindpost:' + r['task'])] for r in rows])
+    return bot_admin.panel(c, uid)
++bot_ui.esc(result['balance'])+'</b>\n'
+                'Начислено: <b>0 грн</b>\n\n'
+                'Старые выплаты и история сохранены. Предыдущие просмотры исключены '
+                'из будущих начислений. Дальше вводи обычную команду '
+                '<code>/reklama 1.65</code> с новым накопленным балансом '
+                '(он должен быть выше начального).',
+                [[button('⬅️ Админка','admin')]])
+        if len(parts)!=2:
+            raise UserError('Формат: /reklama 1.65 — текущий баланс AdsGram в USD. '
+                            'Сброс без удаления выплат: /reklama reset 1.50')
         try:
             result=bot_adsgram_intervals.report(c,uid,parts[1].replace(',','.'))
         except (ValueError,TypeError) as exc:
