@@ -4,6 +4,9 @@ Never accepts a user-supplied payment confirmation. Transfers are disabled unles
 owner explicitly supplies credentials, enables transfers and defines a UAH ceiling.
 """
 import json
+import base64
+import hashlib
+from cryptography.fernet import Fernet, InvalidToken
 import logging
 import os
 import time
@@ -21,9 +24,49 @@ class CryptoPayError(Exception):
     pass
 
 
-def token():
-    return os.getenv('CRYPTOPAY_API_TOKEN','').strip()
+_runtime_token = None
 
+def _cipher():
+    """Encrypt owner-edited token at rest with a key NOT stored in the database."""
+    key=os.getenv('TELEGRAM_BOT_TOKEN','')
+    if not key:
+        raise CryptoPayError('Encryption key unavailable')
+    derived=hashlib.sha256(('TREVIXO Crypto Pay token v1:'+key).encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(derived))
+
+def token():
+    return _runtime_token if _runtime_token is not None else os.getenv('CRYPTOPAY_API_TOKEN','').strip()
+
+def replace_token(c, plaintext):
+    """Must only be called by owner admin route after deleting the input message."""
+    global _runtime_token
+    if not isinstance(plaintext,str) or not (20 <= len(plaintext) <= 400) or any(ch.isspace() for ch in plaintext):
+        raise CryptoPayError('Invalid Crypto Pay token')
+    old=_runtime_token
+    _runtime_token=plaintext
+    try:
+        data=call('getMe')
+        if not isinstance(data,dict):
+            raise CryptoPayError('Crypto Pay did not confirm the token')
+        encrypted=_cipher().encrypt(plaintext.encode()).decode()
+        c.execute("INSERT INTO bot_crypto_credentials(id,encrypted_token) VALUES(1,%s) ON CONFLICT(id) DO UPDATE SET encrypted_token=EXCLUDED.encrypted_token",(encrypted,))
+    except Exception:
+        _runtime_token=old
+        raise
+
+def reset_token(c):
+    global _runtime_token
+    c.execute("DELETE FROM bot_crypto_credentials WHERE id=1")
+    _runtime_token=None
+
+def payout_cap(c):
+    try:
+        env_cap=max(0,int(os.getenv('CRYPTOPAY_MAX_PAYOUT_UAH','0')))
+    except ValueError:
+        env_cap=0
+    row=c.execute("SELECT value FROM bot_controls WHERE key='crypto_payout_cap'").fetchone()
+    chosen=row['value'] if row else env_cap
+    return min(env_cap,chosen)
 
 def available():
     return bool(token() and os.getenv('CRYPTOPAY_DEPOSITS_ENABLED')=='1')
@@ -64,6 +107,16 @@ def call(method, data=None):
 
 
 def initialize(c):
+    global _runtime_token
+    c.execute("CREATE TABLE IF NOT EXISTS bot_crypto_credentials(id integer PRIMARY KEY CHECK(id=1),encrypted_token text NOT NULL)")
+    row=c.execute("SELECT encrypted_token FROM bot_crypto_credentials WHERE id=1").fetchone()
+    if row:
+        try:
+            _runtime_token=_cipher().decrypt(row['encrypted_token'].encode()).decode()
+        except (InvalidToken,ValueError):
+            raise CryptoPayError('Crypto Pay saved token cannot be decrypted; restore original bot secret or reset credentials')
+    else:
+        _runtime_token=None
     c.execute("""CREATE TABLE IF NOT EXISTS bot_crypto_invoices(
         id text PRIMARY KEY, uid bigint NOT NULL, invoice_id bigint NOT NULL UNIQUE,
         amount bigint NOT NULL CHECK(amount>0),
