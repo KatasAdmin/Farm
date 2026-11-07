@@ -692,7 +692,7 @@ def route(c, uid, text, action, message, api, admin):
         # The user sees and can turn off profile sharing before confirming.
         data['public_profile']=True
         state(c,uid,'payout_confirm',data)
-        check=Decimal(usdt)<=Decimal('1')
+        check=Decimal(usdt)<=Decimal('1.5')
         return bot_ui.screen(uid,
             '💎 <b>Вывод через CryptoBot</b>\n\n'
             'С баланса: <b>'+money(data['amount'])+'</b>\n'
@@ -1093,7 +1093,7 @@ def confirmation(c, uid, action, api):
             # automatic worker and sends confirmed results separately.
             bot_notifications.enqueue(c,'payout:'+pid,tr('💸 Новая заявка на вывод\n\nИгрок: {v0}\nС баланса: {v1}\nК выплате: {v2}\nЗаявка: {v3}\n\nСредства зарезервированы. Перевод ещё не выполнен.', {'v0': str(uid), 'v1': money(data['amount']), 'v2': money(data.get('net', data['amount'])), 'v3': pid}, section='notifications'),'admin:payview:'+pid,subject=uid)
         if data.get('method')=='crypto':
-            check=Decimal(str(data['crypto_usdt']))<=Decimal('1')
+            check=Decimal(str(data['crypto_usdt']))<=Decimal('1.5')
             result=bot_ui.screen(uid,
                 '💎 <b>Выплата принята</b>\n\n'
                 'Сумма: <b>'+money(data['amount'])+'</b>\n'
