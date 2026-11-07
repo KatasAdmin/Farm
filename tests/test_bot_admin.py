@@ -119,9 +119,9 @@ class AdminTests(unittest.TestCase):
             # An older control value can exceed a newly lowered Railway cap.
             self.c.execute("UPDATE bot_controls SET value=5000 WHERE key='crypto_payout_cap'")
             self.assertEqual(crypto.payout_cap(self.c),1000)
-            self.assertEqual(crypto.quote(100000,self.c),'25.000000')
+            self.assertEqual(crypto.quote_usdt(100000,self.c),'25.000000')
             with self.assertRaises(crypto.CryptoPayError):
-                crypto.quote(100001,self.c)
+                crypto.quote_usdt(100001,self.c)
             # The owner-facing field cannot raise the stored setting beyond Railway.
             self.send(1,action='admin:paymethods:cap')
             self.assertIn('Нельзя превысить',self.send(1,'5000')['text'])
@@ -130,7 +130,7 @@ class AdminTests(unittest.TestCase):
             self.send(1,'250')
             self.assertEqual(crypto.payout_cap(self.c),250)
             with self.assertRaises(crypto.CryptoPayError):
-                crypto.quote(25001,self.c)
+                crypto.quote_usdt(25001,self.c)
 
     def test_crypto_token_requires_telegram_message_deletion_and_is_encrypted(self):
         import os
