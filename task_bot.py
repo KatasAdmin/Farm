@@ -536,6 +536,24 @@ def route(c, uid, text, action, message, api, admin):
             raise UserError(tr('Нет заявки, доступной для отмены. Выплату в работе отменить нельзя.', html_mode=False, section='task_bot', limit=3000))
         change(c, uid, row['amount'], 'payout_cancel', 'Отмена ' + row['id'][:8])
         return cabinet(c, uid)
+    if action == 'withdraw:card':
+        current=state(c,uid)
+        if not current or current['state']!='withdraw_method':
+            raise UserError('Сначала выбери сумму вывода.')
+        data=current['data']
+        data['method']='card'
+        state(c,uid,'destination',data)
+        return input_prompt(uid,'💳 Введи номер банковской карты — ровно 16 цифр.\\n\\nНикаких CVV, PIN или срока действия карты.',cancel_action='cancel_input')
+    if action == 'withdraw:crypto':
+        current=state(c,uid)
+        if not current or current['state']!='withdraw_method':
+            raise UserError('Сначала выбери сумму вывода.')
+        return say(uid,'💎 Автоматический вывод через Crypto Bot станет доступен после подключения и проверки платежного API.',[[button('⬅️ Выбрать способ','withdraw:back')]])
+    if action == 'withdraw:back':
+        current=state(c,uid)
+        if not current or current['state']!='withdraw_method':
+            return cabinet(c,uid)
+        return say(uid,'Выбери способ получения:',[[button('💳 Банковской картой','withdraw:card')],[button('💎 Crypto Bot · подключаем','withdraw:crypto')],[button('Отмена','cancel_input')]])
     if action == 'withdraw':
         bot_account_controls.require_withdrawal(c,uid)
         state(c, uid, action)
@@ -750,7 +768,7 @@ def process_input(c, uid, text, message, current, api):
         return cabinet(c, uid)
     if stage == 'deposit':
         return bot_topups.menu(c, uid)
-    if stage in ('withdraw','destination','payout_confirm'):
+    if stage in ('withdraw','withdraw_method','destination','payout_confirm'):
         bot_account_controls.require_withdrawal(c,uid)
     if stage == 'withdraw':
         n = amount(text)
@@ -764,10 +782,13 @@ def process_input(c, uid, text, message, current, api):
             raise UserError(tr('Недостаточно средств.', html_mode=False, section='task_bot', limit=3000))
         if c.execute("SELECT 1 FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone():
             raise UserError(tr('Сначала дождись обработки предыдущей заявки или отмени её в кабинете.', html_mode=False, section='task_bot', limit=3000))
-        state(c, uid, 'destination', {'amount': n, 'fee': fee, 'net': n - fee})
-        return input_prompt(uid, tr('Укажи реквизиты для выплаты: номер карты или IBAN и имя получателя. Не отправляй CVV, PIN, пароли или коды.', html_mode=False, section='task_bot', limit=3000))
+        state(c, uid, 'withdraw_method', {'amount': n, 'fee': fee, 'net': n - fee})
+        return say(uid, '💸 Вывод '+money(n-fee)+'\\n\\nВыбери способ получения:', [[button('💳 Банковской картой','withdraw:card')], [button('💎 Crypto Bot · подключаем','withdraw:crypto')], [button('Отмена','cancel_input')]])
     if stage == 'destination':
-        if not 8 <= len(text) <= 250:
+        if data.get('method')=='card':
+            if not re.fullmatch(r'[0-9]{16}',text):
+                raise UserError('💳 Введи ровно 16 цифр номера карты, без пробелов и других символов.')
+        elif not 8 <= len(text) <= 250:
             raise UserError(tr('Реквизиты должны содержать от 8 до 250 символов.', html_mode=False, section='task_bot', limit=3000))
         data['destination'] = text
         data['nonce'] = uuid.uuid4().hex[:12]
