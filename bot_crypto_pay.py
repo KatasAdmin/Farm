@@ -300,8 +300,8 @@ def quote_usdt(net,c=None):
         raise CryptoPayError('Недопустимый курс.')
     if value<=0:
         raise CryptoPayError('Сумма слишком мала для точности USDT. Выбери другой способ выплаты.')
-    # Small payouts (up to 1.5 USDT) use a recipient-pinned check to avoid marginal provider transfer minimums;
-    # provider-specific minimums are enforced by Crypto Pay when creating it.
+    # Every new payout uses a recipient-pinned, one-time Crypto Pay check.
+    # Provider-specific minimum/maximum checks are enforced when creating it.
     return format(value,'.6f')
 
 
@@ -480,7 +480,7 @@ def _check_dispatch(db):
               AND ch.payout_id IS NULL
               AND NOT EXISTS(SELECT 1 FROM bot_crypto_liquidity_wait h WHERE h.payout_id=cp.payout_id)
             ORDER BY cp.created FOR UPDATE OF cp LIMIT 20""").fetchall()
-        row=next((r for r in selected if Decimal(r['crypto_amount'])<=Decimal('1.5')),None)
+        row=selected[0] if selected else None
         if not row:
             return False
         caprow=c.execute('SELECT net FROM bot_payout_terms WHERE id=%s',(row['payout_id'],)).fetchone()
@@ -610,54 +610,10 @@ def dispatch(db):
     if not withdrawals_enabled():
         return False
     # Owner switch also gates dispatch: disabling withdrawals must stop new
-    # transfers, not merely hide the menu for new users.
-    import bot_admin
-    with db() as c:
-        if not bot_admin.method_enabled(c,'crypto_withdraw') or payout_cap(c)<=0:
-            return False
-    with db() as c:
-        c.execute('SELECT pg_advisory_xact_lock(1984537)')
-        row=c.execute("""SELECT cp.*,p.uid FROM bot_crypto_payouts cp
-          JOIN bot_payouts p ON p.id=cp.payout_id
-          WHERE cp.state='pending' AND p.status='pending'
-            AND CAST(cp.crypto_amount AS numeric)>1.5
-            AND NOT EXISTS(SELECT 1 FROM bot_crypto_liquidity_wait h WHERE h.payout_id=cp.payout_id)
-          ORDER BY cp.created LIMIT 1 FOR UPDATE""").fetchone()
-        if not row:return False
-        # Stop queued transfers exceeding a lowered owner cap.
-        p=c.execute("SELECT net FROM bot_payout_terms WHERE id=%s",(row['payout_id'],)).fetchone()
-        if p and p['net']>payout_cap(c)*100:
-            return False
-        c.execute("UPDATE bot_crypto_payouts SET state='sending' WHERE payout_id=%s",(row['payout_id'],))
-    try:
-        if not _preflight_liquidity(db,row,'transfer'):
-            return False
-        transfer=call('transfer',{'user_id':row['uid'],'asset':row['asset'],
-            'amount':row['crypto_amount'],'spend_id':row['spend_id'],
-            'comment':'TREVIXO payout'})
-        if not _verified_transfer(row,transfer,row['uid']):
-            raise CryptoPayError('Unverified transfer result')
-        return _finalize_transfer(db,row,transfer)
-    except Exception as exc:
-        _record_incident(db,row,'transfer',exc)
-        if _insufficient_funds(exc):
-            _wait_for_liquidity(db,row,'transfer')
-            return False
-        # Unknown outcome may have succeeded externally. No retry: reconcile by spend_id.
-        # Log safe error classification without exposing headers or payment secrets.
-        log.warning('Crypto Pay transfer not confirmed payout=%s kind=%s reason=%s',
-                    row['payout_id'],type(exc).__name__,
-                    str(exc) if isinstance(exc,CryptoPayError) else type(exc).__name__)
-        with db() as c:
-            c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
-        with db() as c:
-            import task_bot as b
-            b.bot_notifications.enqueue(c,'crypto-review-admin:'+row['payout_id'],
-                '⚠️ CryptoBot: результат USDT-перевода неизвестен. Заявка '+row['payout_id']+
-                '. Требуется сверка по spend_id; повторный перевод запрещён.',
-                action='admin:payview:'+row['payout_id'],subject=row['uid'])
-        log.warning('Crypto Pay payout needs reconciliation %s',row['payout_id'])
-        return False
+    # New and safely pending payouts are check-only. Legacy transfer attempts
+    # remain in review and are reconciled above by their original spend_id.
+    # Never call transfer() again, including for payouts queued before upgrade.
+    return False
 
 
 def poll(db):
