@@ -22,7 +22,6 @@ FEATURES={
     'topup_history':('📥 История пополнений',1,'finance',('topup:mine',)),
     'payout_history':('💸 История выплат',1,'finance',('payouts',)),
     'claims':('✅ История выполнений',1,'finance',('claims',)),
-    'ad_income':('💵 Доход от рекламы',1,'finance',('ad_income',)),
     'identity':('📱 Привязать номер',1,'finance',('identity:share',)),
     'advertisement':('🎬 Смотреть рекламу',1,'earn',('ads:preview',)),
     'earn_bots':('🤖 Задания в ботах',1,'earn',('botclick:feed',)),
