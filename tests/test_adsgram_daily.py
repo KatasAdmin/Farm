@@ -25,6 +25,7 @@ class FakeDB:
         self.fractions={}
         self.credits=[]
         self.ledger=[]
+        self.farm_time_bounds=None
     def execute(self,sql,args=()):
         query=' '.join(sql.lower().split())
         if query.startswith('select pg_advisory_xact_lock'):
@@ -34,6 +35,7 @@ class FakeDB:
         if query.startswith('select uid,referral_chain from bot_adsgram_attempts'):
             return Query(rows=self.rows)
         if query.startswith('select count(*) as n from bot_adsgram_farm_attempts'):
+            self.farm_time_bounds=args
             return Query({'n':self.farm_count})
         if query.startswith('insert into bot_adsgram_daily_settlements'):
             day,revenue,impressions,rate,created,owner=args
@@ -90,6 +92,15 @@ class DailyAdsGramTests(unittest.TestCase):
         self.assertEqual(result['cash_views'],1)
         self.assertEqual(result['farm_views'],1)
         self.assertEqual(db.balances[1],120)  # 30% of cash view's $0.10
+
+    def test_dst_transition_uses_kyiv_day_bounds_for_farm_views(self):
+        # 2026-10-25 has 25 hours in Europe/Kyiv, not 24.
+        db=FakeDB([{'uid':1,'referral_chain':[]}],farm_count=1)
+        with patch.object(ads,'nbu_usd_uah',return_value=Decimal('40')):
+            ads.settle_day(db,'2026-10-25','0.20',2,1)
+        start,end=ads._kyiv_bounds('2026-10-25')
+        self.assertEqual(end-start,25*3600)
+        self.assertEqual(db.farm_time_bounds,(start,end))
 
     def test_duplicate_day_never_credits_again(self):
         db=FakeDB([{'uid':1,'referral_chain':[]}])
