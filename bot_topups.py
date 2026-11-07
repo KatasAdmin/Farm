@@ -14,7 +14,7 @@ def core():
     return task_bot
 
 def initialize(c):
-    for sql in ["CREATE TABLE IF NOT EXISTS bot_topup_config(id integer PRIMARY KEY CHECK(id=1),\n          star_rate bigint NOT NULL DEFAULT 0 CHECK(star_rate>=0),card text NOT NULL DEFAULT '',\n          recipient text NOT NULL DEFAULT '')", 'INSERT INTO bot_topup_config(id) VALUES(1) ON CONFLICT DO NOTHING', 'CREATE TABLE IF NOT EXISTS bot_topup_migrations(id text PRIMARY KEY)', "CREATE TABLE IF NOT EXISTS bot_wallet_stars(id text PRIMARY KEY,uid bigint NOT NULL,\n          stars integer NOT NULL CHECK(stars>0),amount bigint NOT NULL CHECK(amount>0),\n          status text NOT NULL CHECK(status IN ('created','checkout','paid','refunded')),\n          charge_id text UNIQUE,checkout_id text,created double precision NOT NULL)", "CREATE TABLE IF NOT EXISTS bot_card_topups(id text PRIMARY KEY,uid bigint NOT NULL,\n          amount bigint NOT NULL CHECK(amount>0),card text NOT NULL,recipient text NOT NULL,\n          file_id text NOT NULL,receipt_key text NOT NULL,media text NOT NULL,\n          status text NOT NULL CHECK(status IN ('pending','approved','rejected')),\n          reference text NOT NULL DEFAULT '',created double precision NOT NULL)", "CREATE UNIQUE INDEX IF NOT EXISTS bot_one_pending_card ON bot_card_topups(uid) WHERE status='pending'", 'CREATE INDEX IF NOT EXISTS bot_card_receipt ON bot_card_topups(receipt_key,status)']:
+    for sql in ["CREATE TABLE IF NOT EXISTS bot_topup_config(id integer PRIMARY KEY CHECK(id=1),\n          star_rate bigint NOT NULL DEFAULT 0 CHECK(star_rate>=0),card text NOT NULL DEFAULT '',\n          recipient text NOT NULL DEFAULT '')", 'INSERT INTO bot_topup_config(id) VALUES(1) ON CONFLICT DO NOTHING', 'CREATE TABLE IF NOT EXISTS bot_topup_migrations(id text PRIMARY KEY)', "CREATE TABLE IF NOT EXISTS bot_wallet_stars(id text PRIMARY KEY,uid bigint NOT NULL,\n          stars integer NOT NULL CHECK(stars>0),amount bigint NOT NULL CHECK(amount>0),\n          status text NOT NULL CHECK(status IN ('created','checkout','paid','refunded')),\n          charge_id text UNIQUE,checkout_id text,created double precision NOT NULL)", "CREATE TABLE IF NOT EXISTS bot_card_topups(id text PRIMARY KEY,uid bigint NOT NULL,\n          amount bigint NOT NULL CHECK(amount>0),card text NOT NULL,recipient text NOT NULL,\n          file_id text NOT NULL,receipt_key text NOT NULL,media text NOT NULL,\n          status text NOT NULL CHECK(status IN ('pending','approved','rejected')),\n          reference text NOT NULL DEFAULT '',created double precision NOT NULL)", 'CREATE INDEX IF NOT EXISTS bot_card_receipt ON bot_card_topups(receipt_key,status)']:
         c.execute(sql)
     applied = c.execute("INSERT INTO bot_topup_migrations VALUES('wallet-stars-rate-50-2026-10-31') ON CONFLICT DO NOTHING RETURNING id").fetchone()
     if applied:
@@ -62,8 +62,11 @@ def route(c, uid, action):
         cfg = config(c)
         if not cfg['card']:
             return ui.screen(uid, tr('💳 <b>Перевод на карту</b>\n\nРеквизиты ещё не указаны администратором. Пока ничего не переводи.', html_mode=True, section='bot_topups', limit=3000), [[b.button('⬅️ Пополнение', 'deposit')]])
-        if c.execute("SELECT 1 FROM bot_card_topups WHERE uid=%s AND status='pending'", (uid,)).fetchone():
-            raise b.UserError(tr('Квитанция уже на проверке. Статус — в «Мои пополнения».', html_mode=False, section='bot_topups', limit=3000))
+        # Up to ten concurrent receipts per player. Never block a new deposit
+        # merely because a previous bank transfer is awaiting manual review.
+        pending=c.execute("SELECT count(*) AS n FROM bot_card_topups WHERE uid=%s AND status='pending'", (uid,)).fetchone()['n']
+        if pending>=10:
+            raise b.UserError('У тебя уже 10 пополнений на проверке. Следующее можно создать после обработки хотя бы одного.')
         b.state(c, uid, 'topup_card_amount', {'card': cfg['card'], 'recipient': cfg['recipient']})
         return ui.input_screen(uid, tr('💳 <b>Перевод на карту</b>\n\nВведи сумму пополнения в гривнах. Затем получишь реквизиты и сможешь прикрепить квитанцию.', html_mode=True, section='bot_topups', limit=3000), cancel_action='deposit')
     if action == 'topup:mine':
@@ -131,8 +134,15 @@ def input_text(c, uid, text, message, current):
         if message.get('media_group_id') or not file.get('file_id') or (not photos and doc.get('mime_type') != 'application/pdf') or (file.get('file_size', 0) > 20000000):
             raise b.UserError(tr('Прикрепи одну квитанцию: фото или PDF до 20 МБ. Не альбом и не текст.', html_mode=False, section='bot_topups', limit=3000))
         key = file.get('file_unique_id') or file['file_id']
-        if c.execute("SELECT 1 FROM bot_card_topups WHERE (uid=%s OR receipt_key=%s) AND status='pending'", (uid, key)).fetchone() or c.execute("SELECT 1 FROM bot_card_topups WHERE receipt_key=%s AND status='approved'", (key,)).fetchone():
-            raise b.UserError(tr('Эта квитанция уже отправлена или оплачена. Проверь «Мои пополнения».', html_mode=False, section='bot_topups', limit=3000))
+        # Serialize submission to protect the ten-pending limit and prevent
+        # one Telegram file_unique_id being reused across multiple requests.
+        c.execute("SELECT pg_advisory_xact_lock(%s)", (1940127001,))
+        existing=c.execute("SELECT 1 FROM bot_card_topups WHERE receipt_key=%s LIMIT 1", (key,)).fetchone()
+        if existing:
+            raise b.UserError('Эта квитанция уже использована. Для нового перевода приложи другую квитанцию.')
+        pending=c.execute("SELECT count(*) AS n FROM bot_card_topups WHERE uid=%s AND status='pending'", (uid,)).fetchone()['n']
+        if pending>=10:
+            raise b.UserError('У тебя уже 10 пополнений на проверке. Следующее можно создать после обработки хотя бы одного.')
         tid = uuid.uuid4().hex[:16]
         c.execute("INSERT INTO bot_card_topups VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'pending','',%s)", (tid, uid, data['amount'], data['card'], data['recipient'], file['file_id'], key, media, time.time()))
         b.bot_notifications.enqueue(c,'card-receipt:'+tid,tr('📨 Новая квитанция на проверке\n\nИгрок: {v0}\nСумма: {v1}\nЗаявка: {v2}\n\nПеред зачислением проверь поступление в банке.', {'v0': str(uid), 'v1': b.money(data['amount']), 'v2': tid}, section='notifications'),'admin:cardview:'+tid,subject=uid)
@@ -208,7 +218,17 @@ def admin(c, uid, action):
     ui = b.bot_ui
     if action == 'admin:topupsettings':
         cfg = config(c)
-        return ui.screen(uid, tr('⚙️ <b>Пополнения</b>\n\n⭐ За 1 Star: {v0}\n💳 Карта: {v1}\nПолучатель: {v2}\n\nStars учитываются отдельно от реальных гривен банковского резерва.', {'v0': b.money(cfg['star_rate']) if cfg['star_rate'] else 'курс не установлен', 'v1': cfg['card'] or 'не указана', 'v2': ui.esc(cfg['recipient'])}, html_mode=True, section='bot_topups', limit=3000), [[b.button('⭐ Курс Stars', 'admin:topupedit:rate'), b.button('💳 Реквизиты', 'admin:topupedit:card')], [b.button('📨 Квитанции на проверке', 'admin:cardtopups')]])
+        card_label=(('•••• '+cfg['card'][-4:]) if cfg['card'] else 'не указана')
+        return ui.screen(uid,
+            '💳 <b>Настройки пополнений</b>\n\n'
+            'Банковская карта: <b>'+ui.esc(card_label)+'</b>\n'
+            'Получатель: '+ui.esc(cfg['recipient'] or 'не указан')+'\n'
+            '⭐ Курс Stars: '+(b.money(cfg['star_rate']) if cfg['star_rate'] else 'не установлен')+'\n\n'
+            'Каждое пополнение картой — отдельная квитанция. Одновременно можно ожидать до 10 заявок от игрока. '
+            'Деньги начисляются только после проверки банковского поступления.',
+            [[b.button('💳 Изменить карту и получателя','admin:topupedit:card')],
+             [b.button('📨 Проверить квитанции','admin:cardtopups'),b.button('⭐ Курс Stars','admin:topupedit:rate')],
+             [b.button('⬅️ Финансы','admin:section:finance')]])
     if action.startswith('admin:topupedit:'):
         field = action.split(':')[-1]
         if field not in ('rate', 'card'):
