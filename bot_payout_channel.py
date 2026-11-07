@@ -1,7 +1,8 @@
 """Public TREVIXO payout announcements, separate from private payment notifications.
 
 The news channel is configured in the existing owner-controlled 'О боте' settings.
-Only confirmed paid transfers are queued; never expose recipient identifiers or bank data.
+Only confirmed paid transfers are queued; never include bank data in text.
+A recipient profile button is shown only when the payee explicitly opts in.
 Ambiguous Telegram send results require manual review rather than blind reposts.
 """
 import logging
@@ -83,7 +84,7 @@ def dispatch(db,api):
         payload={'chat_id':target,'text':row['body']}
         if row['recipient_uid']:
             payload['reply_markup']={'inline_keyboard':[[{
-                'text':'✅ Выплата выполнена · Получатель',
+                'text':'✅ Выплата выполнена',
                 'url':'tg://user?id='+str(row['recipient_uid'])
             }]]}
         result=api('sendMessage',payload)
