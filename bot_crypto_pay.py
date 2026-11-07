@@ -208,13 +208,15 @@ def settle_invoice(db,order_id):
     return True
 
 
-def quote_usdt(net):
+def quote_usdt(net,c=None):
     if not withdrawals_enabled():
         raise CryptoPayError('Автоматический криптовывод ещё не включён.')
     try:
         cap=int(os.getenv('CRYPTOPAY_MAX_PAYOUT_UAH','0'))
     except ValueError:
         cap=0
+    if c is not None:
+        cap=min(cap,payout_cap(c))
     if type(net) is not int or net<100 or net>cap*100:
         raise CryptoPayError('Сумма криптовывода вне разрешённого лимита.')
     rates=call('getExchangeRates')
@@ -313,7 +315,7 @@ def dispatch(db):
     # transfers, not merely hide the menu for new users.
     import bot_admin
     with db() as c:
-        if not bot_admin.method_enabled(c,'crypto_withdraw'):
+        if not bot_admin.method_enabled(c,'crypto_withdraw') or payout_cap(c)<=0:
             return False
     with db() as c:
         c.execute('SELECT pg_advisory_xact_lock(1984537)')
@@ -322,6 +324,10 @@ def dispatch(db):
           WHERE cp.state='pending' AND p.status='pending'
           ORDER BY cp.created LIMIT 1 FOR UPDATE""").fetchone()
         if not row:return False
+        # Stop queued transfers exceeding a lowered owner cap.
+        p=c.execute("SELECT amount FROM bot_payout_terms WHERE id=%s",(row['payout_id'],)).fetchone()
+        if p and p['amount']>payout_cap(c)*100:
+            return False
         c.execute("UPDATE bot_crypto_payouts SET state='sending' WHERE payout_id=%s",(row['payout_id'],))
     try:
         transfer=call('transfer',{'user_id':row['uid'],'asset':row['asset'],
