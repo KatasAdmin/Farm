@@ -1065,8 +1065,18 @@ def confirmation(c, uid, action, api):
         if data.get('method')=='crypto':
             bot_crypto_pay.enqueue_payout(c,pid,data['crypto_usdt'])
 
-        bot_notifications.enqueue(c,'payout:'+pid,tr('💸 Новая заявка на вывод\n\nИгрок: {v0}\nС баланса: {v1}\nК выплате: {v2}\nЗаявка: {v3}\n\nСредства зарезервированы. Перевод ещё не выполнен.', {'v0': str(uid), 'v1': money(data['amount']), 'v2': money(data.get('net', data['amount'])), 'v3': pid}, section='notifications'),'admin:payview:'+pid,subject=uid)
-        result = say(uid, ('💎 Заявка '+pid+' принята. Зарезервировано '+money(data['amount'])+'. Crypto Bot обработает перевод автоматически. При неопределённом результате заявка остаётся на проверке.' if data.get('method')=='crypto' else tr('Заявка {v0} принята. Зарезервировано {v1}. Выплата выполняется администратором вручную.', {'v0': pid, 'v1': money(data['amount'])}, html_mode=False, section='task_bot', limit=3000)))
+        if data.get('method')!='crypto':
+            # Only bank withdrawals need owner approval. Crypto Pay uses its own
+            # automatic worker and sends confirmed results separately.
+            bot_notifications.enqueue(c,'payout:'+pid,tr('💸 Новая заявка на вывод\n\nИгрок: {v0}\nС баланса: {v1}\nК выплате: {v2}\nЗаявка: {v3}\n\nСредства зарезервированы. Перевод ещё не выполнен.', {'v0': str(uid), 'v1': money(data['amount']), 'v2': money(data.get('net', data['amount'])), 'v3': pid}, section='notifications'),'admin:payview:'+pid,subject=uid)
+        if data.get('method')=='crypto':
+            result=say(uid,'💎 Выплата отправлена в CryptoBot на обработку.\n'
+                'Сумма: '+money(data['amount'])+'\n'
+                'Способ: '+('🎁 именной чек' if Decimal(str(data['crypto_usdt']))<=Decimal('1') else '💎 USDT-перевод')+'\n'
+                'Статус и ссылка на чек появятся в «Мои выплаты». Повторно подтверждать выплату у администратора не нужно.',
+                [[button('📥 Мои выплаты','payouts')],[button('👤 Кабинет','cabinet')]])
+        else:
+            result=say(uid,tr('Заявка {v0} принята. Зарезервировано {v1}. Выплата выполняется администратором вручную.', {'v0': pid, 'v1': money(data['amount'])}, html_mode=False, section='task_bot', limit=3000))
     else:
         raise UserError(tr('Эта кнопка устарела.', html_mode=False, section='task_bot', limit=3000))
     state(c, uid, 'clear')
