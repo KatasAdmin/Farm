@@ -79,7 +79,7 @@ class AdminTests(unittest.TestCase):
              patch.object(bot.bot_crypto_pay,'withdrawals_enabled',return_value=True):
             deposits=self.send(2,action='deposit')
             self.assertNotIn('topup:crypto',str(deposits['reply_markup']))
-            self.assertIn('недоступен',self.send(2,action='withdraw:crypto')['text'])
+            self.assertIn('выключен владельцем',self.send(2,action='withdraw:crypto')['text'])
             self.send(1,action='admin:paymethods:toggle:crypto_deposit')
             self.send(1,action='admin:paymethods:toggle:crypto_withdraw')
             self.assertIn('topup:crypto',str(self.send(2,action='deposit')['reply_markup']))
@@ -88,8 +88,11 @@ class AdminTests(unittest.TestCase):
             self.send(1,action='admin:paymethods:toggle:crypto_deposit')
             self.assertNotIn('topup:crypto',str(self.send(2,action='deposit')['reply_markup']))
             self.assertIn('отключены',self.send(2,action='topup:crypto')['text'])
-        # Provider variables are a second, independent permission gate.
-        self.assertNotIn('withdraw:crypto',str(self.send(2,action='withdraw:back')['reply_markup']))
+        # If the owner enabled the method but Railway still forbids transfers,
+        # expose a clear explanatory entry instead of silently hiding Crypto Bot.
+        menu=self.send(2,action='withdraw:back')
+        self.assertIn('Crypto Bot · пока недоступен',str(menu['reply_markup']))
+        self.assertIn('временно недоступен',self.send(2,action='withdraw:crypto')['text'])
 
     def test_crypto_cap_rejects_over_limit_and_persists(self):
         import os
