@@ -514,6 +514,8 @@ def route(c, uid, text, action, message, api, admin):
         return bot_ui.screen(uid,'\n'.join(lines),[[{'text':'🎬 Смотреть рекламу','web_app':{'url':farm_url()+'cash-ads-preview.html'}}],[button('🤝 Моя команда','friends')],[button('⬅️ Кабинет','cabinet')]])
     if cmd.startswith('/bonus'):
         return bot_promos.command(c,uid,text,admin)
+    if text=='/start farmdeposit':
+        return bot_topups.start_farm_card(c,uid)
     if admin and cmd=='/start' and text not in ('/start wallet','/start support') and not text.startswith('/start link_'):
         return bot_admin.panel(c,uid)
     if action.startswith('admin') or cmd.startswith('/bot') or cmd in ('/adsgramurl','/adsgramsettle','/reklama'):
