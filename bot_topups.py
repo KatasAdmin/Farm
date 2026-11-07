@@ -126,8 +126,6 @@ def input_text(c, uid, text, message, current):
         if not rules['card_min'] <= amount <= rules['card_max']:
             raise b.UserError(tr('Сумма перевода: от {v0} до {v1}', {'v0': b.money(rules['card_min']), 'v1': b.money(rules['card_max'])}, html_mode=False, section='bot_topups', limit=3000))
         data['amount'] = amount
-        intent=uuid.uuid4().hex
-        b.bot_notifications.enqueue(c,'card-intent:'+intent,tr('💳 Пользователь начал пополнение картой\n\nИгрок: {v0}\nСумма: {v1}\n\nРеквизиты выданы. Квитанции пока нет — деньги не зачислены.', {'v0': str(uid), 'v1': b.money(amount)}, section='notifications'),'admin:cardtopups',subject=uid,kind='intent')
         b.state(c, uid, 'topup_card_receipt', data)
         return ui.input_screen(uid, tr('💳 <b>Реквизиты для перевода</b>\n\nКарта: <code>{v0}</code>\nПолучатель: <b>{v1}</b>\nСумма: <b>{v2}</b>\n\nПосле перевода отправь квитанцию одним фото или PDF. Зачисление — после проверки поступления администратором.', {'v0': data['card'], 'v1': ui.esc(data['recipient']), 'v2': b.money(amount)}, html_mode=True, section='bot_topups', limit=3000), cancel_action='deposit')
     if stage == 'topup_card_receipt':
@@ -273,8 +271,19 @@ def admin(c, uid, action):
         if action.startswith('admin:cardreject:'):
             return b.bot_decisions.begin(c,uid,'card',tid)
         if action.startswith('admin:cardapprove:'):
-            b.state(c, uid, 'topup_bank_reference', {'id': tid, 'nonce': uuid.uuid4().hex[:12]})
-            return ui.input_screen(uid, tr('Введи уникальный номер фактической банковской операции. Сумма: {v0}', {'v0': b.money(row['amount'])}, html_mode=True, section='bot_topups', limit=3000))
+            nonce=uuid.uuid4().hex[:12]
+            b.state(c,uid,'topup_bank_confirm',{'id':tid,'nonce':nonce})
+            return ui.screen(uid,
+                '✅ <b>Подтверждение пополнения</b>\n\n'
+                'Игрок: <code>'+str(row['uid'])+'</code>\n'
+                'Сумма: <b>'+b.money(row['amount'])+'</b>\n'
+                'Заявка: <code>'+ui.esc(tid)+'</code>\n\n'
+                'Сверь поступление именно этой суммы на своей карте '
+                'в банковском приложении. Квитанция или скриншот сами по себе '
+                '<b>не подтверждают оплату</b>.\n\n'
+                'После проверки нажми «Подтвердить» — начисление произойдёт один раз.',
+                [[b.button('✅ Подтвердить','admin:cardconfirm:'+nonce)],
+                 [b.button('⬅️ К квитанции','admin:cardview:'+tid)]])
         return {'method': 'sendPhoto' if row['media'] == 'photo' else 'sendDocument', 'chat_id': uid, 'photo' if row['media'] == 'photo' else 'document': row['file_id'], 'caption': tr('Пополнение {v0}\nПользователь: {v1}\nСумма: {v2}\nКарта: {v3}\nПолучатель: {v4}', {'v0': f'{tid}', 'v1': f"{row['uid']}", 'v2': f"{b.money(row['amount'])}", 'v3': f"{row['card']}", 'v4': f"{row['recipient']}"}, html_mode=False, section='bot_topups', limit=1024), 'reply_markup': {'inline_keyboard': [[b.button('✅ Зачислить', 'admin:cardapprove:' + tid), b.button('❌ Отклонить', 'admin:cardreject:' + tid)]]}}
     if action.startswith('admin:cardconfirm:'):
         st = b.state(c, uid)
@@ -284,9 +293,14 @@ def admin(c, uid, action):
         row = c.execute("SELECT * FROM bot_card_topups WHERE id=%s AND status='pending' FOR UPDATE", (data['id'],)).fetchone()
         if not row:
             raise b.UserError(tr('Заявка уже обработана.', html_mode=False, section='bot_topups', limit=3000))
-        if not c.execute('INSERT INTO bot_deposits VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING reference', (data['reference'], row['uid'], row['amount'], time.time())).fetchone():
+        # Idempotency is anchored to the unique *request* ID. The owner's
+        # confirmation attests that this exact incoming payment was checked
+        # in their bank. Do not ask users to enter their card number as a
+        # fictitious bank transaction ID.
+        reference='card-receipt:'+row['id']
+        if not c.execute('INSERT INTO bot_deposits VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING reference', (reference, row['uid'], row['amount'], time.time())).fetchone():
             raise b.UserError(tr('Эта банковская операция уже учтена. Повторного начисления нет.', html_mode=False, section='bot_topups', limit=3000))
-        c.execute("UPDATE bot_card_topups SET status='approved',reference=%s WHERE id=%s", (data['reference'], row['id']))
+        c.execute("UPDATE bot_card_topups SET status='approved',reference=%s WHERE id=%s", (reference, row['id']))
         c.execute('UPDATE bot_cash_pool SET amount=amount+%s WHERE id=1', (row['amount'],))
         b.change(c, row['uid'], row['amount'], 'manual_deposit', 'Перевод на карту · ' + row['id'])
         b.bot_notifications.enqueue(c,'card-approved:'+row['id'],tr('✅ Пополнение подтверждено\n\nНа баланс зачислено: {v0}\nЗаявка: {v1}', {'v0': b.money(row['amount']), 'v1': row['id']}, section='notifications'),recipient=row['uid'])
@@ -298,15 +312,6 @@ def admin_input(c, uid, text, current):
     b = core()
     data = current['data']
     cfg = config(c)
-    if current['state'] == 'topup_bank_reference':
-        if not 3 <= len(text) <= 80 or any((ord(ch) < 32 for ch in text)):
-            raise b.UserError(tr('Номер банковской операции: от 3 до 80 символов, одной строкой.', html_mode=False, section='bot_topups', limit=3000))
-        row = c.execute("SELECT uid,amount FROM bot_card_topups WHERE id=%s AND status='pending'", (data['id'],)).fetchone()
-        if not row:
-            raise b.UserError(tr('Эта заявка уже обработана.', html_mode=False, section='bot_topups', limit=3000))
-        data['reference'] = text
-        b.state(c, uid, 'topup_bank_confirm', data)
-        return b.bot_ui.screen(uid, tr('Подтверди зачисление только после проверки поступления в банке.\nПользователь: {v0}\nСумма: {v1}\nЗаявка: {v2}\nОперация: {v3}', {'v0': str(row['uid']), 'v1': b.money(row['amount']), 'v2': data['id'], 'v3': b.bot_ui.esc(text)}, html_mode=True, section='bot_topups', limit=3000), [[b.button('✅ Подтвердить', 'admin:cardconfirm:' + data['nonce'])], [b.button('Отмена', 'cancel_input')]])
     if current['state'] == 'topup_bank_confirm':
         return b.input_prompt(uid, tr('Используй кнопку подтверждения выше или нажми «Отмена».', html_mode=False, section='bot_topups', limit=3000))
     if data['field'] == 'rate':
