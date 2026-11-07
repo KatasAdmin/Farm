@@ -63,7 +63,7 @@ def listing(c,uid,page=0,query='',review=False,flock=False):
     def short_label(r):
         name=(r['name'] or 'Игрок').strip()
         if flock:
-            return name[:13]+' · '+str(r['birds'])+' 🐔'
+            return name[:12]+' · '+str(r['birds'])+' птиц'
         return name[:22]
     found=rows[:limit]
     buttons=[]
@@ -88,7 +88,7 @@ def listing(c,uid,page=0,query='',review=False,flock=False):
     else:
         title='👥 <b>Игроки</b>'
     subtitle=('Найдено: '+str(len(found))+'. Нажми на имя, чтобы открыть профиль.'
-              if found else 'Никого не найдено.')
+              if found else 'Аккаунты не найдены.')
     if not query:
         subtitle+=' · Стр. '+str(page+1)
     return b.bot_ui.screen(uid,title+'\n'+subtitle,buttons)
@@ -100,12 +100,14 @@ def card(c,uid,target):
     control=controls.get(c,target)
     identity=c.execute('SELECT username,phone FROM bot_identities WHERE uid=%s',(target,)).fetchone()
     text=('👤 <b>'+esc(a['name'])+'</b>\n'
-          'ID: <code>'+str(target)+'</code> · '+date(a['created'])+'\n'
+          'Telegram ID: <code>'+str(target)+'</code> · '+date(a['created'])+'\n'
           '💰 <b>'+b.money(a['available'])+'</b>')
     if debt and debt['amount']:
         text+=' · Долг: '+b.money(debt['amount'])
     if identity and identity['username']:
         text+='\n📲 @'+esc(identity['username'])
+    if identity and identity['phone']:
+        text+=' · '+esc(identity['phone'])
     if farm:
         text+='\n🐔 '+esc(farm.get('name','—'))+' · '+str(farm['coins'])+' монет'
         text+=' · '+str(farm.get('chickens',0))+' 🐔 · '+str(farm.get('geese',0))+' 🪿'
@@ -118,6 +120,7 @@ def card(c,uid,target):
         text+='\nПричина: '+esc(control['block_reason'][:100])
     if control['suspicious'] and control['flag_reason']:
         text+='\nОтметка: '+esc(control['flag_reason'][:100])
+    payouts=c.execute('SELECT id,status,amount FROM bot_payouts WHERE uid=%s ORDER BY created DESC,id LIMIT 1',(target,)).fetchall()
     buttons=[
         [{'text':'↗️ Telegram','url':'tg://user?id='+str(target)},
          b.button('🔄 Обновить','admin:account:'+str(target))],
@@ -129,6 +132,11 @@ def card(c,uid,target):
          b.button('🛡 Контроль','admin:accountmenu:control:'+str(target))],
         [b.button('⬅️ Все игроки','admin:accounts:0')]
     ]
+    if payouts:
+        last=payouts[0]
+        label={'pending':'ожидает','paid':'выплачено','rejected':'отклонено','cancelled':'отменено'}
+        buttons.insert(-1,[b.button('💸 '+b.money(last['amount'])+' · '+label.get(last['status'],'заявка')+' · '+last['id'][:6],
+                                     'admin:payview:'+last['id'])])
     return b.bot_ui.screen(uid,text,buttons)
 
 
