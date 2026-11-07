@@ -51,6 +51,33 @@ def _has_interval(c,start,end):
       WHERE delta_usd>0 AND observed_at>%s AND observed_at<=%s LIMIT 1""",(start,end)).fetchone()
     return bool(row)
 
+def reset_baseline(c,owner_uid,new_balance,now=None):
+    """Start a new epoch without deleting/repaying previous checkpoints or views.
+
+    The caller must enter the current *cumulative* AdsGram publisher balance.
+    Past revenue before this observation is excluded; the next report will
+    pay only newer confirmed views and the increment above this new baseline.
+    """
+    try:
+        balance=Decimal(str(new_balance))
+    except (ValueError,TypeError,InvalidOperation):
+        raise ValueError('Укажи текущий накопленный баланс, например /reklama reset 1.50')
+    if (not balance.is_finite() or balance<0 or balance>Decimal('100000000')
+            or balance.as_tuple().exponent < -6):
+        raise ValueError('Укажи корректный баланс USD (до 6 знаков после запятой).')
+    now=time.time() if now is None else float(now)
+    c.execute("SELECT pg_advisory_xact_lock(%s)",(125492051,))
+    prev=latest(c)
+    if prev and now<=prev['observed_at']:
+        raise ValueError('Время нового старта должно быть позже предыдущей точки.')
+    c.execute("""INSERT INTO bot_adsgram_balance_checkpoints
+        (id,observed_at,cumulative_usd,delta_usd,owner_uid,created_at)
+        VALUES(%s,%s,%s,0,%s,%s)""",
+        (uuid.uuid4().hex,now,balance,owner_uid,time.time()))
+    return {'baseline':True,'balance':str(balance),
+            'previous':str(prev['cumulative_usd']) if prev else None}
+
+
 def report(c,owner_uid,new_balance,now=None):
     """Atomic checkpoint; rejection never advances start or pays funds."""
     try:
