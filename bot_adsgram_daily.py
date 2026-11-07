@@ -187,7 +187,7 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
       ORDER BY confirmed_at,id FOR UPDATE""",(start,end)).fetchall()
     farm_count=c.execute("""SELECT COUNT(*) AS n FROM bot_adsgram_farm_attempts
       WHERE state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s""",
-      (start,start+86400)).fetchone()["n"]
+      (start,end)).fetchone()["n"]
     # The same AdsGram unit serves both the cash bot and the farm. Each
     # confirmed farm view contributes to publisher impressions and revenue,
     # but receives GOODS, not a second cash reward.
