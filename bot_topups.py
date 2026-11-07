@@ -26,7 +26,18 @@ def config(c):
 def menu(c, uid):
     b = core()
     b.state(c, uid, 'clear')
-    return b.bot_ui.screen(uid, tr('➕ <b>Пополнение баланса</b>\n\nВыбери способ оплаты:\n\n⭐ <b>Telegram Stars</b> — зачисление автоматически после оплаты.\n💎 <b>Crypto Bot</b> — оплата криптовалютой после включения API.\n💳 <b>Карта</b> — перевод по реквизитам и квитанция на проверку.', html_mode=True, section='bot_topups', limit=3000), [[b.button('⭐ Telegram Stars', 'topup:stars')], [b.button('💎 Crypto Bot', 'topup:crypto')], [b.button('💳 Банковская карта', 'topup:card')], [b.button('📥 Мои пополнения', 'topup:mine')], [b.button('⬅️ Мой кабинет', 'cabinet')]])
+    crypto_ready=(b.bot_admin.method_enabled(c,'crypto_deposit') and bot_crypto_pay.available())
+    description=('💎 <b>Crypto Bot</b> — автоматическое зачисление после подтверждения оплаты.\n' if crypto_ready else '')
+    rows=[[b.button('⭐ Telegram Stars','topup:stars')]]
+    if crypto_ready:
+        rows.append([b.button('💎 Crypto Bot','topup:crypto')])
+    rows.extend([[b.button('💳 Банковская карта','topup:card')],
+                 [b.button('📥 Мои пополнения','topup:mine')],
+                 [b.button('⬅️ Мой кабинет','cabinet')]])
+    return b.bot_ui.screen(uid,
+        '➕ <b>Пополнение баланса</b>\n\nВыбери способ оплаты:\n\n'
+        '⭐ <b>Telegram Stars</b> — зачисление после оплаты.\n'
+        +description+'💳 <b>Карта</b> — перевод и квитанция на проверку.',rows)
 
 def route(c, uid, action):
     b = core()
@@ -34,7 +45,7 @@ def route(c, uid, action):
     if action == 'deposit':
         return menu(c, uid)
     if action == 'topup:crypto':
-        if not bot_crypto_pay.available():
+        if not (core().bot_admin.method_enabled(c,'crypto_deposit') and bot_crypto_pay.available()):
             return ui.screen(uid,'💎 <b>Crypto Bot</b>\n\nПодключение платежного API пока не завершено. До этого криптопополнения отключены.',[[b.button('⬅️ Пополнение','deposit')]])
         b.state(c,uid,'topup_crypto_amount',{})
         return ui.input_screen(uid,'💎 <b>Crypto Bot</b>\n\nВведи сумму пополнения в гривнах (от 1 до 10 000). Бот создаст счёт, который можно оплатить USDT, TON и другими поддерживаемыми монетами. Зачисление — только после подтверждения Crypto Pay.',cancel_action='deposit')
@@ -66,6 +77,8 @@ def input_text(c, uid, text, message, current):
     stage = current['state']
     data = current['data']
     if stage == 'topup_crypto_amount':
+        if not (b.bot_admin.method_enabled(c,'crypto_deposit') and bot_crypto_pay.available()):
+            raise b.UserError('Пополнение через Crypto Bot сейчас выключено.')
         n=b.amount(text)
         try:
             order,url=bot_crypto_pay.create_invoice(c,uid,n)
