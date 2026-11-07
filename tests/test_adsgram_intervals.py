@@ -106,6 +106,48 @@ class IntervalTests(unittest.TestCase):
             ads.report(db,1,'1.5',now=t+60)
         self.assertEqual(len(db.checkpoints),1)
 
+    def test_reset_starts_new_epoch_without_paying_or_replaying_old_views(self):
+        db=FakeDB()
+        t=1762500000.0
+        ads.report(db,1,'1.00',now=t)
+        # Revenue grew without SDK-verified views: regular report rejects it.
+        with self.assertRaisesRegex(ValueError,'нет подтверждённых'):
+            ads.report(db,1,'1.50',now=t+60)
+        reset=ads.reset_baseline(db,1,'1.50',now=t+61)
+        self.assertEqual(reset['previous'],'1.00')
+        self.assertEqual(len(db.checkpoints),2)
+        self.assertEqual(db.wallet[2],0)
+        self.assertFalse(db.credits)
+        self.assertFalse(db.ledger)
+        self.assertEqual(db.checkpoints[-1]['delta_usd'],0)
+        # An older callback cannot receive revenue from after the reset.
+        db.views=[{'id':'old','uid':2,'referral_chain':[],'confirmed_at':t+10},
+                  {'id':'new','uid':2,'referral_chain':[],'confirmed_at':t+70}]
+        with patch.object(ads,'nbu_usd_uah',return_value=Decimal('40')):
+            result=ads.report(db,1,'1.70',now=t+90)
+        self.assertEqual(result['delta'],'0.20')
+        self.assertEqual(result['cash_views'],1)
+        self.assertEqual(db.wallet[2],240)
+        self.assertEqual(len(db.ledger),1)
+
+    def test_reset_preserves_earlier_paid_credits_and_allows_lower_balance(self):
+        db=FakeDB()
+        t=1762500000.0
+        ads.report(db,1,'5.00',now=t)
+        db.views=[{'id':'paid','uid':2,'referral_chain':[],'confirmed_at':t+10}]
+        with patch.object(ads,'nbu_usd_uah',return_value=Decimal('40')):
+            ads.report(db,1,'6.00',now=t+30)
+        previous=db.wallet[2]
+        count=len(db.credits)
+        reset=ads.reset_baseline(db,1,'0.90',now=t+40)
+        self.assertEqual(reset['previous'],'6.00')
+        self.assertEqual(db.wallet[2],previous)
+        self.assertEqual(len(db.credits),count)
+        with self.assertRaisesRegex(ValueError,'после предыдущей'):
+            ads.reset_baseline(db,1,'0.90',now=t+40)
+        with self.assertRaisesRegex(ValueError,'корректный баланс'):
+            ads.reset_baseline(db,1,'NaN',now=t+50)
+
     def test_decrease_never_rewrites_previous_checkpoint(self):
         db=FakeDB()
         t=1762500000.0
