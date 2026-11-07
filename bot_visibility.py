@@ -11,6 +11,8 @@ FEATURES={
     'main_cabinet':('👤 Кабинет',1,'main',('👤 Мой кабинет',)),
     'main_partners':('👥 Партнёры',1,'main',('👥 Партнёры',)),
     'main_about':('📚 О боте',1,'main',('📚 О боте',)),
+    'wallet_deposit':('➕ Кнопка пополнения',1,'finance',('deposit',)),
+    'wallet_withdraw':('💸 Кнопка вывода',1,'finance',('withdraw',)),
     'stars':('⭐ Пополнение Stars',0,'finance',('topup:stars',)),
     'crypto_topup':('💎 Пополнение CryptoBot',1,'finance',('topup:crypto',)),
     'card_topup':('💳 Пополнение картой',1,'finance',('topup:card',)),
@@ -19,6 +21,9 @@ FEATURES={
     'balance_history':('🧾 История баланса',1,'finance',('history',)),
     'topup_history':('📥 История пополнений',1,'finance',('topup:mine',)),
     'payout_history':('💸 История выплат',1,'finance',('payouts',)),
+    'claims':('✅ История выполнений',1,'finance',('claims',)),
+    'ad_income':('💵 Доход от рекламы',1,'finance',('ad_income',)),
+    'identity':('📱 Привязать номер',1,'finance',('identity:share',)),
     'advertisement':('🎬 Смотреть рекламу',1,'earn',('ads:preview',)),
     'earn_bots':('🤖 Задания в ботах',1,'earn',('botclick:feed',)),
     'earn_channels':('📣 Подписки на каналы',1,'earn',('channel:feed',)),
@@ -29,6 +34,11 @@ FEATURES={
     'earn_friends':('🤝 Пригласить друга',1,'earn',('friends',)),
     'orders':('📋 Мои заказы',1,'promotion',('mine:0',)),
     'proof_review':('✅ Проверить работы',1,'promotion',('reviews:0',)),
+    'promo_post':('👁 Заказать пост',1,'promotion',('new:post',)),
+    'promo_channel':('📣 Заказать канал',1,'promotion',('new:channel',)),
+    'promo_bot':('🤖 Заказать бота',1,'promotion',('new:bot',)),
+    'promo_group':('👥 Заказать группу',1,'promotion',('new:group',)),
+    'promo_manual':('📝 Создать задание',1,'promotion',('new:manual',)),
 }
 GROUPS=(('main','🏠 Главное меню'),('finance','💳 Деньги'),('earn','🚀 Заработок'),('promotion','📣 Продвижение'))
 MENU_KEYS={name:key for key,(_,_,group,actions) in FEATURES.items() if group=='main' for name in actions}
@@ -83,7 +93,7 @@ def screen(c,uid,group=None):
     from task_bot import bot_ui,button,state
     state(c,uid,'clear')
     if group is None:
-        text='👁 <b>Видимость кнопок</b>\n\nОтключённая функция исчезает из меню и не открывается по старой кнопке. Существующие платежи, чеки и история сохраняются.\n\nВыбери раздел:'
+        text='👁 <b>Видимость кнопок</b>\n\nВыключенные публичные действия скрываются и не запускаются со старых кнопок. Оплаченные заявки и финансовая история сохраняются.\n\nВыбери раздел:'
         rows=[]
         for section,label in GROUPS:
             count=sum(1 for key,(_,_,g,_) in FEATURES.items() if g==section and enabled(c,key))
