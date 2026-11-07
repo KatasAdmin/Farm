@@ -69,6 +69,21 @@ class TopupTests(unittest.TestCase):
         self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_wallet_stars').fetchone()['n'],0)
         self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_card_topups').fetchone()['n'],0)
 
+    def test_crypto_pending_is_not_mislabelled_manual_review(self):
+        self.c.execute("""INSERT INTO bot_crypto_invoices
+          (id,uid,invoice_id,amount,status,created)
+          VALUES(%s,%s,%s,%s,%s,%s)""",
+          ('crypto-unpaid',3,123456,500,'pending',1000))
+        self.c.raw.commit()
+        text=self.send(3,action='topup:mine')['text']
+        self.assertIn('5,00 грн · Ожидает оплаты Crypto Bot',text)
+        self.assertNotIn('5,00 грн · На проверке',text)
+        self.c.execute("UPDATE bot_crypto_invoices SET status='paid' WHERE id=%s",
+                       ('crypto-unpaid',))
+        self.c.raw.commit()
+        text=self.send(3,action='topup:mine')['text']
+        self.assertIn('5,00 грн · Зачислено',text)
+
     def test_invoice_never_credits_before_verified_payment_and_deduplicates(self):
         invoice=self.invoice()
         self.assertEqual(self.balance(3),0)
