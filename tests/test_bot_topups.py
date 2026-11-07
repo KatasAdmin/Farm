@@ -84,6 +84,28 @@ class TopupTests(unittest.TestCase):
         text=self.send(3,action='topup:mine')['text']
         self.assertIn('5,00 грн · Зачислено',text)
 
+    def test_crypto_pay_invoice_items_are_verified_and_settled_once(self):
+        import bot_crypto_pay as crypto
+        order='test-crypto-invoice'
+        self.c.execute("""INSERT INTO bot_crypto_invoices
+          (id,uid,invoice_id,amount,status,created)
+          VALUES(%s,%s,%s,%s,%s,%s)""",
+          (order,3,762431,1000,'pending',1000))
+        self.c.raw.commit()
+        invoice={'invoice_id':762431,'status':'paid','currency_type':'fiat',
+                 'fiat':'UAH','amount':'10','payload':'trevixo_'+order}
+        def provider(method,args):
+            self.assertEqual(method,'getInvoices')
+            self.assertEqual(args['invoice_ids'],'762431')
+            return {'count':1,'items':[invoice]}
+        with patch.object(crypto,'available',return_value=True), \\
+             patch.object(crypto,'call',side_effect=provider):
+            self.assertTrue(crypto.settle_invoice(lambda:self.c,order))
+            self.assertFalse(crypto.settle_invoice(lambda:self.c,order))
+        self.assertEqual(self.balance(3),1000)
+        self.assertEqual(self.c.execute("SELECT status FROM bot_crypto_invoices WHERE id=%s",(order,)).fetchone()['status'],'paid')
+        self.assertEqual(self.c.execute("SELECT count(*) AS n FROM bot_ledger WHERE kind='cryptopay_deposit'").fetchone()['n'],1)
+
     def test_invoice_never_credits_before_verified_payment_and_deduplicates(self):
         invoice=self.invoice()
         self.assertEqual(self.balance(3),0)
