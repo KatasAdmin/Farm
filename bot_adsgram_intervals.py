@@ -183,4 +183,5 @@ def report(c,owner_uid,new_balance,now=None):
               (total,ident))
     return {'baseline':False,'balance':str(balance),'delta':str(delta),
             'cash_views':len(cash),'farm_views':farm_count,'credited_kopeks':total,
+            'farm_share_usd':str(delta*Decimal(farm_count)/Decimal(count)),
             'platform_usd_at_least':str(delta*Decimal('0.35'))}
