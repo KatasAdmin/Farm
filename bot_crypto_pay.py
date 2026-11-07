@@ -325,8 +325,8 @@ def dispatch(db):
           ORDER BY cp.created LIMIT 1 FOR UPDATE""").fetchone()
         if not row:return False
         # Stop queued transfers exceeding a lowered owner cap.
-        p=c.execute("SELECT amount FROM bot_payout_terms WHERE id=%s",(row['payout_id'],)).fetchone()
-        if p and p['amount']>payout_cap(c)*100:
+        p=c.execute("SELECT net FROM bot_payout_terms WHERE id=%s",(row['payout_id'],)).fetchone()
+        if p and p['net']>payout_cap(c)*100:
             return False
         c.execute("UPDATE bot_crypto_payouts SET state='sending' WHERE payout_id=%s",(row['payout_id'],))
     try:
