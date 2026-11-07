@@ -20,7 +20,8 @@ class AdminTests(unittest.TestCase):
 
     def payout(self,amount='5'):
         self.send(2,action='withdraw'); self.send(2,amount)
-        result=self.send(2,'TEST BANK RECIPIENT')
+        self.send(2,action='withdraw:card')
+        result=self.send(2,'4441111056522018')
         self.send(2,action='confirm_payout')
         return self.c.execute('SELECT * FROM bot_payouts ORDER BY created DESC LIMIT 1').fetchone(),result
 
@@ -145,7 +146,7 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(admin.net(self.c,p),450)
         self.assertEqual(bot.liability(self.c),1000)
         self.field('withdraw_fee','20')
-        self.send(1,action='admin:payref:'+p['id']); self.send(1,action='admin:payrecord:'+p['id']); self.send(1,'bank-payout-real')
+        self.send(1,action='admin:payref:'+p['id']); self.send(1,action='admin:payrecord:'+p['id'])
         self.send(1,action='admin:payconfirm',event=888)
         self.send(1,action='admin:payconfirm',event=888)
         self.assertEqual(self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount'],550)
