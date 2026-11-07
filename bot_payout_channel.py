@@ -26,12 +26,18 @@ def initialize(c):
     c.execute("CREATE INDEX IF NOT EXISTS bot_payout_channel_queue ON bot_payout_channel_posts(state,created)")
     c.execute("ALTER TABLE bot_payout_channel_posts ADD COLUMN IF NOT EXISTS recipient_uid bigint")
     c.execute("ALTER TABLE bot_payouts ADD COLUMN IF NOT EXISTS public_profile boolean NOT NULL DEFAULT false")
+    # Public marketing posts are opt-in for the project, independent of private notifications.
+    c.execute("CREATE TABLE IF NOT EXISTS bot_payout_channel_options(key text PRIMARY KEY, enabled boolean NOT NULL)")
+    c.execute("INSERT INTO bot_payout_channel_options(key,enabled) VALUES('publish_paid',false) ON CONFLICT DO NOTHING")
 
 
 def enqueue_paid(c, payout_id, amount_formatted, recipient_uid=None):
     """Call in the same database transaction which changes payout status to paid."""
     if not payout_id or not amount_formatted:
         raise ValueError("Missing confirmed payout")
+    enabled=c.execute("SELECT enabled FROM bot_payout_channel_options WHERE key='publish_paid'").fetchone()
+    if not enabled or not enabled['enabled']:
+        return  # No unsolicited public announcement; private payout notices still send.
     body = (
         "✅ Выплата выполнена!\n\n"
         "💸 Сумма: " + str(amount_formatted) + "\n"
