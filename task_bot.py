@@ -206,7 +206,7 @@ def cabinet(c, uid):
     buttons = [
         [button('➕ Пополнить','deposit'),button('💸 Вывести','withdraw')],
         [button('✅ Выполнения','claims'),button('📥 Заявки','payouts')],
-        [button('📜 История','history'),button('💵 Доход рекламы','ad_income')],
+        [button('📜 История','history')],
     ]
     if bot_copy.owner():
         buttons.append([button('📱 Привязать номер','identity:share'),button('🛡 Админ-панель','admin')])
@@ -490,6 +490,8 @@ def route(c, uid, text, action, message, api, admin):
     if cmd=='/friends':
         return bot_ui.partners(c,uid)
     if cmd=='/adincome' or action=='ad_income':
+        if not admin:
+            return say(uid,'Этот раздел доступен только администратору.')
         earnings=bot_monetag_cash.estimated_earnings(c,uid)
         price=lambda x:'$'+format(x,'.9f')
         sumrow=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_cash_ad_credits WHERE uid=%s",(uid,)).fetchone()
