@@ -188,9 +188,12 @@ def create_invoice(c,uid,amount):
 
 def _lookup_invoice(invoice_id):
     result=call('getInvoices',{'invoice_ids':str(invoice_id)})
-    if not isinstance(result,list):
-        raise CryptoPayError('Invalid invoice list')
-    for item in result:
+    # Crypto Pay wraps the list as {"count":N,"items":[...]}.
+    # Accept a plain list too for compatibility with historical fixtures.
+    items=result.get('items') if isinstance(result,dict) else result
+    if not isinstance(items,list):
+        raise CryptoPayError('Crypto Pay вернул некорректный список счетов')
+    for item in items:
         if isinstance(item,dict) and item.get('invoice_id')==invoice_id:
             return item
     return None
