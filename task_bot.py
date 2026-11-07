@@ -91,24 +91,6 @@ def initialize(c):
     c.execute('SELECT pg_advisory_xact_lock(1984533)')
     c.execute('SELECT pg_advisory_xact_lock(%s)', (LOCK,))
     unify_balances(c)
-    # Single-use owner-requested 100 UAH test credit; never create fake cash
-    # coverage and never grant this to a non-owner Telegram account.
-    if os.getenv('RAILWAY_ENVIRONMENT_NAME') == 'production':
-        c.execute("""CREATE TABLE IF NOT EXISTS bot_one_time_test_grants(
-            grant_key text PRIMARY KEY,uid bigint NOT NULL,amount bigint NOT NULL,
-            created double precision NOT NULL)""")
-        owner=c.execute("SELECT telegram_id FROM farm_admin_identity WHERE slot=1").fetchone()
-        target_uid=8385663990
-        if owner and owner['telegram_id']==target_uid:
-            exists=c.execute('SELECT uid FROM bot_accounts WHERE uid=%s FOR UPDATE',(target_uid,)).fetchone()
-            if exists and c.execute("""INSERT INTO bot_one_time_test_grants(grant_key,uid,amount,created)
-                    VALUES('owner-test-100uah-20261107',%s,10000,%s)
-                    ON CONFLICT DO NOTHING RETURNING grant_key""",(target_uid,time.time())).fetchone():
-                c.execute('UPDATE bot_accounts SET available=available+10000 WHERE uid=%s',(target_uid,))
-                c.execute("INSERT INTO bot_ledger VALUES(%s,%s,%s,'admin_adjustment',%s,%s)",
-                          (uuid.uuid4().hex,target_uid,10000,'Разовое тестовое начисление владельцу: 100 грн',time.time()))
-        grant_status=c.execute("SELECT 1 FROM bot_one_time_test_grants WHERE grant_key='owner-test-100uah-20261107'").fetchone()
-        log.warning('trevixo_owner_test_credit_100uah_granted=%s',bool(grant_status))
 
 def unify_balances(c, uid=None):
     sql = 'SELECT uid,advertising FROM bot_accounts WHERE advertising>0'
