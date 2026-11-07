@@ -17,6 +17,10 @@ def target(c,uid,kind,key,worker=0):
     b=core()
     if kind=='payout':
         row=c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending' FOR UPDATE",(key,)).fetchone()
+        # Crypto payouts have a provider spend ID and must use the dedicated
+        # reconciliation screen. Never refund them via the generic bank reject.
+        if c.execute("SELECT 1 FROM bot_crypto_payouts WHERE payout_id=%s",(key,)).fetchone():
+            raise b.UserError('Криптовыплаты можно закрывать только через сверку CryptoBot в карточке заявки.')
         active=b.bot_payouts.work(c,key)
         if active:b.bot_payouts.require(c,key,uid)
     elif kind=='card':row=c.execute("SELECT * FROM bot_card_topups WHERE id=%s AND status='pending' FOR UPDATE",(key,)).fetchone()
