@@ -57,11 +57,12 @@ def view(c,uid,pid):
     account=c.execute('SELECT name FROM bot_accounts WHERE uid=%s',(p['uid'],)).fetchone()
     farm=c.execute('SELECT * FROM players WHERE telegram_id=%s',(p['uid'],)).fetchone()
     text+='\n\n👤 Имя в боте: <b>'+ui.esc(account['name'] if account else '—')+'</b>\nTelegram ID: <code>'+str(p['uid'])+'</code>'
-    if farm:text+='\nНик фермы: <b>'+ui.esc(farm.get('name','—'))+'</b>\nID фермы: <code>'+ui.esc(farm['id'])+'</code>'
+    if farm:text+='\nНик фермы: <b>'+ui.esc(farm.get('name','—'))+'</b>'
     debt=c.execute('SELECT amount FROM bot_debts WHERE uid=%s',(p['uid'],)).fetchone()
     if debt and debt['amount']:
         text+=tr('\n\n⚠️ Задолженность получателя: {v0}. Проверь, выполнен ли уже банковский перевод. Не подтверждай отказ, если перевод отправлен или его результат неизвестен.',{'v0':b.money(debt['amount'])},html_mode=True,section='bot_payouts')
-    rows=[[b.button('👤 Открыть аккаунт игрока','admin:account:'+str(p['uid']))]]
+    rows=[[{'text':'↗️ Telegram получателя','url':'tg://user?id='+str(p['uid'])}],
+          [b.button('👤 Информация об аккаунте','admin:account:'+str(p['uid']))]]
     if p['status']=='pending' and crypto:
         hold=c.execute('SELECT 1 FROM bot_crypto_liquidity_wait WHERE payout_id=%s',(pid,)).fetchone()
         status_crypto='⏳ Дополнительная проверка: недостаточно средств' if hold else ui.esc(crypto['state'])
@@ -71,10 +72,16 @@ def view(c,uid,pid):
             rows.append([b.button('🔄 Проверить резерв и повторить','admin:cryptoretry:'+pid)])
             rows.append([b.button('❌ Отменить и вернуть на баланс','admin:cryptocancel:'+pid)])
         else:
-            text+='\nРезультат API ещё неизвестен. Автоматический повтор запрещён.'
             if crypto['state']=='review':
-                rows.append([b.button('🔄 Проверить в CryptoBot','admin:cryptoverify:'+pid)])
+                incident=c.execute("SELECT phase,reason FROM bot_crypto_incidents WHERE payout_id=%s",(pid,)).fetchone()
+                text+='\n⚠️ <b>Автоперевод не подтверждён.</b>'
+                if incident:
+                    text+='\nОтвет API: '+ui.esc(incident['reason'][:160])
+                text+='\nРезерв сохранён. Сначала сверь операцию по spend_id; повторно отправлять нельзя.'
+                rows.append([b.button('🔍 Проверить в CryptoBot','admin:cryptoverify:'+pid)])
                 rows.append([b.button('⚙️ Решить вручную','admin:cryptomanage:'+pid)])
+            else:
+                text+='\n⏳ Автоматическая обработка.'
     elif p['status']=='pending':
         if active:
             require(c,pid,uid)
@@ -128,9 +135,15 @@ def _review_screen(c,uid,pid):
         'К выводу: '+core().money(payout['amount'])+'\n'
         'USDT: '+crypto['crypto_amount']+'\n\n'
         '<b>Важно:</b> если Crypto Pay уже отправил деньги, возврат суммы на баланс создаст двойную выплату. '
-        'Сначала проверь перевод в @CryptoBot по spend_id.\n'
-        '«Выплачено» лишь фиксирует реальную внешнюю выплату и НЕ отправляет её повторно.',
-        [[core().button('🔍 Сверить через API','admin:cryptoverify:'+pid)],
+        'Получатель: Telegram ID <code>'+str(payout['uid'])+'</code>\n'
+        'Ключ перевода: <code>'+core().bot_ui.esc(crypto['spend_id'])+'</code>\n\n'
+        '<b>Если платишь вручную:</b> открой CryptoBot → Отправить → USDT, '
+        'найди получателя по Telegram ID или его @username. '
+        'Убедись, что это нужный человек, и только после реального зачисления нажми «Уже выплачено».\n'
+        '<b>Эта кнопка НЕ отправляет деньги.</b> Если перевод уже состоялся, не отправляй второй.',
+        [[{'text':'↗️ Telegram получателя','url':'tg://user?id='+str(payout['uid'])}],
+         [{'text':'💎 Открыть CryptoBot','url':'https://t.me/CryptoBot'}],
+         [core().button('🔍 Сверить через API','admin:cryptoverify:'+pid)],
          [core().button('↩️ Не выплачено — вернуть деньги','admin:cryptodecision:cancel:'+pid)],
          [core().button('✅ Уже выплачено — закрыть','admin:cryptodecision:paid:'+pid)],
          [core().button('⬅️ Заявка','admin:payview:'+pid)]])
