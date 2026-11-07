@@ -182,6 +182,17 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
     old=c.execute("SELECT 1 FROM bot_adsgram_daily_settlements WHERE utc_day=%s",(day,)).fetchone()
     if old:raise ValueError("Day already reconciled; never pay twice")
     start,end=_kyiv_bounds(day)
+    # The manual cumulative-balance workflow and daily workflow are mutually
+    # exclusive over the same time window; protect even a partial day.
+    import bot_adsgram_intervals
+    checkpoints=c.execute("""SELECT observed_at FROM bot_adsgram_balance_checkpoints
+      ORDER BY observed_at""").fetchall()
+    if checkpoints:
+        first=checkpoints[0]['observed_at']
+        # Once cumulative accounting has begun, a calendar day containing its
+        # baseline or later checkpoints cannot be settled independently.
+        if end>first:
+            raise ValueError("Дата пересекается с новой /reklama сверкой накопленного дохода.")
     rows=c.execute("""SELECT uid,referral_chain FROM bot_adsgram_attempts
       WHERE state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s
       ORDER BY confirmed_at,id FOR UPDATE""",(start,end)).fetchall()
