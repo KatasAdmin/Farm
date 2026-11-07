@@ -163,6 +163,8 @@
           </button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('geese')" aria-label="Гуси: купить или продать"><img src="/assets/goose-v2.png" class="icon" alt=""/><span>Гуси</span><strong data-value="geese">0</strong></button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('cows')" aria-label="Коровы: купить или продать"><img src="/assets/cow-v1.webp" class="icon" alt=""/><span>Коровы</span><strong data-value="cows">0</strong></button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('sheep')" aria-label="Овцы: купить или продать"><span class="icon" role="img" aria-label="">🐑</span><span>Овцы</span><strong data-value="sheep">0</strong></button>
+          <button type="button" class="resource resource-link" onclick="openResourceActions('wool')" aria-label="Шерсть: купить или продать"><span class="icon" role="img" aria-label="">🧶</span><span>Шерсть</span><strong data-value="wool">0</strong></button>
           <button type="button" class="resource resource-link" onclick="openResourceActions('eggs')" aria-label="Яйца: купить или выставить на продажу">
             <img src="/assets/redesign/egg.webp" class="icon" alt="" decoding="async"/><span>Яйца</span><strong data-value="eggs">—</strong>
           </button>
@@ -694,14 +696,14 @@
           <div class="upgrade">
             <img src="/assets/redesign/storage.webp" class="upgrade-art" alt="">
             <div><h2>Склад · уровень <span data-building="storage_level">—</span></h2>
-              <p><strong data-building="storage_used">—</strong> / <strong data-building="storage_capacity">—</strong> мест занято яйцами, молоком, зерном и перьями.</p>
+              <p><strong data-building="storage_used">—</strong> / <strong data-building="storage_capacity">—</strong> мест занято яйцами, молоком, зерном, перьями и шерстью.</p>
               <button id="upgrade-storage" class="btn small" onclick="upgradeBuilding('storage')">Улучшить</button>
             </div>
           </div>
           <p class="muted">Следующий уровень добавляет 100 мест. До 100 уровней — 10 000 ресурсов.</p>
         </div>
 
-        <div class="card warehouse-inventory"><h2 class="cardtitle">На складе</h2><div class="warehouse-items"><button class="resource resource-link" onclick="openResourceActions('grain')"><img src="/assets/redesign/grain.webp" alt=""><span>Зерно</span><strong data-value="grain">—</strong></button><button class="resource resource-link" onclick="openResourceActions('eggs')"><img src="/assets/redesign/egg.webp" alt=""><span>Яйца</span><strong data-value="eggs">—</strong></button><button class="resource resource-link" onclick="openResourceActions('milk')"><img src="/assets/milk-v1.webp" alt=""><span>Молоко</span><strong data-value="milk">—</strong></button><button class="resource resource-link" onclick="openResourceActions('feathers')"><img src="/assets/illustrations/feather-icon-v3.webp" alt=""><span>Перья</span><strong data-value="feathers">—</strong></button></div><p class="muted">Общий склад для зерна, яиц, молока и перьев. Нажми на ресурс для покупки или продажи.</p></div><div class="card auto-card">
+        <div class="card warehouse-inventory"><h2 class="cardtitle">На складе</h2><div class="warehouse-items"><button class="resource resource-link" onclick="openResourceActions('grain')"><img src="/assets/redesign/grain.webp" alt=""><span>Зерно</span><strong data-value="grain">—</strong></button><button class="resource resource-link" onclick="openResourceActions('eggs')"><img src="/assets/redesign/egg.webp" alt=""><span>Яйца</span><strong data-value="eggs">—</strong></button><button class="resource resource-link" onclick="openResourceActions('milk')"><img src="/assets/milk-v1.webp" alt=""><span>Молоко</span><strong data-value="milk">—</strong></button><button class="resource resource-link" onclick="openResourceActions('feathers')"><img src="/assets/illustrations/feather-icon-v3.webp" alt=""><span>Перья</span><strong data-value="feathers">—</strong></button><button class="resource resource-link" onclick="openResourceActions('wool')"><span class="icon" aria-hidden="true">🧶</span><span>Шерсть</span><strong data-value="wool">—</strong></button></div><p class="muted">Общий склад для зерна, яиц, молока и перьев. Нажми на ресурс для покупки или продажи.</p></div><div class="card auto-card">
           <h2 class="cardtitle">
             <img
               src="/assets/objects/feed_sack.webp"
