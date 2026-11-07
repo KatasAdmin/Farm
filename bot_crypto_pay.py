@@ -81,7 +81,7 @@ def withdrawals_enabled():
 
 
 def call(method, data=None):
-    if method not in ('getMe','getInvoices','createInvoice','getTransfers','transfer','getExchangeRates','createCheck','getChecks','deleteCheck','getBalance'):
+    if method not in ('getMe','getInvoices','createInvoice','getTransfers','getExchangeRates','createCheck','getChecks','deleteCheck','getBalance'):
         raise ValueError('Invalid Crypto Pay method')
     secret=token()
     if not secret:
@@ -460,7 +460,7 @@ def _check_dispatch(db):
           JOIN bot_payouts p ON p.id=cp.payout_id
           JOIN bot_crypto_checks ch ON ch.payout_id=cp.payout_id
           WHERE ch.state='active' AND p.status='pending'
-          ORDER BY ch.last_checked_at,ch.created LIMIT 1 FOR UPDATE OF ch""").fetchone()
+          ORDER BY ch.last_checked_at,ch.created LIMIT 1 FOR UPDATE""").fetchone()
         if row:
             c.execute("UPDATE bot_crypto_checks SET last_checked_at=%s WHERE payout_id=%s",
                       (time.time(),row['payout_id']))
