@@ -1271,7 +1271,8 @@ def _administration(c, uid, text, action, api):
         if len(parts)==2 and parts[1].lower()=='status':
             current=bot_adsgram_intervals.latest(c)
             if not current:
-                return bot_ui.screen(uid,'📍 <b>AdsGram: начальная точка ещё не задана.</b>\n\n'
+                return bot_ui.screen(uid,
+                    '📍 <b>AdsGram: начальная точка ещё не задана.</b>\n\n'
                     'Введи <code>/reklama 1.50</code> с текущим общим балансом AdsGram.',
                     [[button('⬅️ Админка','admin')]])
             start=float(current['observed_at'])
@@ -1283,14 +1284,32 @@ def _administration(c, uid, text, action, api):
                 WHERE state='pending' AND started_at>=%s""",(start,)).fetchone()['n'])
             return bot_ui.screen(uid,
                 '📊 <b>AdsGram — контроль начислений</b>\n\n'
-                'Точка отсчёта: 
+                'Точка отсчёта: $'+bot_ui.esc(str(current['cumulative_usd']))+'\n'
+                'Новых подтверждённых просмотров в боте: <b>'+str(confirmed_bot)+'</b>\n'
+                'Новых подтверждённых просмотров в ферме: <b>'+str(confirmed_farm)+'</b>\n'
+                'Ожидают подтверждения в боте: '+str(pending)+'\n\n'
+                'Если подтверждённых просмотров нет, прирост баланса не распределяется. '
+                'Сброс не заменяет настройку SDK-подтверждений.',
+                [[button('⬅️ Админка','admin')]])
+        if len(parts)==3 and parts[1].lower()=='reset':
             try:
                 result=bot_adsgram_intervals.reset_baseline(c,uid,parts[2].replace(',','.'))
             except (ValueError,TypeError) as exc:
                 raise UserError('Старт не изменён: '+str(exc))
             return bot_ui.screen(uid,
                 '🔄 <b>AdsGram: новая точка отсчёта</b>\n\n'
-                'Начальный баланс: <b>
+                'Начальный баланс: <b>$'+bot_ui.esc(result['balance'])+'</b>\n'
+                'Начислено: <b>0 грн</b>\n\n'
+                'Старые выплаты и история сохранены. Предыдущие просмотры исключены '
+                'из будущих начислений. Дальше вводи обычную команду '
+                '<code>/reklama 1.65</code> с новым накопленным балансом '
+                '(он должен быть выше начального).',
+                [[button('⬅️ Админка','admin')]])
+        if len(parts)!=2:
+            raise UserError('Формат: /reklama 1.65 — текущий баланс AdsGram в USD. '
+                            'Сброс без удаления выплат: /reklama reset 1.50')
+        try:
+            result=bot_adsgram_intervals.report(c,uid,parts[1].replace(',','.'))
         except (ValueError,TypeError) as exc:
             raise UserError('Начисления не выполнены: '+str(exc))
         if result['baseline']:
