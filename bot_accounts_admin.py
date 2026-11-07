@@ -110,6 +110,7 @@ def card(c,uid,target):
         text+=' · '+esc(identity['phone'])
     if farm:
         text+='\n🐔 '+esc(farm.get('name','—'))+' · '+str(farm['coins'])+' монет'
+        text+='\nID фермы: <code>'+esc(farm['id'])+'</code>'
         text+=' · '+str(farm.get('chickens',0))+' 🐔 · '+str(farm.get('geese',0))+' 🪿'
     else:
         text+='\n🐔 Нет привязанной фермы'
