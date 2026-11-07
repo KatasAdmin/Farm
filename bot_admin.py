@@ -80,6 +80,7 @@ def payment_credentials_screen(c,uid):
          'Автовыплаты дополнительно защищены переменной CRYPTOPAY_AUTO_PAYOUTS_ENABLED '
          'и отдельным переключателем админки.')
     return b.bot_ui.screen(uid,msg,[
+        [b.button('🔍 Проверить подключение Crypto Pay','admin:paymethods:check')],
         [b.button('🔑 Заменить API-токен','admin:paymethods:token')],
         [b.button('♻️ Использовать токен Railway','admin:paymethods:tokenreset')],
         [b.button('💰 Лимит криптовывода','admin:paymethods:cap')],
@@ -340,6 +341,16 @@ def admin(c, uid, text, action, api):
         return payment_methods_screen(c,uid)
     if action == 'admin:paymethods:credentials':
         return payment_credentials_screen(c,uid)
+    if action == 'admin:paymethods:check':
+        import bot_crypto_pay as crypto
+        try:
+            result=crypto.call('getMe')
+        except crypto.CryptoPayError as exc:
+            return ui.screen(uid,'❌ <b>Crypto Pay: соединение не подтверждено</b>\n\n'+ui.esc(str(exc)),
+                [[b.button('⬅️ Настройки Crypto Pay','admin:paymethods:credentials')]])
+        name=result.get('name') if isinstance(result,dict) else None
+        return ui.screen(uid,'✅ <b>Crypto Pay API подключён</b>\n\nПриложение: '+ui.esc(str(name or 'TREVIXO')),
+            [[b.button('⬅️ Настройки Crypto Pay','admin:paymethods:credentials')]])
     if action == 'admin:paymethods:token':
         b.state(c,uid,'admin_crypto_token',{})
         return ui.input_screen(uid,'🔐 <b>Замена API-токена Crypto Pay</b>\n\n'
