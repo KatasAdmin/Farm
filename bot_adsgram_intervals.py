@@ -24,6 +24,14 @@ def initialize(c):
       credited_kopeks bigint NOT NULL DEFAULT 0,
       owner_uid bigint NOT NULL,
       created_at double precision NOT NULL)""")
+    # Accounting-only USD allocation of publisher revenue attributable to farm views.
+    # Never credit redeemable coins from an unverified or estimated impression.
+    c.execute("""CREATE TABLE IF NOT EXISTS farm_adsgram_revenue_allocations(
+      checkpoint_id text PRIMARY KEY REFERENCES bot_adsgram_balance_checkpoints(id),
+      farm_views integer NOT NULL CHECK(farm_views>=0),
+      bot_views integer NOT NULL CHECK(bot_views>=0),
+      share_usd numeric(28,18) NOT NULL CHECK(share_usd>=0),
+      recorded_at double precision NOT NULL)""")
     c.execute("""CREATE TABLE IF NOT EXISTS bot_adsgram_interval_credits(
       checkpoint_id text NOT NULL REFERENCES bot_adsgram_balance_checkpoints(id),
       uid bigint NOT NULL, role text NOT NULL CHECK(role IN ('viewer','referral')),
@@ -131,6 +139,13 @@ def report(c,owner_uid,new_balance,now=None):
       (ident,now,balance,delta,len(cash),farm_count,owner_uid,time.time()))
     if delta>0:
         per_view=delta/Decimal(count)
+        # This amount stays in internal USD accounting until a separate,
+        # fully funded coin-value mechanism is explicitly approved.
+        farm_share=per_view*Decimal(farm_count)
+        c.execute("""INSERT INTO farm_adsgram_revenue_allocations
+          (checkpoint_id,farm_views,bot_views,share_usd,recorded_at)
+          VALUES(%s,%s,%s,%s,%s)""",
+          (ident,farm_count,len(cash),farm_share,time.time()))
         ledger={}
         for r in cash:
             alloc=monetag_cash_allocation(per_view,tuple(r['referral_chain']))
