@@ -81,7 +81,7 @@ def withdrawals_enabled():
 
 
 def call(method, data=None):
-    if method not in ('getMe','getInvoices','createInvoice','getTransfers','transfer','getExchangeRates'):
+    if method not in ('getMe','getInvoices','createInvoice','getTransfers','transfer','getExchangeRates','createCheck','getChecks','deleteCheck'):
         raise ValueError('Invalid Crypto Pay method')
     secret=token()
     if not secret:
@@ -157,6 +157,13 @@ def initialize(c):
         created double precision NOT NULL, transfer_id bigint)""")
     c.execute('CREATE INDEX IF NOT EXISTS bot_crypto_invoice_queue ON bot_crypto_invoices(status,created)')
     c.execute('CREATE INDEX IF NOT EXISTS bot_crypto_payout_queue ON bot_crypto_payouts(state,created)')
+    # Check creation is never blindly repeated: Crypto Pay's public createCheck
+    # does not guarantee a caller-supplied idempotency key.
+    c.execute("""CREATE TABLE IF NOT EXISTS bot_crypto_checks(
+        payout_id text PRIMARY KEY,check_id bigint UNIQUE,check_url text NOT NULL DEFAULT '',
+        state text NOT NULL CHECK(state IN ('creating','active','review','activated')),
+        created double precision NOT NULL)""")
+    c.execute("UPDATE bot_crypto_checks SET state='review' WHERE state='creating'")
     # If process crashed after sending, do NOT send again: first reconcile spend_id.
     c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE state='sending'")
 
@@ -271,20 +278,132 @@ def quote_usdt(net,c=None):
         value=((Decimal(net)/100)/rate).quantize(Decimal('0.000001'),rounding=ROUND_DOWN)
     except (InvalidOperation, ValueError):
         raise CryptoPayError('Недопустимый курс.')
-    if value<Decimal('1'):
-        minimum=(rate*Decimal('1')*100).quantize(Decimal('1'),rounding=ROUND_DOWN)
-        min_uah=(int(minimum)+99)//100
-        raise CryptoPayError('Минимум TREVIXO задаётся в админке, но Crypto Pay принимает переводы примерно от 1 USDT (сейчас около '+str(min_uah)+' грн). Для меньшей суммы выбери вывод на карту или укажи сумму больше.')
+    if value<=0:
+        raise CryptoPayError('Сумма слишком мала для точности USDT. Выбери другой способ выплаты.')
+    # Up to and including 1 USDT is paid by a user-pinned single-use check;
+    # provider-specific minimums are enforced by Crypto Pay when creating it.
     return format(value,'.6f')
 
 
 def enqueue_payout(c,pid,usdt):
     amount=Decimal(str(usdt))
-    if amount<1 or amount>25000:
+    if amount<=0 or amount>25000:
         raise CryptoPayError('Invalid cryptocurrency amount')
     c.execute("""INSERT INTO bot_crypto_payouts(payout_id,asset,crypto_amount,spend_id,state,created)
       VALUES(%s,'USDT',%s,%s,'pending',%s) ON CONFLICT DO NOTHING""",
       (pid,format(amount,'.6f'),'trevixo_'+pid,time.time()))
+
+
+
+def _check_items(check_id):
+    result=call('getChecks',{'check_ids':str(check_id)})
+    items=result.get('items') if isinstance(result,dict) else result
+    if not isinstance(items,list):
+        raise CryptoPayError('Crypto Pay returned an invalid check list')
+    return [x for x in items if isinstance(x,dict) and x.get('check_id')==check_id]
+
+
+def _verified_check(check, remote):
+    if not isinstance(remote,dict) or remote.get('check_id')!=check['check_id']:
+        return False
+    if remote.get('asset')!='USDT':
+        return False
+    try:
+        payout=Decimal(check['crypto_amount'])
+        amount=Decimal(str(remote.get('amount','')))
+    except (ValueError,InvalidOperation):
+        return False
+    return amount==payout and remote.get('status') in ('active','activated')
+
+
+def _finalize_check(db,check,remote):
+    if remote.get('status')!='activated' or not _verified_check(check,remote):
+        return False
+    import task_bot as b
+    with db() as c:
+        c.execute('SELECT pg_advisory_xact_lock(1984533)')
+        p=c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending' FOR UPDATE",(check['payout_id'],)).fetchone()
+        ch=c.execute("SELECT * FROM bot_crypto_checks WHERE payout_id=%s AND state='active' FOR UPDATE",(check['payout_id'],)).fetchone()
+        if not p or not ch or ch['check_id']!=check['check_id']:
+            return False
+        net=b.bot_admin.net(c,p)
+        c.execute("UPDATE bot_crypto_checks SET state='activated' WHERE payout_id=%s",(p['id'],))
+        c.execute("UPDATE bot_crypto_payouts SET state='completed' WHERE payout_id=%s",(p['id'],))
+        c.execute("UPDATE bot_payouts SET status='paid',reference=%s WHERE id=%s",('cryptocheck_'+str(ch['check_id']),p['id']))
+        c.execute('UPDATE bot_cash_pool SET amount=CASE WHEN amount>=%s THEN amount-%s ELSE 0 END WHERE id=1',(net,net))
+        c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)",(uuid.uuid4().hex,p['uid'],'Crypto Pay check activated '+str(ch['check_id']),time.time()))
+        b.bot_notifications.enqueue(c,'check-activated-user:'+p['id'],
+            '✅ CryptoBot: чек активирован, выплата '+b.money(net)+' завершена.',recipient=p['uid'])
+        b.bot_notifications.enqueue(c,'check-activated-admin:'+p['id'],
+            '✅ CryptoBot: именной чек активирован. Получатель: '+str(p['uid'])+
+            '. Сумма: '+b.money(net)+'. Чек №'+str(ch['check_id']),
+            action='admin:payview:'+p['id'],subject=p['uid'])
+        b.bot_payout_channel.enqueue_paid(c,p['id'],b.money(net),recipient_uid=p['uid'] if p['public_profile'] else None)
+    return True
+
+
+def _check_dispatch(db):
+    # Reconcile one known check before creating additional checks.
+    with db() as c:
+        row=c.execute("""SELECT cp.*,p.uid,ch.check_id,ch.check_url,ch.state AS check_state
+          FROM bot_crypto_payouts cp
+          JOIN bot_payouts p ON p.id=cp.payout_id
+          JOIN bot_crypto_checks ch ON ch.payout_id=cp.payout_id
+          WHERE ch.state='active' AND p.status='pending'
+          ORDER BY ch.created LIMIT 1""").fetchone()
+    if row:
+        try:
+            remote=next(iter(_check_items(row['check_id'])),None)
+            if remote and _verified_check(row,remote):
+                return _finalize_check(db,row,remote)
+        except Exception:
+            log.warning('Crypto Pay check reconciliation temporarily unavailable payout=%s',row['payout_id'])
+        # An active check is not a blocker for new payouts.
+    if not withdrawals_enabled():
+        return False
+    import bot_admin
+    with db() as c:
+        if not bot_admin.method_enabled(c,'crypto_withdraw') or payout_cap(c)<=0:
+            return False
+        c.execute('SELECT pg_advisory_xact_lock(1984537)')
+        selected=c.execute("""SELECT cp.*,p.uid FROM bot_crypto_payouts cp
+            JOIN bot_payouts p ON p.id=cp.payout_id
+            LEFT JOIN bot_crypto_checks ch ON ch.payout_id=cp.payout_id
+            WHERE cp.state='pending' AND p.status='pending'
+              AND ch.payout_id IS NULL
+            ORDER BY cp.created FOR UPDATE OF cp LIMIT 20""").fetchall()
+        row=next((r for r in selected if Decimal(r['crypto_amount'])<=Decimal('1')),None)
+        if not row:
+            return False
+        caprow=c.execute('SELECT net FROM bot_payout_terms WHERE id=%s',(row['payout_id'],)).fetchone()
+        if caprow and caprow['net']>payout_cap(c)*100:
+            return False
+        c.execute("UPDATE bot_crypto_payouts SET state='sending' WHERE payout_id=%s",(row['payout_id'],))
+        c.execute("INSERT INTO bot_crypto_checks(payout_id,state,created) VALUES(%s,'creating',%s)",(row['payout_id'],time.time()))
+    try:
+        remote=call('createCheck',{'asset':'USDT','amount':row['crypto_amount'],'pin_to_user_id':row['uid']})
+        check_id=remote.get('check_id') if isinstance(remote,dict) else None
+        url=remote.get('bot_check_url') if isinstance(remote,dict) else None
+        if type(check_id) is not int or not isinstance(url,str) or not url.startswith('https://t.me/'):
+            raise CryptoPayError('Unverified check creation result')
+        if remote.get('asset')!='USDT' or Decimal(str(remote.get('amount',''))) != Decimal(row['crypto_amount']):
+            raise CryptoPayError('Check amount mismatch')
+        with db() as c:
+            c.execute("UPDATE bot_crypto_checks SET state='active',check_id=%s,check_url=%s WHERE payout_id=%s AND state='creating'",(check_id,url,row['payout_id']))
+            c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
+            import task_bot as b
+            b.bot_notifications.enqueue(c,'check-issued:'+row['payout_id'],
+                '🎁 Твой именной чек CryptoBot готов: '+row['crypto_amount']+' USDT.\n'
+                'Открой историю выплат в TREVIXO, если потеряешь ссылку.\n'+url,
+                recipient=row['uid'])
+        return True
+    except Exception:
+        # Unknown result might have created a check. Do not issue a second one.
+        with db() as c:
+            c.execute("UPDATE bot_crypto_checks SET state='review' WHERE payout_id=%s AND state='creating'",(row['payout_id'],))
+            c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
+        log.warning('Crypto Pay check creation requires manual reconciliation payout=%s',row['payout_id'])
+        return False
 
 
 def _verified_transfer(row, transfer, uid):
@@ -344,12 +463,14 @@ def _finalize_transfer(db,row,transfer):
 def dispatch(db):
     if not token():
         return False
-    # Reconcile uncertain outcomes first; never make a second blind transfer.
+    _check_dispatch(db)
+    # Reconcile uncertain transfer outcomes first; never make a second blind transfer.
     with db() as c:
         c.execute('SELECT pg_advisory_xact_lock(1984537)')
         row=c.execute("""SELECT cp.*,p.uid FROM bot_crypto_payouts cp
           JOIN bot_payouts p ON p.id=cp.payout_id
           WHERE cp.state='review' AND p.status='pending'
+            AND NOT EXISTS(SELECT 1 FROM bot_crypto_checks ch WHERE ch.payout_id=cp.payout_id)
           ORDER BY cp.created LIMIT 1""").fetchone()
     if row:
         try:
@@ -372,6 +493,7 @@ def dispatch(db):
         row=c.execute("""SELECT cp.*,p.uid FROM bot_crypto_payouts cp
           JOIN bot_payouts p ON p.id=cp.payout_id
           WHERE cp.state='pending' AND p.status='pending'
+            AND CAST(cp.crypto_amount AS numeric)>1
           ORDER BY cp.created LIMIT 1 FOR UPDATE""").fetchone()
         if not row:return False
         # Stop queued transfers exceeding a lowered owner cap.
