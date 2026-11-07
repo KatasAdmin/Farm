@@ -625,9 +625,13 @@ def route(c, uid, text, action, message, api, admin):
             'Сумма: <b>'+prefix+money(abs(item['delta']))+'</b>',
             'Дата: '+date,
             'ID: <code>'+bot_ui.esc(item['id'])+'</code>']
-        # A free-form ledger description can contain external links, private
-        # references, payment tokens or card numbers. Do not expose it as-is.
-        # The operation type, sign, exact amount and transaction ID are stable.
+        # Free-form ledger descriptions are internal data. Show plain user-safe
+        # descriptions only, never payment tokens, URLs, PINs or full card IDs.
+        detail=str(item['details'] or '').strip()
+        if (detail and len(detail)<=150 and
+                not re.search(r'https?://|t\.me/|(?:[0-9]{12,}|[a-f0-9]{24,})|(?:token|secret|password|api[_ -]?key)',detail,re.I)
+                and not any(ord(ch)<32 and ch not in '\n\t' for ch in detail)):
+            lines.append('Описание: '+bot_ui.esc(detail))
         return bot_ui.screen(uid,'\n'.join(lines),
             [[button('⬅️ История баланса','history')],[button('👤 Кабинет','cabinet')]])
     if action == 'claims':
