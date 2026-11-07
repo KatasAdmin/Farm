@@ -34,6 +34,61 @@ class AdminTests(unittest.TestCase):
         self.send(1,action='admin:copysave:'+data['nonce'])
         return preview
 
+    def test_payment_method_toggles_hide_disabled_options_and_deny_stale_clicks(self):
+        self.credit()
+        self.assertTrue(admin.method_enabled(self.c,'card_withdraw'))
+        self.assertFalse(admin.method_enabled(self.c,'crypto_withdraw'))
+        self.assertFalse(admin.method_enabled(self.c,'crypto_deposit'))
+        screen=self.send(1,action='admin:paymethods')
+        self.assertIn('API-токен Crypto Pay',screen['text'])
+        self.assertNotIn('CRYPTOPAY_API_TOKEN=',screen['text'])
+        self.assertIn('bot:admin:paymethods:toggle:card_withdraw',str(screen['reply_markup']))
+        self.assertIn('Доступ',self.send(2,action='admin:paymethods:toggle:card_withdraw')['text'])
+
+        self.send(2,action='withdraw')
+        menu=self.send(2,'5')
+        self.assertIn('withdraw:card',str(menu['reply_markup']))
+        self.assertNotIn('withdraw:crypto',str(menu['reply_markup']))
+        self.send(1,action='admin:paymethods:toggle:card_withdraw')
+        self.assertFalse(admin.method_enabled(self.c,'card_withdraw'))
+        denied=self.send(2,action='withdraw:card')
+        self.assertIn('отключён',denied['text'])
+        menu=self.send(2,action='withdraw:back')
+        self.assertNotIn('withdraw:card',str(menu['reply_markup']))
+        self.assertNotIn('withdraw:crypto',str(menu['reply_markup']))
+
+        self.send(1,action='admin:paymethods:toggle:card_withdraw')
+        self.assertTrue(admin.method_enabled(self.c,'card_withdraw'))
+        self.send(2,action='withdraw:card')
+        self.send(1,action='admin:paymethods:toggle:card_withdraw')
+        blocked=self.send(2,'1234567890123456')
+        self.assertIn('отключён',blocked['text'])
+        self.assertFalse(self.c.execute("SELECT 1 FROM bot_payouts WHERE uid=2").fetchone())
+
+        bot.initialize(self.c)
+        self.assertFalse(admin.method_enabled(self.c,'card_withdraw'))
+        self.send(1,action='admin:paymethods:toggle:card_withdraw')
+        self.assertTrue(admin.method_enabled(self.c,'card_withdraw'))
+
+    def test_crypto_buttons_need_both_admin_permission_and_provider_credentials(self):
+        from unittest.mock import patch
+        self.credit()
+        with patch.object(bot.bot_crypto_pay,'available',return_value=True), \
+             patch.object(bot.bot_crypto_pay,'withdrawals_enabled',return_value=True):
+            deposits=self.send(2,action='deposit')
+            self.assertNotIn('topup:crypto',str(deposits['reply_markup']))
+            self.assertIn('недоступен',self.send(2,action='withdraw:crypto')['text'])
+            self.send(1,action='admin:paymethods:toggle:crypto_deposit')
+            self.send(1,action='admin:paymethods:toggle:crypto_withdraw')
+            self.assertIn('topup:crypto',str(self.send(2,action='deposit')['reply_markup']))
+            self.send(2,action='withdraw')
+            self.assertIn('withdraw:crypto',str(self.send(2,'5')['reply_markup']))
+            self.send(1,action='admin:paymethods:toggle:crypto_deposit')
+            self.assertNotIn('topup:crypto',str(self.send(2,action='deposit')['reply_markup']))
+            self.assertIn('выключено',self.send(2,action='topup:crypto')['text'])
+        # Provider variables are a second, independent permission gate.
+        self.assertNotIn('withdraw:crypto',str(self.send(2,action='withdraw:back')['reply_markup']))
+
     def test_clean_sections_and_owner_entry(self):
         panel=self.send(1,action='admin')
         self.assertNotIn('/bot',panel['text'])
