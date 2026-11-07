@@ -145,7 +145,11 @@ def initialize(c):
         amount bigint NOT NULL CHECK(amount>0),
         status text NOT NULL CHECK(status IN ('pending','paid')),
         created double precision NOT NULL)""")
-    c.execute("ALTER TABLE bot_crypto_invoices ADD COLUMN IF NOT EXISTS last_checked_at double precision NOT NULL DEFAULT 0")
+    c.execute("CREATE TABLE IF NOT EXISTS bot_crypto_schema_migrations(key text PRIMARY KEY)")
+    fresh=c.execute("""INSERT INTO bot_crypto_schema_migrations(key)
+      VALUES('invoice-last-checked-v1') ON CONFLICT DO NOTHING RETURNING key""").fetchone()
+    if fresh:
+        c.execute("ALTER TABLE bot_crypto_invoices ADD COLUMN last_checked_at double precision NOT NULL DEFAULT 0")
     c.execute("""CREATE TABLE IF NOT EXISTS bot_crypto_payouts(
         payout_id text PRIMARY KEY, asset text NOT NULL, crypto_amount text NOT NULL,
         spend_id text NOT NULL UNIQUE,
