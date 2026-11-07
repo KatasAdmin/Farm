@@ -81,7 +81,7 @@ def withdrawals_enabled():
 
 
 def call(method, data=None):
-    if method not in ('getMe','getInvoices','createInvoice','getTransfers','transfer','getExchangeRates','createCheck','getChecks','deleteCheck'):
+    if method not in ('getMe','getInvoices','createInvoice','getTransfers','transfer','getExchangeRates','createCheck','getChecks','deleteCheck','getBalance'):
         raise ValueError('Invalid Crypto Pay method')
     secret=token()
     if not secret:
@@ -90,7 +90,7 @@ def call(method, data=None):
     raw=json.dumps(data or {},ensure_ascii=True).encode('utf-8')
     # getMe is parameterless. The documented GET avoids an unnecessary body,
     # and a clear User-Agent reduces false positives at upstream edge filters.
-    is_get=method=='getMe'
+    is_get=method in ('getMe','getBalance')
     req=Request(base+method, data=None if is_get else raw,
         method='GET' if is_get else 'POST',headers={
         'Crypto-Pay-API-Token':secret,
@@ -164,6 +164,10 @@ def initialize(c):
         state text NOT NULL CHECK(state IN ('creating','active','review','activated')),
         created double precision NOT NULL)""")
     c.execute("UPDATE bot_crypto_checks SET state='review' WHERE state='creating'")
+    c.execute("""CREATE TABLE IF NOT EXISTS bot_crypto_liquidity_wait(
+        payout_id text PRIMARY KEY REFERENCES bot_crypto_payouts(payout_id),
+        created double precision NOT NULL,
+        checked double precision NOT NULL DEFAULT 0)""")
     # If process crashed after sending, do NOT send again: first reconcile spend_id.
     c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE state='sending'")
 
@@ -295,6 +299,66 @@ def enqueue_payout(c,pid,usdt):
 
 
 
+def _insufficient_funds(exc):
+    if not isinstance(exc,CryptoPayError):
+        return False
+    reason=str(exc).upper()
+    return any(word in reason for word in (
+        'INSUFFICIENT_FUNDS','INSUFFICIENT_BALANCE','NOT_ENOUGH_FUNDS',
+        'NOT_ENOUGH_BALANCE','BALANCE_NOT_ENOUGH','INSUFFICIENT_ASSET'))
+
+
+def _wait_for_liquidity(db,row,kind):
+    # Only an explicit provider rejection is safe to retry automatically.
+    import task_bot as b
+    with db() as c:
+        c.execute("UPDATE bot_crypto_payouts SET state='pending' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
+        if kind=='check':
+            c.execute("DELETE FROM bot_crypto_checks WHERE payout_id=%s AND state='creating'",(row['payout_id'],))
+        c.execute("""INSERT INTO bot_crypto_liquidity_wait(payout_id,created) VALUES(%s,%s)
+            ON CONFLICT DO NOTHING""",(row['payout_id'],time.time()))
+        b.bot_notifications.enqueue(c,'liquidity-user:'+row['payout_id'],
+            '⏳ Дополнительная проверка. Выплата ожидает пополнения резерва CryptoBot. '
+            'Сумма остаётся зарезервированной. Новую заявку создавать не нужно.',
+            recipient=row['uid'])
+        b.bot_notifications.enqueue(c,'liquidity-admin:'+row['payout_id'],
+            '⚠️ Дополнительная проверка: недостаточно USDT в CryptoBot.\n'
+            'Заявка: '+row['payout_id']+'\n'
+            'Требуется: '+row['crypto_amount']+' USDT.\n'
+            'Пополните CryptoBot — после подтверждения баланса выплата возобновится автоматически. '
+            'Или откройте заявку для безопасной отмены.',
+            action='admin:payview:'+row['payout_id'],subject=row['uid'])
+
+
+def _release_funded_hold(db):
+    # The provider must independently confirm enough available USDT.
+    with db() as c:
+        row=c.execute("""SELECT h.payout_id,cp.crypto_amount FROM bot_crypto_liquidity_wait h
+            JOIN bot_crypto_payouts cp ON cp.payout_id=h.payout_id
+            JOIN bot_payouts p ON p.id=cp.payout_id
+            WHERE cp.state='pending' AND p.status='pending'
+            ORDER BY h.created LIMIT 1""").fetchone()
+    if not row:
+        return False
+    try:
+        balances=call('getBalance')
+        items=balances.get('items') if isinstance(balances,dict) else balances
+        if not isinstance(items,list):
+            return False
+        asset=next((b for b in items if isinstance(b,dict) and b.get('currency_code')=='USDT'),None)
+        if not asset:
+            return False
+        available=Decimal(str(asset.get('available','0')))
+        required=Decimal(row['crypto_amount'])
+        if available<required:
+            return False
+    except (CryptoPayError,ValueError,InvalidOperation,TypeError):
+        return False
+    with db() as c:
+        c.execute("DELETE FROM bot_crypto_liquidity_wait WHERE payout_id=%s",(row['payout_id'],))
+    return True
+
+
 def _check_items(check_id):
     result=call('getChecks',{'check_ids':str(check_id)})
     items=result.get('items') if isinstance(result,dict) else result
@@ -371,6 +435,7 @@ def _check_dispatch(db):
             LEFT JOIN bot_crypto_checks ch ON ch.payout_id=cp.payout_id
             WHERE cp.state='pending' AND p.status='pending'
               AND ch.payout_id IS NULL
+              AND NOT EXISTS(SELECT 1 FROM bot_crypto_liquidity_wait h WHERE h.payout_id=cp.payout_id)
             ORDER BY cp.created FOR UPDATE OF cp LIMIT 20""").fetchall()
         row=next((r for r in selected if Decimal(r['crypto_amount'])<=Decimal('1')),None)
         if not row:
@@ -398,6 +463,9 @@ def _check_dispatch(db):
                 recipient=row['uid'])
         return True
     except Exception as exc:
+        if _insufficient_funds(exc):
+            _wait_for_liquidity(db,row,'check')
+            return False
         # Unknown result might have created a check. Do not issue a second one.
         log.warning('Crypto Pay check not confirmed payout=%s kind=%s reason=%s',
                     row['payout_id'],type(exc).__name__,
@@ -475,6 +543,7 @@ def _finalize_transfer(db,row,transfer):
 def dispatch(db):
     if not token():
         return False
+    _release_funded_hold(db)
     _check_dispatch(db)
     # Reconcile uncertain transfer outcomes first; never make a second blind transfer.
     with db() as c:
@@ -491,7 +560,8 @@ def dispatch(db):
                 return _finalize_transfer(db,row,transfer)
         except Exception:
             log.warning('Crypto Pay payout reconciliation pending for %s',row['payout_id'])
-        return False
+        # Keep reconciling this uncertain payout on later cycles, but never
+        # block unrelated payouts whose provider outcome is known.
     if not withdrawals_enabled():
         return False
     # Owner switch also gates dispatch: disabling withdrawals must stop new
@@ -506,6 +576,7 @@ def dispatch(db):
           JOIN bot_payouts p ON p.id=cp.payout_id
           WHERE cp.state='pending' AND p.status='pending'
             AND CAST(cp.crypto_amount AS numeric)>1
+            AND NOT EXISTS(SELECT 1 FROM bot_crypto_liquidity_wait h WHERE h.payout_id=cp.payout_id)
           ORDER BY cp.created LIMIT 1 FOR UPDATE""").fetchone()
         if not row:return False
         # Stop queued transfers exceeding a lowered owner cap.
@@ -521,6 +592,9 @@ def dispatch(db):
             raise CryptoPayError('Unverified transfer result')
         return _finalize_transfer(db,row,transfer)
     except Exception as exc:
+        if _insufficient_funds(exc):
+            _wait_for_liquidity(db,row,'transfer')
+            return False
         # Unknown outcome may have succeeded externally. No retry: reconcile by spend_id.
         # Log safe error classification without exposing headers or payment secrets.
         log.warning('Crypto Pay transfer not confirmed payout=%s kind=%s reason=%s',
