@@ -505,10 +505,11 @@ def route(c, uid, text, action, message, api, admin):
         data['public_profile']=not data.get('public_profile',True)
         state(c,uid,'payout_confirm',data)
         label='Да' if data['public_profile'] else 'Нет'
-        return say(uid, '👤 Аккаунт в канале выплат: '+label+
-            '\n\nЕсли разрешить, посетители канала смогут открыть твой профиль после подтверждённой выплаты.',
-            [[button('👤 Аккаунт в канале: '+label, 'payout_public:'+data['nonce'])],
-             [button('✅ Подтвердить', 'confirm_payout:'+data['nonce']),button('Отмена','cancel_input')]])
+        return bot_ui.screen(uid, '👤 <b>Показывать профиль в канале выплат: '+label+'</b>\n\n'
+            'Если включено и канал публикует выплаты, другие смогут открыть твой Telegram-профиль.',
+            [[button('👤 Показывать профиль: '+label, 'payout_public:'+data['nonce'])],
+             [button('✅ Вывести', 'confirm_payout:'+data['nonce'])],
+             [button('✖️ Отмена','cancel_input')]])
     if action.startswith(('confirm_task:', 'confirm_payout:')):
         return confirmation(c, uid, action, api)
     if text in sum(MENU, []) or cmd in ('/start', '/help', '/menu', '/cancel'):
@@ -688,17 +689,22 @@ def route(c, uid, text, action, message, api, admin):
         data['crypto_usdt']=usdt
         data['crypto_quote_at']=time.time()
         data['nonce']=uuid.uuid4().hex[:12]
-        data['public_profile']=False
+        # The user sees and can turn off profile sharing before confirming.
+        data['public_profile']=True
         state(c,uid,'payout_confirm',data)
         check=Decimal(usdt)<=Decimal('1')
-        return say(uid,'💎 <b>Вывод через CryptoBot</b>\n\n'
-            'С баланса: '+money(data['amount'])+'\n'
-            'Получишь: <b>'+usdt+' USDT</b>\n'
+        return bot_ui.screen(uid,
+            '💎 <b>Вывод через CryptoBot</b>\n\n'
+            'С баланса: <b>'+money(data['amount'])+'</b>\n'
+            'К получению: <b>'+usdt+' USDT</b>\n'
             'Способ: '+('🎁 именной чек' if check else '💎 прямой перевод')+'\n\n'
-            +('После подтверждения пришлём кнопку «Забрать чек».'
-              if check else 'После подтверждения USDT поступят в CryptoBot автоматически.')
-            +'\n\nДеньги резервируются один раз. Публикация твоего профиля выключена.',
-            [[button('✅ Вывести','confirm_payout:'+data['nonce'])],
+            +('Пришлём кнопку «🎁 Забрать чек» прямо в чат.'
+              if check else 'После подтверждения USDT отправятся автоматически.')+
+            '\n\n👤 <b>Показывать профиль в канале выплат: Да</b>\n'
+            '<i>По ссылке из публичного объявления другие смогут открыть твой Telegram. '
+            'Можешь отключить до подтверждения.</i>',
+            [[button('👤 Показывать профиль: Да','payout_public:'+data['nonce'])],
+             [button('✅ Вывести','confirm_payout:'+data['nonce'])],
              [button('✖️ Отмена','cancel_input')]])
     if action == 'withdraw:back':
         current=state(c,uid)
