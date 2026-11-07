@@ -13,7 +13,7 @@ import bot_account_controls
 import monetag_ads
 import farm_wallet
 from bot_release import RELEASE
-LIMITS = {'withdraw_min': 1, 'withdraw_max': 100000000, 'withdraw_fee': 0, 'max_stars': 10000, 'max_executions': 10000, 'card_min': 1, 'card_max': 100000000}
+LIMITS = {'withdraw_min': 1500, 'withdraw_max': 100000000, 'withdraw_fee': 0, 'max_stars': 10000, 'max_executions': 10000, 'card_min': 1, 'card_max': 100000000}
 TITLES = {'withdraw_min': 'Минимальный вывод', 'withdraw_max': 'Максимальный вывод', 'withdraw_fee': 'Комиссия вывода', 'max_stars': 'Максимум Stars за оплату', 'max_executions': 'Выполнений в одном заказе', 'card_min': 'Минимум перевода на карту', 'card_max': 'Максимум перевода на карту'}
 KINDS = {'channel': '📣 Подписка на канал', 'bot': '🤖 Задание на бота', 'group': '👥 Вступление в группу', 'post': '👁 Пост', 'manual': '📝 Задание · пример'}
 
@@ -32,6 +32,10 @@ def initialize(c):
     for key, (_, enabled) in PAYMENT_METHODS.items():
         c.execute('INSERT INTO bot_controls VALUES(%s,%s) ON CONFLICT DO NOTHING',(key,enabled))
     c.execute("INSERT INTO bot_controls VALUES('crypto_payout_cap',10000) ON CONFLICT DO NOTHING")
+    # One-time policy migration: 15 UAH global minimum; later owner edits remain authoritative.
+    c.execute("CREATE TABLE IF NOT EXISTS bot_settings_migrations(key text PRIMARY KEY)")
+    if c.execute("INSERT INTO bot_settings_migrations(key) VALUES('withdraw-min-15-uah-20261107') ON CONFLICT DO NOTHING RETURNING key").fetchone():
+        c.execute("UPDATE bot_controls SET value=1500 WHERE key='withdraw_min'")
 
 PAYMENT_METHODS = {
     'card_withdraw': ('💳 Вывод на карту', 1),
