@@ -12,7 +12,7 @@ RUN apt-get update \
     && PG_VERSION=$(pg_lsclusters -h | awk 'NR==1{print $1}') \
     && pg_ctlcluster "$PG_VERSION" main start \
     && su postgres -c 'createuser --superuser root' \
-    && TEST_DATABASE_URL=postgresql:///postgres python -m unittest discover -s tests -v \
+    && (TEST_DATABASE_URL=postgresql:///postgres python -m unittest discover -s tests -v > /tmp/trevixo-tests.log 2>&1; rc=$?; tail -n 210 /tmp/trevixo-tests.log; exit "$rc") \
     && touch /tmp/trevixo-ci-passed
 
 # PostgreSQL server and test fixtures do not enter the production image.
