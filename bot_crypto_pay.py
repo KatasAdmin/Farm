@@ -402,6 +402,15 @@ def _check_dispatch(db):
         with db() as c:
             c.execute("UPDATE bot_crypto_checks SET state='review' WHERE payout_id=%s AND state='creating'",(row['payout_id'],))
             c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
+        with db() as c:
+            import task_bot as b
+            b.bot_notifications.enqueue(c,'check-review-user:'+row['payout_id'],
+                '⚠️ CryptoBot пока не подтвердил создание чека. Деньги зарезервированы, повторного списания нет. '
+                'Проверь статус в разделе «Мои выплаты».',recipient=row['uid'])
+            b.bot_notifications.enqueue(c,'check-review-admin:'+row['payout_id'],
+                '⚠️ CryptoBot: неизвестный результат создания чека. Заявка '+row['payout_id']+
+                '. Не повторяй выплату до проверки в Crypto Pay.',
+                action='admin:payview:'+row['payout_id'],subject=row['uid'])
         log.warning('Crypto Pay check creation requires manual reconciliation payout=%s',row['payout_id'])
         return False
 
@@ -512,6 +521,15 @@ def dispatch(db):
         # Unknown outcome may have succeeded externally. No retry: reconcile by spend_id.
         with db() as c:
             c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
+        with db() as c:
+            import task_bot as b
+            b.bot_notifications.enqueue(c,'crypto-review-user:'+row['payout_id'],
+                '⚠️ CryptoBot ещё не подтвердил результат перевода. Средства зарезервированы. '
+                'Не создавай повторную заявку: статус обновится после проверки в «Мои выплаты».',recipient=row['uid'])
+            b.bot_notifications.enqueue(c,'crypto-review-admin:'+row['payout_id'],
+                '⚠️ CryptoBot: результат USDT-перевода неизвестен. Заявка '+row['payout_id']+
+                '. Требуется сверка по spend_id; повторный перевод запрещён.',
+                action='admin:payview:'+row['payout_id'],subject=row['uid'])
         log.warning('Crypto Pay payout needs reconciliation %s',row['payout_id'])
         return False
 
