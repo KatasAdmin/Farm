@@ -507,7 +507,7 @@ def route(c, uid, text, action, message, api, admin):
         label='Да' if data['public_profile'] else 'Нет'
         return bot_ui.screen(uid, '👤 <b>Показывать профиль в канале выплат: '+label+'</b>\n\n'
             'Если включено и канал публикует выплаты, другие смогут открыть твой Telegram-профиль.',
-            [[button('👤 Показывать профиль: '+label, 'payout_public:'+data['nonce'])],
+            [[button('👤 Аккаунт в канале: '+label, 'payout_public:'+data['nonce'])],
              [button('✅ Вывести', 'confirm_payout:'+data['nonce'])],
              [button('✖️ Отмена','cancel_input')]])
     if action.startswith(('confirm_task:', 'confirm_payout:')):
