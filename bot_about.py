@@ -26,7 +26,7 @@ def home(c, uid):
 
     def link(key):
         return {'text': LINKS[key], 'url': cfg[key]} if cfg[key] else b.button(LINKS[key], 'about:' + key)
-    return b.bot_ui.screen(uid, tr('📚 <b>Информация о нашем боте</b>\n\n🌾 <b>Farm · Новая жизнь</b>\nЗадания, продвижение проектов и ферма в одном месте.\n\n🚀 Выполняй задания\n📣 Продвигай свой проект\n🤝 Собирай команду\n🎮 Развивай ферму', html_mode=True, section='bot_about', limit=3000), [[b.button('📊 Статистика', 'about:stats')], [link('news'), link('payouts')], [link('chat'), b.button('📋 Правила бота', 'about:rules')], [link('admin_url')]])
+    return b.bot_ui.screen(uid, tr('✨ <b>TREVIXO</b>\n\nПлатформа заданий, продвижения и игр.\n\n🚀 Выполняй задания и получай награды\n📣 Продвигай свои проекты\n🤝 Приглашай друзей\n🎮 Открывай игры и квесты', html_mode=True, section='bot_about', limit=3000), [[b.button('📊 Статистика', 'about:stats')], [link('news'), link('payouts')], [link('chat'), b.button('📋 Правила бота', 'about:rules')], [link('admin_url')]])
 
 def statistics(c, uid):
     b = core()
