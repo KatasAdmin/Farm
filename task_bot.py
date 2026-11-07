@@ -613,8 +613,10 @@ def route(c, uid, text, action, message, api, admin):
         rows.append([button('⬅️ Мои выплаты','payouts')])
         return bot_ui.screen(uid,'\n'.join(lines),rows)
     if action == 'payouts':
-        rows=c.execute("""SELECT p.id,p.amount,p.status,ch.state AS check_state FROM bot_payouts p
+        rows=c.execute("""SELECT p.id,p.amount,p.status,ch.state AS check_state,
+                   cp.state AS crypto_state FROM bot_payouts p
             LEFT JOIN bot_crypto_checks ch ON ch.payout_id=p.id
+            LEFT JOIN bot_crypto_payouts cp ON cp.payout_id=p.id
             WHERE p.uid=%s ORDER BY p.created DESC LIMIT 10""",(uid,)).fetchall()
         labels={'pending':'⏳ Ожидает','paid':'✅ Выплачено',
             'rejected':'❌ Отклонено','cancelled':'↩️ Отменено'}
@@ -623,7 +625,9 @@ def route(c, uid, text, action, message, api, admin):
             label='🎁 Чек готов' if r['check_state']=='active' and r['status']=='pending' else labels.get(r['status'],'⏳ Проверка')
             if r['check_state']=='review':
                 label='⚠️ Проверка CryptoBot'
-            elif r['status']=='pending' and r['check_state'] is not None:
+            elif r['status']=='pending' and r['crypto_state']=='review' and r['check_state'] is None:
+                label='⚠️ Сверка CryptoBot'
+            elif r['status']=='pending' and r['crypto_state'] is not None:
                 label='⏳ Автовыплата'
             buttons.append([button(label+' · '+money(r['amount'])+' · '+r['id'][:8],
                 'payout:detail:'+r['id'])])
