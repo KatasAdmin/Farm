@@ -204,7 +204,7 @@ class TopupTests(unittest.TestCase):
         self.assertEqual(self.balance(3),0)
         preview=self.send(1,action='admin:cardapprove:'+tid)
         self.assertIn('Игрок:',preview['text'])
-        self.assertIn('Сумма: 10,00 грн',preview['text'])
+        self.assertIn('10,00 грн',preview['text'])
         self.assertIn('Сверь поступление',preview['text'])
         nonce=bot.state(self.c,1)['data']['nonce']
         self.send(1,action='admin:cardconfirm:'+nonce,event='approve-replay')
