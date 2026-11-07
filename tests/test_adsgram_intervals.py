@@ -143,7 +143,7 @@ class IntervalTests(unittest.TestCase):
         self.assertEqual(reset['previous'],'6.00')
         self.assertEqual(db.wallet[2],previous)
         self.assertEqual(len(db.credits),count)
-        with self.assertRaisesRegex(ValueError,'после предыдущей'):
+        with self.assertRaisesRegex(ValueError,'позже предыдущей'):
             ads.reset_baseline(db,1,'0.90',now=t+40)
         with self.assertRaisesRegex(ValueError,'корректный баланс'):
             ads.reset_baseline(db,1,'NaN',now=t+50)
