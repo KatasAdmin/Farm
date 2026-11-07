@@ -108,6 +108,30 @@ class AdminTests(unittest.TestCase):
             bot.initialize(self.c);self.c.raw.commit()
             self.assertEqual(admin.limits(self.c)['crypto_payout_cap'],250)
 
+    def test_crypto_payout_ceiling_is_lower_of_admin_and_railway(self):
+        import os
+        from unittest.mock import patch
+        import bot_crypto_pay as crypto
+        rates=[{'source':'USDT','target':'UAH','is_valid':True,'rate':'40'}]
+        with patch.dict(os.environ,{'CRYPTOPAY_MAX_PAYOUT_UAH':'1000'}), \
+             patch.object(crypto,'withdrawals_enabled',return_value=True), \
+             patch.object(crypto,'call',return_value=rates):
+            # An older control value can exceed a newly lowered Railway cap.
+            self.c.execute("UPDATE bot_controls SET value=5000 WHERE key='crypto_payout_cap'")
+            self.assertEqual(crypto.payout_cap(self.c),1000)
+            self.assertEqual(crypto.quote(100000,self.c),'25.000000')
+            with self.assertRaises(crypto.CryptoPayError):
+                crypto.quote(100001,self.c)
+            # The owner-facing field cannot raise the stored setting beyond Railway.
+            self.send(1,action='admin:paymethods:cap')
+            self.assertIn('Нельзя превысить',self.send(1,'5000')['text'])
+            self.assertEqual(crypto.payout_cap(self.c),1000)
+            # When admin chooses a smaller ceiling, it becomes authoritative.
+            self.send(1,'250')
+            self.assertEqual(crypto.payout_cap(self.c),250)
+            with self.assertRaises(crypto.CryptoPayError):
+                crypto.quote(25001,self.c)
+
     def test_crypto_token_requires_telegram_message_deletion_and_is_encrypted(self):
         import os
         from unittest.mock import patch
