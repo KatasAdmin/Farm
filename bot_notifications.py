@@ -20,14 +20,24 @@ def initialize(c):
     c.execute('CREATE INDEX IF NOT EXISTS bot_notifications_queue ON bot_notifications(status,next_at)')
 
 
-def enqueue(c,event,text,action=None,recipient=0,subject=0,kind='event'):
+def enqueue(c,event,text,action=None,recipient=0,subject=0,kind='event',url=None,url_label='🎁 Забрать чек'):
     # Recipient 0 means the verified owner; a caller cannot nominate another owner.
     now=time.time()
     if kind=='intent' and c.execute('SELECT 1 FROM bot_notifications WHERE subject=%s AND kind=%s AND created>%s',
                                    (subject,kind,now-300)).fetchone():
         return
     payload={'text':text[:3500]}
-    if action:
+    if url is not None:
+        # External check links may only be sent to the actual recipient.
+        from urllib.parse import urlsplit
+        parsed=urlsplit(url)
+        if (not recipient or parsed.scheme!='https'
+            or parsed.hostname not in ('t.me','telegram.me')
+            or parsed.username or parsed.password
+            or parsed.port not in (None,443)):
+            raise ValueError('Invalid recipient check URL')
+        payload['reply_markup']={'inline_keyboard':[[{'text':url_label[:55],'url':url}]]}
+    elif action:
         payload['reply_markup']={'inline_keyboard':[[{'text':'📂 Открыть заявку','callback_data':'bot:'+action}]]}
     c.execute("INSERT INTO bot_notifications(id,recipient,subject,kind,payload,created) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
               (event,recipient,subject,kind,Jsonb(payload),now))
