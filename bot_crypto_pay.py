@@ -95,14 +95,28 @@ def call(method, data=None):
     try:
         with urlopen(req,timeout=12) as response:
             body=response.read(100000)
-    except (HTTPError, URLError, TimeoutError, OSError) as exc:
-        raise CryptoPayError('Crypto Pay request unavailable: '+type(exc).__name__) from None
+    except HTTPError as exc:
+        # Crypto Pay can return a structured error code in non-2xx responses.
+        # Never echo arbitrary body text, request headers, or token.
+        try:
+            payload=json.loads(exc.read(8192))
+        except (ValueError,TypeError,OSError):
+            payload=None
+        code=payload.get('error') if isinstance(payload,dict) else None
+        if isinstance(code,str) and 1<=len(code)<=100 and all(ch.isalnum() or ch=='_' for ch in code):
+            raise CryptoPayError('Crypto Pay HTTP '+str(exc.code)+': '+code) from None
+        raise CryptoPayError('Crypto Pay HTTP '+str(exc.code)+'. Проверь API-токен и настройки приложения.') from None
+    except (URLError, TimeoutError, OSError) as exc:
+        raise CryptoPayError('Соединение с Crypto Pay недоступно: '+type(exc).__name__) from None
     try:
         result=json.loads(body)
     except (ValueError,TypeError):
-        raise CryptoPayError('Invalid Crypto Pay response') from None
+        raise CryptoPayError('Некорректный ответ Crypto Pay') from None
     if not isinstance(result,dict) or result.get('ok') is not True:
-        raise CryptoPayError('Crypto Pay request was not accepted')
+        code=result.get('error') if isinstance(result,dict) else None
+        if isinstance(code,str) and 1<=len(code)<=100 and all(ch.isalnum() or ch=='_' for ch in code):
+            raise CryptoPayError('Crypto Pay: '+code)
+        raise CryptoPayError('Crypto Pay отклонил запрос; проверь API и настройки приложения.')
     return result['result']
 
 
