@@ -53,6 +53,21 @@ class VisibilityTests(unittest.TestCase):
         self.assertEqual(finance['text'].count('💰'),1)
         self.assertIn('Доступ',self.send(2,action='admin:visibility')['text'])
 
+    def test_revenue_reports_are_admin_only_and_absent_from_public_cabinet(self):
+        for uid in (2,3):
+            cabinet=self.send(uid,action='cabinet')
+            self.assertNotIn('bot:ad_income',str(cabinet['reply_markup']))
+            self.assertNotIn('Доход рекламы',str(cabinet['reply_markup']))
+            for action,text in (('ad_income',''),('', '/adincome'),('', '/reklama 1.65')):
+                response=self.send(uid,text,action=action)
+                self.assertIn('только администратору',response['text'])
+                self.assertNotIn('Реферальные уровни',response['text'])
+                self.assertNotIn('За свои просмотры',response['text'])
+        admin=self.send(1,action='ad_income')
+        self.assertIn('Реферальные уровни',admin['text'])
+        visible=self.send(1,action='admin:visibility:finance')
+        self.assertNotIn('Доход от рекламы',visible['text'])
+
     def test_hidden_wallet_actions_do_not_mutate_balance(self):
         self.send(1,action='admin:visibility:toggle:wallet_deposit')
         self.send(1,action='admin:visibility:toggle:wallet_withdraw')
