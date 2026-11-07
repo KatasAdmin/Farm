@@ -481,7 +481,7 @@ def _check_dispatch(db):
             c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
             import task_bot as b
             b.bot_notifications.enqueue(c,'check-issued:'+row['payout_id'],
-                '🎁 <b>Твой чек CryptoBot готов!</b>\n'
+                '🎁 Твой чек CryptoBot готов!\n'
                 'К получению: '+row['crypto_amount']+' USDT.\n'
                 'Нажми «Забрать чек». Если потеряешь его, ссылка есть в «Мои выплаты».',
                 recipient=row['uid'],url=url)
