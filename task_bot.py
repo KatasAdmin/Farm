@@ -617,7 +617,7 @@ def route(c, uid, text, action, message, api, admin):
         try:
             usdt=bot_crypto_pay.quote_usdt(data['net'],c)
         except bot_crypto_pay.CryptoPayError as exc:
-            return bot_ui.screen(uid,'💎 <b>Вывод через CryptoBot</b>\\n\\n'+bot_ui.esc(str(exc)),
+            return bot_ui.screen(uid,'💎 <b>Вывод через CryptoBot</b>\n\n'+bot_ui.esc(str(exc)),
                 [[button('⬅️ Другой способ','withdraw:back'),button('✖️ Отмена','cancel_input')]])
         data['method']='crypto'
         data['destination']='Crypto Bot · USDT на Telegram ID '+str(uid)
