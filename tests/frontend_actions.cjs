@@ -48,7 +48,7 @@ run('tab("coop");coopSection("incubator")');assert.equal(d.getElementById('coop-
 run('coopSection("birds")');assert.equal(d.getElementById('coop-birds-pane').hidden,false);
 const ids=[...d.querySelectorAll('[id]')].map(x=>x.id);assert.equal(new Set(ids).size,ids.length,'duplicate IDs');
 for(const item of ['eggs','milk']){
-  reset();click('#'+item+'-buy-button');assert.ok(d.getElementById('purchase-dialog').open);assert.match(d.getElementById('purchase-title').textContent,item==='milk'?/молока/:/яиц/);
+  reset();click('#'+item+'-buy-button');assert.ok(d.getElementById('purchase-dialog').open);assert.match(d.getElementById('purchase-title').textContent,item==='milk'?/молоко/i:/яйцо/i);
   assert.equal(d.getElementById('purchase-confirm').disabled,false);
   const before=requests.length;await run('confirmPurchase()');assert.ok(requests.slice(before).some(r=>r.url==='/api/buy'&&r.payload.item===item&&r.payload.amount===1));
   reset();run(`state.available_${item}=0;drawPool()`);click('#'+item+'-buy-button');assert.ok(d.getElementById('purchase-dialog').open);assert.equal(d.getElementById('purchase-confirm').disabled,true);assert.match(d.getElementById('purchase-availability').textContent,/пока нет в продаже/);
