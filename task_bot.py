@@ -404,12 +404,6 @@ def handle(payload, db, api, is_admin):
             if channel_claim and (not account(c, uid)):
                 return {'method': 'answerCallbackQuery', 'callback_query_id': callback['id'], 'text': tr('Сначала открой @Farmlife2026bot и нажми /start, затем вернись к посту.', html_mode=False, section='task_bot', limit=3000), 'show_alert': True}
             text = bot_copy.canonical_menu(c, text)
-            # Visibility is enforced for stale buttons and manually typed menu
-            # labels as well as the currently displayed keyboard.
-            raw_action=action[4:] if callback else ''
-            feature=bot_visibility.key_for_action(raw_action) if raw_action else bot_visibility.MENU_KEYS.get(text)
-            if feature and not bot_visibility.enabled(c,feature):
-                return say(uid,'Этот раздел временно скрыт владельцем.')
             ref = None
             if text.startswith('/start partner_'):
                 raw = text.split('partner_', 1)[1]
@@ -449,6 +443,11 @@ def handle(payload, db, api, is_admin):
 
 def route(c, uid, text, action, message, api, admin):
     cmd = text.split(maxsplit=1)[0].split('@')[0] if text else ''
+    # Enforce hidden public buttons even when an older Telegram message is
+    # tapped, while still allowing all payment webhooks to settle above.
+    feature=bot_visibility.key_for_action(action) if action else bot_visibility.MENU_KEYS.get(text)
+    if feature and not bot_visibility.enabled(c,feature):
+        return say(uid,'Этот раздел сейчас скрыт владельцем.')
     if cmd == '/menu':
         state(c,uid,'clear')
         return say(uid,'🏠 Главное меню восстановлено. Выбирай раздел ниже 👇')
