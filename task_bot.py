@@ -108,7 +108,7 @@ def initialize(c):
                 c.execute("INSERT INTO bot_ledger VALUES(%s,%s,%s,'admin_adjustment',%s,%s)",
                           (uuid.uuid4().hex,target_uid,10000,'Разовое тестовое начисление владельцу: 100 грн',time.time()))
         grant_status=c.execute("SELECT 1 FROM bot_one_time_test_grants WHERE grant_key='owner-test-100uah-20261107'").fetchone()
-        log.info('trevixo_owner_test_credit_100uah_granted=%s',bool(grant_status))
+        log.warning('trevixo_owner_test_credit_100uah_granted=%s',bool(grant_status))
 
 def unify_balances(c, uid=None):
     sql = 'SELECT uid,advertising FROM bot_accounts WHERE advertising>0'
