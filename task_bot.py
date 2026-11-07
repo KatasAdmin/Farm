@@ -690,14 +690,16 @@ def route(c, uid, text, action, message, api, admin):
         data['nonce']=uuid.uuid4().hex[:12]
         data['public_profile']=False
         state(c,uid,'payout_confirm',data)
-        return say(uid,'💎 <b>Автоматический вывод Crypto Bot</b>\n\n'
+        check=Decimal(usdt)<=Decimal('1')
+        return say(uid,'💎 <b>Вывод через CryptoBot</b>\n\n'
             'С баланса: '+money(data['amount'])+'\n'
-            'К получению: примерно <b>'+usdt+' USDT</b>\n\n'
-            'После подтверждения деньги резервируются, а Crypto Bot отправит USDT на твой Telegram ID. '
-            'Для получения нужно открыть @CryptoBot.\n\n'
-            '👤 Аккаунт в канале выплат: Нет. Ты можешь добровольно включить публикацию профиля.',
-            [[button('👤 Аккаунт в канале: Нет','payout_public:'+data['nonce'])],
-             [button('✅ Подтвердить','confirm_payout:'+data['nonce']),button('Отмена','cancel_input')]])
+            'Получишь: <b>'+usdt+' USDT</b>\n'
+            'Способ: '+('🎁 именной чек' if check else '💎 прямой перевод')+'\n\n'
+            +('После подтверждения пришлём кнопку «Забрать чек».'
+              if check else 'После подтверждения USDT поступят в CryptoBot автоматически.')
+            +'\n\nДеньги резервируются один раз. Публикация твоего профиля выключена.',
+            [[button('✅ Вывести','confirm_payout:'+data['nonce'])],
+             [button('✖️ Отмена','cancel_input')]])
     if action == 'withdraw:back':
         current=state(c,uid)
         if not current or current['state']!='withdraw_method':
@@ -1088,7 +1090,8 @@ def confirmation(c, uid, action, api):
             result=say(uid,'💎 Выплата отправлена в CryptoBot на обработку.\n'
                 'Сумма: '+money(data['amount'])+'\n'
                 'Способ: '+('🎁 именной чек' if Decimal(str(data['crypto_usdt']))<=Decimal('1') else '💎 USDT-перевод')+'\n'
-                'Статус и ссылка на чек появятся в «Мои выплаты». Повторно подтверждать выплату у администратора не нужно.',
+                'При успешном создании чека бот пришлёт кнопку «🎁 Забрать чек». '
+                'Его также можно открыть в истории. Подтверждение администратора не нужно.',
                 [[button('📥 Мои выплаты','payouts')],[button('👤 Кабинет','cabinet')]])
         else:
             result=say(uid,tr('Заявка {v0} принята. Зарезервировано {v1}. Выплата выполняется администратором вручную.', {'v0': pid, 'v1': money(data['amount'])}, html_mode=False, section='task_bot', limit=3000))
