@@ -21,6 +21,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Syntax check
-        run: python -m py_compile bot_monetag_cash.py bot_economy.py test_bot_monetag_cash_cooldown.py
+        run: python -m py_compile bot_monetag_cash.py bot_economy.py bot_adsgram_daily.py bot_cash_ad_credits.py test_bot_monetag_cash_cooldown.py tests/test_adsgram_daily.py tests/test_cash_ad_actual_credits.py
       - name: Cooldown and postback safety unit tests
-        run: python -m unittest -v test_bot_monetag_cash_cooldown
+        run: python -m unittest -v test_bot_monetag_cash_cooldown tests.test_adsgram_daily tests.test_cash_ad_actual_credits
