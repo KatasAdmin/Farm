@@ -579,10 +579,54 @@ def route(c, uid, text, action, message, api, admin):
         rows = c.execute('SELECT t.title,x.status FROM bot_claims x JOIN bot_tasks t ON t.id=x.task\n          WHERE x.uid=%s ORDER BY x.created DESC LIMIT 15', (uid,)).fetchall()
         labels = {'started': tr('В работе', html_mode=False, section='task_bot', limit=3000), 'review': tr('На проверке', html_mode=False, section='task_bot', limit=3000), 'paid': tr('Оплачено', html_mode=False, section='task_bot', limit=3000), 'rejected': tr('Отклонено', html_mode=False, section='task_bot', limit=3000)}
         return say(uid, tr('✅ Мои выполнения\n{v0}', {'v0': '\n'.join((r['title'] + ' · ' + labels.get(r['status'], r['status']) for r in rows)) or 'Пока нет взятых заданий.'}, html_mode=False, section='task_bot', limit=3000))
+    if action.startswith('payout:detail:'):
+        pid=action.split(':')[-1]
+        row=c.execute("""SELECT p.*,ch.check_id,ch.check_url,ch.state AS check_state,cp.crypto_amount
+            FROM bot_payouts p
+            LEFT JOIN bot_crypto_checks ch ON ch.payout_id=p.id
+            LEFT JOIN bot_crypto_payouts cp ON cp.payout_id=p.id
+            WHERE p.id=%s AND p.uid=%s""",(pid,uid)).fetchone()
+        if not row:
+            raise UserError('Выплата не найдена.')
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        when=datetime.fromtimestamp(row['created'],ZoneInfo('Europe/Kyiv')).strftime('%d.%m.%Y %H:%M')
+        status={'pending':'⏳ Обрабатывается','paid':'✅ Выплачено',
+            'cancelled':'↩️ Отменено','rejected':'❌ Отклонено'}.get(row['status'],'На проверке')
+        if row['check_state']=='active' and row['status']=='pending':
+            status='🎁 Чек готов · ожидает активации'
+        elif row['check_state']=='review':
+            status='⚠️ Чек требует проверки'
+        lines=['💸 <b>Выплата</b>','ID: <code>'+bot_ui.esc(pid)+'</code>',
+            'Списано: '+money(row['amount']),
+            'Статус: '+status,'Дата: '+when]
+        if row['crypto_amount'] is not None:
+            lines.append('CryptoBot: '+bot_ui.esc(row['crypto_amount'])+' USDT')
+        if row['check_id'] is not None:
+            lines.append('Чек №'+str(row['check_id']))
+        rows=[]
+        if row['check_state']=='active' and row['status']=='pending' and row['check_url']:
+            url=row['check_url']
+            if url.startswith('https://t.me/'):
+                rows.append([{'text':'🎁 Открыть мой чек CryptoBot','url':url}])
+        rows.append([button('🔄 Обновить','payout:detail:'+pid)])
+        rows.append([button('⬅️ Мои выплаты','payouts')])
+        return bot_ui.screen(uid,'\n'.join(lines),rows)
     if action == 'payouts':
-        rows=c.execute("SELECT p.id,p.amount,CASE WHEN EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=p.id AND w.phase='working') THEN 'working' ELSE p.status END AS status FROM bot_payouts p WHERE p.uid=%s ORDER BY p.created DESC LIMIT 10",(uid,)).fetchall()
-        labels = {'working': '🏦 В работе', 'pending': tr('На проверке', html_mode=False, section='task_bot', limit=3000), 'paid': tr('Выплачено', html_mode=False, section='task_bot', limit=3000), 'rejected': tr('Отклонено', html_mode=False, section='task_bot', limit=3000), 'cancelled': tr('Отменено', html_mode=False, section='task_bot', limit=3000)}
-        return say(uid, tr('📥 Заявки\n{v0}', {'v0': '\n'.join((r['id'][:8] + ' · ' + money(r['amount']) + ' · ' + labels[r['status']] for r in rows)) or 'Заявок пока нет.'}, html_mode=False, section='task_bot', limit=3000), [[button('Отменить ожидающую заявку', 'cancelpayout')]])
+        rows=c.execute("""SELECT p.id,p.amount,p.status,ch.state AS check_state FROM bot_payouts p
+            LEFT JOIN bot_crypto_checks ch ON ch.payout_id=p.id
+            WHERE p.uid=%s ORDER BY p.created DESC LIMIT 10""",(uid,)).fetchall()
+        labels={'pending':'⏳ Ожидает','paid':'✅ Выплачено',
+            'rejected':'❌ Отклонено','cancelled':'↩️ Отменено'}
+        buttons=[]
+        for r in rows:
+            label='🎁 Чек готов' if r['check_state']=='active' and r['status']=='pending' else labels.get(r['status'],'⏳ Проверка')
+            if r['check_state']=='review':
+                label='⚠️ Проверка'
+            buttons.append([button(label+' · '+money(r['amount'])+' · '+r['id'][:8],
+                'payout:detail:'+r['id'])])
+        buttons += [[button('Отменить ожидающую заявку','cancelpayout')],[button('⬅️ Кабинет','cabinet')]]
+        return bot_ui.screen(uid,'📥 <b>История выплат</b>\nНажми на операцию, чтобы посмотреть подробности или снова открыть свой чек.',buttons)
     if action == 'cancelpayout':
         row = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' AND NOT EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=bot_payouts.id AND w.phase='working') AND NOT EXISTS(SELECT 1 FROM bot_crypto_payouts cp WHERE cp.payout_id=bot_payouts.id) RETURNING amount,id", (uid,)).fetchone()
         if not row:
