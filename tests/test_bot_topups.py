@@ -228,13 +228,50 @@ class TopupTests(unittest.TestCase):
         self.assertEqual(self.balance(3),0)
         self.assertIn('Отклонено',self.send(3,action='topup:mine')['text'])
 
-    def test_duplicate_receipt_and_album_cannot_create_duplicate_requests(self):
-        tid=self.card_request()
-        self.send(2,action='topup:card'); self.send(2,'10'); self.receipt(2)
-        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_card_topups').fetchone()['n'],1)
-        self.receipt(2,unique='new-receipt',album=True)
-        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_card_topups').fetchone()['n'],1)
-        self.assertIn('уже на проверке',self.send(3,action='topup:card')['text'])
+    def test_distinct_pending_receipts_allowed_and_duplicate_receipts_rejected(self):
+        first=self.card_request()
+        self.send(3,action='topup:card')
+        self.send(3,'20')
+        self.receipt(3,file='receipt2',unique='receipt-unique2')
+        rows=self.c.execute("SELECT id,amount,status FROM bot_card_topups WHERE uid=3 ORDER BY created,id").fetchall()
+        self.assertEqual(len(rows),2)
+        self.assertNotEqual(rows[0]['id'],rows[1]['id'])
+        self.assertEqual(sorted(x['amount'] for x in rows),[1000,2000])
+        self.assertTrue(all(x['status']=='pending' for x in rows))
+        self.assertEqual(self.balance(3),0)
+        self.send(2,action='topup:card')
+        self.send(2,'10')
+        dupe=self.receipt(2,file='samefile',unique='receipt-unique1')
+        self.assertIn('уже использована',dupe['text'])
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_card_topups').fetchone()['n'],2)
+        album=self.receipt(2,file='album',unique='new-receipt',album=True)
+        self.assertIn('одну квитанцию',album['text'])
+        self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_card_topups').fetchone()['n'],2)
+        first_row=self.c.execute('SELECT status FROM bot_card_topups WHERE id=%s',(first,)).fetchone()
+        self.assertEqual(first_row['status'],'pending')
+
+    def test_ten_simultaneous_bank_receipts_each_reviewed_independently(self):
+        self.configure_card()
+        created=[]
+        for n in range(10):
+            self.send(3,action='topup:card')
+            self.send(3,str(n+10))
+            self.receipt(3,file='photo-'+str(n),unique='bank-unique-'+str(n))
+            created.append(self.c.execute("SELECT id FROM bot_card_topups WHERE uid=3 ORDER BY created DESC,id DESC LIMIT 1").fetchone()['id'])
+        self.assertEqual(len(set(created)),10)
+        self.assertEqual(self.c.execute("SELECT count(*) AS n FROM bot_card_topups WHERE uid=3 AND status='pending'").fetchone()['n'],10)
+        self.assertIn('10 пополнений',self.send(3,action='topup:card')['text'])
+        self.assertEqual(self.balance(3),0)
+        self.assertEqual(self.send(1,action='admin:cardview:'+created[0])['method'],'sendPhoto')
+        self.confirm_card(created[0],reference='bank-payment-one')
+        self.assertEqual(self.balance(3),1000)
+        self.assertEqual(self.c.execute("SELECT count(*) AS n FROM bot_card_topups WHERE uid=3 AND status='pending'").fetchone()['n'],9)
+        self.send(3,action='topup:card')
+        self.send(3,'21')
+        self.receipt(3,file='photo-eleven',unique='bank-unique-eleven')
+        self.assertEqual(self.c.execute("SELECT count(*) AS n FROM bot_card_topups WHERE uid=3 AND status='pending'").fetchone()['n'],10)
+        queue=self.send(1,action='admin:cardtopups')
+        self.assertIn('bot:admin:cardtopups:1',str(queue['reply_markup'])) if self.c.execute("SELECT count(*) AS n FROM bot_card_topups WHERE status='pending'").fetchone()['n']>10 else None
 
     def test_card_and_rate_configuration_owner_only_and_invalid_card_rejected(self):
         self.send(3,action='admin:topupedit:rate'); self.send(3,'100')
