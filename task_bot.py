@@ -617,21 +617,22 @@ def route(c, uid, text, action, message, api, admin):
         try:
             usdt=bot_crypto_pay.quote_usdt(data['net'],c)
         except bot_crypto_pay.CryptoPayError as exc:
-            raise UserError(str(exc))
+            return bot_ui.screen(uid,'💎 <b>Вывод через CryptoBot</b>\\n\\n'+bot_ui.esc(str(exc)),
+                [[button('⬅️ Другой способ','withdraw:back'),button('✖️ Отмена','cancel_input')]])
         data['method']='crypto'
         data['destination']='Crypto Bot · USDT на Telegram ID '+str(uid)
         data['crypto_usdt']=usdt
         data['crypto_quote_at']=time.time()
         data['nonce']=uuid.uuid4().hex[:12]
-        data['public_profile']=True
+        data['public_profile']=False
         state(c,uid,'payout_confirm',data)
         return say(uid,'💎 <b>Автоматический вывод Crypto Bot</b>\n\n'
             'С баланса: '+money(data['amount'])+'\n'
             'К получению: примерно <b>'+usdt+' USDT</b>\n\n'
             'После подтверждения деньги резервируются, а Crypto Bot отправит USDT на твой Telegram ID. '
             'Для получения нужно открыть @CryptoBot.\n\n'
-            '👤 Аккаунт в канале выплат: Да. Посетители канала смогут открыть твой профиль. Можно выбрать «Нет».',
-            [[button('👤 Аккаунт в канале: Да','payout_public:'+data['nonce'])],
+            '👤 Аккаунт в канале выплат: Нет. Ты можешь добровольно включить публикацию профиля.',
+            [[button('👤 Аккаунт в канале: Нет','payout_public:'+data['nonce'])],
              [button('✅ Подтвердить','confirm_payout:'+data['nonce']),button('Отмена','cancel_input')]])
     if action == 'withdraw:back':
         current=state(c,uid)
