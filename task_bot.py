@@ -784,6 +784,14 @@ def process_input(c, uid, text, message, current, api):
             raise UserError(tr('Сначала дождись обработки предыдущей заявки или отмени её в кабинете.', html_mode=False, section='task_bot', limit=3000))
         state(c, uid, 'withdraw_method', {'amount': n, 'fee': fee, 'net': n - fee})
         return say(uid, '💸 Вывод '+money(n-fee)+'\\n\\nВыбери способ получения:', [[button('💳 Банковской картой','withdraw:card')], [button('💎 Crypto Bot · подключаем','withdraw:crypto')], [button('Отмена','cancel_input')]])
+    if stage == 'withdraw_method':
+        # Backward compatibility for existing in-flight forms and legacy IBAN clients.
+        # Selecting the bank-card button uses strict sixteen-digit validation instead.
+        if not 8 <= len(text) <= 250:
+            raise UserError('Выбери способ вывода кнопкой ниже.')
+        data['method']='legacy'
+        state(c,uid,'destination',data)
+        return process_input(c,uid,text,message,{'state':'destination','data':data},api)
     if stage == 'destination':
         if data.get('method')=='card':
             if not re.fullmatch(r'[0-9]{16}',text):
