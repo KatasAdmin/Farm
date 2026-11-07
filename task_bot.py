@@ -900,6 +900,30 @@ def confirmation(c, uid, action, api):
     state(c, uid, 'clear')
     return result
 
+def complete_manual_payout(c, uid, pid, reference=None):
+    """Record an already completed external transfer exactly once.
+
+    This does NOT send money. The admin's 'Перевод выполнен' button attests
+    that the bank transfer has actually succeeded.
+    """
+    p=c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending' FOR UPDATE",(pid,)).fetchone()
+    if not p:
+        raise UserError('Заявка уже закрыта.')
+    bot_payouts.require(c,p['id'],uid)
+    reference=reference or 'confirmed-'+uuid.uuid4().hex
+    if c.execute("SELECT 1 FROM bot_payouts WHERE status='paid' AND reference=%s",(reference,)).fetchone():
+        raise UserError('Эта банковская операция уже использована для выплаты.')
+    c.execute("UPDATE bot_payouts SET status='paid',reference=%s WHERE id=%s",(reference,p['id']))
+    c.execute("UPDATE bot_payout_work SET phase='paid' WHERE id=%s",(p['id'],))
+    net=bot_admin.net(c,p)
+    c.execute('UPDATE bot_cash_pool SET amount=CASE WHEN amount>=%s THEN amount-%s ELSE 0 END WHERE id=1',(net,net))
+    c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)",(uuid.uuid4().hex,p['uid'],'Выплачено '+money(net)+' · '+p['id'],time.time()))
+    bot_notifications.enqueue(c,'payout-paid:'+p['id'],tr('✅ Выплата выполнена\\n\\nСумма: {v0}\\nЗаявка: {v1}',{'v0':money(net),'v1':p['id']},section='notifications'),recipient=p['uid'])
+    bot_payout_channel.enqueue_paid(c,p['id'],money(net),recipient_uid=p['uid'] if p['public_profile'] else None)
+    state(c,uid,'clear')
+    return say(uid,'✅ Выплата отмечена как выполненная. Пользователь и канал получат уведомления.')
+
+
 def administration(c, uid, text, action, api):
     result=_administration(c,uid,text,action,api)
     if action in ('admin:tasks','admin:postissues','admin:retention'):
@@ -1042,22 +1066,12 @@ def _administration(c, uid, text, action, api):
         data = current['data']
         if action.split(':')[-1] != data.get('nonce'):
             raise UserError(tr('Подтверждение относится к другой выплате.', html_mode=False, section='task_bot', limit=3000))
-        p = c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending' FOR UPDATE", (data['id'],)).fetchone()
-        if not p:
-            raise UserError(tr('Заявка уже закрыта.', html_mode=False, section='task_bot', limit=3000))
+        p=c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending' FOR UPDATE",(data['id'],)).fetchone()
+        if not p:raise UserError('Заявка уже закрыта.')
         work=bot_payouts.require(c,p['id'],uid)
-        if data.get('work_token')!=work['token']:raise UserError('Подтверждение устарело. Открой заявку заново.')
-        if c.execute("SELECT 1 FROM bot_payouts WHERE status='paid' AND reference=%s", (data['reference'],)).fetchone():
-            raise UserError(tr('Эта банковская операция уже использована для выплаты.', html_mode=False, section='task_bot', limit=3000))
-        c.execute("UPDATE bot_payouts SET status='paid',reference=%s WHERE id=%s", (data['reference'], p['id']))
-        c.execute("UPDATE bot_payout_work SET phase='paid' WHERE id=%s",(p['id'],))
-        # Record an already completed external transfer even when cash accounting lags.
-        c.execute('UPDATE bot_cash_pool SET amount=CASE WHEN amount>=%s THEN amount-%s ELSE 0 END WHERE id=1', (bot_admin.net(c, p), bot_admin.net(c, p)))
-        c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)", (uuid.uuid4().hex, p['uid'], 'Выплачено ' + money(bot_admin.net(c, p)) + ' · ' + p['id'], time.time()))
-        bot_notifications.enqueue(c,'payout-paid:'+p['id'],tr('✅ Выплата выполнена\n\nСумма: {v0}\nЗаявка: {v1}', {'v0': money(bot_admin.net(c, p)), 'v1': p['id']}, section='notifications'),recipient=p['uid'])
-        bot_payout_channel.enqueue_paid(c,p['id'],money(bot_admin.net(c,p)),recipient_uid=p['uid'] if p['public_profile'] else None)
-        state(c, uid, 'clear')
-        return say(uid, tr('Выплата подтверждена, заявка закрыта.', html_mode=False, section='task_bot', limit=3000))
+        if data.get('work_token')!=work['token']:
+            raise UserError('Подтверждение устарело. Открой заявку заново.')
+        return complete_manual_payout(c,uid,p['id'],reference=data['reference'])
     if action.startswith(('admin:approve:', 'admin:rejecttask:')):
         op, tid = action.split(':')[1:]
         t = c.execute("SELECT * FROM bot_tasks WHERE id=%s AND status='pending' FOR UPDATE", (tid,)).fetchone()
