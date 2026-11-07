@@ -1,9 +1,22 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS app
 WORKDIR /app
 COPY requirements.txt requirements-test.txt ./
 RUN pip install --no-cache-dir -r requirements-test.txt
 COPY . .
-RUN python -m py_compile main.py && python -m unittest discover -s tests -v
+
+# Integration tests use an ephemeral, build-local PostgreSQL instance.
+# Never point TEST_DATABASE_URL at production: these tests create/drop schemas.
+FROM app AS verification
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends postgresql \
+    && pg_ctlcluster 15 main start \
+    && su postgres -c 'createuser --superuser root' \
+    && TEST_DATABASE_URL=postgresql:///postgres python -m unittest discover -s tests -v \
+    && touch /tmp/trevixo-ci-passed
+
+# PostgreSQL server and test fixtures do not enter the production image.
+FROM app AS production
+COPY --from=verification /tmp/trevixo-ci-passed /tmp/trevixo-ci-passed
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 CMD ["sh","-c","uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
