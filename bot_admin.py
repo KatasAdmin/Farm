@@ -153,33 +153,32 @@ def panel(c, uid):
     text=tr('🛡 <b>Панель администратора</b> · Farm\n\n📋 <b>На проверке</b>\n📝 Задания: <b>{v0}</b>  ·  💸 Выплаты: <b>{v1}</b>\n💳 Пополнения: <b>{v2}</b>\n{v3}\n👇 Выбери раздел',{'v0':tasks,'v1':payouts,'v2':receipts,'v3':alert},html_mode=True,section='bot_admin')
     text+='\n\n<i>Версия: '+RELEASE+'</i>'
     return b.bot_ui.screen(uid,text,[
-        [b.button('⚙️ Управление','admin:section:manage'),b.button('💰 Финансы','admin:section:finance')],
-        [b.button('👥 Игроки','admin:accounts:0'),b.button('📊 Статистика','admin:statistics')],
-        [b.button('🎬 Реклама','admin:ads'),b.button('🆘 Обращения','admin:tickets')],
+        [b.button('💰 Финансы','admin:section:finance'),b.button('📝 Задания','admin:section:tasks')],
+        [b.button('👥 Игроки','admin:accounts:0'),b.button('🎬 Реклама','admin:ads')],
+        [b.button('⚙️ Настройки','admin:section:manage'),b.button('📊 Статистика','admin:statistics')],
+        [b.button('🆘 Обращения','admin:tickets'),b.button('📢 Рассылка','admin:broadcast')],
         [{'text':'⭐ Stars','callback_data':'adm:stars'},{'text':'🐔 Ферма','callback_data':'adm:farm'}],
-        [b.button('📢 Рассылка','admin:broadcast')],
         [b.button('🔄 Обновить','admin'),b.button('⬅️ Кабинет','cabinet')]])
 
 
 def section_screen(c,uid,key):
     b=core(); b.state(c,uid,'clear')
     if key=='manage':
-        text=tr('⚙️ <b>Управление ботом</b>\n\nНастраивай условия, проверяй заказы и управляй оформлением. Все действия доступны через кнопки. Изменение тарифов не переписывает старые заказы.',html_mode=True,section='bot_admin')
-        rows=[[b.button('💰 Тарифы','admin:economy'),b.button('📝 Модерация заданий','admin:section:tasks')],
-            [b.button('🎁 Бонусы и рефералы','admin:settings:rewards'),b.button('⏳ Подписка и штраф','admin:settings:retention')],
-            [b.button('✏️ Тексты и кнопки','admin:copy'),b.button('📚 О боте','admin:about')],
-            [b.button('📐 Лимиты','admin:settings:limits'),b.button('📣 Канал постов','admin:channel')],
-            [b.button('💰 Финансы','admin:section:finance')]]
+        text='⚙️ <b>Настройки бота</b>\n\nЦены, правила и оформление. Выплаты и пополнения — в разделе «Финансы».'
+        rows=[
+            [b.button('💵 Тарифы и комиссии','admin:economy'),b.button('🎁 Бонусы и рефералы','admin:settings:rewards')],
+            [b.button('⏳ Подписка и штраф','admin:settings:retention'),b.button('📐 Лимиты','admin:settings:limits')],
+            [b.button('👁 Видимость кнопок','admin:visibility'),b.button('✏️ Тексты кнопок','admin:copy')],
+            [b.button('📚 О боте','admin:about')]
+        ]
     elif key=='finance':
         pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
         liabilities=b.liability(c)
         debt=c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n']
         text=tr('💰 <b>Финансы</b>\n\n<b>Средства и обязательства</b>\nРезерв: <b>{v0}</b>\nОбязательства: {v1}\nСвободно: {v2}\n\n<b>Требует внимания</b>\nНехватка покрытия: {v3}\nДолги исполнителей: {v4}',{'v0':b.money(pool),'v1':b.money(liabilities),'v2':b.money(max(0,pool-liabilities)),'v3':b.money(max(0,liabilities-pool)),'v4':b.money(debt)},html_mode=True,section='bot_admin')
-        rows=[[b.button('💸 Выплаты','admin:payouts'),b.button('💳 Пополнения','admin:cardtopups')],
-            [b.button('⚙️ Способы пополнения','admin:topupsettings'),b.button('🧾 История платежей','admin:payments:all:0')],
-            [b.button('💳 Выводы и Crypto Bot','admin:paymethods')],
-            [b.button('📒 Учёт поступлений','admin:money'),b.button('🎬 Доход от рекламы','admin:ads:revenue')],
-            [{'text':'⭐ Stars','callback_data':'adm:stars'},{'text':'🐔 Ферма','callback_data':'adm:farm'}]]
+        rows=[[b.button('💸 Выплаты','admin:payouts'),b.button('💳 Пополнения на проверке','admin:cardtopups')],
+             [b.button('💳 Способы оплаты','admin:paymethods'),b.button('⭐ Курс Stars и карта','admin:topupsettings')],
+             [b.button('🧾 История платежей','admin:payments:all:0'),b.button('📒 Учёт поступлений','admin:money')]]
     elif key=='tasks':
         text=tr('📝 <b>Задания и публикации</b>\n\nПроверяй заказы, управляй рекламными постами и разбирай спорные отписки.',html_mode=True,section='bot_admin')
         rows=[[b.button('✅ Модерация заданий','admin:tasks')],[b.button('🔎 Проверка публикаций','admin:postissues')],[b.button('📣 Канал постов','admin:channel')],[b.button('⚠️ Спорные отписки','admin:retention')]]
@@ -188,7 +187,7 @@ def section_screen(c,uid,key):
         rows=[[b.button('💰 Тарифы и комиссии','admin:economy')],[b.button('🎁 Бонус и рефералы','admin:settings:rewards')],[b.button('⏳ Срок подписки и штраф','admin:settings:retention')],[b.button('📐 Лимиты операций','admin:settings:limits')]]
     else:
         raise b.UserError(tr('Неизвестный раздел.',section='bot_admin'))
-    return b.bot_ui.screen(uid,text,rows+[[b.button('⬅️ Назад','admin' if key=='manage' else 'admin:section:manage')]])
+    return b.bot_ui.screen(uid,text,rows+[[b.button('⬅️ Админка','admin')]])
 
 
 def settings(c, uid, section):
@@ -349,6 +348,9 @@ def cash_ad_revenue_screen(c, uid):
 def admin(c, uid, text, action, api):
     b = core()
     ui = b.bot_ui
+    import bot_visibility
+    visibility=bot_visibility.route(c,uid,action) if action.startswith('admin:visibility') else None
+    if visibility is not None:return visibility
     broadcast=bot_broadcast.route(c,uid,action,api) if action.startswith('admin:broadcast') else None
     if broadcast is not None:return broadcast
     accounts=bot_accounts_admin.route(c,uid,action)
