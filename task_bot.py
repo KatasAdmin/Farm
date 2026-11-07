@@ -539,6 +539,8 @@ def route(c, uid, text, action, message, api, admin):
         change(c, uid, row['amount'], 'payout_cancel', 'Отмена ' + row['id'][:8])
         return cabinet(c, uid)
     if action == 'withdraw:card':
+        if not bot_admin.method_enabled(c,'card_withdraw'):
+            raise UserError('Вывод на карту сейчас отключён администратором.')
         current=state(c,uid)
         if not current or current['state']!='withdraw_method':
             raise UserError('Сначала выбери сумму вывода.')
@@ -547,6 +549,8 @@ def route(c, uid, text, action, message, api, admin):
         state(c,uid,'destination',data)
         return input_prompt(uid,'💳 Введи номер банковской карты — ровно 16 цифр.\n\nНикаких CVV, PIN или срока действия карты.',cancel_action='cancel_input')
     if action == 'withdraw:crypto':
+        if not bot_admin.method_enabled(c,'crypto_withdraw') or not bot_crypto_pay.withdrawals_enabled():
+            raise UserError('Вывод через Crypto Bot сейчас недоступен.')
         current=state(c,uid)
         if not current or current['state']!='withdraw_method':
             raise UserError('Сначала выбери сумму вывода.')
@@ -576,7 +580,7 @@ def route(c, uid, text, action, message, api, admin):
         current=state(c,uid)
         if not current or current['state']!='withdraw_method':
             return cabinet(c,uid)
-        return say(uid,'Выбери способ получения:',[[button('💳 Банковской картой','withdraw:card')],[button('💎 Crypto Bot · подключаем','withdraw:crypto')],[button('Отмена','cancel_input')]])
+        return say(uid,'Выбери способ получения:',withdrawal_method_rows(c))
     if action == 'withdraw':
         bot_account_controls.require_withdrawal(c,uid)
         state(c, uid, action)
@@ -806,12 +810,14 @@ def process_input(c, uid, text, message, current, api):
         if c.execute("SELECT 1 FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone():
             raise UserError(tr('Сначала дождись обработки предыдущей заявки или отмени её в кабинете.', html_mode=False, section='task_bot', limit=3000))
         state(c, uid, 'withdraw_method', {'amount': n, 'fee': fee, 'net': n - fee})
-        return say(uid, '💸 Вывод '+money(n-fee)+'\\n\\nВыбери способ получения:', [[button('💳 Банковской картой','withdraw:card')], [button('💎 Crypto Bot · подключаем','withdraw:crypto')], [button('Отмена','cancel_input')]])
+        return say(uid, '💸 Вывод '+money(n-fee)+'\\n\\nВыбери способ получения:', withdrawal_method_rows(c))
     if stage == 'withdraw_method':
         # Backward compatibility for existing in-flight forms and legacy IBAN clients.
         # Selecting the bank-card button uses strict sixteen-digit validation instead.
         raise UserError('Сначала выбери способ вывода кнопкой: «Банковской картой» или «Crypto Bot».')
     if stage == 'destination':
+        if data.get('method')=='card' and not bot_admin.method_enabled(c,'card_withdraw'):
+            raise UserError('Вывод на карту сейчас отключён. Новую заявку создать нельзя.')
         if data.get('method')=='card':
             if not re.fullmatch(r'[0-9]{16}',text):
                 raise UserError('💳 Введи ровно 16 цифр номера карты, без пробелов и других символов.')
@@ -933,9 +939,11 @@ def confirmation(c, uid, action, api):
             bot_extras.queue_post(c, {'id':tid}, api)
         result = say(uid, tr('✅ Задание опубликовано!\n\n💰 Бюджет: {v0}', {'v0': money(data['budget'])}, html_mode=False, section='task_bot', limit=3000), [[button('📂 Мои заказы','mine:0')]])
     elif action == 'confirm_payout' and current['state'] == 'payout_confirm':
+        if data.get('method')=='card' and not bot_admin.method_enabled(c,'card_withdraw'):
+            raise UserError('Вывод на карту сейчас отключён администратором.')
         bot_account_controls.require_withdrawal(c,uid)
         if data.get('method')=='crypto':
-            if not bot_crypto_pay.withdrawals_enabled():
+            if not bot_admin.method_enabled(c,'crypto_withdraw') or not bot_crypto_pay.withdrawals_enabled():
                 raise UserError('Автоматический вывод временно недоступен. Средства не списаны.')
             if time.time()-data.get('crypto_quote_at',0)>120:
                 raise UserError('Курс USDT устарел. Создай заявку заново, чтобы получить новый курс.')
@@ -956,6 +964,16 @@ def confirmation(c, uid, action, api):
         raise UserError(tr('Эта кнопка устарела.', html_mode=False, section='task_bot', limit=3000))
     state(c, uid, 'clear')
     return result
+
+def withdrawal_method_rows(c):
+    rows=[]
+    if bot_admin.method_enabled(c,'card_withdraw'):
+        rows.append([button('💳 Банковской картой','withdraw:card')])
+    if bot_admin.method_enabled(c,'crypto_withdraw') and bot_crypto_pay.withdrawals_enabled():
+        rows.append([button('💎 Crypto Bot','withdraw:crypto')])
+    rows.append([button('Отмена','cancel_input')])
+    return rows
+
 
 def complete_manual_payout(c, uid, pid, reference=None):
     """Record an already completed external transfer exactly once.
