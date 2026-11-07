@@ -545,7 +545,7 @@ def route(c, uid, text, action, message, api, admin):
         data=current['data']
         data['method']='card'
         state(c,uid,'destination',data)
-        return input_prompt(uid,'💳 Введи номер банковской карты — ровно 16 цифр.\\n\\nНикаких CVV, PIN или срока действия карты.',cancel_action='cancel_input')
+        return input_prompt(uid,'💳 Введи номер банковской карты — ровно 16 цифр.\n\nНикаких CVV, PIN или срока действия карты.',cancel_action='cancel_input')
     if action == 'withdraw:crypto':
         current=state(c,uid)
         if not current or current['state']!='withdraw_method':
@@ -581,7 +581,7 @@ def route(c, uid, text, action, message, api, admin):
         bot_account_controls.require_withdrawal(c,uid)
         state(c, uid, action)
         rules = bot_admin.limits(c)
-        return input_prompt(uid, tr('💸 Вывод средств\n\nС баланса: от {v0} до {v1}\nКомиссия: {v2}%\n\nВведи сумму в гривнах. Затем укажешь реквизиты для ручной выплаты.', {'v0': money(rules['withdraw_min']), 'v1': money(rules['withdraw_max']), 'v2': bot_economy.pct(rules['withdraw_fee'])}, section='task_bot'))
+        return input_prompt(uid, tr('💸 Вывод средств\n\nС баланса: от {v0} до {v1}\nКомиссия: {v2}%\n\nВведи сумму в гривнах. Затем выберешь банковскую карту или Crypto Bot.', {'v0': money(rules['withdraw_min']), 'v1': money(rules['withdraw_max']), 'v2': bot_economy.pct(rules['withdraw_fee'])}, section='task_bot'))
     if action in ('channel:feed','group:feed'):
         kind=action.split(':')[0]
         return membership_feed(c,uid,message,kind=kind,api=api)
@@ -810,11 +810,7 @@ def process_input(c, uid, text, message, current, api):
     if stage == 'withdraw_method':
         # Backward compatibility for existing in-flight forms and legacy IBAN clients.
         # Selecting the bank-card button uses strict sixteen-digit validation instead.
-        if not 8 <= len(text) <= 250:
-            raise UserError('Выбери способ вывода кнопкой ниже.')
-        data['method']='legacy'
-        state(c,uid,'destination',data)
-        return process_input(c,uid,text,message,{'state':'destination','data':data},api)
+        raise UserError('Сначала выбери способ вывода кнопкой: «Банковской картой» или «Crypto Bot».')
     if stage == 'destination':
         if data.get('method')=='card':
             if not re.fullmatch(r'[0-9]{16}',text):
