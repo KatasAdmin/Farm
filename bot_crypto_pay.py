@@ -145,6 +145,7 @@ def initialize(c):
         amount bigint NOT NULL CHECK(amount>0),
         status text NOT NULL CHECK(status IN ('pending','paid')),
         created double precision NOT NULL)""")
+    c.execute("ALTER TABLE bot_crypto_invoices ADD COLUMN IF NOT EXISTS last_checked_at double precision NOT NULL DEFAULT 0")
     c.execute("""CREATE TABLE IF NOT EXISTS bot_crypto_payouts(
         payout_id text PRIMARY KEY, asset text NOT NULL, crypto_amount text NOT NULL,
         spend_id text NOT NULL UNIQUE,
@@ -371,6 +372,12 @@ def poll(db):
     if not available():
         return False
     with db() as c:
+        # Round-robin unpaid invoices. An old unpaid invoice must never
+        # prevent the worker from detecting payment of a newer invoice.
+        c.execute('SELECT pg_advisory_xact_lock(1984541)')
         row=c.execute("""SELECT id FROM bot_crypto_invoices WHERE status='pending'
-          ORDER BY created LIMIT 1""").fetchone()
+          ORDER BY last_checked_at ASC,created ASC LIMIT 1 FOR UPDATE""").fetchone()
+        if row:
+            c.execute("UPDATE bot_crypto_invoices SET last_checked_at=%s WHERE id=%s",
+                      (time.time(),row['id']))
     return settle_invoice(db,row['id']) if row else False
