@@ -272,7 +272,9 @@ def quote_usdt(net,c=None):
     except (InvalidOperation, ValueError):
         raise CryptoPayError('Недопустимый курс.')
     if value<Decimal('1'):
-        raise CryptoPayError('Минимальный криптовывод — эквивалент 1 USDT.')
+        minimum=(rate*Decimal('1')*100).quantize(Decimal('1'),rounding=ROUND_DOWN)
+        min_uah=(int(minimum)+99)//100
+        raise CryptoPayError('Минимум TREVIXO задаётся в админке, но Crypto Pay принимает переводы примерно от 1 USDT (сейчас около '+str(min_uah)+' грн). Для меньшей суммы выбери вывод на карту или укажи сумму больше.')
     return format(value,'.6f')
 
 
@@ -328,6 +330,13 @@ def _finalize_transfer(db,row,transfer):
                   (uuid.uuid4().hex,p['uid'],'Crypto Bot · '+b.money(net)+' · '+p['id'],time.time()))
         b.bot_notifications.enqueue(c,'payout-paid:'+p['id'],
             '✅ Crypto Bot перевёл '+row['crypto_amount']+' USDT. Заявка '+p['id'],recipient=p['uid'])
+        b.bot_notifications.enqueue(c,'payout-paid-admin:'+p['id'],
+            '✅ CryptoBot: выплата подтверждена\n'
+            'Пользователь: '+str(p['uid'])+'\n'
+            'Сумма: '+b.money(net)+'\n'
+            'Переведено: '+row['crypto_amount']+' USDT\n'
+            'ID перевода: '+str(transfer['transfer_id']),
+            action='admin:payview:'+p['id'],subject=p['uid'])
         b.bot_payout_channel.enqueue_paid(c,p['id'],b.money(net),recipient_uid=p['uid'] if p['public_profile'] else None)
     return True
 
