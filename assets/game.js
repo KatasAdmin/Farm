@@ -635,7 +635,7 @@ function selectBuy(item) {
   const rows = marketRows(item);
   const available = ["eggs","milk"].includes(item) ? Number((item==="milk"?state?.available_milk:state?.available_eggs) ?? 0) : rows.reduce((sum,row) => sum + row.quantity, 0);
   if (!available && !["eggs","milk","grain","chickens","geese","cows","sheep"].includes(item)) {
-    toast(item==="milk"?"Сейчас нет молока в продаже":"Сейчас нет яиц в продаже");
+    toast(({milk:"Сейчас нет молока в продаже",eggs:"Сейчас нет яиц в продаже",wool:"Сейчас нет шерсти в продаже",feathers:"Сейчас нет перьев в продаже"})[item]||"Сейчас этого товара нет в продаже");
     return;
   }
   openPurchase({
