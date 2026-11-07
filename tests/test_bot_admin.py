@@ -91,6 +91,46 @@ class AdminTests(unittest.TestCase):
         # Provider variables are a second, independent permission gate.
         self.assertNotIn('withdraw:crypto',str(self.send(2,action='withdraw:back')['reply_markup']))
 
+    def test_crypto_cap_rejects_over_limit_and_persists(self):
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ,{'CRYPTOPAY_MAX_PAYOUT_UAH':'10000'}):
+            self.send(1,action='admin:paymethods:cap')
+            self.assertIn('Нельзя превысить',self.send(1,'10001')['text'])
+            self.assertEqual(admin.limits(self.c)['crypto_payout_cap'],10000)
+            self.assertIn('Доступ',self.send(2,action='admin:paymethods:cap')['text'])
+            self.send(1,'250')
+            self.assertEqual(admin.limits(self.c)['crypto_payout_cap'],250)
+            bot.initialize(self.c);self.c.raw.commit()
+            self.assertEqual(admin.limits(self.c)['crypto_payout_cap'],250)
+
+    def test_crypto_token_requires_telegram_message_deletion_and_is_encrypted(self):
+        import os
+        from unittest.mock import patch
+        import bot_crypto_pay as crypto
+        token='TEST_CRYPTO_TOKEN_12345678901234567890'
+        with patch.dict(os.environ,{'TELEGRAM_BOT_TOKEN':'fake-owner-bot-token'}), \
+             patch.object(crypto,'call',return_value={'app_id':123,'name':'Trevixo'}):
+            self.send(1,action='admin:paymethods:token')
+            original=self.api
+            def no_delete(method,args):
+                if method=='deleteMessage':return False
+                return original(method,args)
+            self.api=no_delete
+            self.assertIn('не подтвержд',self.send(1,token)['text'])
+            self.assertIsNone(self.c.execute('SELECT encrypted_token FROM bot_crypto_credentials WHERE id=1').fetchone())
+            self.api=original
+            response=self.send(1,token)
+            self.assertNotIn(token,str(response))
+            stored=self.c.execute('SELECT encrypted_token FROM bot_crypto_credentials WHERE id=1').fetchone()
+            self.assertNotIn(token,stored['encrypted_token'])
+            self.assertEqual(crypto.token(),token)
+            bot.initialize(self.c);self.c.raw.commit()
+            self.assertEqual(crypto.token(),token)
+            self.send(1,action='admin:paymethods:tokenreset')
+            self.assertIsNone(self.c.execute('SELECT encrypted_token FROM bot_crypto_credentials WHERE id=1').fetchone())
+            self.assertNotEqual(crypto.token(),token)
+
     def test_clean_sections_and_owner_entry(self):
         panel=self.send(1,action='admin')
         self.assertNotIn('/bot',panel['text'])
