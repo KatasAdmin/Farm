@@ -60,8 +60,14 @@ def view(c,uid,pid):
         text+=tr('\n\n⚠️ Задолженность получателя: {v0}. Проверь, выполнен ли уже банковский перевод. Не подтверждай отказ, если перевод отправлен или его результат неизвестен.',{'v0':b.money(debt['amount'])},html_mode=True,section='bot_payouts')
     rows=[[b.button('👤 Открыть аккаунт игрока','admin:account:'+str(p['uid']))]]
     if p['status']=='pending' and crypto:
-        text+='\n\n💎 <b>Crypto Bot</b>: '+ui.esc(crypto['crypto_amount'])+' '+ui.esc(crypto['asset'])+' · '+ui.esc(crypto['state'])
-        text+='\nСумма зарезервирована. При неизвестном результате API повторный перевод не выполняется.'
+        hold=c.execute('SELECT 1 FROM bot_crypto_liquidity_wait WHERE payout_id=%s',(pid,)).fetchone()
+        status_crypto='⏳ Дополнительная проверка: недостаточно средств' if hold else ui.esc(crypto['state'])
+        text+='\n\n💎 <b>Crypto Bot</b>: '+ui.esc(crypto['crypto_amount'])+' '+ui.esc(crypto['asset'])+' · '+status_crypto
+        if hold:
+            text+='\nВыплата возобновится автоматически после подтверждения пополнения CryptoBot.'
+            rows.append([b.button('❌ Отменить и вернуть на баланс','admin:cryptocancel:'+pid)])
+        else:
+            text+='\nРезультат API ещё неизвестен. Сначала проверь перевод в CryptoBot: повторять или отменять вслепую нельзя.'
     elif p['status']=='pending':
         if active:
             require(c,pid,uid)
@@ -74,6 +80,24 @@ def view(c,uid,pid):
 
 def route(c,uid,action):
     b=core()
+    if action.startswith('admin:cryptocancel:'):
+        pid=action.split(':')[-1]
+        c.execute('SELECT pg_advisory_xact_lock(1984537)')
+        hold=c.execute('SELECT payout_id FROM bot_crypto_liquidity_wait WHERE payout_id=%s FOR UPDATE',(pid,)).fetchone()
+        payout=c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending' FOR UPDATE",(pid,)).fetchone()
+        crypto=c.execute("SELECT * FROM bot_crypto_payouts WHERE payout_id=%s AND state='pending' FOR UPDATE",(pid,)).fetchone()
+        if not (hold and payout and crypto):
+            raise b.UserError('Отмена недоступна: выплата не подтверждена как ожидающая резерв. Необходимо проверить перевод.')
+        if c.execute("SELECT 1 FROM bot_crypto_checks WHERE payout_id=%s",(pid,)).fetchone():
+            raise b.UserError('Для этой заявки существует чек. Сначала сверь его состояние в CryptoBot.')
+        c.execute('DELETE FROM bot_crypto_liquidity_wait WHERE payout_id=%s',(pid,))
+        c.execute("DELETE FROM bot_crypto_payouts WHERE payout_id=%s AND state='pending'",(pid,))
+        c.execute("UPDATE bot_payouts SET status='cancelled' WHERE id=%s AND status='pending'",(pid,))
+        b.change(c,payout['uid'],payout['amount'],'payout_cancel','Возврат резерва CryptoBot · '+pid)
+        b.bot_notifications.enqueue(c,'liquidity-cancelled:'+pid,
+            '↩️ Выплата CryptoBot отменена владельцем. '+b.money(payout['amount'])+
+            ' возвращены на твой баланс.',recipient=payout['uid'])
+        return view(c,uid,pid)
     if action.startswith('admin:payview:'):
         b.state(c,uid,'clear')
         return view(c,uid,action.split(':')[-1])
