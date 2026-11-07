@@ -118,6 +118,7 @@ class AdminTests(unittest.TestCase):
              patch.object(crypto,'call',return_value=rates):
             # An older control value can exceed a newly lowered Railway cap.
             self.c.execute("UPDATE bot_controls SET value=5000 WHERE key='crypto_payout_cap'")
+            self.c.raw.commit()  # SQLite fixture: finish setup before bot.handle begins a transaction.
             self.assertEqual(crypto.payout_cap(self.c),1000)
             self.assertEqual(crypto.quote_usdt(100000,self.c),'25.000000')
             with self.assertRaises(crypto.CryptoPayError):
