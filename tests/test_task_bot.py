@@ -76,6 +76,10 @@ class TaskBotTests(unittest.TestCase):
     def setUp(self):
         self.c = Database()
         bot.initialize(self.c)
+        # Existing payment tests explicitly exercise the Stars checkout flow.
+        # Production defaults Stars visibility to off; tests opt in to
+        # continue covering invoices, reversals and fraud protections.
+        self.c.execute("UPDATE bot_visibility_flags SET visible=1 WHERE key='stars'")
         self.c.execute('CREATE TABLE players(id text,telegram_id bigint UNIQUE,coins int)')
         self.c.execute("CREATE TABLE bot_adsgram_attempts(uid bigint,state text,confirmed_at real)")
         self.c.execute('CREATE TABLE support_tickets(id text,telegram_id bigint,nickname text,message text,created float)')
