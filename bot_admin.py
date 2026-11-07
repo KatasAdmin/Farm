@@ -71,6 +71,41 @@ def payment_methods_screen(c,uid):
              [b.button('⬅️ Финансы','admin:section:finance')]]
     return b.bot_ui.screen(uid,text,rows)
 
+def crypto_health_screen(c,uid):
+    import bot_crypto_pay as crypto
+    b=core()
+    checks=[]
+    for method in ('getMe','getBalance','getExchangeRates'):
+        try:
+            response=crypto.call(method)
+            valid=isinstance(response,(dict,list))
+            checks.append((method,'✅ Доступен' if valid else '⚠️ Неожиданный ответ'))
+        except Exception as exc:
+            reason=str(exc)[:150] if isinstance(exc,crypto.CryptoPayError) else type(exc).__name__
+            checks.append((method,'❌ '+reason))
+    pending=c.execute("""SELECT count(*) AS total FROM bot_crypto_payouts cp
+          JOIN bot_payouts p ON p.id=cp.payout_id
+          WHERE p.status='pending' AND cp.state='review'""").fetchone()['total']
+    incidents=c.execute("""SELECT phase,reason,created FROM bot_crypto_incidents
+        ORDER BY created DESC LIMIT 1""").fetchone()
+    lines=['🩺 <b>CryptoBot — диагностика</b>',
+           'Только чтение. Проверка не создаёт переводов и чеков.',
+           'Автовыплаты: '+('✅ разрешены' if crypto.withdrawals_enabled() and method_enabled(c,'crypto_withdraw') else '⛔ выключены'),
+           'Неразрешённых выплат: '+str(pending),'']
+    lines += [name+': '+b.bot_ui.esc(status) for name,status in checks]
+    if incidents:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        at=datetime.fromtimestamp(incidents['created'],ZoneInfo('Europe/Kyiv')).strftime('%d.%m %H:%M')
+        lines += ['', 'Последняя ошибка ('+at+'):',
+                  b.bot_ui.esc(incidents['phase']+': '+incidents['reason'])]
+    lines += ['', 'Если API возвращает HTML HTTP 403, проблема может быть в сетевой защите или разрешённых IP; изменение лимитов Railway её не решает.']
+    return b.bot_ui.screen(uid,'\n'.join(lines),
+        [[b.button('🔄 Проверить снова','admin:paymethods:diagnose')],
+         [b.button('💸 Спорные выплаты','admin:payouts')],
+         [b.button('⬅️ CryptoBot','admin:paymethods:credentials')]])
+
+
 def payment_credentials_screen(c,uid):
     b=core()
     import bot_crypto_pay as crypto
@@ -86,6 +121,7 @@ def payment_credentials_screen(c,uid):
          'и отдельным переключателем админки.')
     return b.bot_ui.screen(uid,msg,[
         [b.button('🔍 Проверить подключение Crypto Pay','admin:paymethods:check')],
+        [b.button('🩺 Диагностика API и выплат','admin:paymethods:diagnose')],
         [b.button('🔑 Заменить API-токен','admin:paymethods:token')],
         [b.button('♻️ Использовать токен Railway','admin:paymethods:tokenreset')],
         [b.button('💰 Лимит криптовывода','admin:paymethods:cap')],
@@ -346,6 +382,8 @@ def admin(c, uid, text, action, api):
         return payment_methods_screen(c,uid)
     if action == 'admin:paymethods:credentials':
         return payment_credentials_screen(c,uid)
+    if action == 'admin:paymethods:diagnose':
+        return crypto_health_screen(c,uid)
     if action == 'admin:paymethods:check':
         import bot_crypto_pay as crypto
         try:
