@@ -488,6 +488,18 @@ def route(c, uid, text, action, message, api, admin):
         if contact.get('user_id')!=uid or not bot_identity.phone(contact.get('phone_number')):
             return say(uid,'Можно привязать только свой номер через кнопку «Поделиться своим номером».')
         return say(uid,'Номер сохранён. Администратор сможет найти твой аккаунт по нему.',[[button('⬅️ Мой кабинет','cabinet')]])
+    if action.startswith('payout_public:'):
+        current=state(c,uid)
+        if not current or current['state']!='payout_confirm' or action.split(':')[-1]!=current['data'].get('nonce'):
+            raise UserError('Подтверждение заявки устарело.')
+        data=current['data']
+        data['public_profile']=not data.get('public_profile',False)
+        state(c,uid,'payout_confirm',data)
+        label='Да' if data['public_profile'] else 'Нет'
+        return say(uid, '👤 Публичная ссылка на мой Telegram-профиль в канале выплат: '+label+
+            '\n\nЕсли разрешить, посетители канала смогут открыть твой профиль после подтверждённой выплаты.',
+            [[button('👤 Профиль в посте: '+label, 'payout_public:'+data['nonce'])],
+             [button('✅ Подтвердить', 'confirm_payout:'+data['nonce']),button('Отмена','cancel_input')]])
     if action.startswith(('confirm_task:', 'confirm_payout:')):
         return confirmation(c, uid, action, api)
     if text in sum(MENU, []) or cmd in ('/start', '/help', '/menu', '/cancel'):
@@ -759,8 +771,9 @@ def process_input(c, uid, text, message, current, api):
             raise UserError(tr('Реквизиты должны содержать от 8 до 250 символов.', html_mode=False, section='task_bot', limit=3000))
         data['destination'] = text
         data['nonce'] = uuid.uuid4().hex[:12]
+        data['public_profile'] = False
         state(c, uid, 'payout_confirm', data)
-        return say(uid, tr('Проверить заявку\nСумма с баланса: {v0}\nКомиссия: {v1}\nК выплате: {v2}\nРеквизиты: {v3}\n\nПосле подтверждения сумма будет зарезервирована до ручной выплаты.', {'v0': f"{money(data['amount'])}", 'v1': f"{money(data.get('fee', 0))}", 'v2': f"{money(data.get('net', data['amount']))}", 'v3': f'{text}'}, html_mode=False, section='task_bot', limit=3000), [[button('✅ Подтвердить', 'confirm_payout:' + data['nonce']), button('Отмена', 'cancel_input')]])
+        return say(uid, tr('Проверить заявку\nСумма с баланса: {v0}\nКомиссия: {v1}\nК выплате: {v2}\nРеквизиты: {v3}\n\nПосле подтверждения сумма будет зарезервирована до ручной выплаты.\n\nПо умолчанию профиль скрыт. Разрешить ссылку на свой Telegram в канале выплат можно кнопкой ниже.', {'v0': f"{money(data['amount'])}", 'v1': f"{money(data.get('fee', 0))}", 'v2': f"{money(data.get('net', data['amount']))}", 'v3': f'{text}'}, html_mode=False, section='task_bot', limit=3000), [[button('👤 Профиль в канале выплат: Нет', 'payout_public:' + data['nonce'])], [button('✅ Подтвердить', 'confirm_payout:' + data['nonce']), button('Отмена', 'cancel_input')]])
     if stage == 'proof':
         photos = message.get('photo') or []
         proof = (text or message.get('text') or message.get('caption') or '').strip()
@@ -879,6 +892,7 @@ def confirmation(c, uid, action, api):
         change(c, uid, -data['amount'], 'payout_reserve', 'Резерв заявки ' + pid)
         c.execute("INSERT INTO bot_payouts(id,uid,amount,destination,status,created) VALUES(%s,%s,%s,%s,'pending',%s)", (pid, uid, data['amount'], data['destination'], time.time()))
         c.execute('INSERT INTO bot_payout_terms VALUES(%s,%s,%s)', (pid, data.get('fee', 0), data.get('net', data['amount'])))
+        c.execute('UPDATE bot_payouts SET public_profile=%s WHERE id=%s',(bool(data.get('public_profile')),pid))
         bot_notifications.enqueue(c,'payout:'+pid,tr('💸 Новая заявка на вывод\n\nИгрок: {v0}\nС баланса: {v1}\nК выплате: {v2}\nЗаявка: {v3}\n\nСредства зарезервированы. Перевод ещё не выполнен.', {'v0': str(uid), 'v1': money(data['amount']), 'v2': money(data.get('net', data['amount'])), 'v3': pid}, section='notifications'),'admin:payview:'+pid,subject=uid)
         result = say(uid, tr('Заявка {v0} принята. Зарезервировано {v1}. Выплата выполняется администратором вручную.', {'v0': pid, 'v1': money(data['amount'])}, html_mode=False, section='task_bot', limit=3000))
     else:
@@ -1041,7 +1055,7 @@ def _administration(c, uid, text, action, api):
         c.execute('UPDATE bot_cash_pool SET amount=CASE WHEN amount>=%s THEN amount-%s ELSE 0 END WHERE id=1', (bot_admin.net(c, p), bot_admin.net(c, p)))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)", (uuid.uuid4().hex, p['uid'], 'Выплачено ' + money(bot_admin.net(c, p)) + ' · ' + p['id'], time.time()))
         bot_notifications.enqueue(c,'payout-paid:'+p['id'],tr('✅ Выплата выполнена\n\nСумма: {v0}\nЗаявка: {v1}', {'v0': money(bot_admin.net(c, p)), 'v1': p['id']}, section='notifications'),recipient=p['uid'])
-        bot_payout_channel.enqueue_paid(c,p['id'],money(bot_admin.net(c,p)),recipient_uid=p['uid'])
+        bot_payout_channel.enqueue_paid(c,p['id'],money(bot_admin.net(c,p)),recipient_uid=p['uid'] if p['public_profile'] else None)
         state(c, uid, 'clear')
         return say(uid, tr('Выплата подтверждена, заявка закрыта.', html_mode=False, section='task_bot', limit=3000))
     if action.startswith(('admin:approve:', 'admin:rejecttask:')):
