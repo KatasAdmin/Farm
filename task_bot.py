@@ -692,15 +692,13 @@ def route(c, uid, text, action, message, api, admin):
         # The user sees and can turn off profile sharing before confirming.
         data['public_profile']=True
         state(c,uid,'payout_confirm',data)
-        check=Decimal(usdt)<=Decimal('1.5')
         return bot_ui.screen(uid,
             '💎 <b>Вывод через CryptoBot</b>\n\n'
             'С баланса: <b>'+money(data['amount'])+'</b>\n'
             'К получению: <b>'+usdt+' USDT</b>\n'
-            'Способ: '+('🎁 именной чек' if check else '💎 прямой перевод')+'\n\n'
-            +('Пришлём кнопку «🎁 Забрать чек» прямо в чат.'
-              if check else 'После подтверждения USDT отправятся автоматически.')+
-            '\n\n👤 <b>Показывать профиль в канале выплат: Да</b>\n'
+            'Способ: 🎁 именной чек\n\n'
+            'Пришлём кнопку «🎁 Забрать чек» прямо в чат.\n\n'
+            '👤 <b>Показывать профиль в канале выплат: Да</b>\n'
             '<i>По ссылке из публичного объявления другие смогут открыть твой Telegram. '
             'Можешь отключить до подтверждения.</i>',
             [[button('👤 Показывать профиль: Да','payout_public:'+data['nonce'])],
@@ -1093,14 +1091,11 @@ def confirmation(c, uid, action, api):
             # automatic worker and sends confirmed results separately.
             bot_notifications.enqueue(c,'payout:'+pid,tr('💸 Новая заявка на вывод\n\nИгрок: {v0}\nС баланса: {v1}\nК выплате: {v2}\nЗаявка: {v3}\n\nСредства зарезервированы. Перевод ещё не выполнен.', {'v0': str(uid), 'v1': money(data['amount']), 'v2': money(data.get('net', data['amount'])), 'v3': pid}, section='notifications'),'admin:payview:'+pid,subject=uid)
         if data.get('method')=='crypto':
-            check=Decimal(str(data['crypto_usdt']))<=Decimal('1.5')
             result=bot_ui.screen(uid,
                 '💎 <b>Выплата принята</b>\n\n'
                 'Сумма: <b>'+money(data['amount'])+'</b>\n'
-                'Способ: '+('🎁 именной чек' if check else '💎 USDT-перевод')+'\n\n'
-                +('Как только чек будет готов, получишь кнопку «🎁 Забрать чек».'
-                   if check else 'После подтверждённого перевода получишь уведомление. '
-                   'Дополнительно активировать чек не требуется.'),
+                'Способ: 🎁 именной чек\n\n'
+                'Как только чек будет готов, получишь кнопку «🎁 Забрать чек».',
                 [[button('📥 Мои выплаты','payouts')],[button('👤 Кабинет','cabinet')]])
         else:
             result=say(uid,tr('Заявка {v0} принята. Зарезервировано {v1}. Выплата выполняется администратором вручную.', {'v0': pid, 'v1': money(data['amount'])}, html_mode=False, section='task_bot', limit=3000))
