@@ -397,8 +397,11 @@ def _check_dispatch(db):
                 'Открой историю выплат в TREVIXO, если потеряешь ссылку.\n'+url,
                 recipient=row['uid'])
         return True
-    except Exception:
+    except Exception as exc:
         # Unknown result might have created a check. Do not issue a second one.
+        log.warning('Crypto Pay check not confirmed payout=%s kind=%s reason=%s',
+                    row['payout_id'],type(exc).__name__,
+                    str(exc) if isinstance(exc,CryptoPayError) else type(exc).__name__)
         with db() as c:
             c.execute("UPDATE bot_crypto_checks SET state='review' WHERE payout_id=%s AND state='creating'",(row['payout_id'],))
             c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
@@ -517,8 +520,12 @@ def dispatch(db):
         if not _verified_transfer(row,transfer,row['uid']):
             raise CryptoPayError('Unverified transfer result')
         return _finalize_transfer(db,row,transfer)
-    except Exception:
+    except Exception as exc:
         # Unknown outcome may have succeeded externally. No retry: reconcile by spend_id.
+        # Log safe error classification without exposing headers or payment secrets.
+        log.warning('Crypto Pay transfer not confirmed payout=%s kind=%s reason=%s',
+                    row['payout_id'],type(exc).__name__,
+                    str(exc) if isinstance(exc,CryptoPayError) else type(exc).__name__)
         with db() as c:
             c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
         with db() as c:
