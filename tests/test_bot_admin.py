@@ -117,7 +117,7 @@ class AdminTests(unittest.TestCase):
                 if method=='deleteMessage':return False
                 return original(method,args)
             self.api=no_delete
-            self.assertIn('не подтвержд',self.send(1,token)['text'])
+            self.assertIn('не подтвердил',self.send(1,token)['text'])
             self.assertIsNone(self.c.execute('SELECT encrypted_token FROM bot_crypto_credentials WHERE id=1').fetchone())
             self.api=original
             response=self.send(1,token)
