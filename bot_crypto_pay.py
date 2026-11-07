@@ -256,6 +256,12 @@ def dispatch(db):
         return False
     if not withdrawals_enabled():
         return False
+    # Owner switch also gates dispatch: disabling withdrawals must stop new
+    # transfers, not merely hide the menu for new users.
+    import bot_admin
+    with db() as c:
+        if not bot_admin.method_enabled(c,'crypto_withdraw'):
+            return False
     with db() as c:
         c.execute('SELECT pg_advisory_xact_lock(1984537)')
         row=c.execute("""SELECT cp.*,p.uid FROM bot_crypto_payouts cp
