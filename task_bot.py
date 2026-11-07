@@ -599,8 +599,8 @@ def route(c, uid, text, action, message, api, admin):
             status='⏳ Дополнительная проверка · пополнение резерва'
         elif row['check_state']=='active' and row['status']=='pending':
             status='🎁 Чек готов · ожидает активации'
-        elif row['check_state']=='review':
-            status='⚠️ Чек требует проверки'
+        elif row['check_state']=='review' and row['status']=='pending':
+            status='⏳ Дополнительная проверка · CryptoBot пока не подтвердил чек'
         lines=['💸 <b>Выплата</b>','ID: <code>'+bot_ui.esc(pid)+'</code>',
             'Списано: '+money(row['amount']),
             'Статус: '+status,'Дата: '+when]
@@ -630,15 +630,17 @@ def route(c, uid, text, action, message, api, admin):
             label='🎁 Чек готов' if r['check_state']=='active' and r['status']=='pending' else labels.get(r['status'],'⏳ Проверка')
             if r['liquidity_hold']:
                 label='⏳ Дополнительная проверка'
-            elif r['check_state']=='review':
-                label='⚠️ Проверка CryptoBot'
+            elif r['check_state']=='review' and r['status']=='pending':
+                label='⏳ Дополнительная проверка'
             elif r['status']=='pending' and r['crypto_state']=='review' and r['check_state'] is None:
-                label='⚠️ Сверка CryptoBot'
+                label='⏳ Дополнительная проверка'
             elif r['status']=='pending' and r['crypto_state'] is not None:
                 label='⏳ Автовыплата'
             buttons.append([button(label+' · '+money(r['amount'])+' · '+r['id'][:8],
                 'payout:detail:'+r['id'])])
-        buttons += [[button('Отменить ожидающую заявку','cancelpayout')],[button('⬅️ Кабинет','cabinet')]]
+        buttons += [[button('⬅️ Кабинет','cabinet')]]
+        if any(r['status']=='pending' and r['crypto_state'] is None for r in rows):
+            buttons.insert(-1,[button('Отменить заявку на карту','cancelpayout')])
         working=c.execute("""SELECT count(*) AS n FROM bot_payout_work w
             JOIN bot_payouts p ON p.id=w.id
             WHERE p.uid=%s AND p.status='pending' AND w.phase='working'""",(uid,)).fetchone()['n']
