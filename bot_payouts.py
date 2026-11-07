@@ -62,7 +62,7 @@ def view(c,uid,pid):
         if active:
             require(c,pid,uid)
             rows.append([b.button('✅ Перевод выполнен','admin:payrecord:'+pid)])
-            text+=tr('\n\nВыполни перевод, затем введи номер банковской операции. Отмена формы не снимает статус «В работе». При неизвестном результате перевода не отклоняй заявку.',html_mode=True,section='bot_payouts')
+            text+=tr('\n\nПосле фактического перевода нажми «✅ Перевод выполнен» и подтверди действие. Если результат перевода неизвестен, сначала проверь его в банке.',html_mode=True,section='bot_payouts')
         else:rows.append([b.button('🏦 Взять в работу','admin:payref:'+pid)])
         rows.append([b.button('❌ Отклонить с причиной','admin:rejectpayout:'+pid)])
     return ui.screen(uid,text,rows+[[b.button('⬅️ Выплаты','admin:payouts')]])
@@ -81,8 +81,23 @@ def route(c,uid,action):
         pid=action.split(':')[-1];require(c,pid,uid)
         p=c.execute("SELECT * FROM bot_payouts WHERE id=%s AND status='pending'",(pid,)).fetchone()
         if not p:raise b.UserError('Заявка уже закрыта.')
-        b.state(c,uid,'admin_pay_reference',{'id':pid})
-        return b.bot_ui.input_screen(uid,tr('✅ <b>Подтверждение перевода</b>\n\nТолько после фактической выплаты {v0} введи уникальный номер банковской операции.',{'v0':b.money(b.bot_admin.net(c,p))},html_mode=True,section='bot_payouts'))
+        work_record=require(c,pid,uid)
+        nonce=uuid.uuid4().hex[:12]
+        # The internal reference uniquely identifies this confirmed bank payout.
+        # Keep the legacy /botpaid <id> <bank-reference> path for explicit reconciliation.
+        reference='confirmed-'+uuid.uuid4().hex
+        b.state(c,uid,'admin_pay_confirm',{
+            'id':pid,'reference':reference,
+            'work_token':work_record['token'],'nonce':nonce})
+        return b.say(uid,tr(
+            '✅ Подтвердить выплату {v0} пользователю {v1}?\n\n'
+            'Нажимай подтверждение ТОЛЬКО если перевод уже выполнен. '
+            'Никаких банковских операций бот не совершает.',
+            {'v0':b.money(b.bot_admin.net(c,p)),'v1':str(p['uid'])},
+            section='bot_payouts'),[[
+                b.button('✅ Да, деньги отправлены','admin:payconfirm:'+nonce),
+                b.button('Отмена','admin:cancel')
+            ]])
     return None
 
 
