@@ -76,15 +76,20 @@ def card(c,uid,target):
     b=core();a=get(c,target);b.state(c,uid,'clear');esc=b.bot_ui.esc
     farm=c.execute('SELECT * FROM players WHERE telegram_id=%s',(target,)).fetchone()
     debt=c.execute('SELECT amount FROM bot_debts WHERE uid=%s',(target,)).fetchone()
-    text=('👤 <b>Аккаунт игрока</b>\n\nИмя: <b>'+esc(a['name'])+'</b>\nTelegram ID: <code>'+str(target)+'</code>\nРегистрация: '+date(a['created'])+
-          '\n\n💰 Баланс бота: <b>'+b.money(a['available'])+'</b>\nДолг: '+b.money(debt['amount'] if debt else 0)+'\nПригласил: '+str(a['referrer'] or '—'))
+    text=('👤 <b>Аккаунт игрока</b>\n'
+          '<b>'+esc(a['name'])+'</b> · <code>'+str(target)+'</code>\n'
+          '💰 Доступно: <b>'+b.money(a['available'])+'</b>'
+          ' · долг: '+b.money(debt['amount'] if debt else 0)+'\n'
+          '📅 С нами: '+date(a['created']))
     if farm:
-        text+='\n\n🐔 <b>Привязанная ферма</b>\nНик: '+esc(farm.get('name','—'))+'\nID фермы: <code>'+esc(farm['id'])+'</code>\nМонеты в игре: '+str(farm['coins'])
-        text+='\nКуры: '+str(farm.get('chickens',0))+' · Гуси: '+str(farm.get('geese',0))+'\nЯйца: '+str(farm.get('eggs',0))+' · Перья: '+str(farm.get('feathers',0))+'\nКоровы: '+str(farm.get('cows',0))+' · Молоко: '+str(farm.get('milk',0))
-    else:text+='\n\n🐔 Привязанной фермы нет.'
+        text+='\n\n🐔 <b>Ферма</b> · '+esc(farm.get('name','—'))
+        text+='\nМонеты: '+str(farm['coins'])+' · Куры: '+str(farm.get('chickens',0))
+        text+=' · Гуси: '+str(farm.get('geese',0))
+    else:
+        text+='\n\n🐔 Ферма не привязана'
     identity=c.execute('SELECT username,phone FROM bot_identities WHERE uid=%s',(target,)).fetchone()
-    if identity:
-        text+='\n\nTelegram: '+esc('@'+identity['username'] if identity['username'] else 'username не указан')+'\nТелефон: '+esc(identity['phone'] or 'не передан пользователем')
+    if identity and identity['username']:
+        text+='\nTelegram: @'+esc(identity['username'])
     control=controls.get(c,target)
     text+='\n\n🔒 Вывод: <b>'+('заблокирован' if control['withdraw_blocked'] else 'разрешён')+'</b>'
     if control['withdraw_blocked']:text+='\nПричина блокировки: '+esc(control['block_reason'][:120])
@@ -95,6 +100,8 @@ def card(c,uid,target):
     buttons=[[{'text':'↗️ Профиль Telegram','url':'tg://user?id='+str(target)}],
              [b.button('➕ Начислить в бот','admin:accountop:credit:'+str(target)),b.button('➖ Списать из бота','admin:accountop:debit:'+str(target))],
              [b.button('🧾 Операции баланса','admin:accountledger:'+str(target)+':0')]]
+    buttons.append([b.button('📋 Подробности фермы','admin:accountdetail:farm:'+str(target)+':0'),
+                    b.button('📲 Связь и профиль','admin:accountdetail:support:'+str(target)+':0')])
     for pair in (('farm','finance'),('payments','payouts'),('referrals','tasks'),('farmledger','activity'),('market','incubator')):
         buttons.append([b.button(details.TITLES[k],'admin:accountdetail:'+k+':'+str(target)+':0') for k in pair])
     buttons.append([b.button(details.TITLES['support'],'admin:accountdetail:support:'+str(target)+':0')])
