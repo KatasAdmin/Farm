@@ -90,6 +90,26 @@ class SafetyAuditTests(unittest.TestCase):
             (pid,)
         ).fetchone()['n'],1)
 
+    def test_payout_profile_link_requires_recipient_opt_in(self):
+        self.credit()
+        self.send(2,action='withdraw')
+        self.send(2,'5')
+        self.send(2,'TEST BANK RECIPIENT')
+        draft=bot.state(self.c,2)
+        self.assertFalse(draft['data']['public_profile'])
+        toggled=self.send(2,action='payout_public:'+draft['data']['nonce'])
+        self.assertIn('Профиль в посте: Да',str(toggled))
+        self.send(2,action='confirm_payout')
+        pid=self.c.execute("SELECT id FROM bot_payouts WHERE uid=2 ORDER BY created DESC LIMIT 1").fetchone()['id']
+        self.assertTrue(self.c.execute("SELECT public_profile FROM bot_payouts WHERE id=%s",(pid,)).fetchone()['public_profile'])
+        self.send(1,action='admin:payref:'+pid)
+        self.send(1,action='admin:payrecord:'+pid)
+        self.send(1,'confirmed-bank-profile-test')
+        self.send(1,action='admin:payconfirm')
+        row=self.c.execute('SELECT * FROM bot_payout_channel_posts WHERE payout_id=%s',(pid,)).fetchone()
+        self.assertEqual(row['recipient_uid'],2)
+        self.assertNotIn('TEST BANK RECIPIENT',row['body'])
+
     def test_manual_payouts_can_be_processed_despite_low_cash_accounting(self):
         self.credit(2,'5','deposit-two');self.credit(3,'5','deposit-three')
         p2=self.payout(2);p3=self.payout(3)
