@@ -1,6 +1,7 @@
 """Button-based owner console. Business settings and copy are independent of routing."""
 from bot_copy import tr
 import html
+import os
 import json
 import re
 import time
@@ -28,6 +29,58 @@ def initialize(c):
     c.execute('CREATE TABLE IF NOT EXISTS bot_payout_terms(id text PRIMARY KEY,fee bigint NOT NULL CHECK(fee>=0),net bigint NOT NULL CHECK(net>0))')
     for key, value in LIMITS.items():
         c.execute('INSERT INTO bot_controls VALUES(%s,%s) ON CONFLICT DO NOTHING', (key, value))
+    for key, (_, enabled) in PAYMENT_METHODS.items():
+        c.execute('INSERT INTO bot_controls VALUES(%s,%s) ON CONFLICT DO NOTHING',(key,enabled))
+
+PAYMENT_METHODS = {
+    'card_withdraw': ('💳 Вывод на карту', 1),
+    'crypto_deposit': ('💎 Пополнение Crypto Bot', 0),
+    'crypto_withdraw': ('💎 Вывод Crypto Bot', 0),
+}
+
+def method_enabled(c, key):
+    if key not in PAYMENT_METHODS:
+        return False
+    row=c.execute('SELECT value FROM bot_controls WHERE key=%s',(key,)).fetchone()
+    return bool(row['value']) if row else bool(PAYMENT_METHODS[key][1])
+
+def payment_methods_screen(c,uid):
+    b=core()
+    flags={key:method_enabled(c,key) for key in PAYMENT_METHODS}
+    import bot_crypto_pay as crypto
+    token_ready=bool(crypto.token())
+    cap=os.getenv('CRYPTOPAY_MAX_PAYOUT_UAH','0')
+    text=('💳 <b>Способы вывода и Crypto Bot</b>\n\n'
+      'Карта: <b>'+('Вкл' if flags['card_withdraw'] else 'Выкл')+'</b>\n'
+      'Криптопополнение: <b>'+('Вкл' if flags['crypto_deposit'] else 'Выкл')+'</b>\n'
+      'Криптовывод: <b>'+('Вкл' if flags['crypto_withdraw'] else 'Выкл')+'</b>\n\n'
+      '🔐 API-токен Crypto Pay: <b>'+('установлен' if token_ready else 'не установлен')+'</b>\n'
+      'Приём платежей (Railway): <b>'+('разрешён' if crypto.available() else 'выключен')+'</b>\n'
+      'Автовыплаты (Railway): <b>'+('разрешены' if crypto.withdrawals_enabled() else 'выключены')+'</b>\n'
+      'Потолок одной криптовыплаты: <b>'+b.bot_ui.esc(cap)+' грн</b>\n\n'
+      'Отключение скрывает кнопку и запрещает новые заявки; уже созданные выплаты остаются на проверке.')
+    rows=[[b.button(('✅' if flags[k] else '⛔')+' '+title,'admin:paymethods:toggle:'+k)]
+          for k,(title,_) in PAYMENT_METHODS.items()]
+    rows += [[b.button('🔑 Токен и лимиты Crypto Pay','admin:paymethods:credentials')],
+             [b.button('⬅️ Финансы','admin:section:finance')]]
+    return b.bot_ui.screen(uid,text,rows)
+
+def payment_credentials_screen(c,uid):
+    b=core()
+    return b.bot_ui.screen(uid,
+        '🔑 <b>Подключение Crypto Pay</b>\n\n'
+        'Токен можно заменить в Railway → KatasAdmin-Farm → Farm-Web → Variables → '
+        '<code>CRYPTOPAY_API_TOKEN</code>.\n\n'
+        '🔒 Не отправляй токен в Telegram: сообщения могут храниться в истории. '
+        'Бот никогда не показывает его значение.\n\n'
+        'Дополнительные защищённые настройки Railway:\n'
+        '<code>CRYPTOPAY_DEPOSITS_ENABLED</code> = 1\n'
+        '<code>CRYPTOPAY_AUTO_PAYOUTS_ENABLED</code> = 0 до безопасного теста\n'
+        '<code>CRYPTOPAY_MAX_PAYOUT_UAH</code> = лимит в гривнах\n'
+        '<code>CRYPTOPAY_TESTNET</code> = 0 для основной сети.\n\n'
+        'Переключатели в админке работают отдельно от переменных Railway. '
+        'Для автопереводов необходимо разрешить Transfers в Crypto Pay.',
+        [[b.button('⬅️ Способы оплаты','admin:paymethods')]])
 
 def limits(c):
     return {r['key']: r['value'] for r in c.execute('SELECT * FROM bot_controls').fetchall()}
@@ -75,6 +128,7 @@ def section_screen(c,uid,key):
         text=tr('💰 <b>Финансы</b>\n\n<b>Средства и обязательства</b>\nРезерв: <b>{v0}</b>\nОбязательства: {v1}\nСвободно: {v2}\n\n<b>Требует внимания</b>\nНехватка покрытия: {v3}\nДолги исполнителей: {v4}',{'v0':b.money(pool),'v1':b.money(liabilities),'v2':b.money(max(0,pool-liabilities)),'v3':b.money(max(0,liabilities-pool)),'v4':b.money(debt)},html_mode=True,section='bot_admin')
         rows=[[b.button('💸 Выплаты','admin:payouts'),b.button('💳 Пополнения','admin:cardtopups')],
             [b.button('⚙️ Способы пополнения','admin:topupsettings'),b.button('🧾 История платежей','admin:payments:all:0')],
+            [b.button('💳 Выводы и Crypto Bot','admin:paymethods')],
             [b.button('📒 Учёт поступлений','admin:money'),b.button('🎬 Доход от рекламы','admin:ads:revenue')],
             [{'text':'⭐ Stars','callback_data':'adm:stars'},{'text':'🐔 Ферма','callback_data':'adm:farm'}]]
     elif key=='tasks':
@@ -278,6 +332,18 @@ def admin(c, uid, text, action, api):
     navigation={'admin','admin:economy','admin:bonus','admin:copy','admin:copyhistory','admin:money','admin:payouts','admin:tickets','admin:about','admin:topupsettings','admin:cardtopups','admin:postissues','admin:tasks','admin:retention'}
     if action in navigation or action.startswith(('admin:settings:','admin:copylist:','admin:copyentry:','admin:copyreset:','admin:copyrestore:','admin:payview:','admin:ticketview:')):
         b.state(c,uid,'clear')
+    if action == 'admin:paymethods':
+        return payment_methods_screen(c,uid)
+    if action == 'admin:paymethods:credentials':
+        return payment_credentials_screen(c,uid)
+    if action.startswith('admin:paymethods:toggle:'):
+        key=action.rsplit(':',1)[-1]
+        if key not in PAYMENT_METHODS:
+            raise b.UserError('Неизвестный способ выплаты.')
+        # The three switches are administrative availability controls only.
+        current=method_enabled(c,key)
+        c.execute('UPDATE bot_controls SET value=%s WHERE key=%s',(0 if current else 1,key))
+        return payment_methods_screen(c,uid)
     payout=b.bot_payouts.route(c,uid,action)
     if payout is not None:return payout
     if action.startswith('admin:payments:'):
