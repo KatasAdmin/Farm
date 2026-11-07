@@ -300,7 +300,7 @@ def quote_usdt(net,c=None):
         raise CryptoPayError('Недопустимый курс.')
     if value<=0:
         raise CryptoPayError('Сумма слишком мала для точности USDT. Выбери другой способ выплаты.')
-    # Up to and including 1 USDT is paid by a user-pinned single-use check;
+    # Small payouts (up to 1.5 USDT) use a recipient-pinned check to avoid marginal provider transfer minimums;
     # provider-specific minimums are enforced by Crypto Pay when creating it.
     return format(value,'.6f')
 
@@ -480,7 +480,7 @@ def _check_dispatch(db):
               AND ch.payout_id IS NULL
               AND NOT EXISTS(SELECT 1 FROM bot_crypto_liquidity_wait h WHERE h.payout_id=cp.payout_id)
             ORDER BY cp.created FOR UPDATE OF cp LIMIT 20""").fetchall()
-        row=next((r for r in selected if Decimal(r['crypto_amount'])<=Decimal('1')),None)
+        row=next((r for r in selected if Decimal(r['crypto_amount'])<=Decimal('1.5')),None)
         if not row:
             return False
         caprow=c.execute('SELECT net FROM bot_payout_terms WHERE id=%s',(row['payout_id'],)).fetchone()
@@ -620,7 +620,7 @@ def dispatch(db):
         row=c.execute("""SELECT cp.*,p.uid FROM bot_crypto_payouts cp
           JOIN bot_payouts p ON p.id=cp.payout_id
           WHERE cp.state='pending' AND p.status='pending'
-            AND CAST(cp.crypto_amount AS numeric)>1
+            AND CAST(cp.crypto_amount AS numeric)>1.5
             AND NOT EXISTS(SELECT 1 FROM bot_crypto_liquidity_wait h WHERE h.payout_id=cp.payout_id)
           ORDER BY cp.created LIMIT 1 FOR UPDATE""").fetchone()
         if not row:return False
