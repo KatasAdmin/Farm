@@ -9,18 +9,22 @@ COW_FEED=3
 MILK_INTERVAL=8*3600
 MILK_PRICE=11
 COW_PRICE=500
+SHEEP_PRICE=200
+SHEEP_FEED=2
+WOOL_INTERVAL=24*3600
+WOOL_PRICE=12
 
 def feed_required(p):
  """Whole grain needed by every animal at a shared 18-hour feeding."""
- return p["chickens"]+GOOSE_FEED*p.get("geese",0)+COW_FEED*p.get("cows",0)
+ return p["chickens"]+GOOSE_FEED*p.get("geese",0)+COW_FEED*p.get("cows",0)+SHEEP_FEED*p.get("sheep",0)
 
 def simulate(p, now):
  p=dict(p)
  tagged=ad_inventory.active(p)
- ad_hens=p.get("ad_chickens",0);ad_geese=p.get("ad_geese",0);ad_cows=p.get("ad_cows",0)
- ad_fed=min(p.get("ad_fed_hens",0),p["fed_hens"]);ad_goose_fed=min(p.get("ad_fed_geese",0),p.get("fed_geese",0));ad_cow_fed=min(p.get("ad_fed_cows",0),p.get("fed_cows",0))
- ad_grain=p.get("ad_grain",0);ad_eggs=p.get("ad_eggs",0);ad_milk=p.get("ad_milk",0);ad_feathers=p.get("ad_feathers",0)
- ad_ep=p.get("ad_egg_progress",0.0);ad_mp=p.get("ad_milk_progress",0.0);ad_fp=p.get("ad_feather_progress",0.0);ad_credit=p.get("_ad_credit_balance",0)
+ ad_hens=p.get("ad_chickens",0);ad_geese=p.get("ad_geese",0);ad_cows=p.get("ad_cows",0);ad_sheep=p.get("ad_sheep",0)
+ ad_fed=min(p.get("ad_fed_hens",0),p["fed_hens"]);ad_goose_fed=min(p.get("ad_fed_geese",0),p.get("fed_geese",0));ad_cow_fed=min(p.get("ad_fed_cows",0),p.get("fed_cows",0));ad_sheep_fed=min(p.get("ad_fed_sheep",0),p.get("fed_sheep",0))
+ ad_grain=p.get("ad_grain",0);ad_eggs=p.get("ad_eggs",0);ad_milk=p.get("ad_milk",0);ad_feathers=p.get("ad_feathers",0);ad_wool=p.get("ad_wool",0)
+ ad_ep=p.get("ad_egg_progress",0.0);ad_mp=p.get("ad_milk_progress",0.0);ad_fp=p.get("ad_feather_progress",0.0);ad_credit=p.get("_ad_credit_balance",0);ad_wp=p.get("ad_wool_progress",0.0)
  cursor=min(now,p.get("egg_at") or now)
  progress=float(p.get("egg_progress") or 0)
  feather_progress=float(p.get("feather_progress") or 0)
@@ -29,6 +33,10 @@ def simulate(p, now):
  milk_progress=float(p.get("milk_progress") or 0)
  cows=p.get("cows",0)
  fed_cows=min(cows,p.get("fed_cows",0))
+ sheep=p.get("sheep",0)
+ fed_sheep=min(sheep,p.get("fed_sheep",0))
+ wool=p.get("wool",0)
+ wool_progress=float(p.get("wool_progress") or 0)
  tick=p["last_tick"]
  phase=p["feed_phase"]
  hens=p["chickens"]
@@ -44,19 +52,20 @@ def simulate(p, now):
  produced=0
  refills=[]
  def accrue(until):
-  nonlocal cursor,progress,eggs,produced,feathers,feather_progress,milk,milk_progress,ad_ep,ad_mp,ad_fp,ad_eggs,ad_milk,ad_feathers
+  nonlocal cursor,progress,eggs,produced,feathers,feather_progress,milk,milk_progress,wool,wool_progress,ad_ep,ad_mp,ad_fp,ad_wp,ad_eggs,ad_milk,ad_feathers,ad_wool
   # Interleave feather events and egg production by time, so polling cannot
   # change which resource occupies the last warehouse slot. Eggs win ties.
   while until>cursor:
    step=min(until,cursor+(FEATHER_INTERVAL-feather_progress)/fed_geese) if fed_geese else until
    if fed_cows:step=min(step,cursor+(MILK_INTERVAL-milk_progress)/fed_cows)
+   if fed_sheep:step=min(step,cursor+(WOOL_INTERVAL-wool_progress)/fed_sheep)
    elapsed=max(0,step-cursor)
    before_progress=progress
    rate=fed/CYCLE+fed_geese/GOOSE_CYCLE
    total=progress+rate*elapsed
    whole=math.floor(total+1e-10)
    progress=max(0,min(.999999999,total-whole))
-   laid=min(whole,max(0,capacity-grain-eggs-feathers-milk))
+   laid=min(whole,max(0,capacity-grain-eggs-feathers-milk-wool))
    eggs+=laid
    produced+=laid
    if tagged:
@@ -68,29 +77,36 @@ def simulate(p, now):
     generated_ad=min(whole,max(0,math.ceil(at_last(whole)-1e-10))) if whole else 0
     ad_ep+=ad_rate*elapsed-generated_ad
     ad_eggs+=stored_ad
-    ad_mp+=ad_cow_fed*elapsed;ad_fp+=ad_goose_fed*elapsed
+    ad_mp+=ad_cow_fed*elapsed;ad_fp+=ad_goose_fed*elapsed;ad_wp+=ad_sheep_fed*elapsed
    feather_progress+=fed_geese*elapsed
    milk_progress+=fed_cows*elapsed
+   wool_progress+=fed_sheep*elapsed
    cursor=step
    if feather_progress>=FEATHER_INTERVAL-1e-7:
     feather_progress=max(0,feather_progress-FEATHER_INTERVAL)
-    if grain+eggs+feathers+milk<capacity:
+    if grain+eggs+feathers+milk+wool<capacity:
      feathers+=1
      if tagged and ad_fp>1e-7:ad_feathers+=1
     if tagged and ad_fp>1e-7:ad_fp-=FEATHER_INTERVAL
    if milk_progress>=MILK_INTERVAL-1e-7:
     milk_progress=max(0,milk_progress-MILK_INTERVAL)
-    if grain+eggs+feathers+milk<capacity:
+    if grain+eggs+feathers+milk+wool<capacity:
      milk+=1
      if tagged and ad_mp>1e-7:ad_milk+=1
     if tagged and ad_mp>1e-7:ad_mp-=MILK_INTERVAL
+   if wool_progress>=WOOL_INTERVAL-1e-7:
+    wool_progress=max(0,wool_progress-WOOL_INTERVAL)
+    if grain+eggs+feathers+milk+wool<capacity:
+     wool+=1
+     if tagged and ad_wp>1e-7:ad_wool+=1
+    if tagged and ad_wp>1e-7:ad_wp-=WOOL_INTERVAL
 
  feed_at=tick+(FEED_EVERY-phase)*CYCLE
  for _ in range(146000):
   if feed_at>now:break
   accrue(feed_at)
   refill=p["autobuy_amount"]
-  if p["autobuy_enabled"] and refill>0 and grain<hens+GOOSE_FEED*geese+COW_FEED*cows and coins>=GRAIN_PRICE*refill and grain+eggs+feathers+milk+refill<=capacity:
+  if p["autobuy_enabled"] and refill>0 and grain<hens+GOOSE_FEED*geese+COW_FEED*cows+SHEEP_FEED*sheep and coins>=GRAIN_PRICE*refill and grain+eggs+feathers+milk+wool+refill<=capacity:
    coins-=GRAIN_PRICE*refill
    grain+=refill
    refills.append(refill)
@@ -104,18 +120,22 @@ def simulate(p, now):
   grain-=GOOSE_FEED*fed_geese
   fed_cows=min(cows,grain//COW_FEED)
   grain-=COW_FEED*fed_cows
+  fed_sheep=min(sheep,grain//SHEEP_FEED)
+  grain-=SHEEP_FEED*fed_sheep
   if tagged:
    used=min(ad_grain,grain_before_feed-grain);ad_grain-=used
    hen_feed=min(used,fed);used-=hen_feed
    goose_feed=min(used,GOOSE_FEED*fed_geese);used-=goose_feed
    ad_fed=min(fed,max(ad_hens,hen_feed))
    ad_goose_fed=min(fed_geese,max(ad_geese,math.ceil(goose_feed/GOOSE_FEED)))
-   ad_cow_fed=min(fed_cows,max(ad_cows,math.ceil(used/COW_FEED)))
-  if fed==hens and fed_geese==geese and fed_cows==cows:
+   cow_feed=min(used,COW_FEED*fed_cows);used-=cow_feed
+   ad_cow_fed=min(fed_cows,max(ad_cows,math.ceil(cow_feed/COW_FEED)))
+   ad_sheep_fed=min(fed_sheep,max(ad_sheep,math.ceil(used/SHEEP_FEED)))
+  if fed==hens and fed_geese==geese and fed_cows==cows and fed_sheep==sheep:
    sat=min(100,sat+3)
    critical=0
   else:
-   sat=max(0,sat-max(1,math.ceil(3*(hens-fed+GOOSE_FEED*(geese-fed_geese)+COW_FEED*(cows-fed_cows))/max(1,hens+GOOSE_FEED*geese+COW_FEED*cows))))
+   sat=max(0,sat-max(1,math.ceil(3*(hens-fed+GOOSE_FEED*(geese-fed_geese)+COW_FEED*(cows-fed_cows)+SHEEP_FEED*(sheep-fed_sheep))/max(1,hens+GOOSE_FEED*geese+COW_FEED*cows+SHEEP_FEED*sheep))))
    critical=critical+1 if sat==0 else 0
    # Hunger pauses production for unfed animals; livestock never dies.
    # Fed hens/geese/cows remain productive in proportion to the fed herd.
@@ -128,7 +148,8 @@ def simulate(p, now):
  p.update(egg_at=cursor,egg_progress=progress,last_tick=tick,feed_phase=phase,
           eggs=eggs,milk=milk,milk_progress=milk_progress,cows=cows,fed_cows=fed_cows,feathers=feathers,feather_progress=feather_progress,grain=grain,coins=coins,chickens=hens,fed_hens=fed,geese=geese,fed_geese=fed_geese,
           satiety=sat,critical_cycles=critical)
- if tagged:p.update(ad_grain=ad_grain,ad_eggs=ad_eggs,ad_milk=ad_milk,ad_feathers=ad_feathers,ad_chickens=ad_hens,ad_geese=ad_geese,ad_cows=ad_cows,ad_fed_hens=ad_fed,ad_fed_geese=ad_goose_fed,ad_fed_cows=ad_cow_fed,ad_egg_progress=ad_ep,ad_milk_progress=ad_mp,ad_feather_progress=ad_fp)
+ if "sheep" in p:p.update(sheep=sheep,fed_sheep=fed_sheep,wool=wool,wool_progress=wool_progress)
+ if tagged:p.update(ad_grain=ad_grain,ad_eggs=ad_eggs,ad_milk=ad_milk,ad_feathers=ad_feathers,ad_chickens=ad_hens,ad_geese=ad_geese,ad_cows=ad_cows,ad_fed_hens=ad_fed,ad_fed_geese=ad_goose_fed,ad_fed_cows=ad_cow_fed,ad_egg_progress=ad_ep,ad_milk_progress=ad_mp,ad_feather_progress=ad_fp,ad_sheep=ad_sheep,ad_fed_sheep=ad_sheep_fed,ad_wool=ad_wool,ad_wool_progress=ad_wp)
  return p,produced,refills
 
 def next_egg_delay(p,now):
@@ -198,20 +219,20 @@ def forecast(p,now,jobs=()):
  goose_fed=min(p.get("geese",0),p.get("fed_geese",0))
  required=feed_required(p)
  next_egg=next_egg_delay(p,now)
- egg_status="scheduled" if next_egg is not None else "empty" if not (p["chickens"]+p.get("geese",0)) else "storage_full" if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)>=100*p["storage_level"] else "needs_feed"
+ egg_status="scheduled" if next_egg is not None else "empty" if not (p["chickens"]+p.get("geese",0)) else "storage_full" if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+p.get("wool",0)>=100*p["storage_level"] else "needs_feed"
  feed_at=p["last_tick"]+(FEED_EVERY-p["feed_phase"])*CYCLE
  next_feed=max(0,feed_at-now)
  after,_,rf=simulate(p,feed_at)
- missing=max(0,feed_required(after)-after["fed_hens"]-GOOSE_FEED*after.get("fed_geese",0)-COW_FEED*after.get("fed_cows",0)-after["grain"])
+ missing=max(0,feed_required(after)-after["fed_hens"]-GOOSE_FEED*after.get("fed_geese",0)-COW_FEED*after.get("fed_cows",0)-SHEEP_FEED*after.get("fed_sheep",0)-after["grain"])
  notes=[]
  if fed<p["chickens"] or goose_fed<p.get("geese",0):notes.append(f"Сейчас несутся {fed+goose_fed} из {p['chickens']+p.get('geese',0)} птиц.")
- if six["grain"]+six["eggs"]+six.get("feathers",0)+six.get("milk",0)>=100*p["storage_level"]:notes.append("Склад может ограничить сбор.")
+ if six["grain"]+six["eggs"]+six.get("feathers",0)+six.get("milk",0)+six.get("wool",0)>=100*p["storage_level"]:notes.append("Склад может ограничить сбор.")
  if missing:notes.append("Зерна не хватит на полное следующее кормление.")
  if r6 or r12 or rf:notes.append("Учтена автозакупка корма.")
  future=sum(j["mature_at"]<=now+2*CYCLE for j in jobs)
  if future:notes.append("Вывод цыплят не включён в прогноз.")
  notes.append("При неизменных настройках и запасах.")
- full=required and fed==p["chickens"] and goose_fed==p.get("geese",0) and p.get("fed_cows",0)==p.get("cows",0)
+ full=required and fed==p["chickens"] and goose_fed==p.get("geese",0) and p.get("fed_cows",0)==p.get("cows",0) and p.get("fed_sheep",0)==p.get("sheep",0)
  return dict(eggs_next_6h=n6,eggs_next_12h=n12,seconds_to_next_egg=next_egg if next_egg is not None else 0,
              next_egg_scheduled=next_egg is not None,next_egg_status=egg_status,
              seconds_to_next_feed=next_feed,grain_required_next_feed=required,
@@ -219,10 +240,11 @@ def forecast(p,now,jobs=()):
              complete_feeds_available=p["grain"]//required if required else 0,
              autobuy_expected=bool(r6 or r12 or rf),forecast_approximate=bool(future),
              forecast_note=" ".join(notes),feed_stock_seconds=(next_feed+18*3600*(p["grain"]//required) if required and p["grain"]>=required else 0),
-             fed_hens=fed,fed_geese=goose_fed,fed_cows=p.get("fed_cows",0),known_maturing=future,
+             fed_hens=fed,fed_geese=goose_fed,fed_cows=p.get("fed_cows",0),fed_sheep=p.get("fed_sheep",0),known_maturing=future,
+             wool_next_6h=six.get("wool",0)-p.get("wool",0),wool_next_12h=twelve.get("wool",0)-p.get("wool",0),
              milk_next_6h=six.get("milk",0)-p.get("milk",0),milk_next_12h=twelve.get("milk",0)-p.get("milk",0),
              next_milk_scheduled=next_milk is not None,seconds_to_next_milk=next_milk or 0,
-             next_milk_status="scheduled" if next_milk is not None else "empty" if not p.get("cows",0) else "storage_full" if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)>=100*p["storage_level"] else "needs_feed",
+             next_milk_status="scheduled" if next_milk is not None else "empty" if not p.get("cows",0) else "storage_full" if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+p.get("wool",0)>=100*p["storage_level"] else "needs_feed",
              feathers_next_6h=six["feathers"]-p.get("feathers",0),
              seconds_to_next_feather=next_feather or 0,next_feather_scheduled=next_feather is not None,
-             next_feather_status="scheduled" if next_feather is not None else "empty" if not p.get("geese",0) else "storage_full" if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)>=100*p["storage_level"] else "needs_feed")
+             next_feather_status="scheduled" if next_feather is not None else "empty" if not p.get("geese",0) else "storage_full" if p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+p.get("wool",0)>=100*p["storage_level"] else "needs_feed")
