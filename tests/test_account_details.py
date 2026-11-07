@@ -31,12 +31,39 @@ class AccountDetailsTests(unittest.TestCase):
     def test_all_sections_are_button_accessible_and_empty_pages_work(self):
         self.prepare_farm()
         overview=str(self.send(1,action='admin:account:2'))
+        groups={
+            'finance':('finance','payments','payouts'),
+            'farm':('farm','market','incubator','farmledger'),
+            'activity':('referrals','tasks','activity','support')
+        }
+        for group in ('finance','farm','activity','control'):
+            self.assertIn('bot:admin:accountmenu:'+group+':2',overview)
+        for group,sections in groups.items():
+            menu=str(self.send(1,action='admin:accountmenu:'+group+':2'))
+            for section in sections:
+                self.assertIn('bot:admin:accountdetail:'+section+':2:0',menu)
         for section in details.TITLES:
-            self.assertIn('bot:admin:accountdetail:'+section+':2:0',overview)
             with patch.object(details.time,'time',return_value=100000):r=self.send(1,action='admin:accountdetail:'+section+':2:0')
             self.assertIn(details.TITLES[section],r['text'])
             self.assertLessEqual(len(r['text']),4096)
             self.assertIn('bot:admin:account:2',str(r))
+
+    def test_compact_account_list_keeps_full_identity_and_navigation(self):
+        self.prepare_farm()
+        listing=self.send(1,action='admin:accounts:0')
+        self.assertIn('👥',listing['text'])
+        self.assertIn('bot:admin:account:2',str(listing))
+        self.assertIn('bot:admin:accountsearch',str(listing))
+        self.assertIn('bot:admin:accountflock:0',str(listing))
+        card=self.send(1,action='admin:account:2')
+        self.assertIn('bot:admin:accountmenu:finance:2',str(card))
+        self.assertNotIn('bot:admin:accountdetail:payments:2:0',str(card))
+        self.assertIn('tg://user?id=2',str(card))
+        for group in ('finance','farm','activity','control'):
+            menu=self.send(1,action='admin:accountmenu:'+group+':2')
+            self.assertIn('bot:admin:account:2',str(menu))
+        self.assertIn('Неизвестный раздел',self.send(1,action='admin:accountmenu:unknown:2')['text'])
+        self.assertIn('Доступ',self.send(3,action='admin:accountmenu:finance:2')['text'])
 
     def test_84_hens_rate_actual_forecast_and_readonly_snapshot(self):
         p=self.prepare_farm()
