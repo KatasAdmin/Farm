@@ -57,11 +57,12 @@ class TopupTests(unittest.TestCase):
         data=bot.state(self.c,1)['data']
         return self.send(1,action='admin:cardconfirm:'+data['nonce'])
 
-    def test_menu_has_three_methods_and_no_payment_without_configuration(self):
+    def test_menu_hides_unconfigured_crypto_and_no_payment_without_configuration(self):
         self.c.execute('UPDATE bot_topup_config SET star_rate=0')
         self.c.raw.commit()
         result=self.send(3,action='deposit')
-        for action in ('topup:stars','topup:crypto','topup:card'):
+        self.assertNotIn('bot:topup:crypto',str(result))
+        for action in ('topup:stars','topup:card'):
             self.assertIn('bot:'+action,str(result))
             self.assertIn('text',self.send(3,action=action))
         self.assertEqual(self.balance(3),0)
@@ -124,7 +125,7 @@ class TopupTests(unittest.TestCase):
 
     def test_stars_refund_reverses_once_and_cancels_pending_withdrawal(self):
         invoice=self.invoice(); self.checkout(invoice); self.payment(invoice)
-        self.send(3,action='withdraw'); self.send(3,'10'); self.send(3,'UA123456789 recipient'); self.send(3,action='confirm_payout')
+        self.send(3,action='withdraw'); self.send(3,'10'); self.send(3,action='withdraw:card');self.send(3,'4441111056522018'); self.send(3,action='confirm_payout')
         self.payment(invoice,refund=True)
         self.payment(invoice,refund=True)
         self.assertEqual(self.balance(3),0)
@@ -251,7 +252,8 @@ class TopupTests(unittest.TestCase):
         first=self.send(3,action='withdraw')
         self.assertNotIn('/cancel',first['text'])
         self.send(3,'5')
-        self.send(3,'UA123456789 Test recipient')
+        self.send(3,action='withdraw:card')
+        self.send(3,'4441111056522018')
         nonce=bot.state(self.c,3)['data']['nonce']
         self.send(3,action='cancel_input')
         self.send(3,action='confirm_payout:'+nonce)
