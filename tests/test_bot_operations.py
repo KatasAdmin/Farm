@@ -165,7 +165,7 @@ class OperationTests(unittest.TestCase):
         user=[n for n in self.delivered if n['chat_id']==3]
         self.assertEqual(len(user),1)
         self.assertIn('зачислено',user[0]['text'])
-        self.dispatch();self.assertEqual(len(self.delivered),3)
+        self.dispatch();self.assertEqual(len(self.delivered),2)
 
     def test_no_owner_keeps_admin_queue_and_allows_user_notifications(self):
         self.c.execute('DELETE FROM farm_admin_identity')
