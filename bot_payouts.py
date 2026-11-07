@@ -67,7 +67,8 @@ def view(c,uid,pid):
         status_crypto='⏳ Дополнительная проверка: недостаточно средств' if hold else ui.esc(crypto['state'])
         text+='\n\n💎 <b>Crypto Bot</b>: '+ui.esc(crypto['crypto_amount'])+' '+ui.esc(crypto['asset'])+' · '+status_crypto
         if hold:
-            text+='\nВыплата возобновится автоматически после подтверждения пополнения CryptoBot.'
+            text+='\nРезерва USDT недостаточно. После пополнения бот повторит выплату автоматически.'
+            rows.append([b.button('🔄 Проверить резерв и повторить','admin:cryptoretry:'+pid)])
             rows.append([b.button('❌ Отменить и вернуть на баланс','admin:cryptocancel:'+pid)])
         else:
             text+='\nРезультат API ещё неизвестен. Автоматический повтор запрещён.'
@@ -216,6 +217,36 @@ def _decision_confirm(c,uid,mode,pid,nonce):
 
 def route(c,uid,action):
     b=core()
+    if action.startswith('admin:cryptoretry:'):
+        _owner(c,uid)
+        import bot_crypto_pay as pay
+        pid=action.rsplit(':',1)[-1]
+        c.execute('SELECT pg_advisory_xact_lock(1984537)')
+        payout=c.execute("SELECT status FROM bot_payouts WHERE id=%s FOR UPDATE",(pid,)).fetchone()
+        crypto=c.execute("SELECT crypto_amount,state FROM bot_crypto_payouts WHERE payout_id=%s FOR UPDATE",(pid,)).fetchone()
+        hold=c.execute("SELECT payout_id FROM bot_crypto_liquidity_wait WHERE payout_id=%s FOR UPDATE",(pid,)).fetchone()
+        if not (payout and payout['status']=='pending' and crypto
+                and crypto['state']=='pending' and hold):
+            raise b.UserError('Повтор недоступен. Эта заявка не ожидает пополнения резерва.')
+        if c.execute("SELECT 1 FROM bot_crypto_checks WHERE payout_id=%s",(pid,)).fetchone():
+            raise b.UserError('Для этой заявки уже есть попытка создания чека. Повтор запрещён.')
+        try:
+            available=pay._balance_usdt()
+        except pay.CryptoPayError:
+            raise b.UserError('Crypto Pay пока не подтвердил баланс. Повторять выплату нельзя.')
+        from decimal import Decimal
+        if available<Decimal(crypto['crypto_amount']):
+            return b.bot_ui.screen(uid,'⏳ <b>Резерв пока недостаточен</b>\n\n'
+                'Нужно: '+b.bot_ui.esc(crypto['crypto_amount'])+' USDT\n'
+                'Доступно: '+b.bot_ui.esc(str(available))+' USDT\n\n'
+                'Пополните CryptoBot. Выплата запустится автоматически.',
+                [[b.button('🔄 Проверить снова','admin:cryptoretry:'+pid)],
+                 [b.button('⬅️ Заявка','admin:payview:'+pid)]])
+        c.execute("DELETE FROM bot_crypto_liquidity_wait WHERE payout_id=%s",(pid,))
+        return b.bot_ui.screen(uid,'✅ <b>Резерв достаточен</b>\n\n'
+            'Выплата возвращена в автоматическую очередь. '
+            'Никаких переводов по этой кнопке не создаётся.',
+            [[b.button('⬅️ Заявка','admin:payview:'+pid)]])
     if action.startswith('admin:cryptoverify:'):
         _owner(c,uid)
         pid=action.split(':')[-1]
