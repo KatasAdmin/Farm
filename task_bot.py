@@ -152,6 +152,38 @@ def change(c, uid, delta, kind, details):
 def liability(c):
     return c.execute("SELECT\n      (SELECT coalesce(sum(available+advertising),0) FROM bot_accounts) +\n      (SELECT coalesce(sum(remaining),0) FROM bot_tasks WHERE status IN ('pending','active')) +\n      (SELECT coalesce(sum(amount),0) FROM bot_payouts WHERE status='pending') +\n      (CAST((SELECT coalesce(sum(units),0) FROM bot_ref_accruals) AS bigint)+9999)/10000 AS n").fetchone()['n']
 
+def ledger_label(kind):
+    labels={
+        'crypto_invoice_paid':'💎 CryptoBot · пополнение',
+        'cryptopay_deposit':'💎 CryptoBot · пополнение',
+        'crypto_topup':'💎 CryptoBot · пополнение',
+        'stars_wallet_deposit':'⭐ Stars · пополнение',
+        'manual_deposit':'💳 Пополнение',
+        'ads_manual_deposit':'💳 Пополнение рекламы',
+        'task_reward':'✅ Награда за задание',
+        'daily_bonus':'🎁 Ежедневный бонус',
+        'friend_reward':'🤝 Приглашение друга',
+        'referral_reward':'🤝 Реферальная награда',
+        'payout_reserved':'💸 Вывод средств',
+        'payout_refund':'↩️ Возврат выплаты',
+        'payout_cancel':'↩️ Отмена выплаты'
+    }
+    if kind in labels:return labels[kind]
+    if kind.startswith(('adsgram_interval_','adsgram_daily_')):
+        return '🎬 AdsGram'
+    if kind.startswith(('monetag','cash_ad_')):
+        return '📺 Monetag'
+    if 'crypto' in kind:
+        return '💎 CryptoBot'
+    if kind.startswith(('payout','withdraw')):
+        return '💸 Вывод средств'
+    if kind.startswith('task'):
+        return '📣 Задания'
+    if kind.startswith('retention'):
+        return '↩️ Возврат удержания'
+    return '💰 Операция'
+
+
 def farm_url():
     domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'farm-web-production-cfb9.up.railway.app')
     return 'https://' + domain + '/'
@@ -545,53 +577,59 @@ def route(c, uid, text, action, message, api, admin):
     if action in ('convert', 'convert_to_ads', 'convert_from_ads', 'tofarm', 'fromfarm'):
         state(c, uid, 'clear')
         return cabinet(c, uid)
-    if action == 'history':
-        # Keep full references in the audit ledger but never dump raw hashes,
-        # URLs, or internal zero-value workflow events to customer UI.
+    if action == 'history' or action.startswith('history:page:'):
         from datetime import datetime
         from zoneinfo import ZoneInfo
-        rows=c.execute("""SELECT delta,kind,details,created FROM bot_ledger
-          WHERE uid=%s AND delta<>0 ORDER BY created DESC LIMIT 12""",(uid,)).fetchall()
-        labels={
-            'crypto_invoice_paid':'💎 Пополнение Crypto Bot',
-            'crypto_topup':'💎 Пополнение Crypto Bot',
-            'stars_wallet_deposit':'⭐ Telegram Stars',
-            'manual_deposit':'💳 Пополнение',
-            'ads_manual_deposit':'💳 Пополнение рекламы',
-            'task_reward':'✅ Награда за задание',
-            'daily_bonus':'🎁 Ежедневный бонус',
-            'friend_reward':'🤝 Приглашение друга',
-            'referral_reward':'🤝 Реферальная награда',
-            'payout_reserved':'💸 Заявка на вывод',
-            'payout_refund':'↩️ Возврат заявки',
-        }
-        lines=['📜 <b>История баланса</b>','<i>Последние 12 денежных операций</i>','']
-        for item in rows:
+        page=0
+        if action.startswith('history:page:'):
+            raw=action.rsplit(':',1)[-1]
+            if not raw.isdecimal() or len(raw)>4:
+                raise UserError('Неверная страница истории.')
+            page=min(int(raw),999)
+        limit=10
+        rows=c.execute("""SELECT id,delta,kind,created FROM bot_ledger
+          WHERE uid=%s AND delta<>0 ORDER BY created DESC,id DESC LIMIT %s OFFSET %s""",
+          (uid,limit+1,page*limit)).fetchall()
+        buttons=[]
+        for item in rows[:limit]:
             kind=str(item['kind'])
-            detail=str(item['details'])
-            label=labels.get(kind)
-            if label is None:
-                if kind.startswith('adsgram_interval_') or kind.startswith('adsgram_daily_'):
-                    label='🎬 AdsGram · рекламная награда'
-                elif kind.startswith('monetag') or kind.startswith('cash_ad_'):
-                    label='📺 Monetag · рекламная награда'
-                elif 'crypto' in kind or 'Crypto Pay' in detail:
-                    label='💎 Crypto Bot'
-                elif kind.startswith('payout') or kind.startswith('withdraw'):
-                    label='💸 Вывод средств'
-                elif kind.startswith('task') or 'Бюджет задания' in detail:
-                    label='📣 Расходы на задание'
-                elif kind.startswith('retention'):
-                    label='↩️ Возврат удержания'
-                else:
-                    label='💰 Операция по балансу'
+            label=ledger_label(kind)
             when=datetime.fromtimestamp(item['created'],ZoneInfo('Europe/Kyiv')).strftime('%d.%m %H:%M')
             prefix='+' if item['delta']>0 else '−'
-            lines.append('<b>'+prefix+money(abs(item['delta']))+'</b> · '+label+'\n<i>'+when+'</i>')
-        if not rows:
-            lines.append('Денежных операций пока нет.')
-        return bot_ui.screen(uid,'\n\n'.join(lines),
-            [[button('⬅️ Вернуться в кабинет','cabinet')]])
+            buttons.append([button(prefix+money(abs(item['delta']))+' · '+label+' · '+when,
+                'history:detail:'+item['id'])])
+        nav=[]
+        if page:nav.append(button('⬅️ Ранее','history:page:'+str(page-1)))
+        if len(rows)>limit:nav.append(button('Далее ➡️','history:page:'+str(page+1)))
+        if nav:buttons.append(nav)
+        buttons.append([button('⬅️ Кабинет','cabinet')])
+        return bot_ui.screen(uid,'📜 <b>История баланса</b>\n\n'
+            'Нажми на операцию, чтобы посмотреть подробности.\n'
+            'Страница '+str(page+1) if rows or page==0 else '📜 <b>История баланса</b>\n\nБольше операций нет.',
+            buttons)
+    if action.startswith('history:detail:'):
+        txid=action.rsplit(':',1)[-1]
+        if not re.fullmatch(r'[a-f0-9]{32}',txid):
+            raise UserError('Операция не найдена.')
+        item=c.execute('SELECT id,delta,kind,details,created FROM bot_ledger WHERE uid=%s AND id=%s',
+            (uid,txid)).fetchone()
+        if not item or item['delta']==0:
+            raise UserError('Операция не найдена.')
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        date=datetime.fromtimestamp(item['created'],ZoneInfo('Europe/Kyiv')).strftime('%d.%m.%Y %H:%M')
+        label=ledger_label(str(item['kind']))
+        prefix='+' if item['delta']>0 else '−'
+        lines=['🧾 <b>Операция баланса</b>','',
+            '<b>'+bot_ui.esc(label)+'</b>',
+            'Сумма: <b>'+prefix+money(abs(item['delta']))+'</b>',
+            'Дата: '+date,
+            'ID: <code>'+bot_ui.esc(item['id'])+'</code>']
+        # A free-form ledger description can contain external links, private
+        # references, payment tokens or card numbers. Do not expose it as-is.
+        # The operation type, sign, exact amount and transaction ID are stable.
+        return bot_ui.screen(uid,'\n'.join(lines),
+            [[button('⬅️ История баланса','history')],[button('👤 Кабинет','cabinet')]])
     if action == 'claims':
         rows = c.execute('SELECT t.title,x.status FROM bot_claims x JOIN bot_tasks t ON t.id=x.task\n          WHERE x.uid=%s ORDER BY x.created DESC LIMIT 15', (uid,)).fetchall()
         labels = {'started': tr('В работе', html_mode=False, section='task_bot', limit=3000), 'review': tr('На проверке', html_mode=False, section='task_bot', limit=3000), 'paid': tr('Оплачено', html_mode=False, section='task_bot', limit=3000), 'rejected': tr('Отклонено', html_mode=False, section='task_bot', limit=3000)}
