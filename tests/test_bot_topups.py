@@ -72,7 +72,6 @@ class TopupTests(unittest.TestCase):
 
     def test_farm_bank_receipt_credits_linked_game_only_after_admin_confirmation(self):
         self.configure_card()
-        self.c.execute("CREATE TABLE farm_money_sources(log_id text,bonus int,purchased int,earned int)")
         self.c.execute("INSERT INTO players(id,telegram_id,coins) VALUES(%s,%s,%s)",('farm-player',3,10))
         self.c.raw.commit()
         start=self.send(3,'/start farmdeposit')
@@ -99,7 +98,7 @@ class TopupTests(unittest.TestCase):
         self.c.raw.commit()
         refused=self.send(3,'/start farmdeposit')
         self.assertIn('привяжи Telegram',refused['text'])
-        self.assertNotEqual(bot.state(self.c,3)['state'],'topup_card_amount')
+        self.assertFalse(bot.state(self.c,3))
         accepted=self.send(2,'/start farmdeposit')
         self.assertIn('Пополнение фермы картой',accepted['text'])
         self.send(2,'10.50')
