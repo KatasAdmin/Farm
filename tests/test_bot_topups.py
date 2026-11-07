@@ -51,9 +51,9 @@ class TopupTests(unittest.TestCase):
         self.send(uid,'10')
         self.receipt(uid,document=document)
         return self.c.execute('SELECT id FROM bot_card_topups WHERE uid=%s',(uid,)).fetchone()['id']
-    def confirm_card(self,tid,reference='bank-real-transaction'):
-        self.send(1,action='admin:cardapprove:'+tid)
-        self.send(1,reference)
+    def confirm_card(self,tid,reference=None):
+        confirm=self.send(1,action='admin:cardapprove:'+tid)
+        self.assertIn('Сверь поступление',confirm['text'])
         data=bot.state(self.c,1)['data']
         return self.send(1,action='admin:cardconfirm:'+data['nonce'])
 
@@ -202,9 +202,10 @@ class TopupTests(unittest.TestCase):
         self.assertEqual(view['method'],'sendPhoto')
         self.send(1,action='admin:cardapprove:'+tid)
         self.assertEqual(self.balance(3),0)
-        preview=self.send(1,'bank-confirmed')
-        self.assertIn('Пользователь: 3',preview['text'])
+        preview=self.send(1,action='admin:cardapprove:'+tid)
+        self.assertIn('Игрок:',preview['text'])
         self.assertIn('Сумма: 10,00 грн',preview['text'])
+        self.assertIn('Сверь поступление',preview['text'])
         nonce=bot.state(self.c,1)['data']['nonce']
         self.send(1,action='admin:cardconfirm:'+nonce,event='approve-replay')
         self.send(1,action='admin:cardconfirm:'+nonce,event='approve-replay')
@@ -213,13 +214,17 @@ class TopupTests(unittest.TestCase):
         self.assertEqual(self.c.execute('SELECT amount FROM bot_cash_pool').fetchone()['amount'],1000)
         self.assertEqual(self.c.execute('SELECT status FROM bot_card_topups').fetchone()['status'],'approved')
 
-    def test_existing_bank_reference_prevents_double_credit_via_old_manual_command(self):
+    def test_receipt_confirmation_uses_internal_reference_and_is_idempotent(self):
         tid=self.card_request()
-        self.credit(3,'10','same-bank-operation')
-        result=self.confirm_card(tid,'same-bank-operation')
-        self.assertIn('уже учтена',result['text'])
+        self.assertEqual(self.balance(3),0)
+        result=self.confirm_card(tid)
+        self.assertIn('Зачислено',result['text'])
         self.assertEqual(self.balance(3),1000)
-        self.assertEqual(self.c.execute('SELECT status FROM bot_card_topups').fetchone()['status'],'pending')
+        row=self.c.execute('SELECT reference,status FROM bot_card_topups WHERE id=%s',(tid,)).fetchone()
+        self.assertEqual(row['reference'],'card-receipt:'+tid)
+        self.assertEqual(row['status'],'approved')
+        self.assertIn('уже обработана',self.send(1,action='admin:cardapprove:'+tid)['text'])
+        self.assertEqual(self.balance(3),1000)
 
     def test_pdf_receipt_owner_preview_and_rejection_without_money(self):
         tid=self.card_request(document=True)
