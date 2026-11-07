@@ -528,8 +528,52 @@ def route(c, uid, text, action, message, api, admin):
         state(c, uid, 'clear')
         return cabinet(c, uid)
     if action == 'history':
-        rows = c.execute('SELECT delta,kind,details,created FROM bot_ledger WHERE uid=%s ORDER BY created DESC LIMIT 15', (uid,)).fetchall()
-        return say(uid, tr('📜 Последние операции\n{v0}', {'v0': '\n'.join((('+' if r['delta'] >= 0 else '−') + money(abs(r['delta'])) + ' · ' + r['details'] for r in rows)) or 'Операций пока нет.'}, html_mode=False, section='task_bot', limit=3000))
+        # Keep full references in the audit ledger but never dump raw hashes,
+        # URLs, or internal zero-value workflow events to customer UI.
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        rows=c.execute("""SELECT delta,kind,details,created FROM bot_ledger
+          WHERE uid=%s AND delta<>0 ORDER BY created DESC LIMIT 12""",(uid,)).fetchall()
+        labels={
+            'crypto_invoice_paid':'💎 Пополнение Crypto Bot',
+            'crypto_topup':'💎 Пополнение Crypto Bot',
+            'stars_wallet_deposit':'⭐ Telegram Stars',
+            'manual_deposit':'💳 Пополнение',
+            'ads_manual_deposit':'💳 Пополнение рекламы',
+            'task_reward':'✅ Награда за задание',
+            'daily_bonus':'🎁 Ежедневный бонус',
+            'friend_reward':'🤝 Приглашение друга',
+            'referral_reward':'🤝 Реферальная награда',
+            'payout_reserved':'💸 Заявка на вывод',
+            'payout_refund':'↩️ Возврат заявки',
+        }
+        lines=['📜 <b>История баланса</b>','<i>Последние 12 денежных операций</i>','']
+        for item in rows:
+            kind=str(item['kind'])
+            detail=str(item['details'])
+            label=labels.get(kind)
+            if label is None:
+                if kind.startswith('adsgram_interval_') or kind.startswith('adsgram_daily_'):
+                    label='🎬 AdsGram · рекламная награда'
+                elif kind.startswith('monetag') or kind.startswith('cash_ad_'):
+                    label='📺 Monetag · рекламная награда'
+                elif 'crypto' in kind or 'Crypto Pay' in detail:
+                    label='💎 Crypto Bot'
+                elif kind.startswith('payout') or kind.startswith('withdraw'):
+                    label='💸 Вывод средств'
+                elif kind.startswith('task') or 'Бюджет задания' in detail:
+                    label='📣 Расходы на задание'
+                elif kind.startswith('retention'):
+                    label='↩️ Возврат удержания'
+                else:
+                    label='💰 Операция по балансу'
+            when=datetime.fromtimestamp(item['created'],ZoneInfo('Europe/Kyiv')).strftime('%d.%m %H:%M')
+            prefix='+' if item['delta']>0 else '−'
+            lines.append('<b>'+prefix+money(abs(item['delta']))+'</b> · '+label+'\n<i>'+when+'</i>')
+        if not rows:
+            lines.append('Денежных операций пока нет.')
+        return bot_ui.screen(uid,'\n\n'.join(lines),
+            [[button('⬅️ Вернуться в кабинет','cabinet')]])
     if action == 'claims':
         rows = c.execute('SELECT t.title,x.status FROM bot_claims x JOIN bot_tasks t ON t.id=x.task\n          WHERE x.uid=%s ORDER BY x.created DESC LIMIT 15', (uid,)).fetchall()
         labels = {'started': tr('В работе', html_mode=False, section='task_bot', limit=3000), 'review': tr('На проверке', html_mode=False, section='task_bot', limit=3000), 'paid': tr('Оплачено', html_mode=False, section='task_bot', limit=3000), 'rejected': tr('Отклонено', html_mode=False, section='task_bot', limit=3000)}
