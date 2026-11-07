@@ -3,6 +3,7 @@ import json
 import logging
 import threading
 import bot_payout_channel
+import bot_crypto_pay
 import time
 from psycopg.types.json import Jsonb
 
@@ -70,5 +71,9 @@ def worker(db,api,stop):
         except Exception:log.exception('bot_notification_worker_failed')
         try:bot_payout_channel.dispatch(db,api)
         except Exception:log.exception('bot_payout_channel_worker_failed')
+        try:bot_crypto_pay.poll(db)
+        except Exception:log.exception('bot_crypto_invoice_poll_failed')
+        try:bot_crypto_pay.dispatch(db)
+        except Exception:log.exception('bot_crypto_payout_worker_failed')
         _signal.wait(15)
         _signal.clear()
