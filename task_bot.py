@@ -626,7 +626,12 @@ def route(c, uid, text, action, message, api, admin):
             buttons.append([button(label+' · '+money(r['amount'])+' · '+r['id'][:8],
                 'payout:detail:'+r['id'])])
         buttons += [[button('Отменить ожидающую заявку','cancelpayout')],[button('⬅️ Кабинет','cabinet')]]
-        return bot_ui.screen(uid,'📥 <b>История выплат</b>\nНажми на операцию, чтобы посмотреть подробности или снова открыть свой чек.',buttons)
+        working=c.execute("""SELECT count(*) AS n FROM bot_payout_work w
+            JOIN bot_payouts p ON p.id=w.id
+            WHERE p.uid=%s AND p.status='pending' AND w.phase='working'""",(uid,)).fetchone()['n']
+        note=('\n🏦 В работе: '+str(working)) if working else ''
+        return bot_ui.screen(uid,'📥 <b>История выплат</b>'+note+
+            '\nНажми на операцию, чтобы посмотреть подробности или снова открыть свой чек.',buttons)
     if action == 'cancelpayout':
         row = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' AND NOT EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=bot_payouts.id AND w.phase='working') AND NOT EXISTS(SELECT 1 FROM bot_crypto_payouts cp WHERE cp.payout_id=bot_payouts.id) RETURNING amount,id", (uid,)).fetchone()
         if not row:
