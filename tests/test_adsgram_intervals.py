@@ -24,6 +24,7 @@ class FakeDB:
         self.fraction={}
         self.credits=[]
         self.ledger=[]
+        self.farm_allocations=[]
     def execute(self,sql,args=()):
         q=' '.join(sql.lower().split())
         if q.startswith('select pg_advisory_xact_lock'):
@@ -62,6 +63,9 @@ class FakeDB:
         if q.startswith('insert into bot_adsgram_interval_credits'):
             self.credits.append(args)
             return Query()
+        if q.startswith('insert into farm_adsgram_revenue_allocations'):
+            self.farm_allocations.append(args)
+            return Query()
         if q.startswith('update bot_accounts'):
             n,uid=args
             self.wallet[uid]+=n
@@ -91,6 +95,9 @@ class IntervalTests(unittest.TestCase):
         self.assertEqual((earned['cash_views'],earned['farm_views']),(2,1))
         self.assertEqual(db.wallet[2],480)  # 2 bot views x $0.20 x 30% x 40 UAH
         self.assertEqual(earned['credited_kopeks'],480)
+        self.assertEqual(Decimal(earned['farm_share_usd']),Decimal('0.20'))
+        self.assertEqual(len(db.farm_allocations),1)
+        self.assertEqual(Decimal(db.farm_allocations[0][3]),Decimal('0.20'))
         self.assertEqual(len(db.credits),1)
         self.assertEqual(len(db.ledger),1)
         repeated=ads.report(db,1,'1.60',now=t+200)
