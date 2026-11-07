@@ -907,56 +907,17 @@ function openWithdrawalRequest() {
   el("withdrawal-amount").value=100;
   el("withdrawal-dialog").showModal();
 }
-let starsMaxCoins=1;
-function updateTopupTotal(){
- const n=Number(el("topup-amount")?.value);
- const total=el("topup-total");
- if(total)total.textContent=Number.isInteger(n)&&n>=1&&n<=starsMaxCoins?"К оплате: "+(n*2).toLocaleString("ru-RU")+" ⭐":"Введите от 1 до "+starsMaxCoins+" монет";
-}
-async function openTopup(){
- const dialog=el("topup-dialog");
- if(!dialog)return;
- dialog.showModal();
- const field=el("topup-amount");
- if(field){field.max=starsMaxCoins;field.value=String(Math.min(starsMaxCoins,Math.max(1,Number(field.value)||1)));}
- try{
-  const config=await api("/api/stars/config");
-  starsMaxCoins=config.max_coins||1;
-  if(field){field.max=starsMaxCoins;field.value=String(Math.min(starsMaxCoins,Math.max(1,Number(field.value)||1)));}
-  const status=el("topup-limit");
-  if(status)status.textContent="Доступно от 1 до "+starsMaxCoins+" монет за одну покупку.";
- }catch(e){toast("Не удалось проверить лимит оплаты. Повторите попытку.");}
- updateTopupTotal();
-}
-document.addEventListener("input",event=>{if(event.target?.id==="topup-amount")updateTopupTotal();});
-async function submitTopup(){
- if(pending)return;
- const n=Number(el("topup-amount")?.value);
- if(!Number.isInteger(n)||n<1||n>starsMaxCoins)return toast("Укажи от 1 до "+starsMaxCoins+" монет");
- try{
-  busy(true);
-  const order=await api("/api/stars/invoice",{amount:n});
-  if(!order.url||!order.url.startsWith("https://"))throw Error("Telegram не вернул ссылку на счёт");
+function openTopup(){
+  if(!state?.me?.telegram_id){
+    toast("Привяжи Telegram в настройках профиля, чтобы пополнить ферму картой.");
+    tab("profile");
+    return;
+  }
+  const url="https://t.me/Farmlife2026bot?start=farmdeposit";
   const tg=window.Telegram?.WebApp;
-  if(tg?.openInvoice)tg.openInvoice(order.url,async status=>{if(status==="paid"){await refresh();await loadHistory();await loadStarsOrders();toast("Оплата подтверждена!");}});
-  else window.open(order.url,"_blank");
-  el("topup-dialog").close();
- }catch(e){
-  if(e.status===503)toast("Покупки Stars пока не активированы. Монеты не списаны.");
-  else if(e.status===403)toast("Сначала привяжите Telegram в профиле фермы.");
-  else toast(e.message);
- }finally{busy(false);}
-}
-async function loadStarsOrders(){
- if(!token)return;
- const list=el("stars-order-list");
- if(!list)return;
- try{
-  const res=await api("/api/stars/orders");
-  list.innerHTML=res.orders.length?res.orders.map(o=>
-   `<div class="stars-order-row"><div><strong>${number(o.coins)} 🪙 за ${number(o.stars)} ⭐</strong><small>${new Date(o.created*1000).toLocaleString("ru-RU")} · ${o.status==="paid"?"Оплачено":o.status==="refunded"?"Возвращено":"Ожидает оплаты"}</small></div></div>`
-  ).join(""):'<p class="muted">Покупок ещё нет.</p>';
- }catch(e){list.textContent="Не удалось загрузить историю покупок.";}
+  if(tg?.openTelegramLink)tg.openTelegramLink(url);
+  else window.open(url,"_blank","noopener");
+  toast("В боте укажи сумму, переведи на карту и пришли квитанцию. После подтверждения монеты появятся в ферме.");
 }
 async function submitWithdrawalRequest() {
   if(pending)return;

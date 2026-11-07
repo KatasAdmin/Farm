@@ -70,6 +70,41 @@ class TopupTests(unittest.TestCase):
         self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_wallet_stars').fetchone()['n'],0)
         self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_card_topups').fetchone()['n'],0)
 
+    def test_farm_bank_receipt_credits_linked_game_only_after_admin_confirmation(self):
+        self.configure_card()
+        self.c.execute("INSERT INTO players(id,telegram_id,coins) VALUES(%s,%s,%s)",('farm-player',3,10))
+        self.c.raw.commit()
+        start=self.send(3,'/start farmdeposit')
+        self.assertIn('Пополнение фермы картой',start['text'])
+        self.assertEqual(bot.state(self.c,3)['data']['farm_player_id'],'farm-player')
+        self.send(3,'10')
+        self.receipt(uid=3)
+        tid=self.c.execute("SELECT id FROM bot_card_topups WHERE uid=%s",(3,)).fetchone()['id']
+        self.assertEqual(self.c.execute('SELECT player_id FROM farm_card_topup_targets WHERE topup_id=%s',(tid,)).fetchone()['player_id'],'farm-player')
+        self.assertEqual(self.c.execute('SELECT coins FROM players WHERE id=%s',('farm-player',)).fetchone()['coins'],10)
+        self.assertEqual(self.balance(3),0)
+        self.confirm_card(tid)
+        self.assertEqual(self.c.execute('SELECT coins FROM players WHERE id=%s',('farm-player',)).fetchone()['coins'],20)
+        self.assertEqual(self.balance(3),0,'Do not double credit bot wallet and farm')
+        self.assertEqual(self.c.execute("SELECT purchased FROM farm_money_sources").fetchone()['purchased'],10)
+        self.assertEqual(self.c.execute("SELECT count(*) AS n FROM money_log WHERE kind='card_purchase'").fetchone()['n'],1)
+        self.assertEqual(self.c.execute("SELECT amount FROM bot_cash_pool").fetchone()['amount'],1000)
+        self.assertIn('обработана',self.send(1,action='admin:cardapprove:'+tid)['text'])
+        self.assertEqual(self.c.execute('SELECT coins FROM players WHERE id=%s',('farm-player',)).fetchone()['coins'],20)
+
+    def test_farm_bank_link_only_targets_authenticated_telegram(self):
+        self.configure_card()
+        self.c.execute("INSERT INTO players(id,telegram_id,coins) VALUES(%s,%s,%s)",('another-farm',2,5))
+        self.c.raw.commit()
+        refused=self.send(3,'/start farmdeposit')
+        self.assertIn('привяжи Telegram',refused['text'])
+        self.assertFalse(bot.state(self.c,3))
+        accepted=self.send(2,'/start farmdeposit')
+        self.assertIn('Пополнение фермы картой',accepted['text'])
+        self.send(2,'10.50')
+        self.assertEqual(bot.state(self.c,2)['state'],'topup_card_amount')
+        self.assertEqual(self.c.execute('SELECT coins FROM players WHERE id=%s',('another-farm',)).fetchone()['coins'],5)
+
     def test_crypto_pending_is_not_mislabelled_manual_review(self):
         self.c.execute("""INSERT INTO bot_crypto_invoices
           (id,uid,invoice_id,amount,status,created)

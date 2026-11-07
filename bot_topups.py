@@ -20,9 +20,39 @@ def initialize(c):
     # obsolete partial index while retaining all existing requests and money.
     c.execute("DROP INDEX IF EXISTS bot_one_pending_card")
     c.execute("CREATE INDEX IF NOT EXISTS bot_card_pending_user ON bot_card_topups(uid,status)")
+    c.execute("""CREATE TABLE IF NOT EXISTS farm_card_topup_targets(
+      topup_id text PRIMARY KEY REFERENCES bot_card_topups(id),
+      player_id text NOT NULL, telegram_id bigint NOT NULL)""")
     applied = c.execute("INSERT INTO bot_topup_migrations VALUES('wallet-stars-rate-50-2026-10-31') ON CONFLICT DO NOTHING RETURNING id").fetchone()
     if applied:
         c.execute('UPDATE bot_topup_config SET star_rate=50 WHERE id=1')
+
+def start_farm_card(c, uid):
+    """Open the existing bank-receipt flow for the Telegram-linked farm.
+
+    The player id is resolved server-side from Telegram's authenticated uid,
+    never from a deep-link parameter or a user-supplied form.
+    """
+    b = core()
+    row = c.execute("SELECT id FROM players WHERE telegram_id=%s", (uid,)).fetchone()
+    if not row:
+        return b.bot_ui.screen(uid,
+            '🐔 Сначала привяжи Telegram в настройках своей фермы, затем повтори пополнение.',
+            [[b.button('⬅️ Кабинет', 'cabinet')]])
+    cfg = config(c)
+    if not cfg['card']:
+        return b.bot_ui.screen(uid,
+            '💳 Пополнение картой временно недоступно: реквизиты ещё не установлены.',
+            [[b.button('⬅️ Кабинет', 'cabinet')]])
+    b.state(c,uid,'topup_card_amount',{'card':cfg['card'],'recipient':cfg['recipient'],
+                                        'farm_player_id':row['id']})
+    return b.bot_ui.input_screen(uid,
+        '🐔 <b>Пополнение фермы картой</b>\\n\\n'
+        '1 грн = 1 игровая монета (фиксированный курс текущей версии).\\n'
+        'Введи целую сумму в гривнах. Затем получишь реквизиты и отправишь фото или PDF квитанции. '
+        'Монеты начислим в ферму только после подтверждения поступления администратором.',
+        cancel_action='deposit')
+
 
 def config(c):
     return c.execute('SELECT * FROM bot_topup_config WHERE id=1').fetchone()
@@ -125,6 +155,11 @@ def input_text(c, uid, text, message, current):
         rules = b.bot_admin.limits(c)
         if not rules['card_min'] <= amount <= rules['card_max']:
             raise b.UserError(tr('Сумма перевода: от {v0} до {v1}', {'v0': b.money(rules['card_min']), 'v1': b.money(rules['card_max'])}, html_mode=False, section='bot_topups', limit=3000))
+        if data.get('farm_player_id') and amount % 100:
+            raise b.UserError('Для пополнения фермы укажи целое количество гривен.')
+        if data.get('farm_player_id'):
+            player=c.execute('SELECT id FROM players WHERE id=%s AND telegram_id=%s',(data['farm_player_id'],uid)).fetchone()
+            if not player:raise b.UserError('Ферма больше не привязана к твоему Telegram.')
         data['amount'] = amount
         b.state(c, uid, 'topup_card_receipt', data)
         return ui.input_screen(uid, tr('💳 <b>Реквизиты для перевода</b>\n\nКарта: <code>{v0}</code>\nПолучатель: <b>{v1}</b>\nСумма: <b>{v2}</b>\n\nПосле перевода отправь квитанцию одним фото или PDF. Зачисление — после проверки поступления администратором.', {'v0': data['card'], 'v1': ui.esc(data['recipient']), 'v2': b.money(amount)}, html_mode=True, section='bot_topups', limit=3000), cancel_action='deposit')
@@ -147,6 +182,10 @@ def input_text(c, uid, text, message, current):
             raise b.UserError('У тебя уже 10 пополнений на проверке. Следующее можно создать после обработки хотя бы одного.')
         tid = uuid.uuid4().hex[:16]
         c.execute("INSERT INTO bot_card_topups VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'pending','',%s)", (tid, uid, data['amount'], data['card'], data['recipient'], file['file_id'], key, media, time.time()))
+        if data.get('farm_player_id'):
+            player=c.execute('SELECT id FROM players WHERE id=%s AND telegram_id=%s',(data['farm_player_id'],uid)).fetchone()
+            if not player:raise b.UserError('Ферма больше не привязана к твоему Telegram.')
+            c.execute("INSERT INTO farm_card_topup_targets(topup_id,player_id,telegram_id) VALUES(%s,%s,%s)",(tid,player['id'],uid))
         b.bot_notifications.enqueue(c,'card-receipt:'+tid,tr('📨 Новая квитанция на проверке\n\nИгрок: {v0}\nСумма: {v1}\nЗаявка: {v2}\n\nПеред зачислением проверь поступление в банке.', {'v0': str(uid), 'v1': b.money(data['amount']), 'v2': tid}, section='notifications'),'admin:cardview:'+tid,subject=uid)
         b.state(c, uid, 'clear')
         return ui.screen(uid, tr('📨 <b>Квитанция отправлена на проверку</b>\n\nЗаявка: <code>{v0}</code>\nСумма: {v1}\nСтатус доступен в «Мои пополнения».', {'v0': tid, 'v1': b.money(data['amount'])}, html_mode=True, section='bot_topups', limit=3000), [[b.button('📥 Мои пополнения', 'topup:mine')]])
@@ -263,6 +302,8 @@ def admin(c, uid, action):
         row = c.execute("SELECT * FROM bot_card_topups WHERE id=%s FOR UPDATE", (tid,)).fetchone()
         if not row:
             raise b.UserError(tr('Заявка уже обработана или не найдена.', html_mode=False, section='bot_topups', limit=3000))
+        farm_target=c.execute("SELECT player_id FROM farm_card_topup_targets WHERE topup_id=%s",(tid,)).fetchone()
+        destination_label='🐔 Ферма' if farm_target else '🤖 Баланс бота'
         if row['status']!='pending':
             if not action.startswith('admin:cardview:'):
                 raise b.UserError('Эта заявка уже обработана. Повторного зачисления нет.')
@@ -276,6 +317,7 @@ def admin(c, uid, action):
             return ui.screen(uid,
                 '✅ <b>Подтверждение пополнения</b>\n\n'
                 'Игрок: <code>'+str(row['uid'])+'</code>\n'
+                'Зачисление: <b>'+destination_label+'</b>\n'
                 'Сумма: <b>'+b.money(row['amount'])+'</b>\n'
                 'Заявка: <code>'+ui.esc(tid)+'</code>\n\n'
                 'Сверь поступление именно этой суммы на своей карте '
@@ -301,11 +343,31 @@ def admin(c, uid, action):
         if not c.execute('INSERT INTO bot_deposits VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING reference', (reference, row['uid'], row['amount'], time.time())).fetchone():
             raise b.UserError(tr('Эта банковская операция уже учтена. Повторного начисления нет.', html_mode=False, section='bot_topups', limit=3000))
         c.execute("UPDATE bot_card_topups SET status='approved',reference=%s WHERE id=%s", (reference, row['id']))
+        target=c.execute("SELECT player_id,telegram_id FROM farm_card_topup_targets WHERE topup_id=%s FOR UPDATE",(row['id'],)).fetchone()
+        if target:
+            # Commit the cash payment and farm coins in the same DB transaction.
+            player=c.execute("SELECT id FROM players WHERE id=%s AND telegram_id=%s FOR UPDATE",
+                             (target['player_id'],target['telegram_id'])).fetchone()
+            if not player or target['telegram_id']!=row['uid']:
+                raise b.UserError('Связь с фермой изменилась. Пополнение не проведено; проверь заявку.')
+            if row['amount']%100:raise b.UserError('Сумма фермы должна быть целым количеством гривен.')
+            coins=row['amount']//100
+            c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(coins,player['id']))
+            log_id=uuid.uuid4().hex
+            c.execute("INSERT INTO money_log(id,player_id,kind,delta,details,created) VALUES(%s,%s,%s,%s,%s,%s)",
+                      (log_id,player['id'],'card_purchase',coins,'Пополнение фермы картой · '+row['id'],time.time()))
+            c.execute("INSERT INTO farm_money_sources(log_id,bonus,purchased,earned) VALUES(%s,0,%s,0)",
+                      (log_id,coins))
+        else:
+            b.change(c, row['uid'], row['amount'], 'manual_deposit', 'Перевод на карту · ' + row['id'])
         c.execute('UPDATE bot_cash_pool SET amount=amount+%s WHERE id=1', (row['amount'],))
-        b.change(c, row['uid'], row['amount'], 'manual_deposit', 'Перевод на карту · ' + row['id'])
-        b.bot_notifications.enqueue(c,'card-approved:'+row['id'],tr('✅ Пополнение подтверждено\n\nНа баланс зачислено: {v0}\nЗаявка: {v1}', {'v0': b.money(row['amount']), 'v1': row['id']}, section='notifications'),recipient=row['uid'])
+        notice=('🐔 ✅ Пополнение фермы подтверждено\\n\\nНачислено: '+str(row['amount']//100)+' монет'
+                if target else '✅ Пополнение подтверждено\\n\\nНа баланс зачислено: '+b.money(row['amount']))
+        b.bot_notifications.enqueue(c,'card-approved:'+row['id'],
+                                    notice+'\\nЗаявка: '+row['id'],recipient=row['uid'])
         b.state(c, uid, 'clear')
-        return ui.screen(uid, tr('✅ Зачислено {v0} пользователю {v1}', {'v0': b.money(row['amount']), 'v1': str(row['uid'])}, html_mode=True, section='bot_topups', limit=3000))
+        label=(str(row['amount']//100)+' монет в ферму' if target else b.money(row['amount'])+' в бот')
+        return ui.screen(uid,'✅ Зачислено '+label+' пользователю '+str(row['uid']))
     return None
 
 def admin_input(c, uid, text, current):
