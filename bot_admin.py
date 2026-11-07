@@ -67,7 +67,10 @@ def payment_methods_screen(c,uid):
       'Отключение скрывает кнопку и запрещает новые заявки; уже созданные выплаты остаются на проверке.')
     rows=[[b.button(('✅' if flags[k] else '⛔')+' '+title,'admin:paymethods:toggle:'+k)]
           for k,(title,_) in PAYMENT_METHODS.items()]
-    rows += [[b.button('🔑 Токен и лимиты Crypto Pay','admin:paymethods:credentials')],
+    public=c.execute("SELECT enabled FROM bot_payout_channel_options WHERE key='publish_paid'").fetchone()
+    rows += [[b.button(('✅' if public and public['enabled'] else '⛔')+' Публикации выплат в канале',
+             'admin:paymethods:public')],
+             [b.button('🔑 Токен и лимиты Crypto Pay','admin:paymethods:credentials')],
              [b.button('⬅️ Финансы','admin:section:finance')]]
     return b.bot_ui.screen(uid,text,rows)
 
@@ -379,6 +382,10 @@ def admin(c, uid, text, action, api):
     if action in navigation or action.startswith(('admin:settings:','admin:copylist:','admin:copyentry:','admin:copyreset:','admin:copyrestore:','admin:payview:','admin:ticketview:')):
         b.state(c,uid,'clear')
     if action == 'admin:paymethods':
+        return payment_methods_screen(c,uid)
+    if action == 'admin:paymethods:public':
+        # Public payout notices do not control personal or owner notifications.
+        c.execute("UPDATE bot_payout_channel_options SET enabled=NOT enabled WHERE key='publish_paid'")
         return payment_methods_screen(c,uid)
     if action == 'admin:paymethods:credentials':
         return payment_credentials_screen(c,uid)
