@@ -23,6 +23,7 @@ import bot_topups
 import bot_copy
 import bot_admin
 import bot_notifications
+import bot_payout_channel
 import bot_payouts
 import bot_decisions
 import bot_advertising
@@ -77,6 +78,7 @@ def initialize(c):
     bot_copy.initialize(c)
     bot_admin.initialize(c)
     bot_notifications.initialize(c)
+    bot_payout_channel.initialize(c)
     bot_payouts.initialize(c)
     bot_decisions.initialize(c)
     bot_advertising.initialize(c)
@@ -1039,6 +1041,7 @@ def _administration(c, uid, text, action, api):
         c.execute('UPDATE bot_cash_pool SET amount=CASE WHEN amount>=%s THEN amount-%s ELSE 0 END WHERE id=1', (bot_admin.net(c, p), bot_admin.net(c, p)))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)", (uuid.uuid4().hex, p['uid'], 'Выплачено ' + money(bot_admin.net(c, p)) + ' · ' + p['id'], time.time()))
         bot_notifications.enqueue(c,'payout-paid:'+p['id'],tr('✅ Выплата выполнена\n\nСумма: {v0}\nЗаявка: {v1}', {'v0': money(bot_admin.net(c, p)), 'v1': p['id']}, section='notifications'),recipient=p['uid'])
+        bot_payout_channel.enqueue_paid(c,p['id'],money(bot_admin.net(c,p)))
         state(c, uid, 'clear')
         return say(uid, tr('Выплата подтверждена, заявка закрыта.', html_mode=False, section='task_bot', limit=3000))
     if action.startswith(('admin:approve:', 'admin:rejecttask:')):
