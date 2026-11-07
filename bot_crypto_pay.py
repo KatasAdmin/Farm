@@ -236,6 +236,14 @@ def settle_invoice(db,order_id):
         b.bot_notifications.enqueue(c,'crypto-paid:'+order_id,
             '✅ Crypto Bot: пополнение '+b.money(row['amount'])+' зачислено.',
             recipient=row['uid'])
+        # Owner notification must be persisted with the same successful credit.
+        b.bot_notifications.enqueue(c,'crypto-paid-admin:'+order_id,
+            '💎 Пополнение CryptoBot подтверждено\\n'
+            'Пользователь: '+str(row['uid'])+'\\n'
+            'Зачислено: '+b.money(row['amount'])+'\\n'
+            'Счёт: '+str(row['invoice_id'])+'\\n'
+            'Операция: '+order_id,
+            action='admin:payments:all:0',subject=row['uid'])
     return True
 
 
@@ -294,9 +302,11 @@ def _verified_transfer(row, transfer, uid):
 
 def _find_transfer(row):
     result=call('getTransfers',{'spend_id':row['spend_id']})
-    if not isinstance(result,list):
+    # Crypto Pay versions may return either a list or a paginated items object.
+    items=result.get('items') if isinstance(result,dict) else result
+    if not isinstance(items,list):
         raise CryptoPayError('Invalid transfer list')
-    return next((i for i in result if isinstance(i,dict) and i.get('spend_id')==row['spend_id']),None)
+    return next((i for i in items if isinstance(i,dict) and i.get('spend_id')==row['spend_id']),None)
 
 
 def _finalize_transfer(db,row,transfer):
