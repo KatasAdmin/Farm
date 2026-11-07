@@ -549,7 +549,7 @@ def route(c, uid, text, action, message, api, admin):
         state(c,uid,'destination',data)
         return input_prompt(uid,'💳 Введи номер банковской карты — ровно 16 цифр.\n\nНикаких CVV, PIN или срока действия карты.',cancel_action='cancel_input')
     if action == 'withdraw:crypto':
-        if not bot_admin.method_enabled(c,'crypto_withdraw') or not bot_crypto_pay.withdrawals_enabled():
+        if not bot_admin.method_enabled(c,'crypto_withdraw') or not bot_crypto_pay.withdrawals_enabled() or bot_crypto_pay.payout_cap(c)<=0:
             raise UserError('Вывод через Crypto Bot сейчас недоступен.')
         current=state(c,uid)
         if not current or current['state']!='withdraw_method':
@@ -558,7 +558,7 @@ def route(c, uid, text, action, message, api, admin):
             return say(uid,'💎 Автоматический вывод через Crypto Bot пока отключён. Владелец должен подключить API, включить переводы и установить лимит.',[[button('⬅️ Выбрать способ','withdraw:back')]])
         data=current['data']
         try:
-            usdt=bot_crypto_pay.quote_usdt(data['net'])
+            usdt=bot_crypto_pay.quote_usdt(data['net'],c)
         except bot_crypto_pay.CryptoPayError as exc:
             raise UserError(str(exc))
         data['method']='crypto'
@@ -943,7 +943,7 @@ def confirmation(c, uid, action, api):
             raise UserError('Вывод на карту сейчас отключён администратором.')
         bot_account_controls.require_withdrawal(c,uid)
         if data.get('method')=='crypto':
-            if not bot_admin.method_enabled(c,'crypto_withdraw') or not bot_crypto_pay.withdrawals_enabled():
+            if not bot_admin.method_enabled(c,'crypto_withdraw') or not bot_crypto_pay.withdrawals_enabled() or bot_crypto_pay.payout_cap(c)<=0:
                 raise UserError('Автоматический вывод временно недоступен. Средства не списаны.')
             if time.time()-data.get('crypto_quote_at',0)>120:
                 raise UserError('Курс USDT устарел. Создай заявку заново, чтобы получить новый курс.')
