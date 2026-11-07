@@ -5,7 +5,7 @@ const source=fs.readFileSync('assets/monetag-rewards.js','utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 
 async function scenario(configured=true, fail=false){
- const dom=new JSDOM('<p id="warning"></p><section id="shop"><div class="product"><div class="trade-dual-actions"><button onclick="showShop(\'milk\')">Купить молоко</button></div></div></section><section id="coop"><div data-animal-card="cows"><div class="buttons"><button onclick="showShop(\'cows\')">Купить корову</button></div></div></section><section id="wallet"></section><dialog id="purchase-dialog"></dialog>',{url:'https://farm.test',runScripts:'outside-only'});
+ const dom=new JSDOM('<p id="warning"></p><section id="shop"><div class="product"><div class="trade-dual-actions"><button onclick="showShop(\'milk\')">Купить молоко</button></div></div></section><section id="coop"><div data-animal-card="cows"><div class="buttons"><button onclick="showShop(\'cows\')">Купить корову</button></div></div></section><section id="wallet"><button id="harvest-ad-eggs" data-ad-free="eggs" hidden>Eggs</button><button id="harvest-ad-milk" data-ad-free="milk" hidden>Milk</button></section><dialog id="purchase-dialog"></dialog>',{url:'https://farm.test',runScripts:'outside-only'});
  const w=dom.window,requests=[],notifications=[];let shows=0,confirmed=false;
  w.setInterval=()=>0;
  w.setTimeout=(f)=>{Promise.resolve().then(f);return 0;};
@@ -22,6 +22,8 @@ async function scenario(configured=true, fail=false){
  w.eval(source);await tick();await tick();
  assert.ok(w.document.querySelector('#shop [data-ad-free="milk"]'));
  assert.ok(w.document.querySelector('#coop [data-ad-free="cows"]'));
+ assert.equal(w.document.getElementById('harvest-ad-eggs').hidden,!configured);
+ assert.equal(w.document.getElementById('harvest-ad-milk').hidden,!configured);
  // The current confirmed-goods reward flow intentionally does not mint cash coins.
  assert.equal(w.document.querySelector('[data-ad-free="coins"]'),null);
  assert.ok(w.document.getElementById('free-grain-shortage'));

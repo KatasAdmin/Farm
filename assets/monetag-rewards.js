@@ -28,6 +28,11 @@ function decorate(){
  if(purchaseDialog&&!el('purchase-ad-free')){const button=itemButton('grain');button.id='purchase-ad-free';purchaseDialog.appendChild(button);}
  const purchaseFree=el('purchase-ad-free');
  if(purchaseFree){const item=purchase?.item;purchaseFree.hidden=false;purchaseFree.dataset.adFree=purchase?.kind==='bundle'?'coins':adRewards[item]?item:'coins';}
+ // Compact harvest prompts are optional and appear only with a real, enabled ad provider.
+ for(const item of ['eggs','milk']){
+  const prompt=el('harvest-ad-'+item);
+  if(prompt)prompt.hidden=!(cfg?.enabled&&!!tgInitData()&&!!adRewards[item]);
+ }
  const shortage=el('free-grain-shortage');if(shortage)shortage.hidden=!(state?.farm?.effective_grain_shortage>0);
  document.querySelectorAll('[data-ad-free="coins"]').forEach(button=>button.remove());
  document.querySelectorAll('[data-ad-free]').forEach(button=>{
