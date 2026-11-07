@@ -26,7 +26,7 @@ class SafetyAuditTests(unittest.TestCase):
     row=economy.EconomyTests.row
 
     def payout(self,uid=2,value='5'):
-        self.send(uid,action='withdraw');self.send(uid,value);self.send(uid,'TEST BANK RECIPIENT');self.send(uid,action='confirm_payout')
+        self.send(uid,action='withdraw');self.send(uid,value);self.send(uid,action='withdraw:card');self.send(uid,'4441111056522018');self.send(uid,action='confirm_payout')
         return self.c.execute("SELECT id FROM bot_payouts WHERE uid=%s AND status='pending'",(uid,)).fetchone()['id']
 
     def review(self,tid,uid=3):
@@ -101,7 +101,8 @@ class SafetyAuditTests(unittest.TestCase):
         self.credit()
         self.send(2,action='withdraw')
         self.send(2,'5')
-        self.send(2,'TEST BANK RECIPIENT')
+        self.send(2,action='withdraw:card')
+        self.send(2,'4441111056522018')
         draft=bot.state(self.c,2)
         self.assertTrue(draft['data']['public_profile'])
         toggled=self.send(2,action='payout_public:'+draft['data']['nonce'])
