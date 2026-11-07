@@ -88,24 +88,33 @@ def call(method, data=None):
         raise CryptoPayError('Crypto Pay is not configured')
     base=HOSTS['test'] if os.getenv('CRYPTOPAY_TESTNET')=='1' else HOSTS['main']
     raw=json.dumps(data or {},ensure_ascii=True).encode('utf-8')
-    req=Request(base+method, data=raw, method='POST',headers={
+    # getMe is parameterless. The documented GET avoids an unnecessary body,
+    # and a clear User-Agent reduces false positives at upstream edge filters.
+    is_get=method=='getMe'
+    req=Request(base+method, data=None if is_get else raw,
+        method='GET' if is_get else 'POST',headers={
         'Crypto-Pay-API-Token':secret,
         'Content-Type':'application/json',
-        'Accept':'application/json'})
+        'Accept':'application/json',
+        'User-Agent':'TrevixoCryptoPay/1.0 (+merchant integration)'})
     try:
         with urlopen(req,timeout=12) as response:
             body=response.read(100000)
     except HTTPError as exc:
-        # Crypto Pay can return a structured error code in non-2xx responses.
-        # Never echo arbitrary body text, request headers, or token.
+        # Show only a safe diagnostic category, never response bodies or headers.
+        # An HTML 403 is usually an edge denial; JSON errors are API decisions.
+        content_type=str(exc.headers.get('Content-Type','')).lower()
+        server=str(exc.headers.get('Server','')).lower()
         try:
-            payload=json.loads(exc.read(8192))
+            payload=json.loads(exc.read(8192)) if 'json' in content_type else None
         except (ValueError,TypeError,OSError):
             payload=None
         code=payload.get('error') if isinstance(payload,dict) else None
         if isinstance(code,str) and 1<=len(code)<=100 and all(ch.isalnum() or ch=='_' for ch in code):
             raise CryptoPayError('Crypto Pay HTTP '+str(exc.code)+': '+code) from None
-        raise CryptoPayError('Crypto Pay HTTP '+str(exc.code)+'. Проверь API-токен и настройки приложения.') from None
+        if exc.code==403 and ('html' in content_type or 'cloudflare' in server):
+            raise CryptoPayError('HTTP 403: доступ отклонён сетевой защитой Crypto Pay/CDN (HTML). Токен может быть верным; требуется проверка у поддержки.') from None
+        raise CryptoPayError('Crypto Pay HTTP '+str(exc.code)+': ответ без кода API. Проверь доступ приложения и сеть.') from None
     except (URLError, TimeoutError, OSError) as exc:
         raise CryptoPayError('Соединение с Crypto Pay недоступно: '+type(exc).__name__) from None
     try:
