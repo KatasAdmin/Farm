@@ -33,6 +33,12 @@ class Database:
         if sql.startswith('ALTER TABLE bot_accounts ADD COLUMN IF NOT EXISTS advertising'):
             columns = {row[1] for row in self.raw.execute('PRAGMA table_info(bot_accounts)')}
             sql = 'SELECT 1' if 'advertising' in columns else sql.replace(' IF NOT EXISTS', '')
+        for table, column in (('bot_payout_channel_posts','recipient_uid'),
+                              ('bot_payouts','public_profile')):
+            prefix='ALTER TABLE '+table+' ADD COLUMN IF NOT EXISTS '+column
+            if sql.startswith(prefix):
+                columns={row[1] for row in self.raw.execute('PRAGMA table_info('+table+')')}
+                sql='SELECT 1' if column in columns else sql.replace(' IF NOT EXISTS', '')
         if 'pg_advisory_xact_lock' in sql:
             sql, params = 'SELECT 1', ()
         params = tuple(json.dumps(p.obj) if isinstance(p, bot.Jsonb) else p for p in params)
