@@ -168,6 +168,8 @@ def initialize(c):
         payout_id text PRIMARY KEY,check_id bigint UNIQUE,check_url text NOT NULL DEFAULT '',
         state text NOT NULL CHECK(state IN ('creating','active','review','activated')),
         created double precision NOT NULL)""")
+    c.execute("ALTER TABLE bot_crypto_checks ADD COLUMN IF NOT EXISTS last_checked_at double precision NOT NULL DEFAULT 0")
+    c.execute("CREATE INDEX IF NOT EXISTS bot_crypto_check_poll ON bot_crypto_checks(state,last_checked_at)")
     c.execute("UPDATE bot_crypto_checks SET state='review' WHERE state='creating'")
     c.execute("""CREATE TABLE IF NOT EXISTS bot_crypto_liquidity_wait(
         payout_id text PRIMARY KEY REFERENCES bot_crypto_payouts(payout_id),
@@ -455,7 +457,10 @@ def _check_dispatch(db):
           JOIN bot_payouts p ON p.id=cp.payout_id
           JOIN bot_crypto_checks ch ON ch.payout_id=cp.payout_id
           WHERE ch.state='active' AND p.status='pending'
-          ORDER BY ch.created LIMIT 1""").fetchone()
+          ORDER BY ch.last_checked_at,ch.created LIMIT 1 FOR UPDATE OF ch""").fetchone()
+        if row:
+            c.execute("UPDATE bot_crypto_checks SET last_checked_at=%s WHERE payout_id=%s",
+                      (time.time(),row['payout_id']))
     if row:
         try:
             remote=next(iter(_check_items(row['check_id'])),None)
@@ -478,6 +483,7 @@ def _check_dispatch(db):
             LEFT JOIN bot_crypto_checks ch ON ch.payout_id=cp.payout_id
             WHERE cp.state='pending' AND p.status='pending'
               AND ch.payout_id IS NULL
+              AND NOT EXISTS(SELECT 1 FROM bot_debts d WHERE d.uid=p.uid AND d.amount>0)
               AND NOT EXISTS(SELECT 1 FROM bot_crypto_liquidity_wait h WHERE h.payout_id=cp.payout_id)
             ORDER BY cp.created FOR UPDATE OF cp LIMIT 20""").fetchall()
         row=selected[0] if selected else None
@@ -609,7 +615,6 @@ def dispatch(db):
         # block unrelated payouts whose provider outcome is known.
     if not withdrawals_enabled():
         return False
-    # Owner switch also gates dispatch: disabling withdrawals must stop new
     # New and safely pending payouts are check-only. Legacy transfer attempts
     # remain in review and are reconciled above by their original spend_id.
     # Never call transfer() again, including for payouts queued before upgrade.
