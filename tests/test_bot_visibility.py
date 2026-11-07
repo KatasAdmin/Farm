@@ -1,5 +1,6 @@
 """Visibility controls must never change money or weaken owner permissions."""
 import unittest
+from unittest.mock import patch
 import bot_visibility as visible
 import test_task_bot as base
 
@@ -63,7 +64,8 @@ class VisibilityTests(unittest.TestCase):
                 self.assertIn('только администратору',response['text'])
                 self.assertNotIn('Реферальные уровни',response['text'])
                 self.assertNotIn('За свои просмотры',response['text'])
-        admin=self.send(1,action='ad_income')
+        with patch('bot_monetag_cash.estimated_earnings',return_value={'viewer':0.0,'referral':0.0,'total':0.0,'levels':[0.0]*7}):
+            admin=self.send(1,action='ad_income')
         self.assertIn('Реферальные уровни',admin['text'])
         visible=self.send(1,action='admin:visibility:finance')
         self.assertNotIn('Доход от рекламы',visible['text'])
