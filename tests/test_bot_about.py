@@ -66,7 +66,7 @@ class AboutTests(unittest.TestCase):
     def test_paid_payouts_aggregate_without_exposing_destinations(self):
         with self.c:
             for key,status,n,uid in [('paid','paid',125,2),('pending','pending',1000,3),('cancel','cancelled',700,2)]:
-                self.c.execute('INSERT INTO bot_payouts VALUES(%s,%s,%s,%s,%s,%s,0)',
+                self.c.execute('INSERT INTO bot_payouts(id,uid,amount,destination,status,reference,created) VALUES(%s,%s,%s,%s,%s,%s,0)',
                                (key,uid,n,'secret-bank-recipient',status,'secret-operation'))
             self.c.execute('INSERT INTO bot_daily_claims VALUES(1,%s,50)',('2026-10-30',))
             self.c.execute('INSERT INTO bot_daily_claims VALUES(2,%s,50)',('2026-10-30',))
