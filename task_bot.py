@@ -555,8 +555,14 @@ def route(c, uid, text, action, message, api, admin):
         state(c,uid,'destination',data)
         return input_prompt(uid,'💳 Введи номер банковской карты — ровно 16 цифр.\n\nНикаких CVV, PIN или срока действия карты.',cancel_action='cancel_input')
     if action == 'withdraw:crypto':
-        if not bot_admin.method_enabled(c,'crypto_withdraw') or not bot_crypto_pay.withdrawals_enabled() or bot_crypto_pay.payout_cap(c)<=0:
-            raise UserError('Вывод через Crypto Bot сейчас недоступен.')
+        if not bot_admin.method_enabled(c,'crypto_withdraw'):
+            raise UserError('Вывод через Crypto Bot выключен владельцем.')
+        if not bot_crypto_pay.withdrawals_enabled() or bot_crypto_pay.payout_cap(c)<=0:
+            return bot_ui.screen(uid,'💎 <b>Crypto Bot: вывод временно недоступен</b>\n\n'
+              'Пополнение работает отдельно. Чтобы включить реальные выплаты USDT, '
+              'владелец должен разрешить переводы в Crypto Pay и активировать '
+              'CRYPTOPAY_AUTO_PAYOUTS_ENABLED в Railway после проверки безопасности.',
+              [[button('⬅️ К способам вывода','withdraw:back'),button('Отмена','cancel_input')]])
         current=state(c,uid)
         if not current or current['state']!='withdraw_method':
             raise UserError('Сначала выбери сумму вывода.')
@@ -816,7 +822,7 @@ def process_input(c, uid, text, message, current, api):
         if c.execute("SELECT 1 FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone():
             raise UserError(tr('Сначала дождись обработки предыдущей заявки или отмени её в кабинете.', html_mode=False, section='task_bot', limit=3000))
         state(c, uid, 'withdraw_method', {'amount': n, 'fee': fee, 'net': n - fee})
-        return say(uid, '💸 Вывод '+money(n-fee)+'\\n\\nВыбери способ получения:', withdrawal_method_rows(c))
+        return bot_ui.screen(uid, '💸 <b>Вывод '+money(n-fee)+'</b>\n\nВыбери способ получения:', withdrawal_method_rows(c))
     if stage == 'withdraw_method':
         # Backward compatibility for existing in-flight forms and legacy IBAN clients.
         # Selecting the bank-card button uses strict sixteen-digit validation instead.
@@ -975,8 +981,11 @@ def withdrawal_method_rows(c):
     rows=[]
     if bot_admin.method_enabled(c,'card_withdraw'):
         rows.append([button('💳 Банковской картой','withdraw:card')])
-    if bot_admin.method_enabled(c,'crypto_withdraw') and bot_crypto_pay.withdrawals_enabled():
-        rows.append([button('💎 Crypto Bot','withdraw:crypto')])
+    if bot_admin.method_enabled(c,'crypto_withdraw'):
+        if bot_crypto_pay.withdrawals_enabled() and bot_crypto_pay.payout_cap(c)>0:
+            rows.append([button('💎 Crypto Bot · USDT','withdraw:crypto')])
+        else:
+            rows.append([button('💎 Crypto Bot · пока недоступен','withdraw:crypto')])
     rows.append([button('Отмена','cancel_input')])
     return rows
 
