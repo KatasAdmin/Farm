@@ -170,6 +170,9 @@ def initialize(c):
         checked double precision NOT NULL DEFAULT 0)""")
     # If process crashed after sending, do NOT send again: first reconcile spend_id.
     c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE state='sending'")
+    c.execute("""CREATE TABLE IF NOT EXISTS bot_crypto_incidents(
+       payout_id text PRIMARY KEY, phase text NOT NULL,
+       reason text NOT NULL, created double precision NOT NULL)""")
 
 
 def uah(n):
@@ -299,6 +302,17 @@ def enqueue_payout(c,pid,usdt):
 
 
 
+def _record_incident(db,row,phase,exc):
+    # Expose only sanitized diagnostic text, never API tokens or raw headers.
+    reason=str(exc) if isinstance(exc,CryptoPayError) else type(exc).__name__
+    reason=reason[:300]
+    with db() as c:
+        c.execute("""INSERT INTO bot_crypto_incidents(payout_id,phase,reason,created)
+            VALUES(%s,%s,%s,%s) ON CONFLICT(payout_id)
+            DO UPDATE SET phase=EXCLUDED.phase,reason=EXCLUDED.reason,created=EXCLUDED.created""",
+            (row['payout_id'],phase,reason,time.time()))
+
+
 def _insufficient_funds(exc):
     if not isinstance(exc,CryptoPayError):
         return False
@@ -393,6 +407,7 @@ def _finalize_check(db,check,remote):
         net=b.bot_admin.net(c,p)
         c.execute("UPDATE bot_crypto_checks SET state='activated' WHERE payout_id=%s",(p['id'],))
         c.execute("UPDATE bot_crypto_payouts SET state='completed' WHERE payout_id=%s",(p['id'],))
+        c.execute("DELETE FROM bot_crypto_incidents WHERE payout_id=%s",(p['id'],))
         c.execute("UPDATE bot_payouts SET status='paid',reference=%s WHERE id=%s",('cryptocheck_'+str(ch['check_id']),p['id']))
         c.execute('UPDATE bot_cash_pool SET amount=CASE WHEN amount>=%s THEN amount-%s ELSE 0 END WHERE id=1',(net,net))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)",(uuid.uuid4().hex,p['uid'],'Crypto Pay check activated '+str(ch['check_id']),time.time()))
@@ -463,6 +478,7 @@ def _check_dispatch(db):
                 recipient=row['uid'])
         return True
     except Exception as exc:
+        _record_incident(db,row,'createCheck',exc)
         if _insufficient_funds(exc):
             _wait_for_liquidity(db,row,'check')
             return False
@@ -524,6 +540,7 @@ def _finalize_transfer(db,row,transfer):
         ref='cryptopay_'+str(transfer['transfer_id'])
         c.execute("UPDATE bot_payouts SET status='paid',reference=%s WHERE id=%s",(ref,p['id']))
         c.execute("UPDATE bot_crypto_payouts SET state='completed',transfer_id=%s WHERE payout_id=%s",(transfer['transfer_id'],p['id']))
+        c.execute("DELETE FROM bot_crypto_incidents WHERE payout_id=%s",(p['id'],))
         c.execute('UPDATE bot_cash_pool SET amount=CASE WHEN amount>=%s THEN amount-%s ELSE 0 END WHERE id=1',(net,net))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)",
                   (uuid.uuid4().hex,p['uid'],'Crypto Bot · '+b.money(net)+' · '+p['id'],time.time()))
@@ -592,6 +609,7 @@ def dispatch(db):
             raise CryptoPayError('Unverified transfer result')
         return _finalize_transfer(db,row,transfer)
     except Exception as exc:
+        _record_incident(db,row,'transfer',exc)
         if _insufficient_funds(exc):
             _wait_for_liquidity(db,row,'transfer')
             return False
