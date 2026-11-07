@@ -24,6 +24,7 @@ def initialize(c):
       error text NOT NULL DEFAULT '')""")
     c.execute("CREATE INDEX IF NOT EXISTS bot_payout_channel_queue ON bot_payout_channel_posts(state,created)")
     c.execute("ALTER TABLE bot_payout_channel_posts ADD COLUMN IF NOT EXISTS recipient_uid bigint")
+    c.execute("ALTER TABLE bot_payouts ADD COLUMN IF NOT EXISTS public_profile boolean NOT NULL DEFAULT false")
 
 
 def enqueue_paid(c, payout_id, amount_formatted, recipient_uid=None):
