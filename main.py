@@ -497,7 +497,8 @@ def advance(c,p,now=None):
   fed_grain=max(0,p["grain"]+sum(refills)-result["grain"])
   if fed_grain:
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"grain_fed",fed_grain,now))
-  keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress","geese","fed_geese","feathers","feather_progress","cows","fed_cows","milk","milk_progress","sheep","fed_sheep","wool","wool_progress")
+  keys=("coins","grain","eggs","chickens","satiety","critical_cycles","fed_hens","feed_phase","last_tick","egg_at","egg_progress","geese","fed_geese","feathers","feather_progress","cows","fed_cows","milk","milk_progress")
+  if "sheep" in result:keys+=("sheep","fed_sheep","wool","wool_progress")
   c.execute("UPDATE players SET "+",".join(k+"=%s" for k in keys)+" WHERE id=%s",tuple(result[k] for k in keys)+(p["id"],))
   result.pop("_ad_credit_balance",None)
   ad_inventory.save(c,result)
