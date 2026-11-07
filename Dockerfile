@@ -9,7 +9,8 @@ COPY . .
 FROM app AS verification
 RUN apt-get update \
     && apt-get install -y --no-install-recommends postgresql \
-    && pg_ctlcluster 15 main start \
+    && PG_VERSION=$(pg_lsclusters -h | awk 'NR==1{print $1}') \
+    && pg_ctlcluster "$PG_VERSION" main start \
     && su postgres -c 'createuser --superuser root' \
     && TEST_DATABASE_URL=postgresql:///postgres python -m unittest discover -s tests -v \
     && touch /tmp/trevixo-ci-passed
