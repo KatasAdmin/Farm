@@ -62,8 +62,9 @@ class TopupTests(unittest.TestCase):
         self.c.raw.commit()
         result=self.send(3,action='deposit')
         self.assertNotIn('bot:topup:crypto',str(result))
+        self.assertNotIn('bot:topup:stars',str(result))
+        self.assertIn('bot:topup:card',str(result))
         for action in ('topup:stars','topup:card'):
-            self.assertIn('bot:'+action,str(result))
             self.assertIn('text',self.send(3,action=action))
         self.assertEqual(self.balance(3),0)
         self.assertEqual(self.c.execute('SELECT count(*) AS n FROM bot_wallet_stars').fetchone()['n'],0)
