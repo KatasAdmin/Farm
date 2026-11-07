@@ -67,6 +67,7 @@ class AdminTests(unittest.TestCase):
         self.assertFalse(self.c.execute("SELECT 1 FROM bot_payouts WHERE uid=2").fetchone())
 
         bot.initialize(self.c)
+        self.c.raw.commit()
         self.assertFalse(admin.method_enabled(self.c,'card_withdraw'))
         self.send(1,action='admin:paymethods:toggle:card_withdraw')
         self.assertTrue(admin.method_enabled(self.c,'card_withdraw'))
@@ -86,7 +87,7 @@ class AdminTests(unittest.TestCase):
             self.assertIn('withdraw:crypto',str(self.send(2,'5')['reply_markup']))
             self.send(1,action='admin:paymethods:toggle:crypto_deposit')
             self.assertNotIn('topup:crypto',str(self.send(2,action='deposit')['reply_markup']))
-            self.assertIn('выключено',self.send(2,action='topup:crypto')['text'])
+            self.assertIn('отключены',self.send(2,action='topup:crypto')['text'])
         # Provider variables are a second, independent permission gate.
         self.assertNotIn('withdraw:crypto',str(self.send(2,action='withdraw:back')['reply_markup']))
 
