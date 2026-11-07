@@ -56,7 +56,7 @@ function eggQuantity(n) {
   return `${number(n)} ${v>=11 && v<=14 ? "яиц" : last===1 ? "яйцо" : last>=2 && last<=4 ? "яйца" : "яиц"}`;
 }
 const referralItems=["eggs","grain","chickens","geese","cows","milk","feathers"];
-const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица", geese:"Гусыня", cows:"Корова",milk:"Молоко", feathers:"Перо" };
+const itemNames = { grain: "Зерно", eggs: "Яйцо", chickens: "Курица", geese:"Гусыня", cows:"Корова", sheep:"Овца", wool:"Шерсть", milk:"Молоко", feathers:"Перо" };
 const number = (n) => new Intl.NumberFormat("ru-RU").format(n);
 let token = storage.getItem("farm_token");
 let state = null,
@@ -492,9 +492,9 @@ let selectedResource="eggs";
 let sellingResource=null;
 const systemBuyback={grain:1,feathers:5};
 function openResourceActions(item) {
-  if (!state || !["grain","chickens","geese","cows","milk","feathers","eggs"].includes(item)) return;
+  if (!state || !["grain","chickens","geese","cows","sheep","wool","milk","feathers","eggs"].includes(item)) return;
   selectedResource=item;
-  const title={grain:"🌾 Зерно",chickens:"🐔 Куры",geese:"🪿 Гуси",cows:"🐄 Коровы",milk:"🥛 Молоко",feathers:"🪶 Перья",eggs:"🥚 Яйца"}[item];
+  const title={grain:"🌾 Зерно",chickens:"🐔 Куры",geese:"🪿 Гуси",cows:"🐄 Коровы",sheep:"🐑 Овцы",wool:"🧶 Шерсть",milk:"🥛 Молоко",feathers:"🪶 Перья",eggs:"🥚 Яйца"}[item];
   el("resource-action-title").textContent=title;
   el("resource-action-buy").hidden=false;
   el("resource-action-free").hidden=!adRewards[item];
@@ -634,7 +634,7 @@ function selectBuy(item) {
   if (!state || pending) return;
   const rows = marketRows(item);
   const available = ["eggs","milk"].includes(item) ? Number((item==="milk"?state?.available_milk:state?.available_eggs) ?? 0) : rows.reduce((sum,row) => sum + row.quantity, 0);
-  if (!available && !["eggs","milk","grain","chickens","geese","cows"].includes(item)) {
+  if (!available && !["eggs","milk","grain","chickens","geese","cows","sheep"].includes(item)) {
     toast(item==="milk"?"Сейчас нет молока в продаже":"Сейчас нет яиц в продаже");
     return;
   }
@@ -693,18 +693,18 @@ function purchaseQuote() {
   const result = purchase.kind==="bundle"
     ? {cost:purchase.price*n,remaining:0}
     : quote(purchase.item,n);
-  if(["grain","chickens","geese","cows"].includes(purchase.item) && result.remaining>0){
+  if(["grain","chickens","geese","cows","sheep"].includes(purchase.item) && result.remaining>0){
     result.cost+=result.remaining*(state.shop[purchase.item]||purchase.price);
     result.remaining=0;
   }
   el("purchase-total").textContent = valid ? number(result.cost) : "—";
-  const room = purchase.item==="cows"?state.buildings.cowshed_capacity-(state.me.cows||0):["chickens","geese"].includes(purchase.item)
+  const room = ["cows","sheep"].includes(purchase.item)?state.buildings.cowshed_capacity-(state.me.cows||0)-(state.me.sheep||0):["chickens","geese"].includes(purchase.item)
     ? state.buildings.coop_capacity - state.me.chickens - (state.me.geese||0)
     : state.buildings.storage_capacity - state.buildings.storage_used;
   const noRoom = purchase.kind !== "bundle" && n > room;
   const expired = purchase.kind === "bundle" && !promotionActive();
   let info = expired ? "Акция завершена"
-    : noRoom ? (purchase.item==="cows"?"В коровнике нет места. Расширь его.":["chickens","geese"].includes(purchase.item) ? "Нет места для птиц. Увеличь вместимость в разделе «Животные»." : "На складе нет места. Улучши склад.")
+    : noRoom ? (["cows","sheep"].includes(purchase.item)?"В хлеву нет места. Расширь его.":["chickens","geese"].includes(purchase.item) ? "Нет места для птиц. Увеличь вместимость в разделе «Животные»." : "На складе нет места. Улучши склад.")
     : !valid
     ? "Введите целое количество от 1 до 10 000"
     : result.remaining > 0
@@ -752,8 +752,8 @@ function sellQuote() {
   if (!state) return;
   const item = el("sellitem").value,
     n = Number(el("sellnum").value),
-    price = ["eggs","milk","feathers","chickens","geese","cows"].includes(item) ? (state.shop[item]||(item==="feathers"?5:1)) : Number(el("sellprice").value);
-  const reserved=["chickens","geese","cows"].includes(item)?state.my_listings.filter(x=>x.item===item).reduce((v,x)=>v+x.quantity,0):0;
+    price = ["eggs","milk","feathers","wool","chickens","geese","cows","sheep"].includes(item) ? (state.shop[item]||(item==="feathers"?5:1)) : Number(el("sellprice").value);
+  const reserved=["chickens","geese","cows","sheep"].includes(item)?state.my_listings.filter(x=>x.item===item).reduce((v,x)=>v+x.quantity,0):0;
   const free=state.me[item]-reserved;
   el("myStock").textContent = `Доступно для продажи: ${number(free)} шт.`;
   el("sellquote").textContent =
@@ -767,7 +767,7 @@ async function sellNow() {
   if(pending)return;
   try {
     const item=el("sellitem").value,n=amount("sellnum");
-    if(!state||!["eggs","milk","grain","feathers","chickens","geese","cows"].includes(item))throw Error("Недостаточно товара");
+    if(!state||!["eggs","milk","grain","feathers","wool","chickens","geese","cows","sheep"].includes(item))throw Error("Недостаточно товара");
     const success=await perform("/api/sell",{
       item,amount:n,price:state.shop[item]||(item==="feathers"?5:1),
     });
@@ -811,9 +811,9 @@ function storageFilter(filter, button) {
     .querySelectorAll("button")
     .forEach((x) => x.classList.toggle("active", x === button));
 }
-const logNames = { grain: "Зерно", chickens: "Курицы", geese:"Гуси",cows:"Коровы",milk:"Молоко", feathers:"Перья", eggs: "Яйца" };
+const logNames = { grain: "Зерно", chickens: "Курицы", geese:"Гуси",cows:"Коровы",sheep:"Овцы",wool:"Шерсть",milk:"Молоко", feathers:"Перья", eggs: "Яйца" };
 function details(text) {
-  return text.replace(/grain|chickens|geese|cows|milk|feathers|eggs/g, (x) => logNames[x]);
+  return text.replace(/grain|chickens|geese|cows|sheep|wool|milk|feathers|eggs/g, (x) => logNames[x]);
 }
 async function redeemPromoCode(event) {
   event.preventDefault();
@@ -1151,7 +1151,7 @@ function render() {
   document.querySelectorAll("[data-buy-feed]").forEach(x => x.classList.toggle("needs-feed", f.effective_grain_shortage > 0));
   const storageWarning = el("storage-warning");
   storageWarning.hidden = buildings.storage_used < buildings.storage_capacity;
-  storageWarning.textContent = `Склад заполнен: ${number(buildings.storage_used)} / ${number(buildings.storage_capacity)}. Новые яйца, молоко и перья не поместятся. Продай товары или улучши склад.`;
+  storageWarning.textContent = `Склад заполнен: ${number(buildings.storage_used)} / ${number(buildings.storage_capacity)}. Новые яйца, молоко, перья и шерсть не поместятся. Продай товары или улучши склад.`;
   el("login").hidden = true;
   el("app").hidden = false;
   el("nav").hidden = false;
