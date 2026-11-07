@@ -25,7 +25,7 @@ def config(c):
 def menu(c, uid):
     b = core()
     b.state(c, uid, 'clear')
-    return b.bot_ui.screen(uid, tr('➕ <b>Пополнение баланса</b>\n\nВыбери способ оплаты:\n\n⭐ <b>Telegram Stars</b> — зачисление автоматически после оплаты.\n💎 <b>Криптобот</b> — подключим позже.\n💳 <b>Карта</b> — перевод по реквизитам и квитанция на проверку.', html_mode=True, section='bot_topups', limit=3000), [[b.button('⭐ Telegram Stars', 'topup:stars')], [b.button('💎 Криптобот · скоро', 'topup:crypto')], [b.button('💳 Банковская карта', 'topup:card')], [b.button('📥 Мои пополнения', 'topup:mine')], [b.button('⬅️ Мой кабинет', 'cabinet')]])
+    return b.bot_ui.screen(uid, tr('➕ <b>Пополнение баланса</b>\n\n💳 <b>Банковская карта</b> — переведи сумму по указанным реквизитам и отправь фото квитанции или PDF. Зачисление только после проверки поступления администратором.', html_mode=True, section='bot_topups', limit=3000), [[b.button('💳 Пополнить картой', 'topup:card')], [b.button('📥 Мои пополнения', 'topup:mine')], [b.button('⬅️ Мой кабинет', 'cabinet')]])
 
 def route(c, uid, action):
     b = core()
@@ -80,8 +80,6 @@ def input_text(c, uid, text, message, current):
         if not rules['card_min'] <= amount <= rules['card_max']:
             raise b.UserError(tr('Сумма перевода: от {v0} до {v1}', {'v0': b.money(rules['card_min']), 'v1': b.money(rules['card_max'])}, html_mode=False, section='bot_topups', limit=3000))
         data['amount'] = amount
-        intent=uuid.uuid4().hex
-        b.bot_notifications.enqueue(c,'card-intent:'+intent,tr('💳 Пользователь начал пополнение картой\n\nИгрок: {v0}\nСумма: {v1}\n\nРеквизиты выданы. Квитанции пока нет — деньги не зачислены.', {'v0': str(uid), 'v1': b.money(amount)}, section='notifications'),'admin:cardtopups',subject=uid,kind='intent')
         b.state(c, uid, 'topup_card_receipt', data)
         return ui.input_screen(uid, tr('💳 <b>Реквизиты для перевода</b>\n\nКарта: <code>{v0}</code>\nПолучатель: <b>{v1}</b>\nСумма: <b>{v2}</b>\n\nПосле перевода отправь квитанцию одним фото или PDF. Зачисление — после проверки поступления администратором.', {'v0': data['card'], 'v1': ui.esc(data['recipient']), 'v2': b.money(amount)}, html_mode=True, section='bot_topups', limit=3000), cancel_action='deposit')
     if stage == 'topup_card_receipt':
