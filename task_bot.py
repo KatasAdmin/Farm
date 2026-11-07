@@ -1074,6 +1074,8 @@ def _administration(c, uid, text, action, api):
             raise UserError('Начисления не выполнены: '+str(exc))
         if result['baseline']:
             output='📍 <b>AdsGram: первый баланс сохранён</b>\n\nБаланс: $'+result['balance']+'\nНачислений пока нет.'
+        elif result.get('unchanged'):
+            output='🕒 <b>AdsGram: баланс не изменился</b>\n\nБаланс: $'+result['balance']+'\nКонтрольная точка сохранена прежней. Просмотры ожидают прироста дохода.'
         else:
             output=('✅ <b>AdsGram: начисления за интервал</b>\n\n'
                  +'Баланс: $'+result['balance']
