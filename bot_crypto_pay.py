@@ -344,12 +344,38 @@ def _wait_for_liquidity(db,row,kind):
             'Сумма остаётся зарезервированной. Новую заявку создавать не нужно.',
             recipient=row['uid'])
         b.bot_notifications.enqueue(c,'liquidity-admin:'+row['payout_id'],
-            '⚠️ Дополнительная проверка: недостаточно USDT в CryptoBot.\n'
-            'Заявка: '+row['payout_id']+'\n'
-            'Требуется: '+row['crypto_amount']+' USDT.\n'
-            'Пополните CryptoBot — после подтверждения баланса выплата возобновится автоматически. '
-            'Или откройте заявку для безопасной отмены.',
+            '⚠️ CryptoBot: недостаточно USDT.\n'
+            'Заявка: '+row['payout_id']+' · '+row['crypto_amount']+' USDT.\n'
+            'Пополните резерв — бот повторит автоматически. Можно проверить вручную в заявке.',
             action='admin:payview:'+row['payout_id'],subject=row['uid'])
+
+
+def _balance_usdt():
+    result=call('getBalance')
+    items=result.get('items') if isinstance(result,dict) else result
+    if not isinstance(items,list):
+        raise CryptoPayError('Crypto Pay returned invalid balance information')
+    asset=next((entry for entry in items
+        if isinstance(entry,dict) and entry.get('currency_code')=='USDT'),None)
+    if not asset:
+        return Decimal('0')
+    try:
+        return Decimal(str(asset.get('available','0')))
+    except (InvalidOperation,ValueError):
+        raise CryptoPayError('Crypto Pay balance is invalid') from None
+
+
+def _preflight_liquidity(db,row,kind):
+    # A confirmed lack of funds is a safe, retryable non-send. If the balance
+    # endpoint itself fails, leave the payout to the normal provider path.
+    try:
+        enough=_balance_usdt() >= Decimal(row['crypto_amount'])
+    except (CryptoPayError,ValueError,InvalidOperation):
+        return True
+    if enough:
+        return True
+    _wait_for_liquidity(db,row,kind)
+    return False
 
 
 def _release_funded_hold(db):
@@ -363,16 +389,7 @@ def _release_funded_hold(db):
     if not row:
         return False
     try:
-        balances=call('getBalance')
-        items=balances.get('items') if isinstance(balances,dict) else balances
-        if not isinstance(items,list):
-            return False
-        asset=next((b for b in items if isinstance(b,dict) and b.get('currency_code')=='USDT'),None)
-        if not asset:
-            return False
-        available=Decimal(str(asset.get('available','0')))
-        required=Decimal(row['crypto_amount'])
-        if available<required:
+        if _balance_usdt()<Decimal(row['crypto_amount']):
             return False
     except (CryptoPayError,ValueError,InvalidOperation,TypeError):
         return False
@@ -469,6 +486,8 @@ def _check_dispatch(db):
         c.execute("UPDATE bot_crypto_payouts SET state='sending' WHERE payout_id=%s",(row['payout_id'],))
         c.execute("INSERT INTO bot_crypto_checks(payout_id,state,created) VALUES(%s,'creating',%s)",(row['payout_id'],time.time()))
     try:
+        if not _preflight_liquidity(db,row,'check'):
+            return False
         remote=call('createCheck',{'asset':'USDT','amount':row['crypto_amount'],'pin_to_user_id':row['uid']})
         check_id=remote.get('check_id') if isinstance(remote,dict) else None
         url=remote.get('bot_check_url') if isinstance(remote,dict) else None
@@ -611,6 +630,8 @@ def dispatch(db):
             return False
         c.execute("UPDATE bot_crypto_payouts SET state='sending' WHERE payout_id=%s",(row['payout_id'],))
     try:
+        if not _preflight_liquidity(db,row,'transfer'):
+            return False
         transfer=call('transfer',{'user_id':row['uid'],'asset':row['asset'],
             'amount':row['crypto_amount'],'spend_id':row['spend_id'],
             'comment':'TREVIXO payout'})
