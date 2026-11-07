@@ -29,6 +29,11 @@ def initialize(c):
     # Public marketing posts are opt-in for the project, independent of private notifications.
     c.execute("CREATE TABLE IF NOT EXISTS bot_payout_channel_options(key text PRIMARY KEY, enabled boolean NOT NULL)")
     c.execute("INSERT INTO bot_payout_channel_options(key,enabled) VALUES('publish_paid',false) ON CONFLICT DO NOTHING")
+    # Do not publish a backlog of older transactions if this setting is enabled later.
+    enabled=c.execute("SELECT enabled FROM bot_payout_channel_options WHERE key='publish_paid'").fetchone()
+    if not enabled or not enabled['enabled']:
+        c.execute("""UPDATE bot_payout_channel_posts SET state='needs_review',error='public_feed_disabled'
+            WHERE state='pending'""")
 
 
 def enqueue_paid(c, payout_id, amount_formatted, recipient_uid=None):
@@ -76,6 +81,9 @@ def dispatch(db,api):
     """At most one send attempt per payout. Unknown outcomes are held for review."""
     with db() as c:
         c.execute('SELECT pg_advisory_xact_lock(1984536)')
+        enabled=c.execute("SELECT enabled FROM bot_payout_channel_options WHERE key='publish_paid'").fetchone()
+        if not enabled or not enabled['enabled']:
+            return False
         cfg=c.execute("SELECT news FROM bot_public_info WHERE id=1").fetchone()
         target=public_channel(cfg['news']) if cfg else None
         if target is None:
