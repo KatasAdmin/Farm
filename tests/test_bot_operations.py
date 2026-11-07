@@ -40,7 +40,7 @@ class OperationTests(unittest.TestCase):
         notices.dispatch(lambda:self.c,self.notification_api)
 
     def payout(self):
-        self.credit();self.send(2,action='withdraw');self.send(2,'5');self.send(2,'TEST RECIPIENT BANK')
+        self.credit();self.send(2,action='withdraw');self.send(2,'5');self.send(2,action='withdraw:card');self.send(2,'4441111056522018')
         self.send(2,action='confirm_payout',event=555)
         return self.c.execute('SELECT id FROM bot_payouts').fetchone()['id']
 
