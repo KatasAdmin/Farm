@@ -146,8 +146,9 @@ def simulate(p, now):
   feed_at+=FEED_EVERY*CYCLE
  accrue(min(now,feed_at))
  p.update(egg_at=cursor,egg_progress=progress,last_tick=tick,feed_phase=phase,
-          eggs=eggs,milk=milk,milk_progress=milk_progress,cows=cows,fed_cows=fed_cows,sheep=sheep,fed_sheep=fed_sheep,wool=wool,wool_progress=wool_progress,feathers=feathers,feather_progress=feather_progress,grain=grain,coins=coins,chickens=hens,fed_hens=fed,geese=geese,fed_geese=fed_geese,
+          eggs=eggs,milk=milk,milk_progress=milk_progress,cows=cows,fed_cows=fed_cows,feathers=feathers,feather_progress=feather_progress,grain=grain,coins=coins,chickens=hens,fed_hens=fed,geese=geese,fed_geese=fed_geese,
           satiety=sat,critical_cycles=critical)
+ if "sheep" in p:p.update(sheep=sheep,fed_sheep=fed_sheep,wool=wool,wool_progress=wool_progress)
  if tagged:p.update(ad_grain=ad_grain,ad_eggs=ad_eggs,ad_milk=ad_milk,ad_feathers=ad_feathers,ad_chickens=ad_hens,ad_geese=ad_geese,ad_cows=ad_cows,ad_fed_hens=ad_fed,ad_fed_geese=ad_goose_fed,ad_fed_cows=ad_cow_fed,ad_egg_progress=ad_ep,ad_milk_progress=ad_mp,ad_feather_progress=ad_fp,ad_sheep=ad_sheep,ad_fed_sheep=ad_sheep_fed,ad_wool=ad_wool,ad_wool_progress=ad_wp)
  return p,produced,refills
 
