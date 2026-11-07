@@ -420,7 +420,7 @@ def _finalize_check(db,check,remote):
         c.execute('UPDATE bot_cash_pool SET amount=CASE WHEN amount>=%s THEN amount-%s ELSE 0 END WHERE id=1',(net,net))
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)",(uuid.uuid4().hex,p['uid'],'Crypto Pay check activated '+str(ch['check_id']),time.time()))
         b.bot_notifications.enqueue(c,'check-activated-user:'+p['id'],
-            '✅ CryptoBot: чек активирован, выплата '+b.money(net)+' завершена.',recipient=p['uid'])
+            '✅ Выплата '+b.money(net)+' получена через CryptoBot.',recipient=p['uid'])
         b.bot_notifications.enqueue(c,'check-activated-admin:'+p['id'],
             '✅ CryptoBot: именной чек активирован. Получатель: '+str(p['uid'])+
             '. Сумма: '+b.money(net)+'. Чек №'+str(ch['check_id']),
@@ -481,9 +481,10 @@ def _check_dispatch(db):
             c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
             import task_bot as b
             b.bot_notifications.enqueue(c,'check-issued:'+row['payout_id'],
-                '🎁 Твой именной чек CryptoBot готов: '+row['crypto_amount']+' USDT.\n'
-                'Открой историю выплат в TREVIXO, если потеряешь ссылку.\n'+url,
-                recipient=row['uid'])
+                '🎁 <b>Твой чек CryptoBot готов!</b>\n'
+                'К получению: '+row['crypto_amount']+' USDT.\n'
+                'Нажми «Забрать чек». Если потеряешь его, ссылка есть в «Мои выплаты».',
+                recipient=row['uid'],url=url)
         return True
     except Exception as exc:
         _record_incident(db,row,'createCheck',exc)
@@ -553,7 +554,7 @@ def _finalize_transfer(db,row,transfer):
         c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'payout_paid',%s,%s)",
                   (uuid.uuid4().hex,p['uid'],'Crypto Bot · '+b.money(net)+' · '+p['id'],time.time()))
         b.bot_notifications.enqueue(c,'payout-paid:'+p['id'],
-            '✅ Crypto Bot перевёл '+row['crypto_amount']+' USDT. Заявка '+p['id'],recipient=p['uid'])
+            '✅ Выплата готова! CryptoBot перевёл '+row['crypto_amount']+' USDT.',recipient=p['uid'])
         b.bot_notifications.enqueue(c,'payout-paid-admin:'+p['id'],
             '✅ CryptoBot: выплата подтверждена\n'
             'Пользователь: '+str(p['uid'])+'\n'
