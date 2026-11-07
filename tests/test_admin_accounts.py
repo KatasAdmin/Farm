@@ -49,7 +49,7 @@ class AdminAccountsTests(unittest.TestCase):
 
     def test_debit_rechecks_balance_and_preserves_reserved_payout(self):
         self.credit()
-        self.send(2,action='withdraw');self.send(2,'5');self.send(2,'4441111056522018');self.send(2,action='confirm_payout')
+        self.send(2,action='withdraw');self.send(2,'5');self.send(2,action='withdraw:card');self.send(2,'4441111056522018');self.send(2,action='confirm_payout')
         self.assertEqual(self.balance(2),500)
         action=self.adjustment('debit','4.99')
         self.send(1,action=action)
@@ -80,7 +80,7 @@ class AdminAccountsTests(unittest.TestCase):
 
     def test_payout_identifies_and_links_to_recipient(self):
         self.credit()
-        self.send(2,action='withdraw');self.send(2,'5');self.send(2,'4441111056522018');self.send(2,action='confirm_payout')
+        self.send(2,action='withdraw');self.send(2,'5');self.send(2,action='withdraw:card');self.send(2,'4441111056522018');self.send(2,action='confirm_payout')
         pid=self.c.execute('SELECT id FROM bot_payouts').fetchone()['id']
         card=self.send(1,action='admin:payview:'+pid)
         self.assertIn('Telegram ID: <code>2</code>',card['text'])
