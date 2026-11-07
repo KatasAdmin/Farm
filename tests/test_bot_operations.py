@@ -44,6 +44,40 @@ class OperationTests(unittest.TestCase):
         self.send(2,action='confirm_payout',event=555)
         return self.c.execute('SELECT id FROM bot_payouts').fetchone()['id']
 
+    def test_user_balance_history_has_clickable_private_transaction_details(self):
+        self.credit(value='3',ref='income-safe-1')
+        self.c.execute("""INSERT INTO bot_ledger(id,uid,delta,kind,details,created)
+            VALUES(%s,%s,%s,%s,%s,%s)""",
+            ('f'*32,2,-125,'task_spend','Оплата задания',time.time()+1))
+        self.c.raw.commit()
+        overview=self.send(2,action='history')
+        self.assertNotIn('Последние 12 денежных операций',overview['text'])
+        self.assertIn('bot:history:detail:'+'f'*32,str(overview['reply_markup']))
+        self.assertNotIn('Оплата задания',overview['text'])
+        detail=self.send(2,action='history:detail:'+'f'*32)
+        for item in ('1,25 грн','Описание: Оплата задания','ID:','Дата:'):
+            self.assertIn(item,detail['text'])
+        self.assertIn('bot:history',str(detail['reply_markup']))
+        foreign=self.send(3,action='history:detail:'+'f'*32)
+        self.assertIn('не найдена',foreign['text'])
+        invalid=self.send(2,action='history:detail:bad')
+        self.assertIn('не найдена',invalid['text'])
+
+    def test_history_pagination_and_sensitive_reference_not_shown(self):
+        for i in range(16):
+            self.c.execute("""INSERT INTO bot_ledger(id,uid,delta,kind,details,created)
+                VALUES(%s,%s,%s,%s,%s,%s)""",
+                (format(i+1,'032x'),2,25,'manual_deposit',
+                 'https://example.com/private/'+str(i),time.time()+i))
+        self.c.raw.commit()
+        first=self.send(2,action='history')
+        self.assertEqual(sum('bot:history:detail:' in str(button) for row in first['reply_markup']['inline_keyboard'] for button in row),10)
+        self.assertIn('bot:history:page:1',str(first['reply_markup']))
+        second=self.send(2,action='history:page:1')
+        self.assertIn('bot:history:page:0',str(second['reply_markup']))
+        detail=self.send(2,action='history:detail:'+format(16,'032x'))
+        self.assertNotIn('example.com',detail['text'])
+
     def test_empty_history_valid_markup_from_old_and_new_entry(self):
         response=self.send(1,action='admin:payments:all:0')
         self.assertIn('Пока нет операций',response['text'])
