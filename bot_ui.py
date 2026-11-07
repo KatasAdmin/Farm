@@ -128,7 +128,7 @@ def leaderboard(c, uid, period):
 def home(c, uid, invited=False):
     b = core()
     a = c.execute('SELECT name,referrer FROM bot_accounts WHERE uid=%s', (uid,)).fetchone()
-    text = tr('🌾 <b>Farm · Новая жизнь</b>\n\nПривет, <b>{v0}</b>! 👋\n\n', {'v0': f"{esc(a['name'][:48])}"}, html_mode=True, section='bot_ui', limit=3000)
+    text = tr('✨ <b>TREVIXO</b>\n\nПривет, <b>{v0}</b>! 👋\n\n', {'v0': f"{esc(a['name'][:48])}"}, html_mode=True, section='bot_ui', limit=3000)
     if invited and a['referrer']:
         welcome = c.execute('SELECT w.body,a.name FROM bot_ref_welcomes w JOIN bot_accounts a ON a.uid=w.uid WHERE w.uid=%s', (a['referrer'],)).fetchone()
         if welcome:
