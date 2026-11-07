@@ -339,10 +339,6 @@ def _wait_for_liquidity(db,row,kind):
             c.execute("DELETE FROM bot_crypto_checks WHERE payout_id=%s AND state='creating'",(row['payout_id'],))
         c.execute("""INSERT INTO bot_crypto_liquidity_wait(payout_id,created) VALUES(%s,%s)
             ON CONFLICT DO NOTHING""",(row['payout_id'],time.time()))
-        b.bot_notifications.enqueue(c,'liquidity-user:'+row['payout_id'],
-            '⏳ Дополнительная проверка. Выплата ожидает пополнения резерва CryptoBot. '
-            'Сумма остаётся зарезервированной. Новую заявку создавать не нужно.',
-            recipient=row['uid'])
         b.bot_notifications.enqueue(c,'liquidity-admin:'+row['payout_id'],
             '⚠️ CryptoBot: недостаточно USDT.\n'
             'Заявка: '+row['payout_id']+' · '+row['crypto_amount']+' USDT.\n'
@@ -519,9 +515,6 @@ def _check_dispatch(db):
             c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
         with db() as c:
             import task_bot as b
-            b.bot_notifications.enqueue(c,'check-review-user:'+row['payout_id'],
-                '⚠️ CryptoBot пока не подтвердил создание чека. Деньги зарезервированы, повторного списания нет. '
-                'Проверь статус в разделе «Мои выплаты».',recipient=row['uid'])
             b.bot_notifications.enqueue(c,'check-review-admin:'+row['payout_id'],
                 '⚠️ CryptoBot: неизвестный результат создания чека. Заявка '+row['payout_id']+
                 '. Не повторяй выплату до проверки в Crypto Pay.',
@@ -652,9 +645,6 @@ def dispatch(db):
             c.execute("UPDATE bot_crypto_payouts SET state='review' WHERE payout_id=%s AND state='sending'",(row['payout_id'],))
         with db() as c:
             import task_bot as b
-            b.bot_notifications.enqueue(c,'crypto-review-user:'+row['payout_id'],
-                '⚠️ CryptoBot ещё не подтвердил результат перевода. Средства зарезервированы. '
-                'Не создавай повторную заявку: статус обновится после проверки в «Мои выплаты».',recipient=row['uid'])
             b.bot_notifications.enqueue(c,'crypto-review-admin:'+row['payout_id'],
                 '⚠️ CryptoBot: результат USDT-перевода неизвестен. Заявка '+row['payout_id']+
                 '. Требуется сверка по spend_id; повторный перевод запрещён.',
