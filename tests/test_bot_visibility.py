@@ -20,7 +20,7 @@ class VisibilityTests(unittest.TestCase):
         self.assertIn('bot:admin:visibility:toggle:stars',str(section))
         self.send(1,action='admin:visibility:toggle:stars')
         menu=self.send(2,action='deposit')
-        self.assertIn('bot:topup:stars',str(menu['reply_markup']))
+        self.assertNotIn('bot:topup:stars',str(menu['reply_markup']))
         self.assertIn('Курс',self.send(2,action='topup:stars')['text'])
 
     def test_old_stars_input_cannot_create_new_invoice_after_hiding(self):
