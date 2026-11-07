@@ -1692,7 +1692,10 @@ def buy(q:Request,authorization:str=Header(default="")):
    tagged=ad_inventory.take(c,seller_rows[x["seller"]],q.item,n) if q.item in ("chickens","geese","cows","sheep") else (min(n,ad_row["quantity"]) if ad_row else 0)
    if tagged:c.execute("UPDATE farm_ad_listings SET quantity=quantity-%s WHERE id=%s",(tagged,x["id"]))
    paid_ad=min(ad_budget,x["price"]*n);ad_budget-=paid_ad
-   ad_inventory.add(c,p,q.item,max(tagged,ad_inventory.funded_units(paid_ad,x["price"]*n,n)))
+   restricted_units=ad_inventory.funded_units(paid_ad,x["price"]*n,n)
+   if q.item=="sheep":
+    restricted_units=max(restricted_units,ad_inventory.funded_units(source_shares[x["id"]].get("bonus",0),x["price"]*n,n))
+   ad_inventory.add(c,p,q.item,max(tagged,restricted_units))
    c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,x["id"]))
    if q.item in ("chickens","geese","cows","sheep"):
     fed_col={"chickens":"fed_hens","geese":"fed_geese","cows":"fed_cows","sheep":"fed_sheep"}[q.item]
@@ -1714,6 +1717,8 @@ def buy(q:Request,authorization:str=Header(default="")):
   if system_quantity:
    c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(system_quantity*system_price,))
    system_tagged=ad_inventory.funded_units(ad_inventory.balance(c,p),system_quantity*system_price,system_quantity)
+   if q.item=="sheep":
+    system_tagged=max(system_tagged,ad_inventory.funded_units(source_shares["__system__"].get("bonus",0),system_quantity*system_price,system_quantity))
    ad_inventory.add(c,p,q.item,system_tagged)
    award_referral_resource(c,p,q.item,system_quantity-system_tagged)
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"market_buy",-cost,q.item+" x"+str(q.amount),time.time()))
