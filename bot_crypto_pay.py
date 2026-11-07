@@ -168,7 +168,10 @@ def initialize(c):
         payout_id text PRIMARY KEY,check_id bigint UNIQUE,check_url text NOT NULL DEFAULT '',
         state text NOT NULL CHECK(state IN ('creating','active','review','activated')),
         created double precision NOT NULL)""")
-    c.execute("ALTER TABLE bot_crypto_checks ADD COLUMN IF NOT EXISTS last_checked_at double precision NOT NULL DEFAULT 0")
+    fresh_checks=c.execute("""INSERT INTO bot_crypto_schema_migrations(key)
+        VALUES('checks-last-checked-v1') ON CONFLICT DO NOTHING RETURNING key""").fetchone()
+    if fresh_checks:
+        c.execute("ALTER TABLE bot_crypto_checks ADD COLUMN last_checked_at double precision NOT NULL DEFAULT 0")
     c.execute("CREATE INDEX IF NOT EXISTS bot_crypto_check_poll ON bot_crypto_checks(state,last_checked_at)")
     c.execute("UPDATE bot_crypto_checks SET state='review' WHERE state='creating'")
     c.execute("""CREATE TABLE IF NOT EXISTS bot_crypto_liquidity_wait(
