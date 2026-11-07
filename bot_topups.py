@@ -302,6 +302,8 @@ def admin(c, uid, action):
         row = c.execute("SELECT * FROM bot_card_topups WHERE id=%s FOR UPDATE", (tid,)).fetchone()
         if not row:
             raise b.UserError(tr('Заявка уже обработана или не найдена.', html_mode=False, section='bot_topups', limit=3000))
+        farm_target=c.execute("SELECT player_id FROM farm_card_topup_targets WHERE topup_id=%s",(tid,)).fetchone()
+        destination_label='🐔 Ферма' if farm_target else '🤖 Баланс бота'
         if row['status']!='pending':
             if not action.startswith('admin:cardview:'):
                 raise b.UserError('Эта заявка уже обработана. Повторного зачисления нет.')
@@ -315,6 +317,7 @@ def admin(c, uid, action):
             return ui.screen(uid,
                 '✅ <b>Подтверждение пополнения</b>\n\n'
                 'Игрок: <code>'+str(row['uid'])+'</code>\n'
+                'Зачисление: <b>'+destination_label+'</b>\n'
                 'Сумма: <b>'+b.money(row['amount'])+'</b>\n'
                 'Заявка: <code>'+ui.esc(tid)+'</code>\n\n'
                 'Сверь поступление именно этой суммы на своей карте '
