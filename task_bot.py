@@ -151,7 +151,7 @@ def cabinet(c, uid):
     frozen = c.execute("SELECT coalesce(sum(remaining),0) AS n FROM bot_tasks WHERE owner=%s AND status IN ('pending','active')", (uid,)).fetchone()['n']
     earned = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind='task_reward'", (uid,)).fetchone()['n']
     bonuses = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('daily_bonus','friend_reward','referral_reward')", (uid,)).fetchone()['n']
-    deposits = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('manual_deposit','ads_manual_deposit','stars_wallet_deposit')", (uid,)).fetchone()['n']
+    deposits = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('manual_deposit','ads_manual_deposit','stars_wallet_deposit','cryptopay_deposit')", (uid,)).fetchone()['n']
     paid = c.execute("SELECT coalesce(sum(coalesce(q.net,p.amount)),0) AS n FROM bot_payouts p LEFT JOIN bot_payout_terms q ON q.id=p.id WHERE p.uid=%s AND p.status='paid'", (uid,)).fetchone()['n']
     spent = c.execute("SELECT coalesce(sum(coalesce(q.cost,t.reward)),0) AS n FROM bot_tasks t LEFT JOIN bot_task_terms q ON q.task=t.id JOIN bot_claims x\n      ON x.task=t.id AND x.status='paid' WHERE t.owner=%s", (uid,)).fetchone()['n']
     spent -= c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind='retention_refund'", (uid,)).fetchone()['n']
@@ -446,12 +446,13 @@ def route(c, uid, text, action, message, api, admin):
         price=lambda x:'$'+format(x,'.9f')
         sumrow=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_cash_ad_credits WHERE uid=%s",(uid,)).fetchone()
         adsgram_credits=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_adsgram_daily_credits WHERE uid=%s",(uid,)).fetchone()
+        adsgram_intervals=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_adsgram_interval_credits WHERE uid=%s",(uid,)).fetchone()
         adsgram_confirmed=c.execute("SELECT COUNT(*) AS n FROM bot_adsgram_attempts WHERE uid=%s AND state='confirmed'",(uid,)).fetchone()
         a=c.execute("SELECT available FROM bot_accounts WHERE uid=%s",(uid,)).fetchone()
         lines=['💵 <b>Мой рекламный доход</b>',
                '💰 Monetag зачислено: <b>'+money(int(sumrow['n']))+'</b>',
                '🎬 AdsGram подтверждено: '+str(adsgram_confirmed['n'])+' просмотров',
-               '💰 AdsGram зачислено после сверки: <b>'+money(int(adsgram_credits['n']))+'</b>',
+               '💰 AdsGram начислено: <b>'+money(int(adsgram_credits['n'])+int(adsgram_intervals['n']))+'</b>',
                '💳 Доступный баланс: <b>'+money(a['available'] if a else 0)+'</b>', '',
                '👀 За свои просмотры (USD): '+price(earnings['viewer']),
                '🤝 От рефералов (USD): '+price(earnings['referral']),
@@ -459,7 +460,7 @@ def route(c, uid, text, action, message, api, admin):
                '🌱 <b>Реферальные уровни</b>']
         for index,amount in enumerate(earnings['levels'],1):
             lines.append(str(index)+' уровень: '+price(amount))
-        lines.append('Выше оценки USD относятся к Monetag. AdsGram учитывается отдельно и начисляется после сверки подтверждённой суточной выручки. Доли меньше копейки накапливаются.')
+        lines.append('💡 Monetag: оценка в USD — ещё не подтверждённая выплата. AdsGram: подтверждённый доход начисляется в гривнах по контрольным точкам /reklama (старые суточные начисления также учтены). Это две рекламные сети, а не два баланса. Доли меньше копейки накапливаются.')
         return bot_ui.screen(uid,'\n'.join(lines),[[{'text':'🎬 Смотреть рекламу','web_app':{'url':farm_url()+'cash-ads-preview.html'}}],[button('🤝 Моя команда','friends')],[button('⬅️ Кабинет','cabinet')]])
     if cmd.startswith('/bonus'):
         return bot_promos.command(c,uid,text,admin)
