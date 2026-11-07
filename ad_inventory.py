@@ -2,9 +2,9 @@
 Counters tag a subset of inventory. Restricted units are spent first and the tag
 survives trades, feeding, incubation and purchases funded by restricted receipts.
 """
-ITEMS=('grain','eggs','milk','feathers','chickens','geese','cows')
-INTS=tuple('ad_'+k for k in ITEMS)+('ad_fed_hens','ad_fed_geese','ad_fed_cows','ad_stock_version')
-FLOATS=('ad_egg_progress','ad_milk_progress','ad_feather_progress')
+ITEMS=('grain','eggs','milk','feathers','wool','chickens','geese','cows','sheep')
+INTS=tuple('ad_'+k for k in ITEMS)+('ad_fed_hens','ad_fed_geese','ad_fed_cows','ad_fed_sheep','ad_stock_version')
+FLOATS=('ad_egg_progress','ad_milk_progress','ad_feather_progress','ad_wool_progress')
 FIELDS=INTS+FLOATS
 
 def initialize(c):
@@ -22,8 +22,8 @@ def save(c,p):
 def add(c,p,item,n):
  if n<=0 or not active(p):return
  p['ad_'+item]=p.get('ad_'+item,0)+n
- if item in ('chickens','geese','cows'):
-  field={'chickens':'ad_fed_hens','geese':'ad_fed_geese','cows':'ad_fed_cows'}[item]
+ if item in ('chickens','geese','cows','sheep'):
+  field={'chickens':'ad_fed_hens','geese':'ad_fed_geese','cows':'ad_fed_cows','sheep':'ad_fed_sheep'}[item]
   p[field]=p.get(field,0)+n
  save(c,p)
 
