@@ -20,6 +20,7 @@ import bot_quests
 import bot_monetag_cash
 import bot_about
 import bot_topups
+import bot_crypto_pay
 import bot_copy
 import bot_admin
 import bot_notifications
@@ -79,6 +80,7 @@ def initialize(c):
     bot_admin.initialize(c)
     bot_notifications.initialize(c)
     bot_payout_channel.initialize(c)
+    bot_crypto_pay.initialize(c)
     bot_payouts.initialize(c)
     bot_decisions.initialize(c)
     bot_advertising.initialize(c)
@@ -531,7 +533,7 @@ def route(c, uid, text, action, message, api, admin):
         labels = {'working': '🏦 В работе', 'pending': tr('На проверке', html_mode=False, section='task_bot', limit=3000), 'paid': tr('Выплачено', html_mode=False, section='task_bot', limit=3000), 'rejected': tr('Отклонено', html_mode=False, section='task_bot', limit=3000), 'cancelled': tr('Отменено', html_mode=False, section='task_bot', limit=3000)}
         return say(uid, tr('📥 Заявки\n{v0}', {'v0': '\n'.join((r['id'][:8] + ' · ' + money(r['amount']) + ' · ' + labels[r['status']] for r in rows)) or 'Заявок пока нет.'}, html_mode=False, section='task_bot', limit=3000), [[button('Отменить ожидающую заявку', 'cancelpayout')]])
     if action == 'cancelpayout':
-        row = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' AND NOT EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=bot_payouts.id AND w.phase='working') RETURNING amount,id", (uid,)).fetchone()
+        row = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' AND NOT EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=bot_payouts.id AND w.phase='working') AND NOT EXISTS(SELECT 1 FROM bot_crypto_payouts cp WHERE cp.payout_id=bot_payouts.id) RETURNING amount,id", (uid,)).fetchone()
         if not row:
             raise UserError(tr('Нет заявки, доступной для отмены. Выплату в работе отменить нельзя.', html_mode=False, section='task_bot', limit=3000))
         change(c, uid, row['amount'], 'payout_cancel', 'Отмена ' + row['id'][:8])
@@ -548,7 +550,28 @@ def route(c, uid, text, action, message, api, admin):
         current=state(c,uid)
         if not current or current['state']!='withdraw_method':
             raise UserError('Сначала выбери сумму вывода.')
-        return say(uid,'💎 Автоматический вывод через Crypto Bot станет доступен после подключения и проверки платежного API.',[[button('⬅️ Выбрать способ','withdraw:back')]])
+        if not bot_crypto_pay.withdrawals_enabled():
+            return say(uid,'💎 Автоматический вывод через Crypto Bot пока отключён. Владелец должен подключить API, включить переводы и установить лимит.',[[button('⬅️ Выбрать способ','withdraw:back')]])
+        data=current['data']
+        try:
+            usdt=bot_crypto_pay.quote_usdt(data['net'])
+        except bot_crypto_pay.CryptoPayError as exc:
+            raise UserError(str(exc))
+        data['method']='crypto'
+        data['destination']='Crypto Bot · USDT на Telegram ID '+str(uid)
+        data['crypto_usdt']=usdt
+        data['crypto_quote_at']=time.time()
+        data['nonce']=uuid.uuid4().hex[:12]
+        data['public_profile']=True
+        state(c,uid,'payout_confirm',data)
+        return say(uid,'💎 <b>Автоматический вывод Crypto Bot</b>\n\n'
+            'С баланса: '+money(data['amount'])+'\n'
+            'К получению: примерно <b>'+usdt+' USDT</b>\n\n'
+            'После подтверждения деньги резервируются, а Crypto Bot отправит USDT на твой Telegram ID. '
+            'Для получения нужно открыть @CryptoBot.\n\n'
+            '👤 Аккаунт в канале выплат: Да. Посетители канала смогут открыть твой профиль. Можно выбрать «Нет».',
+            [[button('👤 Аккаунт в канале: Да','payout_public:'+data['nonce'])],
+             [button('✅ Подтвердить','confirm_payout:'+data['nonce']),button('Отмена','cancel_input')]])
     if action == 'withdraw:back':
         current=state(c,uid)
         if not current or current['state']!='withdraw_method':
@@ -725,7 +748,7 @@ def route(c, uid, text, action, message, api, admin):
             if not admin:
                 raise UserError(tr('Доступ только администратору.', html_mode=False, section='task_bot', limit=3000))
             return bot_topups.admin_input(c, uid, text, current)
-        if current['state'] in ('topup_stars', 'topup_card_amount', 'topup_card_receipt'):
+        if current['state'] in ('topup_stars', 'topup_card_amount', 'topup_card_receipt', 'topup_crypto_amount'):
             return bot_topups.input_text(c, uid, text, message, current)
         if current['state'] == 'public_support':
             return bot_about.support(c, uid, text, message)
@@ -915,6 +938,12 @@ def confirmation(c, uid, action, api):
         result = say(uid, tr('✅ Задание опубликовано!\n\n💰 Бюджет: {v0}', {'v0': money(data['budget'])}, html_mode=False, section='task_bot', limit=3000), [[button('📂 Мои заказы','mine:0')]])
     elif action == 'confirm_payout' and current['state'] == 'payout_confirm':
         bot_account_controls.require_withdrawal(c,uid)
+        if data.get('method')=='crypto':
+            if not bot_crypto_pay.withdrawals_enabled():
+                raise UserError('Автоматический вывод временно недоступен. Средства не списаны.')
+            if time.time()-data.get('crypto_quote_at',0)>120:
+                raise UserError('Курс USDT устарел. Создай заявку заново, чтобы получить новый курс.')
+
         if c.execute("SELECT 1 FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone():
             raise UserError(tr('У тебя уже есть ожидающая заявка.', html_mode=False, section='task_bot', limit=3000))
         pid = uuid.uuid4().hex[:16]
@@ -922,8 +951,11 @@ def confirmation(c, uid, action, api):
         c.execute("INSERT INTO bot_payouts(id,uid,amount,destination,status,created) VALUES(%s,%s,%s,%s,'pending',%s)", (pid, uid, data['amount'], data['destination'], time.time()))
         c.execute('INSERT INTO bot_payout_terms VALUES(%s,%s,%s)', (pid, data.get('fee', 0), data.get('net', data['amount'])))
         c.execute('UPDATE bot_payouts SET public_profile=%s WHERE id=%s',(bool(data.get('public_profile')),pid))
+        if data.get('method')=='crypto':
+            bot_crypto_pay.enqueue_payout(c,pid,data['crypto_usdt'])
+
         bot_notifications.enqueue(c,'payout:'+pid,tr('💸 Новая заявка на вывод\n\nИгрок: {v0}\nС баланса: {v1}\nК выплате: {v2}\nЗаявка: {v3}\n\nСредства зарезервированы. Перевод ещё не выполнен.', {'v0': str(uid), 'v1': money(data['amount']), 'v2': money(data.get('net', data['amount'])), 'v3': pid}, section='notifications'),'admin:payview:'+pid,subject=uid)
-        result = say(uid, tr('Заявка {v0} принята. Зарезервировано {v1}. Выплата выполняется администратором вручную.', {'v0': pid, 'v1': money(data['amount'])}, html_mode=False, section='task_bot', limit=3000))
+        result = say(uid, ('💎 Заявка '+pid+' принята. Зарезервировано '+money(data['amount'])+'. Crypto Bot обработает перевод автоматически. При неопределённом результате заявка остаётся на проверке.' if data.get('method')=='crypto' else tr('Заявка {v0} принята. Зарезервировано {v1}. Выплата выполняется администратором вручную.', {'v0': pid, 'v1': money(data['amount'])}, html_mode=False, section='task_bot', limit=3000)))
     else:
         raise UserError(tr('Эта кнопка устарела.', html_mode=False, section='task_bot', limit=3000))
     state(c, uid, 'clear')
