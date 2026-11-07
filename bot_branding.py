@@ -1,9 +1,9 @@
-"""Public Telegram profile copy for the multi-game task platform."""
+"""TREVIXO public Telegram bot profile (same existing bot identity)."""
 import json
 import logging
 from urllib.request import Request, urlopen
 
-NAME="Farm — задания и игры"
+NAME="TREVIXO"
 DESCRIPTION=("🚀 Выполняй задания, получай награды за подтверждённую рекламу, "
              "продвигай свои проекты и приглашай друзей. "
              "🎮 Игры, квесты и новые возможности — в одном месте. "
