@@ -182,7 +182,14 @@ def payment(payload, db):
             b.bot_economy.collect_debt(c, order['uid'])
             debt = c.execute('SELECT amount FROM bot_debts WHERE uid=%s', (order['uid'],)).fetchone()['amount']
             if debt:
-                p = c.execute("UPDATE bot_payouts SET status='cancelled' WHERE uid=%s AND status='pending' AND NOT EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=bot_payouts.id AND w.phase='working') RETURNING amount,id", (order['uid'],)).fetchone()
+                # Never refund a pending Crypto Pay payout from a Stars chargeback:
+                # an external check may already exist and be claimable, even when
+                # the account's local payout status is still pending.
+                p = c.execute("""UPDATE bot_payouts SET status='cancelled'
+                    WHERE uid=%s AND status='pending'
+                      AND NOT EXISTS(SELECT 1 FROM bot_crypto_payouts cp WHERE cp.payout_id=bot_payouts.id)
+                      AND NOT EXISTS(SELECT 1 FROM bot_payout_work w WHERE w.id=bot_payouts.id AND w.phase='working')
+                    RETURNING amount,id""", (order['uid'],)).fetchone()
                 if p:
                     b.change(c, order['uid'], p['amount'], 'payout_cancel', 'Отмена заявки при возврате оплаты · ' + p['id'])
             b.bot_payouts.debt_notice(c,order['uid'],oid)
