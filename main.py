@@ -484,9 +484,9 @@ def advance(c,p,now=None):
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"eggs_produced",produced,now))
    award_referrals(c,p,max(0,produced-(result.get("ad_eggs",0)-p.get("ad_eggs",0))),now)
   wool_gain=result.get("wool",0)-p.get("wool",0)
-   if wool_gain:
-    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"wool_produced",wool_gain,now))
-   milk_gain=result.get("milk",0)-p.get("milk",0)
+  if wool_gain:
+   c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"wool_produced",wool_gain,now))
+  milk_gain=result.get("milk",0)-p.get("milk",0)
   if milk_gain:
    award_referral_resource(c,p,"milk",max(0,milk_gain-result.get("ad_milk",0)+p.get("ad_milk",0)))
    c.execute("INSERT INTO farm_events(id,player_id,kind,amount,created) VALUES(%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"milk_produced",milk_gain,now))
