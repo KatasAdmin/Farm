@@ -46,6 +46,11 @@ def session(c,owner=False):
         _current.reset(token)
 
 
+def active_connection():
+    ctx=_current.get()
+    return ctx['c'] if ctx else None
+
+
 def owner():
     ctx=_current.get()
     return bool(ctx and ctx['owner'])
