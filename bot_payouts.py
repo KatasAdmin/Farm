@@ -97,8 +97,9 @@ def _crypto_review(c,pid):
     crypto=c.execute("SELECT * FROM bot_crypto_payouts WHERE payout_id=%s AND state='review' FOR UPDATE",(pid,)).fetchone()
     if not payout or not crypto:
         raise b.UserError('Заявка уже обработана либо не требует ручной сверки.')
-    if c.execute("SELECT 1 FROM bot_crypto_checks WHERE payout_id=%s",(pid,)).fetchone():
-        raise b.UserError('У этой заявки есть чек — его статус нужно сверять отдельно.')
+    check=c.execute("SELECT check_id,check_url,state FROM bot_crypto_checks WHERE payout_id=%s",(pid,)).fetchone()
+    if check and (check['check_id'] is not None or check['check_url'] or check['state']=='active'):
+        raise b.UserError('Существующий чек нельзя отменять здесь: сначала проверь его статус в CryptoBot.')
     return payout,crypto
 
 
@@ -147,8 +148,8 @@ def _decision_begin(c,uid,mode,pid):
         raise b.UserError('Crypto Pay сообщает о переводе с этим идентификатором. Отмена и ручное закрытие заблокированы до уточнения результата.')
     nonce=uuid.uuid4().hex[:12]
     b.state(c,uid,'admin_crypto_review_decision',{'pid':pid,'mode':mode,'nonce':nonce,'created':time.time()})
-    notice=('Подтверждаю, что после независимой проверки перевод НЕ был выполнен. '
-            '50 грн или другая сумма будет возвращена игроку. '
+    notice=('Подтверждаю, что после независимой проверки перевод или чек НЕ был создан. '
+            'Зарезервированная сумма будет возвращена игроку. '
             'Если API недоступен, возможна двойная выплата.'
             if mode=='cancel' else
             'Подтверждаю, что деньги ФАКТИЧЕСКИ отправлены получателю другим способом. '
@@ -176,6 +177,18 @@ def _decision_confirm(c,uid,mode,pid,nonce):
     if provider in ('completed','transfer_exists'):
         raise b.UserError('Crypto Pay сообщает о переводе — решение отклонено. Используй сверку API.')
     if mode=='cancel':
+        unresolved_check=c.execute("""SELECT state,check_id,check_url FROM bot_crypto_checks
+            WHERE payout_id=%s FOR UPDATE""",(pid,)).fetchone()
+        if unresolved_check:
+            incident=c.execute("""SELECT reason,phase FROM bot_crypto_incidents
+                WHERE payout_id=%s""",(pid,)).fetchone()
+            # Denied upstream before a valid response, no issued check ID,
+            # and explicit owner confirmation; still retains the attempt.
+            if (unresolved_check['state']!='review' or unresolved_check['check_id'] is not None
+                or unresolved_check['check_url'] or not incident
+                or incident['phase']!='createCheck'
+                or not incident['reason'].startswith('HTTP 403:')):
+                raise b.UserError('Отмена чека недоступна: невозможно подтвердить отказ провайдера. Необходима сверка.')
         c.execute("UPDATE bot_payouts SET status='cancelled' WHERE id=%s AND status='pending'",(pid,))
         c.execute("UPDATE bot_crypto_payouts SET state='completed' WHERE payout_id=%s AND state='review'",(pid,))
         b.change(c,payout['uid'],payout['amount'],'payout_cancel',
