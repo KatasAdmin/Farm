@@ -238,10 +238,10 @@ def settle_invoice(db,order_id):
             recipient=row['uid'])
         # Owner notification must be persisted with the same successful credit.
         b.bot_notifications.enqueue(c,'crypto-paid-admin:'+order_id,
-            '💎 Пополнение CryptoBot подтверждено\\n'
-            'Пользователь: '+str(row['uid'])+'\\n'
-            'Зачислено: '+b.money(row['amount'])+'\\n'
-            'Счёт: '+str(row['invoice_id'])+'\\n'
+            '💎 Пополнение CryptoBot подтверждено\n'
+            'Пользователь: '+str(row['uid'])+'\n'
+            'Зачислено: '+b.money(row['amount'])+'\n'
+            'Счёт: '+str(row['invoice_id'])+'\n'
             'Операция: '+order_id,
             action='admin:payments:all:0',subject=row['uid'])
     return True
