@@ -105,11 +105,16 @@ def call(method, data=None):
         # An HTML 403 is usually an edge denial; JSON errors are API decisions.
         content_type=str(exc.headers.get('Content-Type','')).lower()
         server=str(exc.headers.get('Server','')).lower()
+        # Some Crypto Pay upstream errors have application/json bodies despite
+        # a text/plain content type. Read only a small bounded response, and
+        # extract only allowlisted machine-safe error identifiers.
         try:
-            payload=json.loads(exc.read(8192)) if 'json' in content_type else None
-        except (ValueError,TypeError,OSError):
+            payload=json.loads(exc.read(8192))
+        except (ValueError,TypeError,OSError,UnicodeDecodeError):
             payload=None
         code=payload.get('error') if isinstance(payload,dict) else None
+        if isinstance(code,dict):
+            code=code.get('name') or code.get('code')
         if isinstance(code,str) and 1<=len(code)<=100 and all(ch.isalnum() or ch=='_' for ch in code):
             raise CryptoPayError('Crypto Pay HTTP '+str(exc.code)+': '+code) from None
         if exc.code==403 and ('html' in content_type or 'cloudflare' in server):
