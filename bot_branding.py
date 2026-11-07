@@ -23,12 +23,23 @@ def configure(token,username):
  """Apply only to the expected bot; never log or print its secret token."""
  if username.lower()!="farmlife2026bot":return False
  logger=logging.getLogger("farm.branding")
+ # Read current name first. Avoid unnecessary setMyName calls on each
+ # container restart: Telegram rate-limits this endpoint for many hours.
+ try:
+  req=Request("https://api.telegram.org/bot"+token+"/getMyName")
+  with urlopen(req,timeout=6) as resp:
+   current_name=(json.load(resp).get("result") or {}).get("name")
+ except (HTTPError,URLError,TimeoutError,ValueError,OSError):
+  current_name=None
  for method,payload in (
   ("setMyName",{"name":NAME}),
   ("setMyDescription",{"description":DESCRIPTION}),
   ("setMyShortDescription",{"short_description":ABOUT}),
   ("setMyCommands",{"commands":COMMANDS}),
  ):
+  if method=="setMyName" and (current_name is None or current_name==NAME):
+   # Preserve existing profile if Telegram cannot confirm it now.
+   continue
   try:
    request=Request("https://api.telegram.org/bot"+token+"/"+method,
      data=json.dumps(payload,ensure_ascii=False).encode("utf-8"),
