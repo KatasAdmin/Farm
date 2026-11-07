@@ -622,7 +622,9 @@ def route(c, uid, text, action, message, api, admin):
         for r in rows:
             label='🎁 Чек готов' if r['check_state']=='active' and r['status']=='pending' else labels.get(r['status'],'⏳ Проверка')
             if r['check_state']=='review':
-                label='⚠️ Проверка'
+                label='⚠️ Проверка CryptoBot'
+            elif r['status']=='pending' and r['check_state'] is not None:
+                label='⏳ Автовыплата'
             buttons.append([button(label+' · '+money(r['amount'])+' · '+r['id'][:8],
                 'payout:detail:'+r['id'])])
         buttons += [[button('Отменить ожидающую заявку','cancelpayout')],[button('⬅️ Кабинет','cabinet')]]
