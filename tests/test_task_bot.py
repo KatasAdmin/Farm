@@ -296,7 +296,8 @@ class TaskBotTests(unittest.TestCase):
         self.credit()
         self.send(2, action='withdraw')
         self.send(2, '5')
-        self.send(2, 'UA123456789 Test User')
+        self.send(2, action='withdraw:card')
+        self.send(2, '4441111056522018')
         self.assertEqual(self.balance(2), 1000)
         self.send(2, action='confirm_payout', event='same-confirm')
         self.send(2, action='confirm_payout', event='same-confirm')
@@ -308,7 +309,7 @@ class TaskBotTests(unittest.TestCase):
         self.invariant()
     def test_paid_requires_admin_and_confirmation(self):
         self.credit()
-        for action, text in [('withdraw',''), ('','5'), ('','UA123456789 User'), ('confirm_payout','')]:
+        for action, text in [('withdraw',''), ('','5'), ('withdraw:card',''), ('','4441111056522018'), ('confirm_payout','')]:
             self.send(2, text, action)
         pid = self.c.execute('SELECT id FROM bot_payouts').fetchone()['id']
         self.send(3, f'/botpaid {pid} bank123')
@@ -461,7 +462,8 @@ class TaskBotTests(unittest.TestCase):
         self.task()
         self.send(2, action='withdraw')
         self.send(2, '1')
-        self.send(2, 'UA123456789 User')
+        self.send(2, action='withdraw:card')
+        self.send(2, '4441111056522018')
         self.send(2, action='confirm_payout')
         self.c.execute('UPDATE bot_accounts SET available=460,advertising=300 WHERE uid=2')
         self.c.raw.commit()
