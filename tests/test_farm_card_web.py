@@ -34,7 +34,7 @@ class FarmCardWebTests(unittest.TestCase):
                 farm_card_web.submit(self.c,player,10,encoded,'image/png')
         self.c.raw.commit()
         import farm_exchange
-        with patch.object(farm_exchange,'mint_from_card',return_value=(10,{})),patch.object(farm_exchange,'credit_verified_card',return_value=True):
+        with patch.object(farm_exchange,'mint_from_card',return_value=(10,{})),patch.object(farm_exchange,'credit_verified_card',return_value=True),patch('bot_cash_ad_credits.nbu_usd_uah',return_value=40):
             self.confirm_card(result['id'])
         self.assertEqual(self.c.execute('SELECT coins FROM players WHERE id=%s',('farmer-3',)).fetchone()['coins'],20)
         self.assertEqual(self.balance(3),0)
