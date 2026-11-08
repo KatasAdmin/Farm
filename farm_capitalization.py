@@ -47,9 +47,9 @@ def preview(c,usd_uah):
     rate=Decimal(str(usd_uah))
     if not rate.is_finite() or rate<=0 or rate>Decimal(1000):
         raise ValueError('Unreliable USD rate')
-    seed=int((SEED_USD*rate*100).to_integral_value(rounding=ROUND_FLOOR))
     baseline=c.execute("SELECT started_at,seed_usd FROM farm_capitalization_baseline WHERE id=1").fetchone()
     if not baseline:raise ValueError('Capitalization baseline not initialized')
+    seed=int((Decimal(str(baseline['seed_usd']))*rate*100).to_integral_value(rounding=ROUND_FLOOR))
     since=float(baseline['started_at'])
     confirmed_farm=c.execute("""SELECT count(*) AS n
       FROM bot_adsgram_farm_attempts
