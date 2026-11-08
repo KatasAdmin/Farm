@@ -113,9 +113,9 @@ def state(c, uid, stage=None, data=None):
 # danger (red).  Styling is presentation-only: labels, aliases, callbacks,
 # visibility settings and financial logic remain unchanged.
 MENU_STYLES = [
-    ['success', 'primary'],  # Earn, Promotion
-    ['primary', 'success'],  # Games, My account
-    ['primary', None],       # Partners, About
+    ['success', 'primary'],  # Earn (green), Promotion (blue)
+    ['primary', 'primary'],  # Games and Account (blue)
+    [None, None],           # Partners and About (quiet secondary navigation)
 ]
 
 def say(uid, text, buttons=None):
@@ -143,16 +143,33 @@ def say(uid, text, buttons=None):
         out['reply_markup']={'inline_keyboard':visible} if visible else {'remove_keyboard':True}
     return out
 
+def button_style(action):
+    """Use color sparingly: financial benefits green, choices blue, danger red.
+
+    Classify by stable callback action rather than editable UI text so renaming
+    buttons in the admin panel never changes behavior or colors.
+    """
+    name=action.lower()
+    if name in ('cancel_input','cancel','delete','confirm_delete','cancelpayout') or name.startswith(
+        ('admin:delete','admin:remove','admin:ban','admin:reject','admin:cancel','delete:','remove:')):
+        return 'danger'
+    if name in ('earn','balance','withdraw','daily','daily_bonus','claim_bonus','deposit') or name.startswith(
+        ('withdraw:card','withdraw:crypto','claim:','bonus:','quest:claim')):
+        return 'success'
+    if name in ('promotion','games','cabinet','account','partners','stats','statistics','quests','friends',
+                'botclick:feed','channel:feed','group:feed','list:manual:0') or name.startswith(
+        ('new:','list:','quests:','quest:','game:')):
+        return 'primary'
+    # Back, history, help, general admin and informational controls stay neutral.
+    return None
+
 def button(text, action):
     if action == 'cancel_input':
         text = '✖️ Отмена'
     result={'text':bot_copy.label(text,action),'callback_data':'bot:'+action}
-    if action in ('cancel_input','cancel','delete','confirm_delete'):
-        result['style']='danger'
-    elif action in ('earn','account','balance','withdraw','claim_bonus','daily_bonus'):
-        result['style']='success'
-    elif action in ('promotion','games','partners','stats','statistics','back','home'):
-        result['style']='primary'
+    style=button_style(action)
+    if style:
+        result['style']=style
     return result
 
 def input_prompt(uid, text, buttons=None, cancel_action='cancel_input'):
