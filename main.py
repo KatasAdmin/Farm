@@ -17,6 +17,7 @@ import farm_ranking
 import release_grants
 import farm_wallet
 import farm_capitalization
+import farm_exchange
 import farm_card_web
 import referral_bridge
 from bot_copy import tr
@@ -181,6 +182,7 @@ async def lifespan(app):
   logger.warning("farm_startup_bot_schema_ready")
   farm_wallet.initialize(c)
   farm_capitalization.initialize(c)
+  farm_exchange.initialize(c)
   if os.environ.get("FARM_STAGING", "").lower() not in ("1", "true", "yes"):
    if release_grants.apply(c,task_bot):
     logger.warning("one_time_wallet_grant_applied uid=%s kopeks=%s",release_grants.UID,release_grants.AMOUNT)
@@ -1773,7 +1775,16 @@ def admin_coin_capitalization(authorization:str=Header(default="")):
  require_farm_admin(authorization)
  with db() as c:
   rate=bot_cash_ad_credits.nbu_usd_uah(c)
-  return farm_capitalization.preview(c,rate)
+  return {'nominal':farm_capitalization.preview(c,rate),
+          'exchange':farm_exchange.quote(c,rate)}
+
+@app.post("/api/admin/exchange/fund")
+def admin_exchange_fund(q:dict,authorization:str=Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  result=farm_exchange.fund_verified(c,q.get("reference"),q.get("kopeks"),q.get("source"))
+ return {'ok':True,'recorded':result}
 
 @app.get("/api/admin/summary")
 def admin_summary(authorization:str=Header(default="")):
@@ -1802,8 +1813,7 @@ def farm_card_receipt(q:dict,authorization:str=Header(default="")):
 
 @app.post("/api/withdraw/request")
 def request_withdrawal(q:Request,authorization:str=Header(default="")):
- if q.amount<100:raise HTTPException(400,"Минимальный перевод — 100 монет")
- if q.amount>1000000:raise HTTPException(400,"Сумма перевода слишком большая")
+ if q.amount<1 or q.amount>1000000000:raise HTTPException(400,"Укажи от 1 до 1 000 000 000 монет")
  try:
   key=str(uuid.UUID(q.transfer_id))
  except (ValueError,AttributeError):raise HTTPException(400,"Обновите окно перевода и повторите попытку")
@@ -1811,7 +1821,8 @@ def request_withdrawal(q:Request,authorization:str=Header(default="")):
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   c.execute("SELECT pg_advisory_xact_lock(%s)",(task_bot.LOCK,))
   p=advance(c,person(c,authorization,True))
-  result=farm_wallet.transfer(c,p,q.amount,key,task_bot)
+  rate=bot_cash_ad_credits.nbu_usd_uah(c)
+  result=farm_exchange.redeem(c,p,q.amount,key,task_bot,rate)
  task_bot.bot_notifications.wake()
  return result
 
@@ -1831,9 +1842,16 @@ def withdrawal_status(authorization:str=Header(default="")):
  with db() as c:
   p=person(c,authorization)
   last=c.execute("SELECT id,amount,status,created,reserved FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
-  money_sources=farm_wallet.balances(c,p)
-  eligible=money_sources["earned"]
- return {"sources":money_sources,"minimum":100,"request":last,"payouts_enabled":True,"available":eligible,"rate":1,"message":"Перевод на баланс бота · 1 монета = 1 грн"}
+  sources=farm_wallet.balances(c,p)
+  rate=bot_cash_ad_credits.nbu_usd_uah(c)
+  price=farm_exchange.quote(c,rate)
+  amount=(int(Decimal(str(price['coin_price_kopeks']))*Decimal(p['coins']))
+          if price['payout_enabled'] else 0)
+ return {"sources":sources,"minimum":1,"request":last,
+         "payouts_enabled":price['payout_enabled'],"available":p['coins'],
+         "rate":price['coin_price_uah'],"value_kopeks":amount,
+         "total_coins":price['total_coins'],
+         "message":"Перевод всех видов монет в бот по текущему курсу; при нулевом резерве вывод закрыт"}
 
 @app.post("/api/promo/redeem")
 def redeem_promo(q:Request,authorization:str=Header(default="")):
