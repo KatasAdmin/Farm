@@ -1828,7 +1828,7 @@ def farm_card_receipt(q:dict,authorization:str=Header(default="")):
 
 @app.post("/api/withdraw/request")
 def request_withdrawal(q:Request,authorization:str=Header(default="")):
- if q.amount<1 or q.amount>1000000000:raise HTTPException(400,"Укажи от 1 до 1 000 000 000 монет")
+ if q.amount<100 or q.amount>1000000000:raise HTTPException(400,"Минимальный перевод — 100 монет")
  try:
   key=str(uuid.UUID(q.transfer_id))
  except (ValueError,AttributeError):raise HTTPException(400,"Обновите окно перевода и повторите попытку")
@@ -1863,7 +1863,7 @@ def withdrawal_status(authorization:str=Header(default="")):
   price=farm_exchange.quote(c,rate)
   amount=(int(Decimal(str(price['coin_price_kopeks']))*Decimal(p['coins']))
           if price['payout_enabled'] else 0)
- return {"sources":sources,"minimum":1,"request":last,
+ return {"sources":sources,"minimum":100,"request":last,
          "payouts_enabled":price['payout_enabled'],"available":p['coins'],
          "rate":price['coin_price_uah'],"nominal_rate":str(Decimal(str(price['nominal_kopeks']))/Decimal(str(price['total_coins']))/Decimal(100)) if price['total_coins'] else "0","value_kopeks":amount,
          "total_coins":price['total_coins'],
