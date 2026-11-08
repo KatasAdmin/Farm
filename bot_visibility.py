@@ -62,6 +62,7 @@ def key_for_action(action):
 def filter_buttons(c,rows):
     if c is None or not rows:
         return rows
+    flags={r['key']:bool(r['visible']) for r in c.execute('SELECT key,visible FROM bot_visibility_flags').fetchall()}
     out=[]
     for row in rows:
         kept=[]
@@ -71,7 +72,7 @@ def filter_buttons(c,rows):
             # A web-app advertisement button has no callback_data.
             if key is None and button.get('web_app') and button.get('text','').startswith('🎬 Смотреть рекламу'):
                 key='advertisement'
-            if not key or enabled(c,key):
+            if not key or flags.get(key,bool(FEATURES[key][1])):
                 kept.append(button)
         if kept:
             out.append(kept)
@@ -80,10 +81,11 @@ def filter_buttons(c,rows):
 def filter_menu(c,rows,canonical):
     if c is None:
         return rows
+    flags={r['key']:bool(r['visible']) for r in c.execute('SELECT key,visible FROM bot_visibility_flags').fetchall()}
     result=[]
     for custom,originals in zip(rows,canonical):
         kept=[name for name,original in zip(custom,originals)
-              if enabled(c,MENU_KEYS[original])]
+              if flags.get(MENU_KEYS[original],bool(FEATURES[MENU_KEYS[original]][1]))]
         if kept:
             result.append(kept)
     return result

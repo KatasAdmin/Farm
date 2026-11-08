@@ -110,3 +110,36 @@ class VisualTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             visuals.deliver(2,response,lambda *a:calls.append(a))
         self.assertFalse(calls)
+
+    def test_visual_lane_cannot_consume_financial_notifications(self):
+        self.production(2,action='cabinet')
+        bot_notifications.enqueue(self.c,'finance-test','Выплата',recipient=2)
+        self.c.raw.commit()
+        calls=[]
+        def api(method,args):
+            calls.append(method)
+            return {'message_id':5,'chat':{'id':2},'photo':[{'file_id':'profile-id'}]}
+        with patch.object(visuals,'avatar',return_value=b''):
+            bot_notifications.dispatch(lambda:self.c,api,limit=2,visuals=True)
+        self.assertEqual(calls,['sendPhoto'])
+        self.assertEqual(self.c.execute("SELECT status FROM bot_notifications WHERE id='finance-test'").fetchone()['status'],'pending')
+        bot_notifications.dispatch(lambda:self.c,api,limit=2,visuals=False)
+        self.assertEqual(calls,['sendPhoto','sendMessage'])
+
+    def test_slow_callback_ack_does_not_delay_screen_transaction(self):
+        import threading,time
+        entered=threading.Event();release=threading.Event()
+        def api(method,args):
+            if method=='answerCallbackQuery':
+                entered.set();release.wait(3)
+            return True
+        try:
+            started=time.monotonic()
+            with patch.object(self,'api',api):
+                result=self.production(2,action='cabinet')
+            elapsed=time.monotonic()-started
+            self.assertEqual(result,{'ok':True})
+            self.assertTrue(entered.wait(1))
+            self.assertLess(elapsed,1)
+        finally:
+            release.set()

@@ -9,6 +9,7 @@ from psycopg.types.json import Jsonb
 
 log=logging.getLogger(__name__)
 _signal=threading.Event()
+_visual_signal=threading.Event()
 
 
 def initialize(c):
@@ -45,16 +46,18 @@ def enqueue(c,event,text,action=None,recipient=0,subject=0,kind='event',url=None
 
 def wake():
     _signal.set()
+    _visual_signal.set()
 
 
-def dispatch(db,api,limit=10):
+def dispatch(db,api,limit=10,visuals=None):
     for _ in range(limit):
         now=time.time()
         with db() as c:
-            c.execute('SELECT pg_advisory_xact_lock(1984535)')
-            c.execute("UPDATE bot_notifications SET status='pending' WHERE status='sending' AND next_at<=%s",(now,))
+            c.execute('SELECT pg_advisory_xact_lock(%s)',(1984547 if visuals else 1984535,))
+            lane = " AND kind='visual'" if visuals is True else " AND kind<>'visual'" if visuals is False else ''
+            c.execute("UPDATE bot_notifications SET status='pending' WHERE status='sending' AND next_at<=%s"+lane,(now,))
             owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
-            row=c.execute("SELECT * FROM bot_notifications WHERE status='pending' AND next_at<=%s AND (recipient>0 OR %s>0) ORDER BY created,id LIMIT 1 FOR UPDATE",(now,owner['telegram_id'] if owner else 0)).fetchone()
+            row=c.execute("SELECT * FROM bot_notifications WHERE status='pending' AND next_at<=%s AND (recipient>0 OR %s>0)"+lane+" ORDER BY created,id LIMIT 1 FOR UPDATE",(now,owner['telegram_id'] if owner else 0)).fetchone()
             if not row:return
             target=row['recipient'] or owner['telegram_id']
             c.execute("UPDATE bot_notifications SET status='sending',attempts=attempts+1,next_at=%s WHERE id=%s",(now+120,row['id']))
@@ -84,7 +87,7 @@ def dispatch(db,api,limit=10):
 
 def worker(db,api,stop):
     while not stop.is_set():
-        try:dispatch(db,api)
+        try:dispatch(db,api,visuals=False)
         except Exception:log.exception('bot_notification_worker_failed')
         try:bot_payout_channel.dispatch(db,api)
         except Exception:log.exception('bot_payout_channel_worker_failed')
@@ -94,3 +97,13 @@ def worker(db,api,stop):
         except Exception:log.exception('bot_crypto_payout_worker_failed')
         _signal.wait(15)
         _signal.clear()
+
+
+def visual_worker(db,api,stop):
+    while not stop.is_set():
+        # Clear before the query: a new commit during delivery must wake the
+        # next iteration, rather than be lost behind provider checks or sleeps.
+        _visual_signal.clear()
+        try:dispatch(db,api,visuals=True)
+        except Exception:log.exception('bot_visual_worker_failed')
+        _visual_signal.wait(1)

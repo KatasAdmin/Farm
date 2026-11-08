@@ -13,6 +13,8 @@ import re
 import secrets
 import time
 import uuid
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import bot_extras
 import bot_economy
 import bot_ui
@@ -121,6 +123,12 @@ MENU_STYLES = [
 
 def say(uid, text, buttons=None):
     c=bot_copy.active_connection()
+    if buttons is not None:
+        # Inline screens don't use the reply keyboard. Building both used to
+        # repeat six visibility queries before immediately discarding the menu.
+        visible=bot_visibility.filter_buttons(c,buttons)
+        return {'method':'sendMessage','chat_id':uid,'text':text,
+                'reply_markup':{'inline_keyboard':style_inline_buttons(visible)} if visible else {'remove_keyboard':True}}
     menu=bot_copy.menu(MENU)
     styles_by_label={
         label: MENU_STYLES[i][j]
@@ -139,9 +147,6 @@ def say(uid, text, buttons=None):
         out['reply_markup']={'keyboard':menu,'resize_keyboard':True,'is_persistent':True,'one_time_keyboard':False}
     else:
         out['reply_markup']={'remove_keyboard':True}
-    if buttons is not None:
-        visible=bot_visibility.filter_buttons(c,buttons)
-        out['reply_markup']={'inline_keyboard':style_inline_buttons(visible)} if visible else {'remove_keyboard':True}
     return out
 
 def is_danger_label(label):
@@ -474,6 +479,27 @@ def _admin_input(db, uid):
         row = state(c, uid)
         return bool(row and (row['state'].startswith('admin_') or row['state'] in ('economy_edit', 'about_edit', 'topup_config', 'topup_bank_reference', 'topup_bank_confirm')))
 
+_callback_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix='telegram-ack')
+_callback_slots = threading.BoundedSemaphore(16)
+
+
+def acknowledge_later(api, callback_id):
+    """Acknowledgement is UI feedback; a slow Telegram call must not hold a command."""
+    if not _callback_slots.acquire(blocking=False):
+        return
+    def send():
+        try:
+            api('answerCallbackQuery', {'callback_query_id':callback_id})
+        except Exception:
+            log.warning('task_bot_background_callback_ack_failed')
+        finally:
+            _callback_slots.release()
+    try:
+        _callback_pool.submit(send)
+    except RuntimeError:
+        _callback_slots.release()
+
+
 def handle(payload, db, api, is_admin, deliver_posts_inline=True):
     """Return None for legacy farm/payment/support messages, else webhook response."""
     payment = bot_topups.payment(payload, db)
@@ -509,20 +535,27 @@ def handle(payload, db, api, is_admin, deliver_posts_inline=True):
     event = 'callback:' + str(callback['id']) if callback.get('id') else 'message:' + str(uid) + ':' + str(message.get('message_id'))
     if not callback and (not isinstance(message.get('message_id'), int)):
         return None
+    started = time.perf_counter()
     admin = is_admin(uid, uid)
+    identity_ms = (time.perf_counter()-started)*1000
     # Acknowledge ordinary inline buttons before waiting for the global
     # accounting lock. Post-claim buttons retain their result-specific popup.
     callback_acked = False
     if callback.get('id') and not channel_claim:
-        try:
-            api('answerCallbackQuery', {'callback_query_id': callback['id']})
+        if not deliver_posts_inline:
+            acknowledge_later(api, callback['id'])
             callback_acked = True
-        except Exception:
-            log.warning('task_bot_callback_early_ack_failed')
+        else:
+            try:
+                api('answerCallbackQuery', {'callback_query_id': callback['id']})
+                callback_acked = True
+            except Exception:
+                log.warning('task_bot_callback_early_ack_failed')
     try:
         with db() as c:
             c.execute('SELECT pg_advisory_xact_lock(1984533)')
             c.execute('SELECT pg_advisory_xact_lock(%s)', (LOCK,))
+            locked_ms = (time.perf_counter()-started)*1000
             old = c.execute('SELECT response FROM bot_receipts WHERE event=%s', (event,)).fetchone()
             if not admin and (action.startswith('bot:admin') or cmd.startswith('/bot') or cmd.startswith('/bonus')):
                 return say(uid,'Доступ только администратору.')
@@ -575,6 +608,10 @@ def handle(payload, db, api, is_admin, deliver_posts_inline=True):
         log.exception('task_bot_update_failed')
         raise
     bot_notifications.wake()
+    elapsed_ms = (time.perf_counter()-started)*1000
+    if elapsed_ms>500:
+        log.warning('task_bot_slow_update elapsed_ms=%.0f identity_ms=%.0f locked_ms=%.0f work_ms=%.0f',
+                    elapsed_ms,identity_ms,locked_ms,elapsed_ms-locked_ms)
     # Production uses a background worker; direct library callers retain synchronous outbox behavior.
     if deliver_posts_inline:
         bot_extras.deliver_posts(db, api)

@@ -35,6 +35,7 @@ logger=logging.getLogger("farm.security")
 from urllib.parse import parse_qsl
 from urllib.request import Request as URLRequest, urlopen
 import psycopg
+import database_pool
 from psycopg.rows import dict_row
 from fastapi import FastAPI,HTTPException,Header,Request as HTTPRequest
 from fastapi.responses import HTMLResponse,JSONResponse,RedirectResponse
@@ -43,7 +44,7 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from production import CYCLE, FEED_EVERY, GRAIN_PRICE, simulate, forecast
 from production_v4 import simulate as simulate_v4, forecast as forecast_v4, feed_required, COW_PRICE, COW_FEED, MILK_PRICE, MILK_INTERVAL, SHEEP_PRICE, SHEEP_FEED, WOOL_PRICE, WOOL_INTERVAL
-def db():return psycopg.connect(os.environ["DATABASE_URL"],row_factory=dict_row,connect_timeout=10,options="-c statement_timeout=30000 -c lock_timeout=10000 -c idle_in_transaction_session_timeout=30000 -c transaction_timeout=60000")
+def db():return database_pool.connection()
 @asynccontextmanager
 async def lifespan(app):
  logger.warning("farm_startup_database_connecting release=%s",RELEASE)
@@ -213,6 +214,9 @@ async def lifespan(app):
  retention_thread.start()
  notification_thread=threading.Thread(target=task_bot.bot_notifications.worker,args=(db,telegram_api,stop_retention),daemon=True)
  notification_thread.start()
+ # Cards have their own delivery lane: provider polling cannot delay a menu.
+ visual_thread=threading.Thread(target=task_bot.bot_notifications.visual_worker,args=(db,telegram_api,stop_retention),daemon=True)
+ visual_thread.start()
  # Publish queued advertising posts out of band so routine Telegram clicks
  # never wait for post delivery, locks, or Telegram network timeouts.
  def post_publication_worker():
