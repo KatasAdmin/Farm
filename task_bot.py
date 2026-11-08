@@ -282,16 +282,18 @@ def farm_url():
 
 def cabinet(c, uid):
     a = account(c, uid)
-    pending = c.execute("SELECT coalesce(sum(amount),0) AS n FROM bot_payouts WHERE uid=%s AND status='pending'", (uid,)).fetchone()['n']
-    frozen = c.execute("SELECT coalesce(sum(remaining),0) AS n FROM bot_tasks WHERE owner=%s AND status IN ('pending','active')", (uid,)).fetchone()['n']
-    earned = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind='task_reward'", (uid,)).fetchone()['n']
-    bonuses = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('daily_bonus','friend_reward','referral_reward')", (uid,)).fetchone()['n']
-    deposits = c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind IN ('manual_deposit','ads_manual_deposit','stars_wallet_deposit','cryptopay_deposit')", (uid,)).fetchone()['n']
-    paid = c.execute("SELECT coalesce(sum(coalesce(q.net,p.amount)),0) AS n FROM bot_payouts p LEFT JOIN bot_payout_terms q ON q.id=p.id WHERE p.uid=%s AND p.status='paid'", (uid,)).fetchone()['n']
-    spent = c.execute("SELECT coalesce(sum(coalesce(q.cost,t.reward)),0) AS n FROM bot_tasks t LEFT JOIN bot_task_terms q ON q.task=t.id JOIN bot_claims x\n      ON x.task=t.id AND x.status='paid' WHERE t.owner=%s", (uid,)).fetchone()['n']
-    spent -= c.execute("SELECT coalesce(sum(delta),0) AS n FROM bot_ledger WHERE uid=%s AND kind='retention_refund'", (uid,)).fetchone()['n']
-    debt = c.execute('SELECT amount FROM bot_debts WHERE uid=%s', (uid,)).fetchone()
-    debt = debt['amount'] if debt else 0
+    totals = c.execute("""SELECT
+      (SELECT coalesce(sum(amount),0) FROM bot_payouts WHERE uid=%s AND status='pending') AS pending,
+      (SELECT coalesce(sum(remaining),0) FROM bot_tasks WHERE owner=%s AND status IN ('pending','active')) AS frozen,
+      (SELECT coalesce(sum(delta),0) FROM bot_ledger WHERE uid=%s AND kind='task_reward') AS earned,
+      (SELECT coalesce(sum(delta),0) FROM bot_ledger WHERE uid=%s AND kind IN ('daily_bonus','friend_reward','referral_reward')) AS bonuses,
+      (SELECT coalesce(sum(delta),0) FROM bot_ledger WHERE uid=%s AND kind IN ('manual_deposit','ads_manual_deposit','stars_wallet_deposit','cryptopay_deposit')) AS deposits,
+      (SELECT coalesce(sum(coalesce(q.net,p.amount)),0) FROM bot_payouts p LEFT JOIN bot_payout_terms q ON q.id=p.id WHERE p.uid=%s AND p.status='paid') AS paid,
+      (SELECT coalesce(sum(coalesce(q.cost,t.reward)),0) FROM bot_tasks t LEFT JOIN bot_task_terms q ON q.task=t.id JOIN bot_claims x ON x.task=t.id AND x.status='paid' WHERE t.owner=%s)
+        -(SELECT coalesce(sum(delta),0) FROM bot_ledger WHERE uid=%s AND kind='retention_refund') AS spent,
+      (SELECT coalesce(sum(amount),0) FROM bot_debts WHERE uid=%s) AS debt""", (uid,)*9).fetchone()
+    pending,frozen,earned,bonuses,deposits,paid,spent,debt = (totals[k] for k in
+        ('pending','frozen','earned','bonuses','deposits','paid','spent','debt'))
     state(c, uid, 'clear')
     debt_line = tr('\n⚠️ Задолженность: {v0}', {'v0': money(debt)}, html_mode=True, section='task_bot', limit=3000) if debt else ''
     text = tr('👤 <b>Мой кабинет</b>\n🆔 <code>{v0}</code>\n\n💰 <b>Доступно: {v1}</b>{v2}\n\n📊 <b>Движение средств</b>\n💳 Пополнений: {v3}\n📣 Потрачено на рекламу: {v4}\n✅ Заработано на заданиях: {v5}\n🎁 Бонусы и рефералы: {v6}\n\n📌 <b>Остальные средства</b>\n❄️ В бюджете заданий: {v7}\n⏳ Ожидает выплаты: {v8}\n💸 Выведено всего: {v9}', {'v0': f'{uid}', 'v1': f"{money(a['available'])}", 'v2': f'{debt_line}', 'v3': f'{money(deposits)}', 'v4': f'{money(spent)}', 'v5': f'{money(earned)}', 'v6': f'{money(bonuses)}', 'v7': f'{money(frozen)}', 'v8': f'{money(pending)}', 'v9': f'{money(paid)}'}, html_mode=True, section='task_bot', limit=3000)
@@ -567,39 +569,49 @@ def handle(payload, db, api, is_admin, deliver_posts_inline=True):
             if channel_claim and (not account(c, uid)):
                 return {'method': 'answerCallbackQuery', 'callback_query_id': callback['id'], 'text': tr('Сначала открой @Farmlife2026bot и нажми /start, затем вернись к посту.', html_mode=False, section='task_bot', limit=3000), 'show_alert': True}
             text = bot_copy.canonical_menu(c, text)
+            is_new = not c.execute('SELECT 1 FROM bot_accounts WHERE uid=%s', (uid,)).fetchone()
+            sync_referrals = is_new or cmd == '/start'
             ref = None
             if text.startswith('/start partner_'):
                 raw = text.split('partner_', 1)[1]
                 if raw.isdecimal() and len(raw) <= 19 and (0 < int(raw) <= 9223372036854775807) and (int(raw) != uid):
                     ref = c.execute('SELECT uid FROM bot_accounts WHERE uid=%s', (int(raw),)).fetchone()
             # A pre-existing game inviter takes precedence over a new bot link.
-            game_ref=c.execute('SELECT p.telegram_id AS uid FROM referrals r JOIN players ch ON ch.id=r.child_id JOIN players p ON p.id=r.parent_id WHERE ch.telegram_id=%s',(uid,)).fetchone()
+            game_ref=c.execute('SELECT p.telegram_id AS uid FROM referrals r JOIN players ch ON ch.id=r.child_id JOIN players p ON p.id=r.parent_id WHERE ch.telegram_id=%s',(uid,)).fetchone() if sync_referrals else None
             if game_ref:ref=game_ref if game_ref['uid'] else None
             if game_ref and game_ref['uid']:
                 ref=game_ref
                 c.execute('INSERT INTO bot_accounts(uid,name,created) VALUES(%s,%s,%s) ON CONFLICT(uid) DO NOTHING',(ref['uid'],'Игрок',time.time()))
             if ref and not referral_bridge.acyclic(c,uid,ref['uid']):ref=None
-            is_new = not c.execute('SELECT 1 FROM bot_accounts WHERE uid=%s', (uid,)).fetchone()
             c.execute('INSERT INTO bot_accounts(uid,name,referrer,created) VALUES(%s,%s,%s,%s)\n              ON CONFLICT(uid) DO UPDATE SET name=EXCLUDED.name', (uid, str(sender.get('first_name') or 'Игрок')[:100], ref['uid'] if ref else None, time.time()))
             bot_identity.record(c,uid,sender,message if not callback else None)
-            referral_bridge.sync(c, uid)
+            if sync_referrals:
+                referral_bridge.sync(c, uid)
             unify_balances(c, uid)
+            prepared_ms = (time.perf_counter()-started)*1000
             message = dict(message, _new_referral=bool(is_new and ref and text.startswith('/start partner_')))
             with bot_copy.session(c, admin):
+                copy_ms = (time.perf_counter()-started)*1000
                 try:
                     with c.transaction():
                         response = route(c, uid, text, action[4:] if callback else '', message, api, admin)
+                        response = bot_visuals.decorate(response, text, action[4:] if callback else '')
                 except UserError as error:
                     response = {'method': 'answerCallbackQuery', 'callback_query_id': callback['id'], 'text': str(error)[:200], 'show_alert': True} if channel_claim else input_prompt(uid, str(error)) if state(c, uid) else say(uid, str(error))
+                routed_ms = (time.perf_counter()-started)*1000
                 if '_visual' in response:
                     if not deliver_posts_inline:
                         # Persist once with the existing event receipt, then render off webhook.
                         media = dict(response)
                         if callback and message.get('photo') and isinstance(message.get('message_id'), int):
                             media['_visual'] = dict(media['_visual'], edit_message_id=message['message_id'])
-                        c.execute("INSERT INTO bot_notifications(id,recipient,subject,kind,payload,created) VALUES(%s,%s,%s,'visual',%s,%s) ON CONFLICT DO NOTHING",
-                                  ('visual:'+event, uid, uid, Jsonb(media), time.time()))
-                        response = {'ok': True}
+                        ready = bot_visuals.ready_response(media)
+                        if ready is not None:
+                            response = ready
+                        else:
+                            c.execute("INSERT INTO bot_notifications(id,recipient,subject,kind,payload,created) VALUES(%s,%s,%s,'visual',%s,%s) ON CONFLICT DO NOTHING",
+                                      ('visual:'+event, uid, uid, Jsonb(media), time.time()))
+                            response = {'ok': True}
                     else:
                         response = dict(response)
                         response.pop('_visual', None)
@@ -610,8 +622,9 @@ def handle(payload, db, api, is_admin, deliver_posts_inline=True):
     bot_notifications.wake()
     elapsed_ms = (time.perf_counter()-started)*1000
     if elapsed_ms>500:
-        log.warning('task_bot_slow_update elapsed_ms=%.0f identity_ms=%.0f locked_ms=%.0f work_ms=%.0f',
-                    elapsed_ms,identity_ms,locked_ms,elapsed_ms-locked_ms)
+        log.warning('task_bot_slow_update action=%s elapsed_ms=%.0f identity_ms=%.0f locked_ms=%.0f prepare_ms=%.0f copy_ms=%.0f route_ms=%.0f commit_ms=%.0f',
+                    action.removeprefix('bot:').split(':')[0] or cmd or 'menu',
+                    elapsed_ms,identity_ms,locked_ms,prepared_ms-locked_ms,copy_ms-prepared_ms,routed_ms-copy_ms,elapsed_ms-routed_ms)
     # Production uses a background worker; direct library callers retain synchronous outbox behavior.
     if deliver_posts_inline:
         bot_extras.deliver_posts(db, api)

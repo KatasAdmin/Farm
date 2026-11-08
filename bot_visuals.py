@@ -25,6 +25,132 @@ _avatar_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='profile-ava
 _avatar_jobs = set()
 VERSION = 'premium-dark-2'
 FONT = Path(__file__).parent / 'assets/fonts/RobotoCondensed.ttf'
+SECTIONS = {
+    'earn': ('ЗАРАБОТАТЬ', 'Задания · Реклама · Бонусы', '#3DAF85', 'coin'),
+    'promotion': ('ПРОДВИЖЕНИЕ', 'Твои проекты. Новая аудитория.', '#9164ED', 'megaphone'),
+    'games': ('ИГРОВАЯ', 'Ферма и новые возможности', '#5BA4D8', 'gamepad'),
+    'about': ('МИР TREVIXO', 'Все возможности — рядом', '#D9B65D', 'orbit'),
+    'quests': ('ТВОЙ ПРОГРЕСС', 'Квесты и достижения', '#D9B65D', 'medal'),
+    'deposit': ('ПОПОЛНЕНИЕ', 'Выбери удобный способ', '#3DAF85', 'wallet'),
+    'withdraw': ('ВЫВОД СРЕДСТВ', 'Твои средства. Понятные действия.', '#5BA4D8', 'shield'),
+    'history': ('ИСТОРИЯ', 'Твоё движение средств', '#9D8DD4', 'ledger'),
+    'orders': ('МОИ ЗАКАЗЫ', 'Управляй своим продвижением', '#9164ED', 'layers'),
+    'reviews': ('ПРОВЕРКА РАБОТ', 'Выполнения твоих заданий', '#5BA4D8', 'checklist'),
+    'payouts': ('МОИ ВЫПЛАТЫ', 'Заявки и статусы переводов', '#D9B65D', 'shield'),
+    'claims': ('МОИ ВЫПОЛНЕНИЯ', 'Задания и результаты', '#3DAF85', 'checklist'),
+    'rankings': ('ЛИДЕРЫ', 'Активность твоей команды', '#D9B65D', 'podium'),
+    'statistics': ('В ЦИФРАХ', 'Актуальная статистика проекта', '#5AB8B1', 'chart'),
+    'support': ('МЫ НА СВЯЗИ', 'Обращения и помощь', '#5BA4D8', 'chat'),
+    'admin': ('УПРАВЛЕНИЕ', 'Рабочий кабинет TREVIXO', '#9D8DD4', 'shield'),
+    'settings': ('НАСТРОЙКИ', 'Всё на своём месте', '#9D8DD4', 'sliders'),
+}
+SECTION_ACTIONS = {
+    'earn':'earn', 'promotion':'promotion', 'games':'games', 'about':'about',
+    'quests':'quests', 'deposit':'deposit', 'withdraw':'withdraw', 'history':'history',
+    'mine:0':'orders', 'reviews:0':'reviews', 'payouts':'payouts', 'claims':'claims',
+    'top:all':'rankings', 'top:today':'rankings', 'about:stats':'statistics',
+    'about:admin_url':'support', 'admin':'admin', 'admin:section:manage':'settings',
+}
+SECTION_LABELS = {'🚀 Заработать':'earn', '📣 Продвижение':'promotion',
+                  '🎮 Игры':'games', '📚 О боте':'about', '/quests':'quests', '/farm':'games'}
+
+
+def decorate(response, text, action):
+    """Only section entrances receive artwork; input and execution stay compact."""
+    if response.get('method')!='sendMessage' or '_visual' in response:
+        return response
+    section = SECTION_ACTIONS.get(action) or SECTION_LABELS.get(text)
+    if not section or not response.get('reply_markup', {}).get('inline_keyboard'):
+        return response
+    if len(response.get('text','').encode('utf-16-le'))//2>1024:
+        return response
+    return attach(response, 'section', section=section)
+
+
+def section_image(section):
+    from PIL import Image, ImageDraw, ImageFont
+    title, subtitle, accent, icon = SECTIONS[section]
+    rgb = tuple(int(accent[i:i+2],16) for i in (1,3,5))
+    bg = Image.new('RGB',(300,110))
+    px=bg.load()
+    for y in range(110):
+        for x in range(300):
+            glow=max(0,1-(((x-250)/170)**2+((y-50)/100)**2))**2
+            px[x,y]=tuple(int(base+channel*.22*glow) for base,channel in zip((16,16,27),rgb))
+    im=bg.resize((1200,440),Image.Resampling.BICUBIC)
+    d=ImageDraw.Draw(im);gold='#D9B65D';white='#F5F5FA'
+    def label(x,y,value,size,color=white):
+        d.text((x,y),value,font=ImageFont.truetype(str(FONT),size),fill=color)
+    d.rounded_rectangle((20,20,1179,419),radius=30,outline='#4A3D5A',width=2)
+    d.polygon([(64,64),(75,83),(92,55),(109,83),(120,64),(113,97),(71,97)],fill=gold)
+    label(139,53,'TREVIXO',35)
+    label(65,151,title,68)
+    label(67,251,subtitle,29,'#BDB7CD')
+    d.line((67,344,380,344),fill=accent,width=3)
+    label(67,366,'PREMIUM SPACE',18,gold)
+    d.ellipse((841,84,1131,374),outline='#493C58',width=2)
+    d.arc((824,67,1148,391),245,345,fill=accent,width=3)
+    d.arc((858,101,1114,357),65,145,fill=gold,width=2)
+    # Each entrance has a different line illustration, without fake metrics.
+    x,y=985,229
+    def line(points,fill=accent,width=7):d.line(points,fill=fill,width=width,joint='curve')
+    if icon=='coin':
+        d.ellipse((x-72,y-72,x+72,y+72),outline=gold,width=7)
+        d.ellipse((x-57,y-57,x+57,y+57),outline=accent,width=2)
+        line((x-25,y-25,x+25,y-25),gold,7);line((x,y-25,x,y+33),gold,7)
+        line((x-90,y+85,x-37,y+66,x+14,y+78,x+86,y+32),accent,5)
+    elif icon=='megaphone':
+        d.polygon([(x-74,y-30),(x-15,y-30),(x+65,y-68),(x+65,y+45),(x-15,y+14),(x-74,y+14)],outline=accent,width=7)
+        line((x-37,y+18,x-23,y+77,x+4,y+77,x-2,y+21),gold,7)
+        line((x+86,y-34,x+109,y-48),gold,5);line((x+89,y-8,x+117,y-8),gold,5)
+    elif icon=='gamepad':
+        d.rounded_rectangle((x-98,y-57,x+98,y+56),radius=35,outline=accent,width=7)
+        line((x-68,y,x-25,y),gold);line((x-47,y-22,x-47,y+22),gold)
+        for xx,yy in ((x+43,y+10),(x+66,y-13)):d.ellipse((xx-8,yy-8,xx+8,yy+8),fill=gold)
+        line((x-15,y-58,x-15,y-85,x+12,y-85),accent,5)
+    elif icon in ('shield','medal'):
+        if icon=='shield':
+            line((x,y-85,x+65,y-60,x+59,y+20,x+34,y+60,x,y+83,x-34,y+60,x-59,y+20,x-65,y-60,x,y-85))
+            line((x-29,y,x-5,y+25,x+34,y-22),gold,8)
+        else:
+            d.polygon([(x-45,y+22),(x-69,y+88),(x-29,y+71),(x-6,y+99),(x+7,y+38)],outline=accent,width=5)
+            d.polygon([(x+45,y+22),(x+69,y+88),(x+29,y+71),(x+6,y+99),(x-7,y+38)],outline=accent,width=5)
+            d.ellipse((x-60,y-78,x+60,y+42),fill='#211C32',outline=gold,width=6)
+            import math
+            pts=[(x+math.cos(-math.pi/2+i*math.pi/5)*(33 if i%2==0 else 15),y-18+math.sin(-math.pi/2+i*math.pi/5)*(33 if i%2==0 else 15)) for i in range(10)]
+            d.polygon(pts,fill=gold)
+    elif icon=='wallet':
+        d.rounded_rectangle((x-87,y-60,x+74,y+62),radius=17,outline=accent,width=7)
+        d.rounded_rectangle((x+17,y-18,x+88,y+27),radius=9,fill='#242034',outline=gold,width=5)
+        d.ellipse((x+34,y-1,x+43,y+8),fill=gold)
+        line((x-43,y-25,x-43,y+26),gold,6);line((x-68,y,x-18,y),gold,6)
+    elif icon in ('ledger','checklist'):
+        d.rounded_rectangle((x-67,y-86,x+67,y+86),radius=13,outline=accent,width=6)
+        for yy in (y-43,y,y+43):
+            if icon=='checklist':line((x-44,yy,x-36,yy+9,x-23,yy-8),gold,5)
+            else:d.ellipse((x-43,yy-4,x-35,yy+4),fill=gold)
+            line((x-9,yy,x+42,yy),accent,5)
+    elif icon=='layers':
+        for offset in (39,9,-21):
+            d.polygon([(x,y-48+offset),(x+87,y-6+offset),(x,y+36+offset),(x-87,y-6+offset)],fill='#211C32',outline=gold if offset==-21 else accent,width=5)
+    elif icon in ('podium','chart'):
+        for xx,top in ((x-74,y-2),(x-13,y-70),(x+48,y-29)):
+            d.rounded_rectangle((xx,top,xx+45,y+69),radius=5,outline=gold if xx==x-13 else accent,width=6)
+        line((x-94,y+83,x+112,y+83),accent,3)
+    elif icon=='chat':
+        d.rounded_rectangle((x-80,y-66,x+80,y+42),radius=25,outline=accent,width=7)
+        line((x-41,y+42,x-53,y+76,x-4,y+43),accent,7)
+        for xx in (x-34,x,x+34):d.ellipse((xx-6,y-18,xx+6,y-6),fill=gold)
+    elif icon=='sliders':
+        for xx,yy in ((x-55,y-35),(x,y+25),(x+55,y-8)):
+            line((xx,y-75,xx,y+75),accent,5)
+            d.ellipse((xx-13,yy-13,xx+13,yy+13),fill='#211C32',outline=gold,width=5)
+    else:
+        d.ellipse((x-44,y-44,x+44,y+44),outline=gold,width=6)
+        for box in ((x-103,y-55,x+103,y+55),(x-54,y-101,x+54,y+101)):d.ellipse(box,outline=accent,width=3)
+        d.ellipse((x+88,y-20,x+106,y-2),fill=gold)
+    buf=BytesIO();im.save(buf,'JPEG',quality=87,optimize=True)
+    return buf.getvalue()
 
 
 def cached(cache, key):
@@ -54,6 +180,29 @@ def attach(response, kind, **snapshot):
 def amount(kopeks):
     whole, fraction = divmod(int(kopeks), 100)
     return f'{whole:,}'.replace(',', ' ') + f',{fraction:02d} грн'
+
+
+def media_key(snapshot, photo=b''):
+    return hashlib.sha256(json.dumps({k:v for k,v in snapshot.items() if k not in ('edit_message_id','caption')}, sort_keys=True, ensure_ascii=False).encode() + photo).hexdigest()
+
+
+def ready_response(response):
+    """Cached Telegram media can answer directly, without a delivery queue/API trip."""
+    snapshot=response['_visual']
+    if snapshot.get('uid',response['chat_id'])!=response['chat_id']:
+        return None
+    photo=(cached(_avatars,response['chat_id']) or b'') if snapshot['kind']=='profile' else b''
+    file_id=cached(_files,media_key(snapshot,photo))
+    caption=snapshot.get('caption') or response['text']
+    if not file_id or len(caption.encode('utf-16-le'))//2>1024:
+        return None
+    out={k:v for k,v in response.items() if k not in ('_visual','text','link_preview_options','method')}
+    if snapshot.get('edit_message_id') and out.get('reply_markup',{}).get('inline_keyboard'):
+        mode=out.pop('parse_mode',None)
+        media={'type':'photo','media':file_id,'caption':caption}
+        if mode:media['parse_mode']=mode
+        return dict(out,method='editMessageMedia',message_id=snapshot['edit_message_id'],media=media)
+    return dict(out,method='sendPhoto',photo=file_id,caption=caption)
 
 
 def avatar(uid, api):
@@ -91,10 +240,12 @@ def _load_avatar(uid, api):
 
 def render(snapshot, photo=b''):
     from PIL import Image, ImageDraw, ImageFont, ImageOps
-    key = hashlib.sha256(json.dumps({k:v for k,v in snapshot.items() if k not in ('edit_message_id','caption')}, sort_keys=True, ensure_ascii=False).encode() + photo).hexdigest()
+    key = media_key(snapshot,photo)
     hit = cached(_images, key)
     if hit:
         return key, hit
+    if snapshot['kind']=='section':
+        return key, remember(_images,key,section_image(snapshot['section']),86400,64)
     w, h = 1200, 650
     # Render glow on a small canvas and scale it once, keeping CPU work bounded.
     bg = Image.new('RGB', (300, 163))
@@ -204,7 +355,7 @@ def deliver(target, payload, api):
         else:
             result = api('sendPhoto', params)
         if isinstance(result, dict) and result.get('photo'):
-            remember(_files, key, result['photo'][-1]['file_id'], 86400 if snapshot['kind']=='welcome' else 300, 256)
+            remember(_files, key, result['photo'][-1]['file_id'], 86400 if snapshot['kind'] in ('welcome','section') else 300, 256)
         return result
     except Exception:
         # Do not print API exceptions: their URLs may contain the bot token.

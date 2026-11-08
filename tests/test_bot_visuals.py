@@ -164,3 +164,43 @@ class VisualTests(unittest.TestCase):
             while 2 in visuals._avatar_jobs and time.monotonic()<deadline:
                 time.sleep(0.005)
         self.assertEqual(visuals.avatar(2,api),b'avatar-data')
+
+    def test_sections_are_static_distinct_and_small(self):
+        keys=set()
+        for section in visuals.SECTIONS:
+            key,data=visuals.render({'kind':'section','section':section,'version':visuals.VERSION})
+            keys.add(key)
+            self.assertEqual(Image.open(BytesIO(data)).size,(1200,440))
+            self.assertLess(len(data),90000)
+        self.assertEqual(len(keys),len(visuals.SECTIONS))
+
+    def test_cached_section_responds_directly_with_current_caption(self):
+        response=visuals.decorate(bot.say(2,'Баланс: 10 грн',[[bot.button('Назад','cabinet')]]),'','deposit')
+        self.assertEqual(response['_visual']['section'],'deposit')
+        def api(method,args):
+            return {'message_id':55,'chat':{'id':2},'photo':[{'file_id':'deposit-banner'}]}
+        visuals.deliver(2,response,api)
+        # The same shared banner remains valid for another user's live text.
+        other=visuals.decorate(bot.say(3,'Баланс: 500 грн',[[bot.button('Назад','cabinet')]]),'','deposit')
+        ready=visuals.ready_response(other)
+        self.assertEqual(ready['method'],'sendPhoto')
+        self.assertEqual(ready['chat_id'],3)
+        self.assertEqual(ready['photo'],'deposit-banner')
+        self.assertEqual(ready['caption'],'Баланс: 500 грн')
+        self.assertNotIn('_visual',ready)
+        other['_visual']['edit_message_id']=99
+        self.assertEqual(visuals.ready_response(other)['method'],'editMessageMedia')
+
+    def test_payment_input_and_confirmations_stay_lightweight(self):
+        response=bot.input_prompt(2,'Введи сумму')
+        for action in ('topup:card','topup:crypto','confirm_payout:nonce','confirm_task:nonce','daily'):
+            self.assertNotIn('_visual',visuals.decorate(dict(response),'',action))
+
+    def test_ordinary_navigation_does_not_rescan_referral_tree(self):
+        with patch.object(bot.referral_bridge,'sync',side_effect=AssertionError('Unnecessary tree scan')):
+            self.send(2,action='cabinet')
+            self.send(2,action='earn')
+        with patch.object(bot.referral_bridge,'sync',wraps=bot.referral_bridge.sync) as sync:
+            self.send(4,'/start partner_2')
+            sync.assert_called_once()
+        self.assertEqual(self.c.execute('SELECT referrer FROM bot_accounts WHERE uid=4').fetchone()['referrer'],2)
