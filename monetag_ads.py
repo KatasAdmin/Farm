@@ -160,7 +160,7 @@ def deliver(c,p,advance,coop_limit,storage_limit,referral_award=None):
    fed='fed_hens' if item=='chickens' else 'fed_geese'
    c.execute('UPDATE players SET '+item+'='+item+'+%s,'+fed+'='+fed+'+%s WHERE id=%s',(n,n,p['id']))
   elif item in ('cows','sheep'):
-   if p.get('cows',0)+p.get('sheep',0)+n>2*p.get('cowshed_level',1):continue
+   if p.get('cows',0)+p.get('sheep',0)+n>4*p.get('cowshed_level',1):continue
    fed='fed_cows' if item=='cows' else 'fed_sheep'
    c.execute('UPDATE players SET '+item+'='+item+'+%s,'+fed+'='+fed+'+%s WHERE id=%s',(n,n,p['id']))
   elif item=='coins':
