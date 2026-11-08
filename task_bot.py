@@ -1005,7 +1005,7 @@ def route(c, uid, text, action, message, api, admin):
             buttons = [[button(f"{r['title'][:30]} · {r['status']}", 'own:' + r['id'])] for r in rows]
         else:
             kind = parts[1]
-            rows = c.execute('SELECT t.* FROM bot_tasks t WHERE ' + bot_ui.catalog_filter() + ' AND t.kind=%s ORDER BY t.created LIMIT 8 OFFSET %s', (uid, uid, uid, uid, kind, offset)).fetchall()
+            rows = c.execute('SELECT t.* FROM bot_tasks t WHERE ' + bot_ui.catalog_filter() + ' AND t.kind=%s ORDER BY t.created LIMIT 8 OFFSET %s', (uid, uid, uid, uid, uid, kind, offset)).fetchall()
             buttons = [[button(r['title'][:35] + ' · ' + money(r['reward']), 'task:' + r['id'])] for r in rows]
         if len(rows) == 8:
             buttons.append([button('Далее →', ':'.join(parts[:-1]) + ':' + str(offset + 8))])
