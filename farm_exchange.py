@@ -68,13 +68,17 @@ def quote(c,usd_uah,lock=False):
     rate=Decimal(spendable)/Decimal(outstanding) if outstanding else Decimal(0)
     nominal_rate=(Decimal(nominal_value)/Decimal(outstanding)
                   if outstanding and nominal_value>0 else Decimal(0))
+    # The current backed exchange rate is the purchase price too. Before the
+    # first verified reserve deposit we quote the nominal seed for bootstrap;
+    # redemptions remain impossible until actual cash is earmarked.
+    purchase_rate=rate if rate>0 else nominal_rate
     return {'reserve_kopeks':backing,
             'nominal_kopeks':nominal_value,'cashable_kopeks':spendable,
             'total_coins':outstanding,
             'coin_price_kopeks':str(rate),
             'coin_price_uah':str(rate/Decimal(100)),
-            'purchase_price_kopeks':str(nominal_rate),
-            'purchase_price_uah':str(nominal_rate/Decimal(100)),
+            'purchase_price_kopeks':str(purchase_rate),
+            'purchase_price_uah':str(purchase_rate/Decimal(100)),
             'payout_enabled':spendable>0 and rate>0}
 
 def mint_from_card(c,amount_kopeks,usd_uah):
