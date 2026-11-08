@@ -1297,7 +1297,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
  secret=telegram_webhook_secret()
  if not secret or not hmac.compare_digest(x_telegram_bot_api_secret_token,secret):
   raise HTTPException(403,"Unauthorized")
- result=task_bot.handle(payload,db,telegram_api,farm_admin_telegram)
+ result=task_bot.handle(payload,db,telegram_api,farm_admin_telegram,deliver_posts_inline=False)
  if result is not None:return result
  # Telegram may redeliver the same update; process ordinary messages/callbacks only once.
  # Payment events retain their own idempotency rules.
