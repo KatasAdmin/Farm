@@ -74,13 +74,13 @@ def quote(c,usd_uah,lock=False):
     other_liabilities=int(task_bot.liability(c))
     free_pool=max(0,pool_kopeks-other_liabilities-backing)
     spendable=min(nominal_value,backing+free_pool)
-    rate=Decimal(spendable)/Decimal(outstanding) if outstanding else Decimal(0)
+    # The coin's price is capitalization / circulating supply, never the
+    # smaller liquidity / circulating supply. Cash availability determines
+    # whether and how much may be redeemed, not a discounted coin rate.
     nominal_rate=(Decimal(nominal_value)/Decimal(outstanding)
                   if outstanding and nominal_value>0 else Decimal(0))
-    # The current backed exchange rate is the purchase price too. Before the
-    # first verified reserve deposit we quote the nominal seed for bootstrap;
-    # redemptions remain impossible until actual cash is earmarked.
-    purchase_rate=rate if rate>0 else nominal_rate
+    rate=nominal_rate
+    purchase_rate=nominal_rate
     return {'reserve_kopeks':backing,'free_pool_kopeks':free_pool,
             'nominal_kopeks':nominal_value,'cashable_kopeks':spendable,
             'total_coins':outstanding,
