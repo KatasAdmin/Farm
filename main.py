@@ -1802,6 +1802,7 @@ def farm_exchange_quote(authorization:str=Header(default="")):
   rate=bot_cash_ad_credits.nbu_usd_uah(c)
   raw=farm_exchange.quote(c,rate)
   return {"coin_price_uah":raw['coin_price_uah'],
+          "nominal_coin_price_uah":str(Decimal(str(raw['nominal_kopeks']))/Decimal(str(raw['total_coins']))/Decimal(100)) if raw['total_coins'] else "0",
           "purchase_price_uah":raw['purchase_price_uah'],
           "payout_enabled":raw['payout_enabled'],
           "balance_value_kopeks":int((Decimal(str(raw['coin_price_kopeks']))*
@@ -1864,7 +1865,7 @@ def withdrawal_status(authorization:str=Header(default="")):
           if price['payout_enabled'] else 0)
  return {"sources":sources,"minimum":1,"request":last,
          "payouts_enabled":price['payout_enabled'],"available":p['coins'],
-         "rate":price['coin_price_uah'],"value_kopeks":amount,
+         "rate":price['coin_price_uah'],"nominal_rate":str(Decimal(str(price['nominal_kopeks']))/Decimal(str(price['total_coins']))/Decimal(100)) if price['total_coins'] else "0","value_kopeks":amount,
          "total_coins":price['total_coins'],
          "message":"Перевод всех видов монет в бот по текущему курсу; при нулевом резерве вывод закрыт"}
 
