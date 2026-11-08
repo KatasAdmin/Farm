@@ -238,7 +238,7 @@ class TaskBotTests(unittest.TestCase):
         self.invariant()
     def test_menu_and_no_deferred_games(self):
         reply = self.send(3, '/start')
-        self.assertEqual(reply['reply_markup']['keyboard'], bot.MENU)
+        self.assertEqual([[button['text'] for button in row] for row in reply['reply_markup']['keyboard']], bot.MENU)
         reply = self.send(3, '🎮 Игры')
         self.assertEqual(len(reply['reply_markup']['inline_keyboard']), 1)
         self.assertIn('🌾 Ферма', str(reply))
