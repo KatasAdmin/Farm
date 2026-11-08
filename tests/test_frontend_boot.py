@@ -41,7 +41,7 @@ class FrontendBootSafety(unittest.TestCase):
   js=(root/"assets"/"game.js").read_text(encoding="utf-8")
   for element in ("production-types","production-timers","production-forecast","payback-grid","wallet-rate-grid","wallet-coin-rate","wallet-transfer-value"):
    self.assertIn(element,html)
-  self.assertIn("/assets/farm-ui-finish.css?v=2",html)
+  self.assertIn("/assets/farm-ui-finish.css?v=3",html)
   self.assertIn("#farm .bird-resources",css)
   for heading in ("🐾 Животные","📦 Продукция"):
    self.assertIn(heading,html)
@@ -54,6 +54,17 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("minimum||100",js)
   self.assertIn('id="withdrawal-amount" type="number" inputmode="numeric" min="100"',html)
 
+ def test_stadnik_is_shared_for_cows_and_sheep(self):
+  root=Path(__file__).resolve().parents[1]
+  html=(root/"index.html").read_text(encoding="utf-8")
+  main=(root/"main.py").read_text(encoding="utf-8")
+  ads=(root/"monetag_ads.py").read_text(encoding="utf-8")
+  self.assertIn("🏡 Стадник",html)
+  self.assertIn("Общие места для коров и овец",html)
+  self.assertEqual(html.count('id="upgrade-cowshed"'),1)
+  self.assertIn('def cowshed_limit(p):return 4*p.get("cowshed_level",1)',main)
+  self.assertIn("def livestock_used(p):return p.get(\"cows\",0)+p.get(\"sheep\",0)",main)
+  self.assertIn("4*p.get('cowshed_level',1)",ads)
  def test_weekly_market_purchases_include_system_supply(self):
   main=(Path(__file__).resolve().parents[1]/"main.py").read_text(encoding="utf-8")
   start=main.index('weekly_stats["market_purchases"]=')
