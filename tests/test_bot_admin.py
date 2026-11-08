@@ -35,6 +35,17 @@ class AdminTests(unittest.TestCase):
         self.send(1,action='admin:copysave:'+data['nonce'])
         return preview
 
+    def test_owner_can_edit_fixed_confirmed_ad_view_reward(self):
+        self.assertEqual(admin.adsgram_view_reward(self.c),3)
+        view=self.send(1,action='admin:settings:rewards')
+        self.assertIn('Награда за просмотр',str(view['reply_markup']))
+        result=self.field('adsgram_view_reward','0.05')
+        self.assertEqual(admin.adsgram_view_reward(self.c),5)
+        self.assertIn('0,05',result['text'])
+        with self.assertRaises(bot.UserError):
+            self.field('adsgram_view_reward','1.50')
+        self.assertEqual(admin.adsgram_view_reward(self.c),5)
+
     def test_payment_method_toggles_hide_disabled_options_and_deny_stale_clicks(self):
         self.credit()
         self.assertTrue(admin.method_enabled(self.c,'card_withdraw'))
