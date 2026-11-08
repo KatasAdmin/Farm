@@ -158,3 +158,102 @@
  #coop .production-timer>strong{font-size:20px}
  #wallet .wallet-rate-grid strong{font-size:15px}
 }
+
+/* Grouped farm inventory: 4 animals, then 4 harvested products.
+   Both groups remain two neat columns on Telegram mobile. */
+#farm .farm-resource-section{margin:9px 0 16px}
+#farm .farm-resource-heading{
+ display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+ margin:0 2px 9px;color:#f6fbff;font-size:16px;font-weight:800;
+ letter-spacing:.1px;line-height:1.3
+}
+#farm .farm-resource-heading small{font-size:11px;font-weight:500;color:#b9ddf8}
+#farm .farm-resource-grid{
+ display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ gap:10px!important;align-items:stretch;width:100%;min-width:0
+}
+#farm .farm-resource-grid>.resource{
+ box-sizing:border-box;grid-column:auto!important;min-width:0;
+ display:grid!important;
+ grid-template-columns:47px minmax(0,1fr)!important;
+ grid-template-rows:auto auto!important;
+ column-gap:8px!important;row-gap:1px!important;
+ align-content:center!important;align-items:center;
+ min-height:90px!important;margin:0!important;padding:12px 9px!important;
+ border:1px solid rgba(134,205,250,.56)!important;border-radius:17px!important;
+ background:linear-gradient(145deg,rgba(24,113,183,.74),rgba(6,47,108,.94))!important;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 4px 10px rgba(1,16,44,.14)
+}
+#farm .farm-resource-products>.resource{
+ background:linear-gradient(145deg,rgba(17,85,153,.74),rgba(5,38,94,.94))!important
+}
+#farm .farm-resource-grid>.resource>.icon,
+#farm .farm-resource-grid>.resource>.feather-art{
+ grid-column:1!important;grid-row:1/3!important;
+ width:43px!important;height:51px!important;
+ font-size:37px!important;line-height:51px!important;
+ object-fit:contain!important;align-self:center!important;
+ justify-self:center!important;margin:0!important
+}
+#farm .farm-resource-grid>.resource>span:not(.icon):not(.feather-art){
+ grid-column:2!important;grid-row:1!important;min-width:0;
+ align-self:end!important;padding:0!important;
+ font-size:13px!important;line-height:1.2!important;text-align:left!important;
+ color:#d1e9fd!important
+}
+#farm .farm-resource-grid>.resource>strong{
+ grid-column:2!important;grid-row:2!important;min-width:0;
+ align-self:start!important;font-size:27px!important;
+ font-variant-numeric:tabular-nums;line-height:1.12!important;text-align:left!important
+}
+/* Same buy/sell button layout across grain, milk, wool and feathers.
+   Rewarded-ad button, where present, occupies its own complete row. */
+#shop .market-product-grid>.catalog-row{
+ grid-template-columns:46px minmax(0,1fr) 56px!important;
+ grid-template-rows:auto auto!important;
+ column-gap:9px!important;row-gap:8px!important;
+ padding:14px 4px!important;
+}
+#shop .market-product-grid>.catalog-row>.product-image{
+ grid-column:1!important;grid-row:1!important;
+ width:43px!important;height:54px!important;align-self:center!important
+}
+#shop .market-product-grid>.catalog-row>.product-copy{
+ grid-column:2!important;grid-row:1!important;align-self:center!important
+}
+#shop .market-product-grid>.catalog-row>.price{
+ grid-column:3!important;grid-row:1!important;
+ justify-content:flex-end!important;align-self:center!important;
+ width:auto!important;white-space:nowrap
+}
+#shop .market-product-grid>.catalog-row>.trade-dual-actions{
+ grid-column:1/-1!important;grid-row:2!important;
+ display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ gap:9px!important;align-items:stretch!important;
+ width:100%!important;max-width:none!important;min-width:0!important;
+ margin:0!important
+}
+#shop .market-product-grid>.catalog-row>.trade-dual-actions>.btn{
+ width:100%!important;min-width:0!important;min-height:40px!important;
+ padding:9px 7px!important;border-radius:12px!important;
+ font-size:14px!important;line-height:1.1!important
+}
+#shop .market-product-grid>.catalog-row>.trade-dual-actions>.ad-free-button,
+#shop .market-product-grid>.catalog-row>.trade-dual-actions>[data-ad-free]{
+ grid-column:1/-1!important;min-height:35px!important
+}
+@media(max-width:370px){
+ #farm .farm-resource-grid{gap:8px!important}
+ #farm .farm-resource-grid>.resource{
+  grid-template-columns:35px minmax(0,1fr)!important;gap:2px 6px!important;
+  padding:10px 7px!important;min-height:80px!important
+ }
+ #farm .farm-resource-grid>.resource>.icon,
+ #farm .farm-resource-grid>.resource>.feather-art{
+  width:34px!important;height:43px!important;font-size:29px!important
+ }
+ #farm .farm-resource-grid>.resource>strong{font-size:23px!important}
+ #shop .market-product-grid>.catalog-row{
+  grid-template-columns:38px minmax(0,1fr) 49px!important;column-gap:6px!important
+ }
+}
