@@ -143,3 +143,24 @@ class VisualTests(unittest.TestCase):
             self.assertLess(elapsed,1)
         finally:
             release.set()
+
+    def test_cold_avatar_never_blocks_card_and_is_cached_for_refresh(self):
+        import threading,time
+        entered=threading.Event();release=threading.Event()
+        def api(method,args):
+            if method=='getUserProfilePhotos':
+                entered.set();release.wait(3)
+                return {'photos':[[{'file_id':'avatar'}]]}
+            return b'avatar-data'
+        try:
+            start=time.monotonic()
+            self.assertEqual(visuals.avatar(2,api),b'')
+            self.assertLess(time.monotonic()-start,0.5)
+            self.assertTrue(entered.wait(1))
+            self.assertEqual(visuals.avatar(2,api),b'')
+        finally:
+            release.set()
+            deadline=time.monotonic()+2
+            while 2 in visuals._avatar_jobs and time.monotonic()<deadline:
+                time.sleep(0.005)
+        self.assertEqual(visuals.avatar(2,api),b'avatar-data')

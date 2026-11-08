@@ -14,12 +14,15 @@ import threading
 import time
 import unicodedata
 from zoneinfo import ZoneInfo
+from concurrent.futures import ThreadPoolExecutor
 
 log = logging.getLogger(__name__)
 _lock = threading.RLock()
 _images = OrderedDict()
 _avatars = OrderedDict()
 _files = OrderedDict()
+_avatar_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='profile-avatar')
+_avatar_jobs = set()
 VERSION = 'premium-dark-2'
 FONT = Path(__file__).parent / 'assets/fonts/RobotoCondensed.ttf'
 
@@ -57,6 +60,21 @@ def avatar(uid, api):
     found = cached(_avatars, uid)
     if found is not None:
         return found
+    # First display uses the branded silhouette immediately. Slow Telegram
+    # avatar lookups run separately and become available on the next refresh.
+    with _lock:
+        if uid in _avatar_jobs or len(_avatar_jobs)>=16:
+            return b''
+        _avatar_jobs.add(uid)
+    try:
+        _avatar_pool.submit(_load_avatar,uid,api)
+    except RuntimeError:
+        with _lock:
+            _avatar_jobs.discard(uid)
+    return b''
+
+
+def _load_avatar(uid, api):
     data = b''
     try:
         photos = api('getUserProfilePhotos', {'user_id': uid, 'limit': 1})
@@ -66,7 +84,9 @@ def avatar(uid, api):
             data = api('_profilePhoto', {'file_id': rows[0][0]['file_id']})
     except Exception:
         log.info('trevixo_avatar_unavailable')
-    return remember(_avatars, uid, data, 21600 if data else 600, 128)
+    remember(_avatars, uid, data, 21600 if data else 600, 128)
+    with _lock:
+        _avatar_jobs.discard(uid)
 
 
 def render(snapshot, photo=b''):
