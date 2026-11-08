@@ -12,8 +12,8 @@ import uuid
 from urllib.request import Request, urlopen
 
 MAX_RECEIPT_BYTES = 4 * 1024 * 1024
-ALLOWED = {"image/jpeg": ("jpg", b"\\xff\\xd8\\xff"),
-           "image/png": ("png", b"\\x89PNG\\r\\n\\x1a\\n"),
+ALLOWED = {"image/jpeg": ("jpg", b"\xff\xd8\xff"),
+           "image/png": ("png", b"\x89PNG\r\n\x1a\n"),
            "application/pdf": ("pdf", b"%PDF-")}
 
 
@@ -35,10 +35,10 @@ def _telegram_document(uid, payload, kind):
     suffix, _ = ALLOWED[kind]
     boundary="FarmReceipt"+secrets.token_hex(16)
     def field(name,value):
-        return (("--"+boundary+"\\r\\nContent-Disposition: form-data; name=\\""+name+"\\"\\r\\n\\r\\n"+str(value)+"\\r\\n").encode())
+        return (("--"+boundary+"\r\nContent-Disposition: form-data; name=\""+name+"\"\r\n\r\n"+str(value)+"\r\n").encode())
     raw=(field("chat_id",uid)+
-         ("--"+boundary+"\\r\\nContent-Disposition: form-data; name=\\"document\\"; filename=\\"receipt."+suffix+"\\"\\r\\nContent-Type: "+kind+"\\r\\n\\r\\n").encode()+
-         payload+b"\\r\\n--"+boundary.encode()+b"--\\r\\n")
+         ("--"+boundary+"\r\nContent-Disposition: form-data; name=\"document\"; filename=\"receipt."+suffix+"\"\r\nContent-Type: "+kind+"\r\n\r\n").encode()+
+         payload+b"\r\n--"+boundary.encode()+b"--\r\n")
     req=Request("https://api.telegram.org/bot"+token+"/sendDocument",data=raw,
                 headers={"Content-Type":"multipart/form-data; boundary="+boundary},method="POST")
     try:
@@ -99,9 +99,9 @@ def submit(c, player, amount, image_b64, mime):
               (tid,player["id"],uid))
     c.execute("INSERT INTO farm_card_receipt_checksums(checksum,topup_id) VALUES(%s,%s)",(checksum,tid))
     bot_notifications.enqueue(c,"card-receipt:"+tid,
-       "📨 Новая квитанция на проверке\\n\\nИгрок: "+str(uid)+
-       "\\nК зачислению в ферму: "+str(amount)+" монет"+
-       "\\nСумма: "+str(amount)+" грн\\nЗаявка: "+tid+
-       "\\nСверь поступление в банке перед подтверждением.",
+       "📨 Новая квитанция на проверке\n\nИгрок: "+str(uid)+
+       "\nК зачислению в ферму: "+str(amount)+" монет"+
+       "\nСумма: "+str(amount)+" грн\nЗаявка: "+tid+
+       "\nСверь поступление в банке перед подтверждением.",
        "admin:cardview:"+tid,subject=uid)
     return {"ok":True,"id":tid,"amount_uah":amount,"status":"pending"}
