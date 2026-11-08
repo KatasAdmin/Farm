@@ -9,15 +9,25 @@ const storage = (() => {
     removeItem(key) { memory.delete(key); try { window.localStorage.removeItem(key); } catch (_) {} }
   };
 })();
-function showStartupError() {
-  const screen=el("boot-screen");
-  if(screen) {screen.hidden=false;el("boot-status").textContent="Не удалось загрузить ферму. Проверь соединение и повтори попытку.";}
+function showStartupError(error) {
+  const screen=el("boot-screen"),label=el("boot-status");
+  if(screen)screen.hidden=false;
+  if(!label)return;
+  const code=Number(error?.status)||0;
+  const offline=typeof navigator!=="undefined"&&navigator.onLine===false;
+  label.textContent=offline?"Нет подключения к интернету. Проверь сеть и повтори загрузку.":
+    code===503||code===502||code===504||code===500||code===423?
+    "Сервер временно занят. Повтори загрузку — прогресс фермы сохранён.":
+    error?.message&&code!==401?
+    "Не удалось запустить ферму: "+String(error.message).slice(0,180):
+    "Не удалось загрузить ферму. Попробуй ещё раз.";
 }
 function retryFarmStartup() {
   clearTimeout(startupRetryTimer);
   startupRetryTimer=null;
   startupRetryCount=0;
   if(el("boot-status"))el("boot-status").textContent="Загружаем ферму…";
+  // A restart should not lose a signed-in session or reset a farm account.
   if(token)refresh();else showLogin();
 }
 function hideStartup() {
@@ -29,8 +39,8 @@ function hideStartup() {
 }
 function retryTransientStartup(error) {
   // Only transient server/database outages. Never retry bad credentials.
-  const transient=error?.status===503||error?.status===502||error?.status===504||
-    /Сервер не ответил вовремя|Failed to fetch|NetworkError|Load failed/i.test(String(error?.message||""));
+  const transient=[500,502,503,504,423,429].includes(error?.status)||
+    /Сервер не ответил вовремя|Failed to fetch|NetworkError|Load failed|The network connection was lost/i.test(String(error?.message||""));
   if(!transient||startupRetryCount>=STARTUP_RETRIES)return false;
   const delays=[1500,2500,4000,6000,8500,11000];
   const delay=delays[startupRetryCount++];
@@ -1333,15 +1343,16 @@ async function refresh() {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     try {
-      state = await api("/api/state");
-      refreshedAt = Date.now();
+      const next=await api("/api/state");
+      state=next;
+      refreshedAt=Date.now();
       render();
       hideStartup();
       window.FarmAds?.recover();
     } catch (error) {
       if (error.status === 401) {hideStartup();showLogin();}
       else if(el("app").hidden){
-        if(!retryTransientStartup(error))showStartupError();
+        if(!retryTransientStartup(error))showStartupError(error);
       }
       else toast("Не удалось обновить данные: " + error.message);
     } finally {
