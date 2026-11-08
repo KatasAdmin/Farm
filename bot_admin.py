@@ -22,6 +22,8 @@ def core():
     return task_bot
 
 def initialize(c):
+    import farm_exchange
+    farm_exchange.initialize(c)
     bot_account_controls.initialize(c)
     bot_broadcast.initialize(c)
     farm_wallet.initialize_sources(c)
@@ -179,9 +181,11 @@ def section_screen(c,uid,key):
         ]
     elif key=='finance':
         pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
+        earmarked=c.execute('SELECT backed_kopeks FROM farm_cash_reserve WHERE id=1').fetchone()['backed_kopeks']
         liabilities=b.liability(c)
         debt=c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n']
-        text=tr('💰 <b>Финансы</b>\n\n<b>Средства и обязательства</b>\nРезерв: <b>{v0}</b>\nОбязательства: {v1}\nСвободно: {v2}\n\n<b>Требует внимания</b>\nНехватка покрытия: {v3}\nДолги исполнителей: {v4}',{'v0':b.money(pool),'v1':b.money(liabilities),'v2':b.money(max(0,pool-liabilities)),'v3':b.money(max(0,liabilities-pool)),'v4':b.money(debt)},html_mode=True,section='bot_admin')
+        text=tr('💰 <b>Финансы</b>\n\n<b>Средства и обязательства</b>\nРезерв: <b>{v0}</b>\nОбязательства: {v1}\nСвободно: {v2}\n\n<b>Требует внимания</b>\nНехватка покрытия: {v3}\nДолги исполнителей: {v4}',{'v0':b.money(pool),'v1':b.money(liabilities),'v2':b.money(max(0,pool-liabilities-earmarked)),'v3':b.money(max(0,liabilities+earmarked-pool)),'v4':b.money(debt)},html_mode=True,section='bot_admin')
+        text+='\\n\\nДля монет фермы отдельно выделено: <b>'+b.money(earmarked)+'</b> (не доступно для других выплат).'
         rows=[[b.button('💸 Выплаты','admin:payouts'),b.button('💳 Пополнения на проверке','admin:cardtopups')],
              [b.button('💳 Способы оплаты','admin:paymethods'),b.button('⭐ Курс Stars и карта','admin:topupsettings')],
              [b.button('🧾 История платежей','admin:payments:all:0'),b.button('📒 Учёт поступлений','admin:money')],
