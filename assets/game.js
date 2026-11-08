@@ -873,12 +873,16 @@ async function loadWithdrawalStatus() {
     const request=value.request;
     const cancelButton=el("withdrawal-cancel");
     if(cancelButton)cancelButton.hidden=!request||request.status!=="pending";
-    const sources=value.sources||{};
-    note.textContent="Бонусные: "+number(sources.bonus||0)+" · Пополненные: "+number(sources.purchased||0)+" · Выручка: "+number(value.available||0)+" монет. "+(request
-      ? "Последняя заявка: "+number(request.amount)+" монет · "+
-        (request.status==="pending"?"ожидает ручной проверки":request.status==="rejected"?"отклонена":"статус: "+request.status)
-      : "Бонусы и промокоды переводить нельзя.");
-  }catch(error){note.textContent="Не удалось проверить заявки: "+error.message;}
+    const rate=Number(value.rate||0);
+    const coins=value.available||0;
+    const sum=(Number(value.value_kopeks||0)/100).toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2});
+    note.textContent="Цена монеты: "+rate.toLocaleString("ru-RU",{maximumFractionDigits:8})+
+      " грн · Монет: "+number(coins)+" · Стоимость для вывода: "+sum+
+      " грн. "+(value.payouts_enabled?"Можно перевести любые монеты по текущему курсу.":"Вывод временно недоступен: нет подтверждённого денежного обеспечения.")+
+      (request?" · Предыдущая заявка: "+number(request.amount)+" монет ("+request.status+").":"");
+    const btn=el("withdrawal-launch");
+    if(btn)btn.disabled=!value.payouts_enabled||coins<1;
+  }catch(error){note.textContent="Не удалось проверить курс: "+error.message;}
 }
 async function cancelWithdrawalRequest(){
   if(!token||pending)return;
@@ -893,19 +897,26 @@ async function cancelWithdrawalRequest(){
   }catch(error){toast(error.message);}finally{busy(false);}
 }
 let gameTransferKey="";
-function openWithdrawalRequest() {
-  if(!state)return toast("Сначала войдите в игру");
+async function openWithdrawalRequest() {
+  if(!state)return toast("Сначала войди в игру");
   if(!state.me.telegram_id){
     tab("profile");
-    const settings=document.querySelector("#profile details.profile-settings");
-    if(settings){settings.open=true;setTimeout(()=>settings.scrollIntoView({behavior:"smooth",block:"start"}),100);}
-    toast("Откройте настройки ниже: там показано, как привязать Telegram. Затем перевод поступит на ваш баланс в боте.");
+    toast("Сначала привяжи Telegram в настройках.");
     return;
   }
-  if(state.me.coins<100)return toast("Для заявки нужно минимум 100 монет");
-  if(!gameTransferKey)gameTransferKey=crypto.randomUUID();
-  el("withdrawal-amount").value=100;
-  el("withdrawal-dialog").showModal();
+  try{
+    const q=await api("/api/farm/exchange/quote");
+    if(!q.payout_enabled)return toast("Пока нет подтверждённых денег для вывода. Курс вывода равен нулю.");
+    if(state.me.coins<1)return toast("На балансе нет монет.");
+    if(!gameTransferKey)gameTransferKey=crypto.randomUUID();
+    const input=el("withdrawal-amount");
+    input.max=String(Math.min(1000000000,state.me.coins));
+    input.value=String(state.me.coins);
+    const desc=el("withdrawal-quote");
+    if(desc)desc.textContent="Цена монеты: "+Number(q.coin_price_uah).toLocaleString("ru-RU",{maximumFractionDigits:8})+
+      " грн. За весь баланс: "+(Number(q.balance_value_kopeks)/100).toFixed(2)+" грн.";
+    el("withdrawal-dialog").showModal();
+  }catch(e){toast(e.message);}
 }
 async function openTopup(){
  const dialog=el("card-topup-dialog"),status=el("card-topup-status");
@@ -919,6 +930,14 @@ async function openTopup(){
    el("card-topup-submit").disabled=true;
    return;
   }
+  try {
+    const q=await api("/api/farm/exchange/quote");
+    const price=Number(q.purchase_price_uah||0);
+    const help=el("card-topup-help");
+    if(help)help.textContent="Текущая цена покупки: "+price.toLocaleString("ru-RU",{maximumFractionDigits:8})+
+      " грн за монету. Точное количество монет рассчитается при подтверждении администратором. "+
+      "Деньги зачислятся только после сверки поступления в банке.";
+  }catch(e){if(status)status.textContent="Курс не удалось загрузить: "+e.message;}
   el("card-topup-number").textContent=settings.card;
   el("card-topup-recipient").textContent=settings.recipient||"Не указан";
   el("card-topup-submit").disabled=false;
@@ -961,21 +980,23 @@ async function submitGameCardTopup(){
  }finally{submit.disabled=false;}
 }
 async function submitWithdrawalRequest() {
-  if(pending)return;
-  try{
-    const n=amount("withdrawal-amount",1000000);
-    if(n<100)throw Error("Минимальная заявка — 100 монет");
-    if(!confirm("Перевести "+number(n)+" монет на свой баланс бота? Будет зачислено "+number(n)+" грн."))return;
-    busy(true);
-    await api("/api/withdraw/request",{amount:n,transfer_id:gameTransferKey});
-    gameTransferKey="";
-    el("withdrawal-dialog").close();
-    await refresh();
-    await loadWithdrawalStatus();
-    await loadHistory();
-    toast("✅ На баланс бота зачислено "+number(n)+" грн");
-  }catch(error){toast(error.message);}
-  finally{busy(false);}
+ if(pending)return;
+ try{
+  const n=amount("withdrawal-amount",1000000000);
+  const quoted=await api("/api/farm/exchange/quote");
+  const coins=quoted.coin_count||0;
+  if(n>coins)throw Error("На счёте меньше монет.");
+  const value=Math.floor(Number(quoted.coin_price_uah||0)*n*100)/100;
+  if(value<0.01||!quoted.payout_enabled)throw Error("Стоимость этих монет меньше 1 копейки или вывод пока недоступен.");
+  if(!confirm("Перевести "+number(n)+" монет на свой баланс бота за примерно "+value.toFixed(2)+" грн? Итоговый курс проверится при подтверждении."))return;
+  busy(true);
+  const result=await api("/api/withdraw/request",{amount:n,transfer_id:gameTransferKey});
+  gameTransferKey="";
+  el("withdrawal-dialog").close();
+  await refresh();await loadWithdrawalStatus();await loadHistory();
+  toast("✅ Зачислено в бот "+(Number(result.credited_kopeks)/100).toFixed(2)+" грн");
+ }catch(error){toast(error.message);}
+ finally{busy(false);}
 }
 function render() {
   if (typeof renderFields === 'function') renderFields();
