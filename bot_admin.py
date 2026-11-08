@@ -36,9 +36,6 @@ def initialize(c):
     c.execute("INSERT INTO bot_controls VALUES('crypto_payout_cap',10000) ON CONFLICT DO NOTHING")
     c.execute("INSERT INTO bot_controls VALUES('adsgram_view_reward',5) ON CONFLICT DO NOTHING")
     # One-time policy upgrade from 3 to 5 kopeks; preserve all other owner edits.
-    c.execute("""INSERT INTO bot_settings_migrations(key)
-      VALUES('adsgram-view-5kopeks-20261108')
-      ON CONFLICT DO NOTHING RETURNING key""") if False else None
 
     # One-time policy migration: 15 UAH global minimum; later owner edits remain authoritative.
     c.execute("CREATE TABLE IF NOT EXISTS bot_settings_migrations(key text PRIMARY KEY)")
