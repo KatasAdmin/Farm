@@ -87,17 +87,17 @@ class CowTradingTests(unittest.TestCase):
         self.c.execute('CREATE TABLE economy(id int,treasury int)');self.c.execute('INSERT INTO economy VALUES(1,10000)')
         self.c.raw.commit()
     def test_buy_cow_price_capacity_shared_clock_and_bonus_buyback(self):
-        self.f.credit('a','stars_purchase',1500,'paid')
+        self.f.credit('a','stars_purchase',2500,'paid')
         with patch.object(main,'db',return_value=self.c),patch.object(main,'person',side_effect=lambda *a:self.f.p('a')),patch.object(main,'advance',side_effect=lambda c,p:p):
             with self.assertRaises(main.HTTPException):main.shop(main.Request(item='cows',amount=1,expected_price=1),'Bearer a')
-            main.shop(main.Request(item='cows',amount=2,expected_price=500),'Bearer a')
-            p=self.f.p('a');self.assertEqual((p['cows'],p['fed_cows'],p['coins']),(2,2,500))
+            main.shop(main.Request(item='cows',amount=4,expected_price=500),'Bearer a')
+            p=self.f.p('a');self.assertEqual((p['cows'],p['fed_cows'],p['coins']),(4,4,500))
             with self.assertRaises(main.HTTPException):main.shop(main.Request(item='cows',amount=1,expected_price=500),'Bearer a')
             with self.assertRaises(main.HTTPException) as error:
                 main.sell_to_system(main.Request(item='cows',amount=1),'Bearer a')
             self.assertEqual(error.exception.status_code,400)
             p=self.f.p('a')
-            self.assertEqual((p['cows'],p['fed_cows'],p['coins']),(2,2,500))
+            self.assertEqual((p['cows'],p['fed_cows'],p['coins']),(4,4,500))
 
     def test_milk_fixed_price_market_bonus_provenance_and_storage_check(self):
         self.c.execute("UPDATE players SET milk=10 WHERE id='b'");self.c.raw.commit()
@@ -117,7 +117,7 @@ class HundredLevelTests(unittest.TestCase):
         self.assertEqual(main.MAX_BUILDING_LEVEL,100)
         self.assertEqual(main.coop_limit({'coop_level':100}),1000)
         self.assertEqual(main.storage_limit({'storage_level':100}),10000)
-        self.assertEqual(main.cowshed_limit({'cowshed_level':100}),200)
+        self.assertEqual(main.cowshed_limit({'cowshed_level':100}),400)
         self.assertEqual(set(main.INCUBATOR_UPGRADE_COST),set(range(1,100)))
         for level in range(1,101):
             a,b=main.incubation_stages(level);self.assertGreater(a,0);self.assertGreater(b,0)
@@ -125,8 +125,8 @@ class HundredLevelTests(unittest.TestCase):
             self.assertGreater(main.upgrade_cost(kind,99),main.upgrade_cost(kind,9))
 
     def test_autobuy_can_cover_maximum_mixed_farm(self):
-        # 1000 geese + 200 cows consume 2600 grain per shared feed.
-        self.assertGreater(1000*2+200*3,2000)
+        # 1000 geese + 400 cattle in the Stadnik consume 3200 grain per shared feed.
+        self.assertGreater(1000*2+400*3,2000)
         class C:
             def __enter__(self):return self
             def __exit__(self,*args):return False
