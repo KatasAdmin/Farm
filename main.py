@@ -16,6 +16,7 @@ import ad_inventory
 import farm_ranking
 import release_grants
 import farm_wallet
+import farm_capitalization
 import farm_card_web
 import referral_bridge
 from bot_copy import tr
@@ -1765,6 +1766,13 @@ def admin_withdrawals(authorization:str=Header(default="")):
    FROM withdrawal_requests w JOIN players p ON p.id=w.player_id
    ORDER BY CASE WHEN w.status='pending' THEN 0 ELSE 1 END,w.created DESC LIMIT 200""").fetchall()
  return {"requests":rows,"read_only":True,"payouts_enabled":False}
+
+@app.get("/api/admin/coin-capitalization")
+def admin_coin_capitalization(authorization:str=Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:
+  rate=bot_cash_ad_credits.nbu_usd_uah(c)
+  return farm_capitalization.preview(c,rate)
 
 @app.get("/api/admin/summary")
 def admin_summary(authorization:str=Header(default="")):
