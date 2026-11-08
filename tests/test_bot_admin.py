@@ -287,7 +287,7 @@ class AdminTests(unittest.TestCase):
         self.customize(button['key'],'💳 Внести деньги')
         result=self.send(3,action='cabinet')
         first=result['reply_markup']['inline_keyboard'][0][0]
-        self.assertEqual(first,dict(text='💳 Внести деньги',callback_data='bot:deposit'))
+        self.assertEqual(first,dict(text='💳 Внести деньги',callback_data='bot:deposit',style='success'))
         self.assertIn('Выбери способ',self.send(3,action='deposit')['text'])
 
     def test_template_real_values_safe_html_and_restore(self):
