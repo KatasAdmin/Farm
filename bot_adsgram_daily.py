@@ -12,7 +12,8 @@ from decimal import Decimal, InvalidOperation, ROUND_FLOOR
 
 from bot_economy import monetag_cash_allocation
 from bot_cash_ad_credits import nbu_usd_uah
-from bot_admin import adsgram_view_reward, FxUnavailable
+from bot_cash_ad_credits import FxUnavailable
+from bot_admin import adsgram_view_reward
 
 
 def initialize(c):
