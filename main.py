@@ -16,7 +16,6 @@ import ad_inventory
 import farm_ranking
 import release_grants
 import farm_wallet
-import farm_capitalization
 import farm_exchange
 import farm_card_web
 import referral_bridge
@@ -181,7 +180,6 @@ async def lifespan(app):
   task_bot.initialize(c)
   logger.warning("farm_startup_bot_schema_ready")
   farm_wallet.initialize(c)
-  farm_capitalization.initialize(c)
   farm_exchange.initialize(c)
   if os.environ.get("FARM_STAGING", "").lower() not in ("1", "true", "yes"):
    if release_grants.apply(c,task_bot):
@@ -1774,14 +1772,6 @@ def admin_withdrawals(authorization:str=Header(default="")):
    FROM withdrawal_requests w JOIN players p ON p.id=w.player_id
    ORDER BY CASE WHEN w.status='pending' THEN 0 ELSE 1 END,w.created DESC LIMIT 200""").fetchall()
  return {"requests":rows,"read_only":True,"payouts_enabled":False}
-
-@app.get("/api/admin/coin-capitalization")
-def admin_coin_capitalization(authorization:str=Header(default="")):
- require_farm_admin(authorization)
- with db() as c:
-  rate=bot_cash_ad_credits.nbu_usd_uah(c)
-  return {'nominal':farm_capitalization.preview(c,rate),
-          'exchange':farm_exchange.quote(c,rate)}
 
 @app.post("/api/admin/exchange/fund")
 def admin_exchange_fund(q:dict,authorization:str=Header(default="")):
