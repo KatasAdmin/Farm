@@ -34,9 +34,17 @@ def initialize(c):
     for key, (_, enabled) in PAYMENT_METHODS.items():
         c.execute('INSERT INTO bot_controls VALUES(%s,%s) ON CONFLICT DO NOTHING',(key,enabled))
     c.execute("INSERT INTO bot_controls VALUES('crypto_payout_cap',10000) ON CONFLICT DO NOTHING")
-    c.execute("INSERT INTO bot_controls VALUES('adsgram_view_reward',3) ON CONFLICT DO NOTHING")
+    c.execute("INSERT INTO bot_controls VALUES('adsgram_view_reward',5) ON CONFLICT DO NOTHING")
+    # One-time policy upgrade from 3 to 5 kopeks; preserve all other owner edits.
+    c.execute("""INSERT INTO bot_settings_migrations(key)
+      VALUES('adsgram-view-5kopeks-20261108')
+      ON CONFLICT DO NOTHING RETURNING key""") if False else None
+
     # One-time policy migration: 15 UAH global minimum; later owner edits remain authoritative.
     c.execute("CREATE TABLE IF NOT EXISTS bot_settings_migrations(key text PRIMARY KEY)")
+    if c.execute("""INSERT INTO bot_settings_migrations(key)
+      VALUES('adsgram-view-5kopeks-20261108') ON CONFLICT DO NOTHING RETURNING key""").fetchone():
+        c.execute("UPDATE bot_controls SET value=5 WHERE key='adsgram_view_reward' AND value=3")
     if os.getenv('RAILWAY_ENVIRONMENT_NAME') == 'production':
         if c.execute("INSERT INTO bot_settings_migrations(key) VALUES('withdraw-min-15-uah-20261107') ON CONFLICT DO NOTHING RETURNING key").fetchone():
             c.execute("UPDATE bot_controls SET value=1500 WHERE key='withdraw_min'")
@@ -49,7 +57,7 @@ PAYMENT_METHODS = {
 
 def adsgram_view_reward(c):
     row=c.execute("SELECT value FROM bot_controls WHERE key='adsgram_view_reward'").fetchone()
-    return int(row['value']) if row else 3
+    return int(row['value']) if row else 5
 
 
 def method_enabled(c, key):
