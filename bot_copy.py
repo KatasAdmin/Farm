@@ -35,7 +35,9 @@ def initialize(c):
 
 @contextlib.contextmanager
 def session(c,owner=False):
-    ctx={'c':c,'owner':owner,'rows':{r['key']:r for r in c.execute('SELECT * FROM bot_copy_catalog').fetchall()},'new':{}}
+    # Rendering needs only replacement text and key membership, not the full
+    # originals, validation metadata and administration fields on every click.
+    ctx={'c':c,'owner':owner,'rows':{r['key']:r for r in c.execute('SELECT key,custom FROM bot_copy_catalog').fetchall()},'new':{}}
     token=_current.set(ctx)
     try:
         yield ctx

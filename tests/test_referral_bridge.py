@@ -60,3 +60,14 @@ class BotEntryTests(unittest.TestCase):
         case.c.execute('UPDATE players SET telegram_id=1 WHERE id=%s',('parent',))
         bridge.sync(case.c,1)
         self.assertEqual(case.c.execute('SELECT referrer FROM bot_accounts WHERE uid=4').fetchone()['referrer'],1)
+
+class BridgeNavigationCostTests(BridgeTests):
+    def test_unchanged_linked_team_does_not_walk_ancestors_again(self):
+        from unittest.mock import patch
+        self.player(1);self.bot(1)
+        for uid in range(2,32):
+            self.player(uid);self.bot(uid,1)
+            self.c.execute('INSERT INTO referrals VALUES(%s,%s,0,false)',(str(uid),'1'))
+        with patch.object(bridge,'acyclic',side_effect=AssertionError('Existing link does not need revalidation')):
+            bridge.sync(self.c,1)
+        self.assertEqual(len(self.c.execute('SELECT * FROM referrals').fetchall()),30)

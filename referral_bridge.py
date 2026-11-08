@@ -28,8 +28,24 @@ def sync(c, uid):
     # Include children when their inviter links/opens the other product later.
     pairs=c.execute('SELECT b.uid AS child,b.referrer AS parent FROM bot_accounts b WHERE b.referrer IS NOT NULL AND (b.uid=%s OR b.referrer=%s)',(uid,uid)).fetchall()
     pairs+=c.execute('SELECT ch.telegram_id AS child,p.telegram_id AS parent FROM referrals r JOIN players ch ON ch.id=r.child_id JOIN players p ON p.id=r.parent_id WHERE ch.telegram_id IS NOT NULL AND p.telegram_id IS NOT NULL AND (ch.telegram_id=%s OR p.telegram_id=%s)',(uid,uid)).fetchall()
+    if not pairs:return
+    # Already-linked families require no cycle traversal or writes. Fetch their
+    # state once, rather than walking every ancestor again on each /start.
+    linked={r['child']:r for r in c.execute('''SELECT b.uid AS child,b.referrer AS bot_parent,
+      cp.id AS child_id,pp.id AS bot_parent_id,r.parent_id AS game_parent
+      FROM bot_accounts b LEFT JOIN players cp ON cp.telegram_id=b.uid
+      LEFT JOIN players pp ON pp.telegram_id=b.referrer
+      LEFT JOIN referrals r ON r.child_id=cp.id
+      LEFT JOIN players gp ON gp.id=r.parent_id
+      WHERE b.uid=%s OR b.referrer=%s OR gp.telegram_id=%s''',(uid,uid,uid)).fetchall()}
+    seen=set()
     for pair in pairs:
         child,parent=pair['child'],pair['parent']
+        if (child,parent) in seen:continue
+        seen.add((child,parent))
+        known=linked.get(child)
+        if known and known['bot_parent']==parent and (not known['child_id'] or not known['bot_parent_id'] or known['game_parent']==known['bot_parent_id']):
+            continue
         if not acyclic(c,child,parent):continue
         cp=c.execute('SELECT id FROM players WHERE telegram_id=%s',(child,)).fetchone()
         pp=c.execute('SELECT id FROM players WHERE telegram_id=%s',(parent,)).fetchone()
