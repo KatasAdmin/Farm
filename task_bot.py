@@ -421,6 +421,15 @@ def handle(payload, db, api, is_admin):
     if not callback and (not isinstance(message.get('message_id'), int)):
         return None
     admin = is_admin(uid, uid)
+    # Acknowledge ordinary inline buttons before waiting for the global
+    # accounting lock. Post-claim buttons retain their result-specific popup.
+    callback_acked = False
+    if callback.get('id') and not channel_claim:
+        try:
+            api('answerCallbackQuery', {'callback_query_id': callback['id']})
+            callback_acked = True
+        except Exception:
+            log.warning('task_bot_callback_early_ack_failed')
     try:
         with db() as c:
             c.execute('SELECT pg_advisory_xact_lock(1984533)')
@@ -465,8 +474,8 @@ def handle(payload, db, api, is_admin):
         log.exception('task_bot_update_failed')
         raise
     bot_notifications.wake()
-    bot_extras.deliver_posts(db, api)
-    if callback.get('id') and response.get('method') != 'answerCallbackQuery':
+    # Post publication is handled by the dedicated background outbox worker.
+    if callback.get('id') and not callback_acked and response.get('method') != 'answerCallbackQuery':
         try:
             api('answerCallbackQuery', {'callback_query_id': callback['id']})
         except Exception:
