@@ -1389,6 +1389,8 @@ if (token) {refresh();loadAdRewardStatus();}
 else showLogin();
 
 async function configureTelegramEntry(){
+  // Tell Telegram the Mini App has loaded before any slow network call.
+  window.Telegram?.WebApp?.ready?.();
   const init=Boolean(tgInitData());
   let enabled=false;
   if(init) {
