@@ -1494,10 +1494,11 @@ def state(authorization:str=Header(default="")):
   weekly_extra=farm_expansion.progress(c,p["id"],week_start,week_start+604800)
   weekly_stats["listed"]+=weekly_extra.get("milk_listed",0)
   weekly_stats["feeding"]=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
-  # Count system and player sales alike, using the single receipt from each successful purchase.
+  # Each successful /api/buy writes one receipt regardless of seller type.
   weekly_stats["market_purchases"]=c.execute("""SELECT COALESCE(SUM((split_part(details,' x',2))::bigint),0)::bigint AS n
       FROM money_log WHERE player_id=%s AND kind='market_buy'
-        AND details ~ '^[a-z_]+ x[0-9]+
+        AND details ~ '^[a-z_]+ x[0-9]+$' AND created>=%s AND created<%s""",
+      (p["id"],week_start,week_start+604800)).fetchone()["n"]
   weekly_stats["feathers"]=weekly_extra.get("feathers_collected",0)
   weekly_stats["milk"]=weekly_extra.get("milk_produced",0)
   weekly_stats["market_sales"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
