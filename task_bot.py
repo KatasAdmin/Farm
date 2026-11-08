@@ -385,7 +385,7 @@ def _admin_input(db, uid):
         row = state(c, uid)
         return bool(row and (row['state'].startswith('admin_') or row['state'] in ('economy_edit', 'about_edit', 'topup_config', 'topup_bank_reference', 'topup_bank_confirm')))
 
-def handle(payload, db, api, is_admin):
+def handle(payload, db, api, is_admin, deliver_posts_inline=True):
     """Return None for legacy farm/payment/support messages, else webhook response."""
     payment = bot_topups.payment(payload, db)
     if payment is not None:
@@ -474,7 +474,9 @@ def handle(payload, db, api, is_admin):
         log.exception('task_bot_update_failed')
         raise
     bot_notifications.wake()
-    # Post publication is handled by the dedicated background outbox worker.
+    # Production uses a background worker; direct library callers retain synchronous outbox behavior.
+    if deliver_posts_inline:
+        bot_extras.deliver_posts(db, api)
     if callback.get('id') and not callback_acked and response.get('method') != 'answerCallbackQuery':
         try:
             api('answerCallbackQuery', {'callback_query_id': callback['id']})
