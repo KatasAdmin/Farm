@@ -159,7 +159,7 @@ def button_style(action):
     if (name in ('earn','balance','withdraw','daily','daily_bonus','claim_bonus',
                  'deposit','friends','bonus','pay','topup','cashout')
         or name.startswith(('withdraw:card','withdraw:crypto','deposit:','topup:',
-                            'claim:','bonus:','quest:claim','daily:','payment:')):
+                            'claim:','bonus:','quest:claim','daily:','payment:'))):
         return 'success'
     # Navigational, informational, task-selection, and review controls are blue.
     return 'primary'
