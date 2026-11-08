@@ -27,6 +27,8 @@ class FakeDB:
         self.farm_allocations=[]
     def execute(self,sql,args=()):
         q=' '.join(sql.lower().split())
+        if q.startswith("select value from bot_controls where key='adsgram_view_reward'"):
+            return Query({'value':3})
         if q.startswith('select pg_advisory_xact_lock'):
             return Query()
         if q.startswith('select * from bot_adsgram_balance_checkpoints'):
