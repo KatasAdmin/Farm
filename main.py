@@ -22,6 +22,7 @@ import farm_card_web
 import referral_bridge
 from bot_copy import tr
 import os,time,uuid,secrets,hashlib,hmac,json,logging,base64,re
+from decimal import Decimal, ROUND_FLOOR
 import mimetypes
 mimetypes.add_type("image/webp",".webp")
 import task_bot
