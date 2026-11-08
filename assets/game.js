@@ -904,7 +904,8 @@ async function openWithdrawalRequest() {
     const desc=el("withdrawal-quote");
     if(desc)desc.textContent="Расчётная цена монеты: "+preciseCoinPrice(q.nominal_coin_price_uah)+
       " грн · Цена вывода: "+preciseCoinPrice(q.coin_price_uah)+
-      " грн. За весь баланс: "+(Number(q.balance_value_kopeks)/100).toFixed(2)+" грн.";
+      " грн. Стоимость всего баланса по курсу: "+(Number(q.balance_value_kopeks)/100).toFixed(2)+
+      " грн. Реально обеспечено для перевода до "+(Number(q.backed_available_kopeks||0)/100).toFixed(2)+" грн.";
     el("withdrawal-dialog").showModal();
   }catch(e){toast(e.message);}
 }
