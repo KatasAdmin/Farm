@@ -381,35 +381,6 @@ el("password-login-form").addEventListener("submit",async event=>{
   try{busy(true);await useLoginResult(await api("/api/login",{name:el("login-name").value.trim(),password:el("login-password").value}));el("login-password").value="";}
   catch(e){toast(e.message);}finally{busy(false);}
 });
-el("recover-form").addEventListener("submit",async event=>{
-  event.preventDefault();
-  if (pending) return;
-  busy(true);
-  try {
-    const result=await api("/api/recovery/login",{name:el("recover-name").value.trim(),code:el("recover-code").value.trim()});
-    token=result.token;
-    storage.setItem("farm_token",token);
-    el("recover-code").value="";
-    await refresh();
-    toast("Доступ к ферме восстановлен");
-  } catch(error){toast(error.message);} finally{busy(false);}
-});
-function showRecoveryCode(code) {
-  const dialog=el("recovery-dialog");
-  el("recovery-shown-code").textContent=code;
-  if(!dialog.open)dialog.showModal();
-}
-function closeRecoveryCode(){el("recovery-dialog").close();el("recovery-shown-code").textContent="";}
-async function copyRecoveryCode(){
-  try{await navigator.clipboard.writeText(el("recovery-shown-code").textContent);toast("Код скопирован. Сохрани его в надёжном месте.");}
-  catch(error){toast("Выдели и скопируй код вручную.");}
-}
-async function generateRecoveryCode(){
-  if(pending||!confirm("Создать новый код? Предыдущий перестанет работать."))return;
-  busy(true);
-  try{const result=await api("/api/recovery/create",{});showRecoveryCode(result.recovery_code);}
-  catch(error){toast(error.message);} finally{busy(false);}
-}
 function tab(id) {
   if(id==="market")id="shop"; // old links
   if(id==="upgrades")id="storage"; // compatibility with older links
