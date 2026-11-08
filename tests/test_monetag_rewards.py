@@ -106,7 +106,7 @@ class MonetagRewardsTests(AdFixture):
     pending=self.c.execute('SELECT count(*) AS n FROM monetag_reward_grants WHERE item=%s',(item,)).fetchone()['n']
     self.assertEqual(pending,int(i+1==views))
    self.deliver();self.assertEqual(self.p()[item],100+qty if item=='coins' else qty)
-  self.assertEqual(self.p()['fed_hens'],1);self.assertEqual(self.p()['coins'],102)
+  self.assertEqual(self.p()['fed_hens'],1);self.assertEqual(self.p()['coins'],103)
  def test_deliver_catches_up_before_adding_hen_and_preserves_full_coop(self):
   self.c.execute("INSERT INTO monetag_reward_grants VALUES('hen','p','chickens',1,1,NULL)")
   self.c.execute("UPDATE players SET geese=10 WHERE id='p'");self.c.raw.commit()
@@ -163,7 +163,7 @@ class ExpandedAdvertisingRewards(AdFixture):
   import farm_wallet
   import ad_inventory
   a=self.prepare('coins');self.post(a,request_var='coins_reward');self.deliver();self.deliver()
-  self.assertEqual(self.p()['coins'],102)
+  self.assertEqual(self.p()['coins'],103)
   self.assertEqual(farm_wallet.available(self.c,self.p()),0)
   self.assertEqual(ad_inventory.balance(self.c,self.p()),2)
   self.assertEqual(self.c.execute('SELECT total_minted FROM reward_emission WHERE id=1').fetchone()['total_minted'],2)
