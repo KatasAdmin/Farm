@@ -12,13 +12,17 @@ class Q:
 
 
 class QuoteDB:
-    def __init__(self,backing=1000,coins=100):
+    def __init__(self,backing=1000,coins=100,pool=0,liabilities=0):
         self.backing=backing
         self.coins=coins
+        self.pool=pool
+        self.liabilities=liabilities
     def execute(self,sql,args=()):
         low=' '.join(sql.lower().split())
         if low.startswith('select backed_kopeks from farm_cash_reserve'):
             return Q({'backed_kopeks':self.backing})
+        if low.startswith('select amount from bot_cash_pool'):
+            return Q({'amount':self.pool})
         if low.startswith('select coalesce(sum(coins),0)::bigint as n from players'):
             return Q({'n':self.coins})
         if low.startswith('select coalesce(treasury,0)::bigint as n from economy'):
@@ -44,23 +48,42 @@ class CreditDB(QuoteDB):
 
 
 class ExchangeTests(unittest.TestCase):
+    def quote(self,c,nominal):
+        with patch.object(farm_exchange.farm_capitalization,'preview',
+                          return_value={'nominal_capitalization_kopeks':nominal}),patch('task_bot.liability',return_value=c.liabilities):
+            return farm_exchange.quote(c,Decimal('40'))
+
     def test_price_is_minimum_of_liquid_cash_and_nominal_reserve(self):
         c=QuoteDB(backing=1200,coins=100)
-        with patch.object(farm_exchange.farm_capitalization,'preview',
-                          return_value={'nominal_capitalization_kopeks':1500}):
-            q=farm_exchange.quote(c,Decimal('40'))
+        q=self.quote(c,1500)
         self.assertEqual(q['coin_price_kopeks'],'12')
         self.assertEqual(q['purchase_price_kopeks'],'12')
         self.assertTrue(q['payout_enabled'])
 
     def test_unfunded_nominal_is_not_withdrawable_but_has_seed_price_for_bootstrap(self):
         c=QuoteDB(backing=0,coins=100)
-        with patch.object(farm_exchange.farm_capitalization,'preview',
-                          return_value={'nominal_capitalization_kopeks':4000}):
-            q=farm_exchange.quote(c,Decimal('40'))
+        q=self.quote(c,4000)
         self.assertFalse(q['payout_enabled'])
         self.assertEqual(q['coin_price_kopeks'],'0')
         self.assertEqual(q['purchase_price_kopeks'],'40')
+
+    def test_unencumbered_bot_cash_is_automatically_usable_without_manual_funding(self):
+        c=QuoteDB(backing=0,coins=100,pool=2000,liabilities=500)
+        q=self.quote(c,1200)
+        self.assertEqual(q['free_pool_kopeks'],1500)
+        self.assertEqual(q['coin_price_kopeks'],'12')
+        self.assertTrue(q['payout_enabled'])
+
+    def test_bot_liabilities_and_existing_farm_reserve_cannot_be_spent_twice(self):
+        c=QuoteDB(backing=250,coins=100,pool=1000,liabilities=700)
+        q=self.quote(c,1200)
+        self.assertEqual(q['free_pool_kopeks'],50)
+        self.assertEqual(q['cashable_kopeks'],300)
+        self.assertEqual(q['coin_price_kopeks'],'3')
+        c.liabilities=800
+        q=self.quote(c,1200)
+        self.assertEqual(q['free_pool_kopeks'],0)
+        self.assertEqual(q['cashable_kopeks'],250)
 
     def test_one_real_cash_receipt_cannot_be_counted_twice(self):
         c=CreditDB()
@@ -116,7 +139,8 @@ class ExchangeTests(unittest.TestCase):
              change=lambda _,uid,value,*rest:credits.append((uid,value)) or value,
              bot_notifications=SimpleNamespace(enqueue=lambda *args,**kwargs:None))
         rate={'payout_enabled':True,'coin_price_kopeks':'5',
-              'cashable_kopeks':500,'coin_price_uah':'0.05'}
+              'cashable_kopeks':500,'coin_price_uah':'0.05',
+              'reserve_kopeks':500,'free_pool_kopeks':0}
         player={'id':'p','telegram_id':7,'coins':100}
         with patch.object(farm_exchange,'quote',return_value=rate):
             first=farm_exchange.redeem(c,player,10,'redemption-1',bot,Decimal('40'))
