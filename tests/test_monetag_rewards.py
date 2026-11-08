@@ -34,6 +34,7 @@ def schema(c):
  c.execute('CREATE TABLE reward_emission(id int PRIMARY KEY,total_minted int)')
  c.execute('INSERT INTO reward_emission VALUES(1,0)')
  c.execute('CREATE TABLE farm_money_sources(log_id text PRIMARY KEY,bonus int,purchased int,earned int)')
+ c.execute('CREATE TABLE referrals(child_id text PRIMARY KEY,parent_id text,created real,qualified boolean)')
  c.execute('CREATE TABLE monetag_ad_attempts(ymid text PRIMARY KEY,player_id text,created_at double precision,rewarded_at double precision,zone_id int,placement text,'+','.join(k+' '+v for k,v in ads.FIELDS.items())+')')
  c.execute('CREATE TABLE monetag_reward_grants(id text PRIMARY KEY,player_id text,item text,quantity int,created real,claimed_at real)')
  c.execute('CREATE TABLE monetag_postback_events(ymid text,event_type text,sub_zone_id int,reward_event_type text,estimated_usd numeric,received_at real,PRIMARY KEY(ymid,event_type,sub_zone_id,reward_event_type))')
