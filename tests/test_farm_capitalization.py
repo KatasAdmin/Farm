@@ -9,10 +9,15 @@ class Row:
 
 
 class FakeCapitalDB:
+    def __init__(self):self.seed_kopeks=None
     def execute(self,sql,args=()):
         q=' '.join(sql.lower().split())
+        if q.startswith('update farm_capitalization_baseline set seed_kopeks='):
+            if self.seed_kopeks is None:self.seed_kopeks=args[0]
+            return Row(1)
         if "from farm_capitalization_baseline" in q:
-            return type('Baseline',(),{'fetchone':lambda self:{'started_at':1762500000.0,'seed_usd':Decimal('1')}})()
+            seed=self.seed_kopeks
+            return type('Baseline',(),{'fetchone':lambda self:{'started_at':1762500000.0,'seed_usd':Decimal('1'),'seed_kopeks':seed}})()
         if "from bot_adsgram_farm_attempts" in q:return Row(12)
         if "from monetag_ad_attempts" in q:return Row(8)
         if "from bot_card_topups" in q:return Row(5000)
@@ -34,6 +39,16 @@ class CapitalizationTests(unittest.TestCase):
         self.assertEqual(result['nominal_capitalization_kopeks'],8100)
         self.assertEqual(Decimal(result['nominal_coin_price_uah']),Decimal('0.081'))
         self.assertFalse(result['payout_enabled'])
+
+    def test_capitalization_seed_does_not_float_with_usd_rate(self):
+        db=FakeCapitalDB()
+        a=preview(db,Decimal('40'))
+        b=preview(db,Decimal('70'))
+        c=preview(db,None)
+        self.assertEqual(db.seed_kopeks,4000)
+        self.assertEqual(a['nominal_capitalization_kopeks'],b['nominal_capitalization_kopeks'])
+        self.assertEqual(b['nominal_capitalization_kopeks'],c['nominal_capitalization_kopeks'])
+        self.assertEqual(a['nominal_coin_price_uah'],b['nominal_coin_price_uah'])
 
     def test_zero_denominator_and_zero_reserve_never_imply_a_cash_payout(self):
         self.assertEqual(Decimal(calculate(100,0,0,0,0)['nominal_coin_price_uah']),0)
