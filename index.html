@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=95" defer></script>
+    <script src="/assets/game.js?v=96" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
@@ -48,7 +48,7 @@
         if(s&&!s.hidden&&p)p.textContent='Приложение не завершило загрузку. Повтори попытку.';
       });
     </script>
-    <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
+    <div id="toast" role="status" aria-live="polite" hidden></div>
     <section id="login" class="login" hidden>
       <img
         src="/assets/illustrations/farm-home-v1.webp"
@@ -88,7 +88,7 @@
         <form id="password-login-form" class="password-login"><h3>Уже есть ферма? Войти</h3><label for="login-name">Ник</label><input id="login-name" autocomplete="username" maxlength="22" required><label for="login-password">Пароль</label><input id="login-password" type="password" autocomplete="current-password" required><button class="btn blue wide" type="submit">Войти</button></form>
         <button type="button" class="btn blue wide telegram-entry" onclick="telegramLogin()" hidden>Войти через Telegram</button><p class="muted">Если у тебя уже есть ферма с паролем, сначала войди в неё внутри Telegram и привяжи Telegram в профиле. Иначе будет создана новая ферма.</p>
 
-        <details class="recovery-login" hidden><summary>Старый аккаунт? Восстановить по коду</summary><form id="recover-form"><label for="recover-name">Имя фермера</label><input id="recover-name" autocomplete="username" required maxlength="22"><label for="recover-code">Сохранённый код восстановления</label><input id="recover-code" autocomplete="off" autocapitalize="none" spellcheck="false" required><button class="btn wide" type="submit">Войти в свою ферму</button></form></details><small>Регистрируйся по уникальному нику и паролю. Если уже есть ферма, войди по нику и паролю либо через Telegram.</small>
+        <small>Регистрируйся по уникальному нику и паролю. Если уже есть ферма, войди по нику и паролю либо через Telegram.</small>
       </div>
     </section>
     <div id="app" class="shell" hidden>
@@ -596,7 +596,7 @@
             <button id="link-telegram-button" class="btn blue wide" onclick="linkTelegram()">Привязать Telegram</button>
             <p id="telegram-link-help" class="muted">Привяжи Telegram, чтобы входить в игру и переводить заработанные монеты на свой баланс бота.</p>
             <div id="nickname-settings"><h3 class="account-section-title">Имя фермера</h3><label for="settings-nickname">Твой ник (от 2 до 22 символов)</label><input id="settings-nickname" minlength="2" maxlength="22" autocomplete="nickname" placeholder="Введи новый ник"><p class="muted">Ник должен быть свободен. После смены вход по паролю будет доступен с новым ником; Telegram-привязка сохранится.</p><button class="btn blue wide" onclick="setAccountNickname()">Сохранить новый ник</button></div>
-            <details class="account-recovery-advanced" hidden><summary>Код восстановления и дополнительные настройки</summary><p class="muted">Код позволяет восстановить старый аккаунт. Создание нового кода отключает предыдущий.</p><button class="btn blue wide" onclick="generateRecoveryCode()">Создать код восстановления</button><button class="btn blue wide" onclick="tab('shop')">Настроить автозакупку</button></details>
+            
           </div>
         </details>
         <p class="muted">
