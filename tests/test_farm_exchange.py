@@ -82,6 +82,7 @@ class ExchangeTests(unittest.TestCase):
                 low=' '.join(sql.lower().split())
                 if low.startswith('select player_id,telegram_id,coins,credited_kopeks from farm_coin_redemptions'):return Q()
                 if low.startswith('select 1 from withdrawal_requests'):return Q()
+                if low.startswith('select * from bot_account_controls'):return Q()
                 raise AssertionError(low)
         with patch.object(farm_exchange,'quote',return_value={'payout_enabled':False}):
             with self.assertRaises(HTTPException) as err:
