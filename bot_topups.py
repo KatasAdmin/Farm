@@ -23,6 +23,8 @@ def initialize(c):
     c.execute("""CREATE TABLE IF NOT EXISTS farm_card_topup_targets(
       topup_id text PRIMARY KEY REFERENCES bot_card_topups(id),
       player_id text NOT NULL, telegram_id bigint NOT NULL)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS farm_card_receipt_checksums(
+      checksum text PRIMARY KEY,topup_id text NOT NULL UNIQUE)""")
     applied = c.execute("INSERT INTO bot_topup_migrations VALUES('wallet-stars-rate-50-2026-10-31') ON CONFLICT DO NOTHING RETURNING id").fetchone()
     if applied:
         c.execute('UPDATE bot_topup_config SET star_rate=50 WHERE id=1')
