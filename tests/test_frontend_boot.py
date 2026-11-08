@@ -33,6 +33,14 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('Цена вывода:',js)
   self.assertIn('nominal_coin_price_uah',main)
   self.assertIn('nominal_rate',main)
+ def test_weekly_market_purchases_include_system_supply(self):
+  main=(Path(__file__).resolve().parents[1]/"main.py").read_text(encoding="utf-8")
+  start=main.index('weekly_stats["market_purchases"]=')
+  fragment=main[start:start+420]
+  self.assertIn("FROM money_log",fragment)
+  self.assertIn("kind='market_buy'",fragment)
+  self.assertIn("SUM((split_part(details,' x',2))::bigint)",fragment)
+  self.assertNotIn("FROM market_trade_audit",fragment)
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   self.assertRegex(html,r'/assets/game\.js\?v=[1-9][0-9]*')
