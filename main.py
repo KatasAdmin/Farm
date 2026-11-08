@@ -1806,6 +1806,9 @@ def farm_exchange_quote(authorization:str=Header(default="")):
           "payout_enabled":raw['payout_enabled'],
           "balance_value_kopeks":int((Decimal(str(raw['coin_price_kopeks']))*
                   Decimal(player['coins'])).to_integral_value(rounding=ROUND_FLOOR)),
+          "backed_available_kopeks":min(int(raw['cashable_kopeks']),
+               int((Decimal(str(raw['coin_price_kopeks']))*
+                    Decimal(player['coins'])).to_integral_value(rounding=ROUND_FLOOR))),
           "coin_count":player['coins']}
 
 @app.get("/api/farm/card/config")
@@ -1858,7 +1861,8 @@ def withdrawal_status(authorization:str=Header(default="")):
   last=c.execute("SELECT id,amount,status,created,reserved FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
   sources=farm_wallet.balances(c,p)
   price=farm_exchange.quote(c,None)
-  amount=(int(Decimal(str(price['coin_price_kopeks']))*Decimal(p['coins']))
+  amount=(min(int(price['cashable_kopeks']),
+              int((Decimal(str(price['coin_price_kopeks']))*Decimal(p['coins'])).to_integral_value(rounding=ROUND_FLOOR)))
           if price['payout_enabled'] else 0)
  return {"sources":sources,"minimum":100,"request":last,
          "payouts_enabled":price['payout_enabled'],"available":p['coins'],
