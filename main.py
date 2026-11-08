@@ -1835,6 +1835,7 @@ def request_withdrawal(q:Request,authorization:str=Header(default="")):
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   c.execute("SELECT pg_advisory_xact_lock(%s)",(task_bot.LOCK,))
   p=advance(c,person(c,authorization,True))
+  if not p.get('telegram_id'):raise HTTPException(403,'Сначала привяжи Telegram к ферме')
   rate=bot_cash_ad_credits.nbu_usd_uah(c)
   result=farm_exchange.redeem(c,p,q.amount,key,task_bot,rate)
  task_bot.bot_notifications.wake()
