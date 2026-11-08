@@ -34,7 +34,7 @@ function decorate(){
   if(prompt)prompt.hidden=!(cfg?.enabled&&!!tgInitData()&&!!adRewards[item]);
  }
  const shortage=el('free-grain-shortage');if(shortage)shortage.hidden=!(state?.farm?.effective_grain_shortage>0);
- document.querySelectorAll('[data-ad-free="coins"]').forEach(button=>button.remove());
+ // The voluntary wallet reward button is permitted; confirmed rewards remain non-withdrawable.
  document.querySelectorAll('[data-ad-free]').forEach(button=>{
   const item=button.dataset.adFree;const r=adRewards[item];if(!r)return;
   const ready=cfg?.enabled&&!!tgInitData();
@@ -42,7 +42,7 @@ function decorate(){
   button.disabled=!!reason;
   button.title=reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' подтверждённых просмотров');
   const compactReason=reason?.includes('rewarded-зона')?'Скоро':reason?.includes('лимит')||reason?.includes('Лимит')?'Лимит':reason?.includes('через')?'Таймер':reason?.includes('Загружается')?'Загрузка':reason?.includes('открывается')?'Открывается':reason?.includes('Дождитесь')?'Ожидание':reason==='Гуси доступны с 3-го уровня'?'С 3 уровня':reason?'Недоступно':'';
-  button.textContent=reason?'🎬 '+compactReason:item==='coins'?'🎬 +2 монеты':'🎬 Бесплатно · '+(adProgress[item]||0)+'/'+r[0];
+  button.textContent=reason?'🎬 '+compactReason:item==='coins'?'🎬 +3 монеты':'🎬 Бесплатно · '+(adProgress[item]||0)+'/'+r[0];
  });
 }
 

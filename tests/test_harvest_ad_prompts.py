@@ -13,7 +13,7 @@ class HarvestAdPromptTests(unittest.TestCase):
             self.assertIn("window.FarmAds?.watch('"+item+"')",html)
             self.assertIn("const prompt=el('harvest-ad-'+item);",js.replace("for(const item of ['eggs','milk']){","for(const item of ['eggs','milk']){"))
         self.assertIn("cfg?.enabled&&!!tgInitData()",js)
-        self.assertIn("/assets/monetag-rewards.js?v=9",html)
+        self.assertIn("/assets/monetag-rewards.js?v=10",html)
         self.assertNotIn('onclick="submitTopup()"',html)
 
 if __name__=='__main__':

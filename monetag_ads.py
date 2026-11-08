@@ -11,7 +11,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 from fastapi import HTTPException
 
-REWARDS={'grain':(1,1),'eggs':(2,2),'milk':(5,1),'chickens':(20,1),'geese':(80,1),'cows':(250,1),'coins':(1,2)}
+REWARDS={'grain':(1,1),'eggs':(2,2),'milk':(5,1),'chickens':(20,1),'geese':(80,1),'cows':(250,1),'coins':(1,3)}
 TMA_ZONE=12193261
 LOCK=1984533
 DAY_LIMIT=1000000

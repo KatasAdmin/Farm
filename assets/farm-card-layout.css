@@ -1,0 +1,74 @@
+/* Compact, consistent main-farm cards: animals above, products below. */
+#farm .bird-resources{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  align-items:stretch;
+}
+#farm .bird-resources>.resource{
+  min-width:0;
+  min-height:86px;
+  padding:12px 10px;
+  border-radius:15px;
+  display:grid;
+  grid-template-columns:43px minmax(0,1fr);
+  grid-template-rows:1fr 1fr;
+  align-items:center;
+  gap:0 8px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.11), 0 2px 8px rgba(1,9,31,.13);
+}
+#farm .bird-resources>.resource:nth-child(-n+4){
+  border-color:rgba(111,209,255,.42);
+}
+#farm .bird-resources>.resource:nth-child(n+5){
+  background:linear-gradient(150deg,rgba(9,62,126,.84),rgba(8,33,84,.92));
+}
+#farm .bird-resources>.resource>.icon,
+#farm .bird-resources>.resource>.feather-art{
+  grid-column:1;
+  grid-row:1 / 3;
+  width:40px;
+  height:45px;
+  object-fit:contain;
+  align-self:center;
+  justify-self:center;
+  font-size:34px;
+  line-height:45px;
+  text-align:center;
+}
+#farm .bird-resources>.resource>span:not(.icon):not(.feather-art){
+  grid-column:2;
+  grid-row:1;
+  font-size:12px;
+  line-height:1.2;
+  align-self:end;
+  overflow-wrap:anywhere;
+}
+#farm .bird-resources>.resource>strong{
+  grid-column:2;
+  grid-row:2;
+  font-size:23px;
+  line-height:1.2;
+  align-self:start;
+  font-variant-numeric:tabular-nums;
+}
+#farm .farm-ads-strip{
+  display:flex;
+  justify-content:center;
+  margin:7px 0 12px;
+}
+#farm .farm-ads-strip>.btn{
+  max-width:100%;
+  width:auto;
+  padding:9px 13px;
+  font-size:12px;
+  border-radius:11px;
+}
+#card-topup-dialog code{font-size:16px;user-select:all;overflow-wrap:anywhere}
+#card-topup-dialog input[type=file]{max-width:100%}
+#card-topup-status{min-height:2em;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:690px){
+ #farm .bird-resources{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ #farm .bird-resources>.resource{min-height:83px}
+ #farm .bird-resources>.resource>strong{font-size:22px}
+}
