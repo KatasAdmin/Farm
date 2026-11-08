@@ -28,6 +28,7 @@ def input_screen(uid, text, buttons=None, cancel_action='cancel_input'):
     return result
 
 def initialize(c):
+    c.execute('CREATE TABLE IF NOT EXISTS bot_membership_ineligible(uid bigint NOT NULL, task text NOT NULL, PRIMARY KEY(uid,task))')
     c.execute('CREATE INDEX IF NOT EXISTS bot_claims_user ON bot_claims(uid,status)')
     c.execute('CREATE INDEX IF NOT EXISTS bot_ref_rewards_parent ON bot_ref_rewards(parent,level)')
     c.execute('CREATE INDEX IF NOT EXISTS bot_accounts_created ON bot_accounts(created,referrer)')
@@ -37,12 +38,12 @@ def active_order_filter():
     return "t.status='active' AND NOT EXISTS(SELECT 1 FROM bot_task_controls k WHERE k.task=t.id AND k.paused=1)\n      AND t.remaining>=coalesce((SELECT cost FROM bot_task_terms q WHERE q.task=t.id),t.reward)*\n        (1+(SELECT count(*) FROM bot_claims r WHERE r.task=t.id AND r.status='review'))\n      AND (t.kind<>'post' OR EXISTS(SELECT 1 FROM bot_post_publications p WHERE p.task=t.id AND p.status='posted'))"
 
 def catalog_filter():
-    return active_order_filter() + " AND t.owner<>%s\n      AND NOT EXISTS(SELECT 1 FROM bot_claims x WHERE x.task=t.id AND x.uid=%s\n        AND x.status IN ('paid','rejected','review'))\n      AND (t.kind<>'bot' OR t.chat_id IS NULL OR NOT EXISTS(\n        SELECT 1 FROM bot_bot_completions done WHERE done.uid=%s AND done.bot_id=t.chat_id))\n      AND (t.kind<>'bot' OR NOT EXISTS(\n        SELECT 1 FROM bot_bot_click_completions bcd WHERE bcd.uid=%s\n        AND lower(t.url) LIKE 'https://t.me/' || bcd.username || '%%'))"
+    return active_order_filter() + " AND t.owner<>%s\n      AND NOT EXISTS(SELECT 1 FROM bot_claims x WHERE x.task=t.id AND x.uid=%s\n        AND x.status IN ('paid','rejected','review'))\n      AND (t.kind NOT IN ('channel','group') OR NOT EXISTS(\n        SELECT 1 FROM bot_membership_ineligible mi WHERE mi.task=t.id AND mi.uid=%s))\n      AND (t.kind<>'bot' OR t.chat_id IS NULL OR NOT EXISTS(\n        SELECT 1 FROM bot_bot_completions done WHERE done.uid=%s AND done.bot_id=t.chat_id))\n      AND (t.kind<>'bot' OR NOT EXISTS(\n        SELECT 1 FROM bot_bot_click_completions bcd WHERE bcd.uid=%s\n        AND lower(t.url) LIKE 'https://t.me/' || bcd.username || '%%'))"
 
 def earn(c, uid):
     b = core()
     b.state(c, uid, 'clear')
-    rows = c.execute('SELECT kind,count(*) AS n,sum(reward) AS total,\n      min(reward) AS low,max(reward) AS high FROM bot_tasks t WHERE ' + catalog_filter() + ' GROUP BY kind', (uid, uid, uid, uid)).fetchall()
+    rows = c.execute('SELECT kind,count(*) AS n,sum(reward) AS total,\n      min(reward) AS low,max(reward) AS high FROM bot_tasks t WHERE ' + catalog_filter() + ' GROUP BY kind', (uid, uid, uid, uid, uid)).fetchall()
     kinds = {r['kind']: r for r in rows}
     total = sum((r['total'] for r in rows))
     settings = c.execute('SELECT daily,channel_url FROM bot_settings WHERE id=1').fetchone()
@@ -58,10 +59,6 @@ def earn(c, uid):
         return ''
 
     def label(text, kind):
-        # Catalog counts cannot tell whether a user already belongs to a channel/group.
-        # Don't advertise a payout before the membership eligibility check runs.
-        if kind in ('channel', 'group', 'bot'):
-            return text
         reward = rate(kind)
         return text + (' · ' + reward if reward else '')
     text = tr('🚀 <b>Как хочешь заработать?</b>\n\n<b>💼 Доступные задания</b>\n📣 Подписаться на канал: <b>{v0}</b>\n👁 Посмотреть пост: <b>{v1}</b>\n🤖 Перейти в бота: <b>{v2}</b>\n👥 Вступить в группу: <b>{v3}</b>\n📝 Выполнить задание: <b>{v4}</b>\n🤝 Приглашать друзей: <b>можно</b>\n⭐ Квесты: <i>готовятся</i>\n\n<b>💎 Награды в доступных заданиях: {v5}</b>\n<i>За каждое задание награда выдаётся один раз после проверки.</i>', {'v0': f"{count('channel')}", 'v1': f"{count('post')}", 'v2': f"{count('bot')}", 'v3': f"{count('group')}", 'v4': f"{count('manual')}", 'v5': f'{b.money(total)}'}, html_mode=True, section='bot_ui', limit=3000)
