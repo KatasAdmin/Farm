@@ -143,6 +143,13 @@ def say(uid, text, buttons=None):
         out['reply_markup']={'inline_keyboard':style_inline_buttons(visible)} if visible else {'remove_keyboard':True}
     return out
 
+def is_danger_label(label):
+    """Cancel/decline/delete always looks dangerous regardless of callback route."""
+    label=str(label or '').strip().casefold()
+    # Handle emoji prefixes, custom labels and localized text.
+    return bool(re.search(r'\\b(отмен\\w*|отменить|скасув\\w*|скасувати|cancel|delete|удал\\w*|видал\\w*|відхил\\w*|отклон\\w*)\\b',label))
+
+
 def button_style(action):
     """Semantic palette for all user-accessible callback buttons.
 
@@ -178,7 +185,9 @@ def style_inline_buttons(rows):
                 colored.append(item)
                 continue
             entry=dict(item)
-            if 'style' not in entry:
+            if is_danger_label(entry.get('text','')):
+                entry['style']='danger'
+            elif 'style' not in entry:
                 callback=entry.get('callback_data','')
                 if callback:
                     entry['style']=button_style(callback)
@@ -196,9 +205,10 @@ def style_inline_buttons(rows):
 def button(text, action):
     if action == 'cancel_input':
         text = '✖️ Отмена'
-    return {'text':bot_copy.label(text,action),
+    visible=bot_copy.label(text,action)
+    return {'text':visible,
             'callback_data':'bot:'+action,
-            'style':button_style(action)}
+            'style':'danger' if is_danger_label(visible) else button_style(action)}
 
 def input_prompt(uid, text, buttons=None, cancel_action='cancel_input'):
     rows = list(buttons or [])
