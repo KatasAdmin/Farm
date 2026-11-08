@@ -188,7 +188,7 @@ async function upgradeBuilding(kind) {
   const values = state.buildings || {};
   const price = values[kind + "_next_cost"];
   if (price == null) return;
-  const name = kind === "coop" ? "места для птиц" : kind==="cowshed"?"места для коров":"склад";
+  const name = kind === "coop" ? "места для птиц" : kind==="cowshed"?"стадник":"склад";
   if (!confirm("Улучшить " + name + " за " + number(price) + " монет?")) return;
   await perform("/api/upgrade", {item:kind});
 }
@@ -685,7 +685,7 @@ function purchaseQuote() {
   const noRoom = purchase.kind !== "bundle" && n > room;
   const expired = purchase.kind === "bundle" && !promotionActive();
   let info = expired ? "Акция завершена"
-    : noRoom ? (["cows","sheep"].includes(purchase.item)?"В хлеву нет места. Расширь его.":["chickens","geese"].includes(purchase.item) ? "Нет места для птиц. Увеличь вместимость в разделе «Животные»." : "На складе нет места. Улучши склад.")
+    : noRoom ? (["cows","sheep"].includes(purchase.item)?"В стаднике нет места. Расширь его в разделе «Животные».":["chickens","geese"].includes(purchase.item) ? "Нет места для птиц. Увеличь вместимость в разделе «Животные»." : "На складе нет места. Улучши склад.")
     : !valid
     ? "Введите целое количество от 1 до 10 000"
     : result.remaining > 0
