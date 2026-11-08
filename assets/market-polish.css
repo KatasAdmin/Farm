@@ -30,3 +30,47 @@
 @media(max-width:360px){#shop .catalog-row{grid-template-columns:39px minmax(0,1fr) 36px 64px;gap:6px}#shop .catalog-row>.product-image{width:38px;height:58px}#shop .catalog-row>.trade-dual-actions{width:64px}#shop .catalog-row h3{font-size:17px}#shop .catalog-row small{font-size:11px}#shop .catalog-row>.price{font-size:13px}}
 #shop .catalog-row>img[src$="goose-v2.png"],#farm .bird-resources>.resource>img[src$="goose-v2.png"]{object-fit:cover}
 @media(min-width:640px){#farm .bird-resources{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* One aligned card rhythm across animals, resources, and equipment.
+   A third rewarded-ad action stays in the same action column. */
+#shop .market-product-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+#shop .market-product-grid>.catalog-row{
+  box-sizing:border-box;width:100%;min-width:0;
+  grid-template-columns:48px minmax(0,1fr) 50px minmax(76px,92px);
+  column-gap:9px;min-height:110px;align-items:center;
+}
+#shop .catalog-row>.product-copy{min-width:0}
+#shop .catalog-row>.trade-dual-actions{
+  display:grid;grid-template-columns:minmax(0,1fr);
+  width:100%;min-width:0;max-width:none;align-self:center;gap:5px;
+}
+#shop .catalog-row>.trade-dual-actions>.btn{min-height:32px;padding:7px 4px}
+#shop .catalog-row>.trade-dual-actions>.ad-free-button{
+  background:linear-gradient(155deg,#245da3,#174479);
+  border-color:rgba(147,215,255,.5);font-size:11px;line-height:1.1;
+}
+#shop .catalog-row>.product-image{max-width:100%}
+@media(max-width:540px){
+  #shop .market-product-grid>.catalog-row{
+    grid-template-columns:42px minmax(0,1fr) minmax(76px,90px);
+    grid-template-rows:auto auto;column-gap:8px;min-height:116px;
+  }
+  #shop .catalog-row>.product-image{grid-column:1;grid-row:1/3;width:41px;height:56px}
+  #shop .catalog-row>.product-copy{grid-column:2;grid-row:1;align-self:end}
+  #shop .catalog-row>.price{
+    grid-column:2;grid-row:2;justify-content:flex-start;align-self:start;
+    font-size:15px;max-width:none;margin-top:5px;
+  }
+  #shop .catalog-row>.trade-dual-actions{
+    grid-column:3;grid-row:1/3;width:100%;max-width:none;
+  }
+  #shop .catalog-row h3{font-size:18px}
+  #shop .catalog-row small{font-size:11px;line-height:1.25}
+}
+@media(max-width:360px){
+  #shop .market-product-grid>.catalog-row{
+    grid-template-columns:36px minmax(0,1fr) 75px;gap:6px;
+  }
+  #shop .catalog-row>.product-image{width:36px;height:53px}
+  #shop .catalog-row h3{font-size:16px}
+}
