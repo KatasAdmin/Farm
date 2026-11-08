@@ -11,6 +11,8 @@ class Row:
 class FakeCapitalDB:
     def execute(self,sql,args=()):
         q=' '.join(sql.lower().split())
+        if "from farm_capitalization_baseline" in q:
+            return type('Baseline',(),{'fetchone':lambda self:{'started_at':1762500000.0,'seed_usd':Decimal('1')}})()
         if "from bot_adsgram_farm_attempts" in q:return Row(12)
         if "from monetag_ad_attempts" in q:return Row(8)
         if "from bot_card_topups" in q:return Row(5000)
