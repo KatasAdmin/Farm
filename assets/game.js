@@ -867,10 +867,10 @@ async function loadWithdrawalStatus() {
     note.textContent="Расчётная цена монеты: "+preciseCoinPrice(value.nominal_rate)+
       " грн · Цена вывода: "+preciseCoinPrice(rate)+
       " грн · Монет: "+number(coins)+" · Доступно к выводу: "+sum+
-      " грн. "+(value.payouts_enabled?"Можно перевести любые монеты по текущему курсу.":"Вывод временно недоступен: подтверждённого денежного обеспечения пока нет.")+
+      " грн. "+(value.payouts_enabled?"Минимальный перевод — "+number(value.minimum||100)+" монет.":"Вывод временно недоступен: подтверждённого денежного обеспечения пока нет.")+
       (request?" · Предыдущая заявка: "+number(request.amount)+" монет ("+request.status+").":"");
     const btn=el("withdrawal-launch");
-    if(btn)btn.disabled=!value.payouts_enabled||coins<1;
+    if(btn)btn.disabled=!value.payouts_enabled||coins<(value.minimum||100);
   }catch(error){note.textContent="Не удалось проверить курс: "+error.message;}
 }
 async function cancelWithdrawalRequest(){
@@ -896,10 +896,10 @@ async function openWithdrawalRequest() {
   try{
     const q=await api("/api/farm/exchange/quote");
     if(!q.payout_enabled)return toast("Пока нет подтверждённых денег для вывода. Курс вывода равен нулю.");
-    if(state.me.coins<1)return toast("На балансе нет монет.");
+    if(state.me.coins<100)return toast("Минимальный перевод — 100 монет.");
     if(!gameTransferKey)gameTransferKey=crypto.randomUUID();
     const input=el("withdrawal-amount");
-    input.max=String(Math.min(1000000000,state.me.coins));
+    input.min="100";input.max=String(Math.min(1000000000,state.me.coins));
     input.value=String(state.me.coins);
     const desc=el("withdrawal-quote");
     if(desc)desc.textContent="Расчётная цена монеты: "+preciseCoinPrice(q.nominal_coin_price_uah)+
@@ -973,6 +973,7 @@ async function submitWithdrawalRequest() {
  if(pending)return;
  try{
   const n=amount("withdrawal-amount",1000000000);
+   if(n<100)throw Error("Минимальный перевод — 100 монет.");
   const quoted=await api("/api/farm/exchange/quote");
   const coins=quoted.coin_count||0;
   if(n>coins)throw Error("На счёте меньше монет.");
