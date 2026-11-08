@@ -35,7 +35,7 @@ class FakeDB:
             return Query(self.checkpoints[-1] if self.checkpoints else None)
         if q.startswith('select 1 from bot_adsgram_daily_settlements'):
             return Query()
-        if q.startswith('select id,uid,referral_chain from bot_adsgram_attempts'):
+        if q.startswith('select id,uid,referral_chain,paid_immediate from bot_adsgram_attempts'):
             lo,hi=args
             return Query(many=[x for x in self.views if lo<=x['confirmed_at']<hi])
         if q.startswith('select count(*) as n from bot_adsgram_farm_attempts'):
