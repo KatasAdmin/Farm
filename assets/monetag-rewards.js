@@ -64,7 +64,7 @@ async function recover(force=false){
     let holder=el('ad-history');
     if(!holder){holder=document.createElement('details');holder.id='ad-history';holder.className='card';holder.innerHTML='<summary>🎬 История рекламы AdsGram</summary><div class="ad-history-rows"></div>';wallet.appendChild(holder);}
     const body=holder.querySelector('.ad-history-rows');body.replaceChildren();
-    for(const row of data.history||[]){const p=document.createElement('p');p.className='muted';p.textContent=new Date(row.created_at*1000).toLocaleString('ru-RU')+' · '+(labels[row.item]||row.item)+' · '+(row.state==='credited'?'Подтверждено':'Ожидается подтверждение');body.appendChild(p);}
+    for(const row of data.history||[]){const p=document.createElement('p');p.className='muted';const status=row.state==='credited'?'Подтверждено':row.state==='cancelled'?'Отменено':row.state==='expired'||(row.state==='pending'&&Date.now()/1000-row.created_at>600)?'Не подтверждено':'Ожидается подтверждение';p.textContent=new Date(row.created_at*1000).toLocaleString('ru-RU')+' · '+(labels[row.item]||row.item)+' · '+status;body.appendChild(p);}
    }
   }catch(e){if(force)notify('Статистика AdsGram недоступна: '+String(e.message||e));}
   finally{recovering=null;decorate();}
