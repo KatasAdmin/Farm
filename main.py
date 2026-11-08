@@ -324,7 +324,7 @@ def incubation_stages(level):
  return seconds//2,seconds-seconds//2
 def coop_limit(p):return 10*p["coop_level"]
 def storage_limit(p):return 100*p["storage_level"]
-def cowshed_limit(p):return 2*p.get("cowshed_level",1)
+def cowshed_limit(p):return 4*p.get("cowshed_level",1)
 def livestock_used(p):return p.get("cows",0)+p.get("sheep",0)
 def upgrade_cost(kind,level):return {"coop":40,"storage":30,"cowshed":50}[kind]*level
 def update_incubation(c,p,now):
@@ -1661,7 +1661,7 @@ def buy(q:Request,authorization:str=Header(default="")):
    raise HTTPException(409,"Цена товара изменилась. Обновите рынок")
   if q.item=="geese" and p.get("farmer_level",1)<GOOSE_MIN_LEVEL:raise HTTPException(403,"Гуси открываются с 3-го уровня фермера")
   if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"Нет места для птиц")
-  if q.item in ("cows","sheep") and livestock_used(p)+q.amount>cowshed_limit(p):raise HTTPException(400,"В коровнике нет места")
+  if q.item in ("cows","sheep") and livestock_used(p)+q.amount>cowshed_limit(p):raise HTTPException(400,"В стаднике нет места")
   if q.item not in ("chickens","geese","cows","sheep") and p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+p.get("wool",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   rows=c.execute("SELECT * FROM market WHERE item=%s AND seller<>%s AND quantity>0 ORDER BY price,id FOR UPDATE",(q.item,p["id"])).fetchall()
   available=sum(x["quantity"] for x in rows)
@@ -1677,7 +1677,7 @@ def buy(q:Request,authorization:str=Header(default="")):
    raise HTTPException(409,"Цена товара изменилась. Обновите рынок")
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   if q.item in ("chickens","geese") and p["chickens"]+p.get("geese",0)+q.amount>coop_limit(p):raise HTTPException(400,"Нет места для птиц")
-  if q.item in ("cows","sheep") and livestock_used(p)+q.amount>cowshed_limit(p):raise HTTPException(400,"В коровнике нет места")
+  if q.item in ("cows","sheep") and livestock_used(p)+q.amount>cowshed_limit(p):raise HTTPException(400,"В стаднике нет места")
   if q.item not in ("chickens","geese","cows","sheep") and p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+p.get("wool",0)+q.amount>storage_limit(p):raise HTTPException(400,"На складе нет места. Улучшите склад")
   # Prevent crediting sellers whose Stars refund is being reconciled.
   # Lock every seller in a stable order before any buyer debit or seller credit.
@@ -1992,7 +1992,7 @@ def upgrade(q:Request,authorization:str=Header(default="")):
   if p["coins"]<cost:raise HTTPException(400,"Недостаточно монет")
   c.execute("UPDATE players SET coins=coins-%s,"+key+"="+key+"+1 WHERE id=%s",(cost,p["id"]))
   c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
-  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"upgrade",-cost,"Улучшение "+{"coop":"мест для птиц","storage":"склада","cowshed":"коровника"}[q.item]+" до уровня "+str(level+1),time.time()))
+  c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"upgrade",-cost,"Улучшение "+{"coop":"мест для птиц","storage":"склада","cowshed":"стадника"}[q.item]+" до уровня "+str(level+1),time.time()))
  return {"ok":True,"spent":cost,"level":level+1}
 
 @app.post("/api/profile")
