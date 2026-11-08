@@ -28,7 +28,7 @@ def schema(c):
  c.execute('CREATE TABLE farm_ad_money(log_id text PRIMARY KEY,amount integer)')
  c.execute('CREATE TABLE farm_ad_listings(id text PRIMARY KEY,quantity integer)')
  c.execute('CREATE TABLE farm_ad_incubations(id text PRIMARY KEY)')
- for key,default in (('cows',0),('fed_cows',0),('fed_geese',0),('cowshed_level',1),('farmer_level',3)):
+ for key,default in (('cows',0),('fed_cows',0),('fed_geese',0),('sheep',0),('fed_sheep',0),('cowshed_level',1),('farmer_level',3)):
   c.execute('ALTER TABLE players ADD COLUMN '+key+' integer NOT NULL DEFAULT '+str(default))
  c.execute('CREATE TABLE money_log(id text PRIMARY KEY,player_id text,kind text,delta int,details text,created double precision)')
  c.execute('CREATE TABLE reward_emission(id int PRIMARY KEY,total_minted int)')
@@ -108,6 +108,16 @@ class MonetagRewardsTests(AdFixture):
     self.assertEqual(pending,int(i+1==views))
    self.deliver();self.assertEqual(self.p()[item],100+qty if item=='coins' else qty)
   self.assertEqual(self.p()['fed_hens'],1);self.assertEqual(self.p()['coins'],103)
+ def test_ad_sheep_reward_uses_shared_cowshed_capacity(self):
+  self.c.execute("UPDATE players SET cows=2 WHERE id='p'");self.c.raw.commit()
+  self.c.execute("INSERT INTO monetag_reward_grants(id,player_id,item,quantity,created) VALUES('sheep-grant','p','sheep',1,1)");self.c.raw.commit()
+  self.assertEqual(self.deliver()['pending'],1)
+  self.assertEqual(self.p()['sheep'],0)
+  self.c.execute("UPDATE players SET cows=1 WHERE id='p'");self.c.raw.commit()
+  self.assertEqual(self.deliver()['granted'],[{'item':'sheep','quantity':1}])
+  self.assertEqual((self.p()['sheep'],self.p()['fed_sheep'],self.p()['ad_sheep']),(1,1,1))
+  self.assertEqual(self.deliver()['granted'],[])
+
  def test_ad_chicken_rewards_referrers_fractionally_only_once(self):
   for i in range(ads.REWARDS['chickens'][0]):
    self.now+=4000
@@ -172,7 +182,7 @@ class MonetagRewardsTests(AdFixture):
 
 class ExpandedAdvertisingRewards(AdFixture):
  def test_goods_value_is_between_one_and_three_game_coins_per_paid_event(self):
-  prices={'grain':2,'eggs':1,'milk':11,'chickens':40,'geese':160,'cows':500,'coins':1}
+  prices={'grain':2,'eggs':1,'milk':11,'chickens':40,'geese':160,'cows':500,'sheep':200,'coins':1}
   self.assertNotIn('feathers',ads.REWARDS)
   for item,(views,qty) in ads.REWARDS.items():
    self.assertGreaterEqual(prices[item]*qty/views,1);self.assertLessEqual(prices[item]*qty/views,3)
