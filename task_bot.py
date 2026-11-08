@@ -363,7 +363,7 @@ def bot_click_card(c,t,uid):
         [button('⬅️ Заработать','earn')]])
 def bot_click_feed(c,uid,message,after_id=None,success=''):
     """Single editable card for paid outbound bot-link clicks."""
-    params=[uid,uid,uid,uid]
+    params=[uid,uid,uid,uid,uid]
     condition=''
     if after_id:
         previous=c.execute("SELECT created,id FROM bot_tasks WHERE id=%s AND kind='bot'",(after_id,)).fetchone()
@@ -391,7 +391,7 @@ def task_card(t, uid, c):
 def membership_feed(c,uid,message,kind='channel',after_id=None,success='',api=None):
     """One current membership task, with new-member eligibility snapshotted before opening."""
     if kind not in ('channel','group'):raise UserError('Неизвестный тип задания.')
-    params=[uid,uid,uid]
+    params=[uid,uid,uid,uid]
     condition=''
     if after_id:
         prev=c.execute('SELECT created,id FROM bot_tasks WHERE id=%s AND kind=%s',(after_id,kind)).fetchone()
@@ -400,7 +400,7 @@ def membership_feed(c,uid,message,kind='channel',after_id=None,success='',api=No
         params.extend([prev['created'],prev['id']])
     row=None
     for _ in range(40):
-        row=c.execute('SELECT t.* FROM bot_tasks t WHERE '+bot_ui.catalog_filter()+' AND t.kind=%s'+condition+' ORDER BY t.created,t.id LIMIT 1',tuple(params[:3]+[uid,kind]+params[3:])).fetchone()
+        row=c.execute('SELECT t.* FROM bot_tasks t WHERE '+bot_ui.catalog_filter()+' AND t.kind=%s'+condition+' ORDER BY t.created,t.id LIMIT 1',tuple(params[:4]+[uid,kind]+params[4:])).fetchone()
         if not row:break
         claim=c.execute('SELECT status FROM bot_claims WHERE task=%s AND uid=%s',(row['id'],uid)).fetchone()
         if claim and claim['status']=='started':break
@@ -417,8 +417,11 @@ def membership_feed(c,uid,message,kind='channel',after_id=None,success='',api=No
         if not member(current):
             c.execute("INSERT INTO bot_claims(task,uid,status,created) VALUES(%s,%s,'started',%s) ON CONFLICT DO NOTHING",(row['id'],uid,time.time()))
             break
+        # Already a member before accepting this task: permanently ineligible
+        # for this particular order. Remember it for the user's overview.
+        c.execute('INSERT INTO bot_membership_ineligible(uid,task) VALUES(%s,%s) ON CONFLICT DO NOTHING',(uid,row['id']))
         condition=' AND (t.created,t.id)>(%s,%s)'
-        params=[uid,uid,uid,row['created'],row['id']]
+        params=[uid,uid,uid,uid,row['created'],row['id']]
         row=None
     prefix='channel' if kind=='channel' else 'group'
     if row:
