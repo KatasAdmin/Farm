@@ -146,7 +146,7 @@ def postback(c,secret,ymid,zone_id,sub_zone_id,event_type,reward_event_type,requ
  if (count+1)%views==0:c.execute('INSERT INTO monetag_reward_grants(id,player_id,item,quantity,created) VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING',(ymid,row['player_id'],kind,qty,now))
  return {'ok':True,'rewarded':True,'player_id':row['player_id'],'progress':(count+1)%views}
 
-def deliver(c,p,advance,coop_limit,storage_limit):
+def deliver(c,p,advance,coop_limit,storage_limit,referral_award=None):
  # Catch up before adding a hen so it cannot lay eggs retroactively.
  p=advance(c,p)
  rewards=c.execute('SELECT * FROM monetag_reward_grants WHERE player_id=%s AND claimed_at IS NULL ORDER BY created,id FOR UPDATE',(p['id'],)).fetchall()
@@ -176,6 +176,10 @@ def deliver(c,p,advance,coop_limit,storage_limit):
   if item!='coins':ad_inventory.add(c,p,item,n)
   p={**p,item:p.get(item,0)+n}
   c.execute('UPDATE monetag_reward_grants SET claimed_at=%s WHERE id=%s AND claimed_at IS NULL',(time.time(),r['id']))
+  # A child gaining one hen from ads gives their ancestors fractional HENS,
+  # not a share of ad cash or fake coins. Called once upon real delivery.
+  if referral_award is not None and item!='coins':
+   referral_award(c,p,item,n)
   granted.append({'item':item,'quantity':n})
  return {'ok':True,'granted':granted,'pending':len(rewards)-len(granted)}
 
