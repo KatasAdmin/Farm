@@ -206,11 +206,15 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
         raise ValueError("Publisher impressions do not match confirmed user events; review before credit")
     rate=nbu_usd_uah(c)
     per_view=revenue/Decimal(provider_impressions)
+    if rows and per_view*rate*Decimal(100)*Decimal('0.30')<Decimal(3):
+        raise ValueError('Недостаточно подтверждённого рекламного дохода для 3 коп/просмотр. Начисления не проведены.')
     ledger={}
+    viewer_counts={}
     for r in rows:
         alloc=monetag_cash_allocation(per_view,tuple(r["referral_chain"]))
         uid=int(r["uid"])
-        for key,who,level,usd in [("viewer",uid,0,Decimal(alloc["viewer_usd"]))]+[
+        viewer_counts[uid]=viewer_counts.get(uid,0)+1
+        for key,who,level,usd in [("viewer",uid,0,Decimal(3)/(rate*Decimal(100)))]+[
            ("referral",int(ref["uid"]),int(ref["level"]),Decimal(ref["usd"]))
            for ref in alloc["referrals"]]:
             tup=(who,key,level)
@@ -228,10 +232,11 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
         fraction=c.execute("""SELECT remainder FROM bot_cash_ad_fraction
           WHERE uid=%s FOR UPDATE""",(uid,)).fetchone()
         amount=Decimal(str(fraction["remainder"]))+earned*rate*100
-        whole=int(amount.to_integral_value(rounding=ROUND_FLOOR))
+        whole=(viewer_counts[uid]*3 if role=="viewer"
+               else int(amount.to_integral_value(rounding=ROUND_FLOOR)))
         if whole<0 or whole>9223372036854775807:raise ValueError("Amount out of range")
         c.execute("UPDATE bot_cash_ad_fraction SET remainder=%s WHERE uid=%s",
-                  (amount-Decimal(whole),uid))
+                  (Decimal(str(fraction["remainder"])) if role=="viewer" else amount-Decimal(whole),uid))
         c.execute("""INSERT INTO bot_adsgram_daily_credits
           (utc_day,uid,role,level,earned_usd,credited_kopeks)
           VALUES(%s,%s,%s,%s,%s,%s)""",(day,uid,role,level,earned,whole))
