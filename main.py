@@ -564,7 +564,9 @@ def ads_platform(p,raw):
  if not p.get("telegram_id") or uid!=p["telegram_id"]:raise HTTPException(403,"Telegram не совпадает с аккаунтом фермы")
  return "telegram"
 
-def deliver_ads(c,p):return monetag_ads.deliver(c,p,advance,coop_limit,storage_limit)
+def deliver_ads(c,p):
+ return monetag_ads.deliver(c,p,advance,coop_limit,storage_limit,
+                            referral_award=award_referral_resource)
 
 @app.post("/api/ads/cash/preview-auth")
 def cash_ads_preview_auth(q:dict):
