@@ -29,10 +29,24 @@ class FrontendBootSafety(unittest.TestCase):
   js=(root/"assets"/"game.js").read_text(encoding="utf-8")
   main=(root/"main.py").read_text(encoding="utf-8")
   self.assertIn('maximumFractionDigits:18',js)
-  self.assertIn('Расчётная цена монеты:',js)
-  self.assertIn('Цена вывода:',js)
+  self.assertIn('el("wallet-coin-rate")',js)
+  self.assertIn('el("wallet-transfer-value")',js)
+  self.assertIn('formatRate(rate)',js)
   self.assertIn('nominal_coin_price_uah',main)
   self.assertIn('nominal_rate',main)
+ def test_polished_farm_panels_and_safe_transfer_controls(self):
+  root=Path(__file__).resolve().parents[1]
+  html=(root/"index.html").read_text(encoding="utf-8")
+  css=(root/"assets"/"farm-ui-finish.css").read_text(encoding="utf-8")
+  js=(root/"assets"/"game.js").read_text(encoding="utf-8")
+  for element in ("production-types","production-timers","production-forecast","payback-grid","wallet-rate-grid","wallet-coin-rate","wallet-transfer-value"):
+   self.assertIn(element,html)
+  self.assertIn("/assets/farm-ui-finish.css?v=1",html)
+  self.assertIn("#farm .bird-resources",css)
+  self.assertIn('coins<minimum',js)
+  self.assertIn("minimum||100",js)
+  self.assertIn('id="withdrawal-amount" type="number" inputmode="numeric" min="100"',html)
+
  def test_weekly_market_purchases_include_system_supply(self):
   main=(Path(__file__).resolve().parents[1]/"main.py").read_text(encoding="utf-8")
   start=main.index('weekly_stats["market_purchases"]=')
