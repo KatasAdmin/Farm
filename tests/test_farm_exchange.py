@@ -53,18 +53,18 @@ class ExchangeTests(unittest.TestCase):
                           return_value={'nominal_capitalization_kopeks':nominal}),patch('task_bot.liability',return_value=c.liabilities):
             return farm_exchange.quote(c,Decimal('40'))
 
-    def test_price_is_minimum_of_liquid_cash_and_nominal_reserve(self):
+    def test_price_tracks_capitalization_not_short_term_cash_liquidity(self):
         c=QuoteDB(backing=1200,coins=100)
         q=self.quote(c,1500)
-        self.assertEqual(q['coin_price_kopeks'],'12')
-        self.assertEqual(q['purchase_price_kopeks'],'12')
+        self.assertEqual(q['coin_price_kopeks'],'15')
+        self.assertEqual(q['purchase_price_kopeks'],'15')
         self.assertTrue(q['payout_enabled'])
 
     def test_unfunded_nominal_is_not_withdrawable_but_has_seed_price_for_bootstrap(self):
         c=QuoteDB(backing=0,coins=100)
         q=self.quote(c,4000)
         self.assertFalse(q['payout_enabled'])
-        self.assertEqual(q['coin_price_kopeks'],'0')
+        self.assertEqual(q['coin_price_kopeks'],'40')
         self.assertEqual(q['purchase_price_kopeks'],'40')
 
     def test_unencumbered_bot_cash_is_automatically_usable_without_manual_funding(self):
@@ -79,11 +79,12 @@ class ExchangeTests(unittest.TestCase):
         q=self.quote(c,1200)
         self.assertEqual(q['free_pool_kopeks'],50)
         self.assertEqual(q['cashable_kopeks'],300)
-        self.assertEqual(q['coin_price_kopeks'],'3')
+        self.assertEqual(q['coin_price_kopeks'],'12')
         c.liabilities=800
         q=self.quote(c,1200)
         self.assertEqual(q['free_pool_kopeks'],0)
         self.assertEqual(q['cashable_kopeks'],250)
+        self.assertEqual(q['coin_price_kopeks'],'12')  # Liquidity changes, not coin price.
 
     def test_one_real_cash_receipt_cannot_be_counted_twice(self):
         c=CreditDB()
