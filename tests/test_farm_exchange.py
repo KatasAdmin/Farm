@@ -76,6 +76,61 @@ class ExchangeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 farm_exchange.mint_from_card(object(),100,Decimal('40'))
 
+    def test_all_coin_redemption_burns_exactly_once_and_credits_exact_kopeks(self):
+        from types import SimpleNamespace
+        class DB:
+            def __init__(self):
+                self.coins=100
+                self.reserve=500
+                self.redemptions={}
+                self.logs=[]
+            def execute(self,sql,args=()):
+                q=' '.join(sql.lower().split())
+                if q.startswith('select player_id,telegram_id,coins,credited_kopeks from farm_coin_redemptions'):
+                    return Q(self.redemptions.get(args[0]))
+                if q.startswith('select 1 from withdrawal_requests'):return Q()
+                if q.startswith('select * from bot_account_controls'):return Q()
+                if q.startswith('insert into bot_accounts'):return Q()
+                if q.startswith('update players set coins=coins-'):
+                    n,uid,_=args
+                    if n>self.coins:return Q()
+                    self.coins-=n
+                    return Q({'id':uid})
+                if q.startswith('update farm_cash_reserve set backed_kopeks=backed_kopeks-'):
+                    n,_=args
+                    if n>self.reserve:return Q()
+                    self.reserve-=n
+                    return Q({'backed_kopeks':self.reserve})
+                if q.startswith('insert into farm_coin_redemptions'):
+                    key,player,uid,coins,kopeks,_=args
+                    self.redemptions[key]={'player_id':player,'telegram_id':uid,
+                                           'coins':coins,'credited_kopeks':kopeks}
+                    return Q()
+                if q.startswith('insert into money_log'):
+                    self.logs.append(args)
+                    return Q()
+                raise AssertionError(q)
+        c=DB()
+        credits=[]
+        bot=SimpleNamespace(account=lambda *_:None,
+             change=lambda _,uid,value,*rest:credits.append((uid,value)) or value,
+             bot_notifications=SimpleNamespace(enqueue=lambda *args,**kwargs:None))
+        rate={'payout_enabled':True,'coin_price_kopeks':'5',
+              'cashable_kopeks':500,'coin_price_uah':'0.05'}
+        player={'id':'p','telegram_id':7,'coins':100}
+        with patch.object(farm_exchange,'quote',return_value=rate):
+            first=farm_exchange.redeem(c,player,10,'redemption-1',bot,Decimal('40'))
+            again=farm_exchange.redeem(c,player,10,'redemption-1',bot,Decimal('40'))
+            with self.assertRaises(HTTPException):
+                farm_exchange.redeem(c,player,11,'redemption-1',bot,Decimal('40'))
+        self.assertEqual(first['credited_kopeks'],50)
+        self.assertFalse(first['repeated'])
+        self.assertTrue(again['repeated'])
+        self.assertEqual(c.coins,90)
+        self.assertEqual(c.reserve,450)
+        self.assertEqual(credits,[(7,50)])
+        self.assertEqual(len(c.logs),1)
+
     def test_cannot_redeem_at_zero_cash_price(self):
         class C:
             def execute(self,sql,args=()):
