@@ -26,6 +26,8 @@ class FakeDb:
         normalized=" ".join(sql.split()).lower()
         if normalized.startswith("select viewer_uid,allocation"):
             return Result(self.events.get(args[0]))
+        if normalized.startswith("select value from bot_controls where key='adsgram_view_reward'"):
+            return Result({"value":5})
         if normalized.startswith("select pg_advisory_xact_lock"):
             return Result(None)
         if normalized.startswith("select 1 from bot_accounts"):
