@@ -345,7 +345,6 @@ def admin(c, uid, action):
         reference='card-receipt:'+row['id']
         if not c.execute('INSERT INTO bot_deposits VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING reference', (reference, row['uid'], row['amount'], time.time())).fetchone():
             raise b.UserError(tr('Эта банковская операция уже учтена. Повторного начисления нет.', html_mode=False, section='bot_topups', limit=3000))
-        c.execute("UPDATE bot_card_topups SET status='approved',reference=%s,approved_at=%s WHERE id=%s", (reference, time.time(), row['id']))
         target=c.execute("SELECT player_id,telegram_id FROM farm_card_topup_targets WHERE topup_id=%s FOR UPDATE",(row['id'],)).fetchone()
         if target:
             # Commit the cash payment and farm coins in the same DB transaction.
@@ -369,6 +368,7 @@ def admin(c, uid, action):
                       (log_id,coins))
         else:
             b.change(c, row['uid'], row['amount'], 'manual_deposit', 'Перевод на карту · ' + row['id'])
+        c.execute("UPDATE bot_card_topups SET status='approved',reference=%s,approved_at=%s WHERE id=%s", (reference, time.time(), row['id']))
         c.execute('UPDATE bot_cash_pool SET amount=amount+%s WHERE id=1', (row['amount'],))
         notice=('🐔 ✅ Пополнение фермы подтверждено\\n\\nНачислено: '+str(coins)+' монет'
                 if target else '✅ Пополнение подтверждено\\n\\nНа баланс зачислено: '+b.money(row['amount']))
