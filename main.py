@@ -16,6 +16,7 @@ import ad_inventory
 import farm_ranking
 import release_grants
 import farm_wallet
+import farm_card_web
 import referral_bridge
 from bot_copy import tr
 import os,time,uuid,secrets,hashlib,hmac,json,logging,base64,re
@@ -1772,6 +1773,23 @@ def admin_summary(authorization:str=Header(default="")):
   players=c.execute("SELECT COUNT(*)::int AS n,COALESCE(SUM(coins),0)::bigint AS coins FROM players").fetchone()
   pending=c.execute("SELECT COUNT(*)::int AS n,COALESCE(SUM(amount),0)::bigint AS coins FROM withdrawal_requests WHERE status='pending'").fetchone()
  return {"players":players["n"],"player_coins":players["coins"],"pending_requests":pending["n"],"pending_reserved_coins":pending["coins"],"read_only":True}
+
+@app.get("/api/farm/card/config")
+def farm_card_config(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization,True)
+  return farm_card_web.settings(c,p)
+
+@app.post("/api/farm/card/receipt")
+def farm_card_receipt(q:dict,authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization,True)
+  try:
+   result=farm_card_web.submit(c,p,q.get("amount"),q.get("receipt_b64"),q.get("mime"))
+  except ValueError as exc:
+   raise HTTPException(400,str(exc))
+ task_bot.bot_notifications.wake()
+ return result
 
 @app.post("/api/withdraw/request")
 def request_withdrawal(q:Request,authorization:str=Header(default="")):
