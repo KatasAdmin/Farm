@@ -105,6 +105,17 @@ class IntervalTests(unittest.TestCase):
         self.assertEqual(len(db.checkpoints),2)
         self.assertEqual(db.wallet[2],6)
 
+    def test_low_publisher_revenue_cannot_mint_fixed_cash(self):
+        db=FakeDB()
+        t=1762500000.0
+        ads.report(db,1,'1.00',now=t)
+        db.views=[{'id':'tiny','uid':2,'referral_chain':[],'confirmed_at':t+2}]
+        with patch.object(ads,'nbu_usd_uah',return_value=Decimal('40')):
+            with self.assertRaisesRegex(ValueError,'Недостаточно подтверждённого'):
+                ads.report(db,1,'1.0001',now=t+20)
+        self.assertEqual(db.wallet[2],0)
+        self.assertEqual(len(db.checkpoints),1)
+
     def test_revenue_without_confirmed_views_cannot_be_distributed(self):
         db=FakeDB()
         t=1762500000.0
