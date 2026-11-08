@@ -11,7 +11,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 from fastapi import HTTPException
 
-REWARDS={'grain':(1,1),'eggs':(2,2),'milk':(5,1),'chickens':(20,1),'geese':(80,1),'cows':(250,1),'coins':(1,3)}
+REWARDS={'grain':(1,1),'eggs':(2,2),'milk':(5,1),'chickens':(20,1),'geese':(80,1),'cows':(250,1),'sheep':(100,1),'coins':(1,3)}
 TMA_ZONE=12193261
 LOCK=1984533
 DAY_LIMIT=1000000
@@ -159,9 +159,10 @@ def deliver(c,p,advance,coop_limit,storage_limit,referral_award=None):
    if p['chickens']+p.get('geese',0)+n>coop_limit(p):continue
    fed='fed_hens' if item=='chickens' else 'fed_geese'
    c.execute('UPDATE players SET '+item+'='+item+'+%s,'+fed+'='+fed+'+%s WHERE id=%s',(n,n,p['id']))
-  elif item=='cows':
-   if p.get('cows',0)+n>2*p.get('cowshed_level',1):continue
-   c.execute('UPDATE players SET cows=cows+%s,fed_cows=fed_cows+%s WHERE id=%s',(n,n,p['id']))
+  elif item in ('cows','sheep'):
+   if p.get('cows',0)+p.get('sheep',0)+n>2*p.get('cowshed_level',1):continue
+   fed='fed_cows' if item=='cows' else 'fed_sheep'
+   c.execute('UPDATE players SET '+item+'='+item+'+%s,'+fed+'='+fed+'+%s WHERE id=%s',(n,n,p['id']))
   elif item=='coins':
    log_id=uuid.uuid4().hex
    c.execute('UPDATE players SET coins=coins+%s WHERE id=%s',(n,p['id']))
