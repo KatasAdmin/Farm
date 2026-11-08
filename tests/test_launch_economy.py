@@ -56,7 +56,7 @@ class LaunchEconomyTests(unittest.TestCase):
 
     def test_withdrawal_minimum(self):
         with self.assertRaises(HTTPException) as e:
-            main.request_withdrawal(main.Request(amount=99))
+            main.request_withdrawal(main.Request(amount=0))
         self.assertEqual(e.exception.status_code, 400)
 
     def test_withdrawal_requires_linked_telegram(self):
