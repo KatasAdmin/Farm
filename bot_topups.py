@@ -184,7 +184,7 @@ def input_text(c, uid, text, message, current):
         if pending>=10:
             raise b.UserError('У тебя уже 10 пополнений на проверке. Следующее можно создать после обработки хотя бы одного.')
         tid = uuid.uuid4().hex[:16]
-        c.execute("INSERT INTO bot_card_topups VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'pending','',%s)", (tid, uid, data['amount'], data['card'], data['recipient'], file['file_id'], key, media, time.time()))
+        c.execute("INSERT INTO bot_card_topups(id,uid,amount,card,recipient,file_id,receipt_key,media,status,reference,created) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'pending','',%s)", (tid, uid, data['amount'], data['card'], data['recipient'], file['file_id'], key, media, time.time()))
         if data.get('farm_player_id'):
             player=c.execute('SELECT id FROM players WHERE id=%s AND telegram_id=%s',(data['farm_player_id'],uid)).fetchone()
             if not player:raise b.UserError('Ферма больше не привязана к твоему Telegram.')
