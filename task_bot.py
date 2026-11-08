@@ -94,8 +94,28 @@ def state(c, uid, stage=None, data=None):
     else:
         c.execute('INSERT INTO bot_states VALUES(%s,%s,%s,%s) ON CONFLICT(uid)\n          DO UPDATE SET state=EXCLUDED.state,data=EXCLUDED.data,updated=EXCLUDED.updated', (uid, stage, Jsonb(data or {}), time.time()))
 
+# Telegram Bot API 9.4 supports primary (blue), success (green) and
+# danger (red) for both reply-keyboard and inline buttons.  Keep the
+# canonical labels/positions so custom text aliases and handlers still work.
+MENU_STYLES = [
+    ['success', 'primary'],  # Earn, Promotion
+    ['primary', 'success'],  # Games, My account
+    ['primary', None],       # Partners, About
+]
+
+def styled_menu():
+    labels = bot_copy.menu(MENU)
+    return [
+        [
+            {'text': label, 'style': MENU_STYLES[i][j]}
+            if MENU_STYLES[i][j] else {'text': label}
+            for j, label in enumerate(row)
+        ]
+        for i, row in enumerate(labels)
+    ]
+
 def say(uid, text, buttons=None):
-    out = {'method': 'sendMessage', 'chat_id': uid, 'text': text, 'reply_markup': {'keyboard': bot_copy.menu(MENU), 'resize_keyboard': True, 'is_persistent': True, 'one_time_keyboard': False}}
+    out = {'method': 'sendMessage', 'chat_id': uid, 'text': text, 'reply_markup': {'keyboard': styled_menu(), 'resize_keyboard': True, 'is_persistent': True, 'one_time_keyboard': False}}
     if buttons is not None:
         out['reply_markup'] = {'inline_keyboard': buttons}
     return out
@@ -103,7 +123,14 @@ def say(uid, text, buttons=None):
 def button(text, action):
     if action == 'cancel_input':
         text = '✖️ Отмена'
-    return {'text': bot_copy.label(text, action), 'callback_data': 'bot:' + action}
+    result = {'text': bot_copy.label(text, action), 'callback_data': 'bot:' + action}
+    if action in ('cancel_input', 'cancel', 'delete', 'confirm_delete'):
+        result['style'] = 'danger'
+    elif action in ('earn', 'account', 'balance', 'withdraw', 'claim_bonus', 'daily_bonus'):
+        result['style'] = 'success'
+    elif action in ('promotion', 'games', 'partners', 'stats', 'statistics', 'back', 'home'):
+        result['style'] = 'primary'
+    return result
 
 def input_prompt(uid, text, buttons=None, cancel_action='cancel_input'):
     rows = list(buttons or [])
