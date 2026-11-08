@@ -121,7 +121,7 @@ class BotScreenTests(unittest.TestCase):
         self.c.raw.commit()
         response=self.send(3,action='earn')
         self.assertIn('Посмотреть пост: <b>0</b>',response['text'])
-        rows=self.c.execute('SELECT t.id FROM bot_tasks t WHERE '+ui.catalog_filter()+' AND t.kind=%s',(3,3,3,3,'post')).fetchall()
+        rows=self.c.execute('SELECT t.id FROM bot_tasks t WHERE '+ui.catalog_filter()+' AND t.kind=%s',(3,3,3,3,3,'post')).fetchall()
         self.assertEqual(rows,[])
 
     def test_known_completed_bot_hidden_from_other_campaigns(self):
