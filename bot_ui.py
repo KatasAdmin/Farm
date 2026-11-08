@@ -64,7 +64,7 @@ def earn(c, uid):
     if not rows:
         text += '\n\n<i>Сейчас нет активных оплачиваемых заданий. Можешь получить ежедневный бонус, пройти квесты и посмотреть доступную рекламу.</i>'
     # Ad viewing is public; VIP remains a separate quest achievement.
-    posts_button = {'text':'🎬 Смотреть рекламу',
+    posts_button = {'text':'🎬 Смотреть рекламу', 'style':'primary',
                     'web_app':{'url':b.farm_url()+'cash-ads-preview.html'}}
     return screen(uid, text, [[b.button(label('🤖 Перейти в бота', 'bot'), 'botclick:feed')], [b.button(label('📣 Подписаться на канал', 'channel'), 'channel:feed')], [b.button(label('👥 Вступить в группу', 'group'), 'group:feed')], [posts_button], [b.button('⭐ Квесты', 'quests'), b.button('📝 Задания', 'list:manual:0')], [b.button('🎁 Бонус ' + b.money(daily), 'daily'), b.button('🤝 За друга', 'friends')]])
 
