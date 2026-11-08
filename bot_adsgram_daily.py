@@ -22,6 +22,12 @@ def initialize(c):
       referral_chain jsonb NOT NULL DEFAULT '[]'::jsonb)""")
     c.execute("""CREATE INDEX IF NOT EXISTS bot_adsgram_attempt_uid
       ON bot_adsgram_attempts(uid,state,started_at DESC)""")
+    c.execute("ALTER TABLE bot_adsgram_attempts ADD COLUMN IF NOT EXISTS paid_immediate boolean NOT NULL DEFAULT false")
+    c.execute("""CREATE TABLE IF NOT EXISTS bot_adsgram_immediate_rewards(
+      attempt_id text PRIMARY KEY REFERENCES bot_adsgram_attempts(id),
+      uid bigint NOT NULL,
+      reward_kopeks bigint NOT NULL CHECK(reward_kopeks>=0),
+      credited_at double precision NOT NULL)""")
     c.execute("""CREATE TABLE IF NOT EXISTS bot_adsgram_farm_attempts(
       id text PRIMARY KEY,uid bigint NOT NULL,player_id text NOT NULL,
       item text NOT NULL,started_at double precision NOT NULL,
@@ -84,9 +90,22 @@ def confirm(c,uid):
         return {"ok":True,"confirmed":False,"reason":"ambiguous_active_attempts"}
     if farm:return _confirm_farm(c,farm,now)
     if not cash:return {"ok":True,"confirmed":False,"reason":"no_fresh_attempt"}
-    c.execute("""UPDATE bot_adsgram_attempts SET state='confirmed',confirmed_at=%s
+    from bot_admin import adsgram_view_reward
+    kopeks=adsgram_view_reward(c)
+    c.execute("""UPDATE bot_adsgram_attempts SET state='confirmed',
+      confirmed_at=%s,paid_immediate=true
       WHERE id=%s AND state='pending'""",(now,cash["id"]))
-    return {"ok":True,"confirmed":True,"reward":"cash"}
+    c.execute("""INSERT INTO bot_adsgram_immediate_rewards
+      (attempt_id,uid,reward_kopeks,credited_at) VALUES(%s,%s,%s,%s)""",
+      (cash["id"],uid,kopeks,now))
+    if kopeks:
+        updated=c.execute("UPDATE bot_accounts SET available=available+%s WHERE uid=%s RETURNING uid",
+                          (kopeks,uid)).fetchone()
+        if not updated:raise ValueError("Cash ad viewer account does not exist")
+        c.execute("""INSERT INTO bot_ledger(id,uid,delta,kind,details,created)
+          VALUES(%s,%s,%s,'adsgram_confirmed_view',%s,%s)""",
+          (uuid.uuid4().hex,uid,kopeks,'Подтверждённый просмотр AdsGram · '+cash["id"],now))
+    return {"ok":True,"confirmed":True,"reward":"cash","credited_kopeks":kopeks}
 
 
 
@@ -194,7 +213,7 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
         # baseline or later checkpoints cannot be settled independently.
         if end>first:
             raise ValueError("Дата пересекается с новой /reklama сверкой накопленного дохода.")
-    rows=c.execute("""SELECT uid,referral_chain FROM bot_adsgram_attempts
+    rows=c.execute("""SELECT uid,referral_chain,paid_immediate FROM bot_adsgram_attempts
       WHERE state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s
       ORDER BY confirmed_at,id FOR UPDATE""",(start,end)).fetchall()
     farm_count=c.execute("""SELECT COUNT(*) AS n FROM bot_adsgram_farm_attempts
@@ -208,17 +227,18 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
     rate=nbu_usd_uah(c)
     reward_kopeks=adsgram_view_reward(c)
     per_view=revenue/Decimal(provider_impressions)
-    if rows and per_view*rate*Decimal(100)*Decimal('0.30')<Decimal(reward_kopeks):
-        raise ValueError('Недостаточно подтверждённого рекламного дохода для установленной награды за просмотр. Начисления не проведены.')
+    # New views already receive their configured reward upon confirmation.
     ledger={}
     viewer_counts={}
     for r in rows:
         alloc=monetag_cash_allocation(per_view,tuple(r["referral_chain"]))
         uid=int(r["uid"])
         viewer_counts[uid]=viewer_counts.get(uid,0)+1
-        for key,who,level,usd in [("viewer",uid,0,Decimal(reward_kopeks)/(rate*Decimal(100)))]+[
-           ("referral",int(ref["uid"]),int(ref["level"]),Decimal(ref["usd"]))
-           for ref in alloc["referrals"]]:
+        entries=[("referral",int(ref["uid"]),int(ref["level"]),Decimal(ref["usd"]))
+                 for ref in alloc["referrals"]]
+        if not r.get('paid_immediate',False):
+            entries.insert(0,("viewer",uid,0,Decimal(reward_kopeks)/(rate*Decimal(100))))
+        for key,who,level,usd in entries:
             tup=(who,key,level)
             ledger[tup]=ledger.get(tup,Decimal(0))+usd
     c.execute("""INSERT INTO bot_adsgram_daily_settlements
