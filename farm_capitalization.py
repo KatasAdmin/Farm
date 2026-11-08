@@ -49,7 +49,7 @@ def preview(c,usd_uah):
     players=c.execute("""SELECT COALESCE(SUM(coins),0) AS n FROM players""").fetchone()['n']
     treasury=c.execute("""SELECT COALESCE(treasury,0) AS n FROM economy WHERE id=1""").fetchone()
     # The treasury may later credit players; it is also part of coin circulation.
-    coins=int(players)+int(treasury['n'] if treasury else 0)
+    coins=int(players['n'])+int(treasury['n'] if treasury else 0)
     result=calculate(seed,int(confirmed_farm)+int(monetag),int(deposits),
                      int(transfers)*100,coins)
     result['usd_seed']=str(SEED_USD)
