@@ -113,9 +113,9 @@ def state(c, uid, stage=None, data=None):
 # danger (red).  Styling is presentation-only: labels, aliases, callbacks,
 # visibility settings and financial logic remain unchanged.
 MENU_STYLES = [
-    ['success', 'primary'],  # Earn (green), Promotion (blue)
-    ['primary', 'primary'],  # Games and Account (blue)
-    [None, None],           # Partners and About (quiet secondary navigation)
+    ['success', 'primary'],  # Earn, Promotion
+    ['primary', 'primary'],  # Games, Account
+    ['primary', 'primary'],  # Partners, About: every button is colored
 ]
 
 def say(uid, text, buttons=None):
@@ -140,37 +140,66 @@ def say(uid, text, buttons=None):
         out['reply_markup']={'remove_keyboard':True}
     if buttons is not None:
         visible=bot_visibility.filter_buttons(c,buttons)
-        out['reply_markup']={'inline_keyboard':visible} if visible else {'remove_keyboard':True}
+        out['reply_markup']={'inline_keyboard':style_inline_buttons(visible)} if visible else {'remove_keyboard':True}
     return out
 
 def button_style(action):
-    """Use color sparingly: financial benefits green, choices blue, danger red.
+    "def button_style(action):
+    """Semantic palette for all user-accessible callback buttons.
 
-    Classify by stable callback action rather than editable UI text so renaming
-    buttons in the admin panel never changes behavior or colors.
+    Action identifiers are stable even when button labels are customized in
+    the admin console. Every button gets a native Telegram color.
     """
-    name=action.lower()
-    if name in ('cancel_input','cancel','delete','confirm_delete','cancelpayout') or name.startswith(
-        ('admin:delete','admin:remove','admin:ban','admin:reject','admin:cancel','delete:','remove:')):
+    name=str(action or '').lower().removeprefix('bot:')
+    terminal=name.rsplit(':',1)[-1]
+    if (name in ('cancel_input','cancel','delete','confirm_delete','cancelpayout','reject','ban')
+        or terminal in ('cancel','delete','reject','ban','remove','decline','deny','stop')
+        or name.startswith(('admin:delete','admin:remove','admin:ban','admin:reject',
+                            'admin:cancel','delete:','remove:','cancel:','reject:'))):
         return 'danger'
-    if name in ('earn','balance','withdraw','daily','daily_bonus','claim_bonus','deposit') or name.startswith(
-        ('withdraw:card','withdraw:crypto','claim:','bonus:','quest:claim')):
+    if (name in ('earn','balance','withdraw','daily','daily_bonus','claim_bonus',
+                 'deposit','friends','bonus','pay','topup','cashout')
+        or name.startswith(('withdraw:card','withdraw:crypto','deposit:','topup:',
+                            'claim:','bonus:','quest:claim','daily:','payment:')):
         return 'success'
-    if name in ('promotion','games','cabinet','account','partners','stats','statistics','quests','friends',
-                'botclick:feed','channel:feed','group:feed','list:manual:0') or name.startswith(
-        ('new:','list:','quests:','quest:','game:')):
-        return 'primary'
-    # Back, history, help, general admin and informational controls stay neutral.
-    return None
+    # Navigational, informational, task-selection, and review controls are blue.
+    return 'primary'
+
+
+def style_inline_buttons(rows):
+    """Apply colors to buttons built directly by every bot module.
+
+    Preserve original callback/web_app/url/pay fields without mutating callers.
+    """
+    result=[]
+    for row in rows or []:
+        colored=[]
+        for item in row:
+            if not isinstance(item,dict):
+                colored.append(item)
+                continue
+            entry=dict(item)
+            if 'style' not in entry:
+                callback=entry.get('callback_data','')
+                if callback:
+                    entry['style']=button_style(callback)
+                elif entry.get('web_app') or entry.get('url') or entry.get('switch_inline_query') is not None:
+                    entry['style']='primary'
+                elif entry.get('pay'):
+                    entry['style']='success'
+                else:
+                    entry['style']='primary'
+            colored.append(entry)
+        result.append(colored)
+    return result
+
 
 def button(text, action):
     if action == 'cancel_input':
         text = '✖️ Отмена'
-    result={'text':bot_copy.label(text,action),'callback_data':'bot:'+action}
-    style=button_style(action)
-    if style:
-        result['style']=style
-    return result
+    return {'text':bot_copy.label(text,action),
+            'callback_data':'bot:'+action,
+            'style':button_style(action)}
 
 def input_prompt(uid, text, buttons=None, cancel_action='cancel_input'):
     rows = list(buttons or [])
