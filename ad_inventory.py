@@ -30,8 +30,8 @@ def add(c,p,item,n):
 def take(c,p,item,n):
  if not active(p):return 0
  tagged=min(n,p.get('ad_'+item,0));p['ad_'+item]=p.get('ad_'+item,0)-tagged
- if item in ('chickens','geese','cows'):
-  field={'chickens':'ad_fed_hens','geese':'ad_fed_geese','cows':'ad_fed_cows'}[item]
+ if item in ('chickens','geese','cows','sheep'):
+  field={'chickens':'ad_fed_hens','geese':'ad_fed_geese','cows':'ad_fed_cows','sheep':'ad_fed_sheep'}[item]
   # Normal animals fed with ad grain stay tagged for the current ration.
   p[field]=max(0,p.get(field,0)-min(n,p.get(field,0)))
  save(c,p);return tagged
