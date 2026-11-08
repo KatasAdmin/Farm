@@ -47,16 +47,16 @@ class ImmediateDB:
 class ConfirmedCashRewardTests(unittest.TestCase):
     def test_fixed_five_kopeks_once_at_confirmation(self):
         c=ImmediateDB()
-        self.assertEqual(ad.confirm(c,7)['credited_kopeks'],7)
+        self.assertEqual(ad.confirm(c,7)['credited_kopeks'],5)
         self.assertEqual(c.balance,105)
         self.assertEqual(len(c.credits),1)
         self.assertEqual(len(c.ledger),1)
         self.assertFalse(ad.confirm(c,7)['confirmed'])
-        self.assertEqual(c.balance,103)
+        self.assertEqual(c.balance,105)
 
     def test_owner_can_change_reward_for_new_confirmations(self):
         c=ImmediateDB(reward=7)
-        self.assertEqual(ad.confirm(c,7)['credited_kopeks'],5)
+        self.assertEqual(ad.confirm(c,7)['credited_kopeks'],7)
         self.assertEqual(c.balance,107)
         self.assertEqual(c.credits[0][2],7)
 
