@@ -41,8 +41,15 @@ class FrontendBootSafety(unittest.TestCase):
   js=(root/"assets"/"game.js").read_text(encoding="utf-8")
   for element in ("production-types","production-timers","production-forecast","payback-grid","wallet-rate-grid","wallet-coin-rate","wallet-transfer-value"):
    self.assertIn(element,html)
-  self.assertIn("/assets/farm-ui-finish.css?v=1",html)
+  self.assertIn("/assets/farm-ui-finish.css?v=2",html)
   self.assertIn("#farm .bird-resources",css)
+  for heading in ("🐾 Животные","📦 Продукция"):
+   self.assertIn(heading,html)
+  for selector in ("farm-resource-grid farm-resource-animals","farm-resource-grid farm-resource-products"):
+   self.assertIn(selector,html)
+  self.assertIn("#shop .market-product-grid>.catalog-row>.trade-dual-actions",css)
+  feather_row=html[html.index('<h3>Перо</h3>'):html.index('class="equipment incubator-shop"') if 'class="equipment incubator-shop"' in html else html.index('class="product catalog-row market-card equipment incubator-shop"')]
+  self.assertLess(feather_row.index("selectBuy('feathers')"),feather_row.index("openSell('feathers')"))
   self.assertIn('coins<minimum',js)
   self.assertIn("minimum||100",js)
   self.assertIn('id="withdrawal-amount" type="number" inputmode="numeric" min="100"',html)
