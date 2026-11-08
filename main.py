@@ -107,7 +107,6 @@ async def lifespan(app):
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS chick_ready_at double precision")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS incubator_level integer NOT NULL DEFAULT 1")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS tutorial_step integer NOT NULL DEFAULT 0")
-  c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS recovery_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS password_hash text")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS telegram_id bigint UNIQUE")
   c.execute("CREATE TABLE IF NOT EXISTS telegram_processed_updates(update_id bigint PRIMARY KEY,received_at double precision NOT NULL)")
@@ -2061,26 +2060,3 @@ def tutorial_action(q:Request,authorization:str=Header(default="")):
    c.execute("UPDATE reward_emission SET total_minted=total_minted+%s WHERE id=1",(reward,))
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"tutorial",reward,"Обучение начинающего фермера",time.time()))
  return {"ok":True,"step":new_step,"awarded":reward}
-
-@app.post("/api/recovery/create")
-def create_recovery_code(authorization:str=Header(default="")):
- code=secrets.token_urlsafe(24)
- hashed=hashlib.sha256(code.encode()).hexdigest()
- with db() as c:
-  p=person(c,authorization,True)
-  c.execute("UPDATE players SET recovery_hash=%s WHERE id=%s",(hashed,p["id"]))
- return {"recovery_code":code}
-
-@app.post("/api/recovery/login")
-def recover_login(q:Request):
- name=q.name.strip()
- if len(q.code)<24 or len(q.code)>100:raise HTTPException(400,"Неверный код восстановления")
- hashed=hashlib.sha256(q.code.encode()).hexdigest()
- with db() as c:
-  p=c.execute("SELECT id,recovery_hash FROM players WHERE name=%s FOR UPDATE",(name,)).fetchone()
-  # A uniform rejection conceals whether this player account exists.
-  actual=p["recovery_hash"] if p and p["recovery_hash"] else "0"*64
-  if not hmac.compare_digest(actual,hashed):raise HTTPException(403,"Неверное имя или код восстановления")
-  token=secrets.token_hex(24)
-  c.execute("UPDATE players SET token=%s WHERE id=%s",(token,p["id"]))
- return {"token":token}
