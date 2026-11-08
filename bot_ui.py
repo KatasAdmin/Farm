@@ -1,6 +1,7 @@
 """Telegram screens with escaped HTML, real catalog totals and referral tools."""
 from bot_copy import tr
 import bot_quests
+import bot_visuals
 import datetime as dt
 import html
 import time
@@ -77,7 +78,7 @@ def promotion(c, uid):
 def team_rows(c, uid):
     return c.execute("WITH RECURSIVE team(uid,depth,path) AS (\n      SELECT uid,1,',' || CAST(%s AS text) || ',' || CAST(uid AS text) || ','\n        FROM bot_accounts WHERE referrer=%s AND uid<>%s\n      UNION ALL\n      SELECT a.uid,t.depth+1,t.path || CAST(a.uid AS text) || ','\n        FROM bot_accounts a JOIN team t ON a.referrer=t.uid\n        WHERE t.depth<5 AND replace(t.path,',' || CAST(a.uid AS text) || ',','')=t.path)\n      SELECT depth,count(*) AS n,sum(CASE WHEN EXISTS(\n        SELECT 1 FROM bot_claims x WHERE x.uid=team.uid AND x.status='paid') THEN 1 ELSE 0 END) AS active\n        FROM team GROUP BY depth", (uid, uid, uid)).fetchall()
 
-def partners(c, uid):
+def partners(c, uid, with_card=True):
     b = core()
     cfg = b.bot_economy.config(c)
     rows = {r['depth']: r for r in team_rows(c, uid)}
@@ -98,7 +99,19 @@ def partners(c, uid):
         text += tr('{v0} Уровень {v1}: {v2} чел. · <b>{v3}%</b> · {v4}\n', {'v0': f'{icons[level - 1]}', 'v1': f'{level}', 'v2': f'{count}', 'v3': f'{percent}', 'v4': f'{b.money(units // 10000)}'}, html_mode=True, section='bot_ui', limit=3000)
     earned = sum(earnings.values())
     text += tr('\n<b>💰 Доход от команды: {v0}</b>\n<i>Доли меньше копейки накапливаются автоматически.</i>\n\n🔗 <b>Твоя ссылка для приглашений</b>\nhttps://t.me/Farmlife2026bot?start=partner_{v1}\n\nПроценты начисляются с полной цены оплаченных выполнений команды.\n<b>🤝 Приглашай друзей — зарабатывайте вместе!</b>', {'v0': f'{b.money(earned // 10000)}', 'v1': f'{uid}'}, html_mode=True, section='bot_ui', limit=3000)
-    return screen(uid, text, [[b.button('🏆 Топ рефоводов', 'top:all'), b.button('🔥 Топ сегодня', 'top:today')], [b.button('✉️ Приветственное сообщение', 'welcome')]])
+    link = 'https://t.me/Farmlife2026bot?start=partner_' + str(uid)
+    buttons = [[{'text':'🔗 Скопировать ссылку', 'copy_text':{'text':link}}],
+               [b.button('📊 Уровни и статистика', 'friends:details')],
+               [b.button('🏆 Топ рефоводов', 'top:all'), b.button('🔥 Топ сегодня', 'top:today')],
+               [b.button('✉️ Приветственное сообщение', 'welcome')],
+               [b.button('⬅️ Мой кабинет', 'cabinet')]]
+    account = c.execute('SELECT name,created FROM bot_accounts WHERE uid=%s', (uid,)).fetchone()
+    response = screen(uid, text, buttons)
+    if not with_card:
+        return response
+    caption = ('👥 <b>Партнёры TREVIXO</b>\n\n👤 В команде: <b>'+str(total)+'</b>\n🔥 Активных: <b>'+str(active)+'</b>\n💰 Награды команды: <b>'+b.money(earned // 10000)+'</b>\n\n🔗 '+link)
+    return bot_visuals.attach(response, 'partners', caption=caption, uid=uid,
+        name=account['name'], created=account['created'], total=total, earned=int(earned // 10000))
 
 def today_bounds(now=None):
     now = now or dt.datetime.now(ZoneInfo('Europe/Kyiv'))
@@ -133,8 +146,8 @@ def home(c, uid, invited=False):
         welcome = c.execute('SELECT w.body,a.name FROM bot_ref_welcomes w JOIN bot_accounts a ON a.uid=w.uid WHERE w.uid=%s', (a['referrer'],)).fetchone()
         if welcome:
             text += tr('✉️ <b>Сообщение от пригласившего {v0}:</b>\n{v1}\n\n', {'v0': esc(welcome['name'][:32]), 'v1': esc(welcome['body'])}, html_mode=True, section='bot_ui', limit=3000)
-    text += tr('✅ Выполняй задания и проходи 20 квестов\n📣 Продвигай проекты и собирай аудиторию\n🎮 Играй и открывай новые возможности\n🤝 Приглашай друзей в команду\n💎 Пройди первые 3 квеста и получи статус VIP\n🏆 Повышай активность и поднимайся в топ\n\n👇 Открой «Заработать» в меню ниже, получи ежедневный бонус и начни квесты!', html_mode=True, section='bot_ui', limit=3000)
-    return screen(uid, text)
+    text += '🚀 Задания, реклама и бонусы\n📣 Продвижение каналов, групп и ботов\n🎮 Игры и квесты\n👥 Партнёрская программа\n\nВыбери раздел в меню ниже.'
+    return bot_visuals.attach(screen(uid, text), 'welcome')
 
 def welcome(c, uid):
     b = core()
@@ -154,6 +167,9 @@ def route(c, uid, text, action, message):
         return home(c, uid, bool(message.get('_new_referral')))
     if cmd=='/help' or action=='help':
         return screen(uid,'❓ <b>Как начать в Farm?</b>\n\n1️⃣ Открой «Квесты» и получи ежедневный бонус.\n2️⃣ Пригласи друзей через свою ссылку.\n3️⃣ После третьего квеста получишь статус VIP. Реклама доступна всем.\n4️⃣ Развивай ферму, выполняй задания и собирай награды.\n\n<i>Завершённый просмотр не всегда оплачивается рекламной сетью. Денежные выплаты доступны только по правилам раздела выплат.</i>',[[b.button('⭐ Квесты','quests')],[b.button('🤝 Партнёры','friends')],[b.button('⬅️ Главное','home')]])
+    if action=='friends:details':
+        b.state(c,uid,'clear')
+        return partners(c,uid,with_card=False)
     if action=='home':
         return home(c,uid)
     if cmd=='/quests':

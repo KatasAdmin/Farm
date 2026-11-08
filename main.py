@@ -1029,9 +1029,40 @@ def start_telegram_link(authorization:str=Header(default="")):
 def telegram_api(method,payload):
  bot=os.environ.get("TELEGRAM_BOT_TOKEN","")
  if not bot:raise RuntimeError("Telegram bot token is missing")
- req=URLRequest("https://api.telegram.org/bot"+bot+"/"+method,data=json.dumps(payload).encode(),headers={"Content-Type":"application/json"})
- with urlopen(req,timeout=7) as response:
-  result=json.load(response)
+ if method=='_profilePhoto':
+  info=telegram_api('getFile',{'file_id':payload['file_id']})
+  path=info.get('file_path','')
+  if not re.fullmatch(r'[A-Za-z0-9_./-]+',path) or '..' in path or path.startswith('/'):
+   raise ValueError('Invalid Telegram file path')
+  with urlopen('https://api.telegram.org/file/bot'+bot+'/'+path,timeout=3) as response:
+   data=response.read(2_000_001)
+  if len(data)>2_000_000:raise ValueError('Avatar too large')
+  return data
+ payload=dict(payload)
+ image=payload.pop('_photo_bytes',None)
+ if image is not None:
+  boundary='trevixo'+uuid.uuid4().hex
+  body=[]
+  for key,value in payload.items():
+   if isinstance(value,(dict,list,bool)):value=json.dumps(value,ensure_ascii=False)
+   body.append(('--'+boundary+'\r\nContent-Disposition: form-data; name="'+key+'"\r\n\r\n'+str(value)+'\r\n').encode())
+  body.append(('--'+boundary+'\r\nContent-Disposition: form-data; name="photo"; filename="trevixo.jpg"\r\nContent-Type: image/jpeg\r\n\r\n').encode()+image+b'\r\n')
+  body.append(('--'+boundary+'--\r\n').encode())
+  data=b''.join(body);content_type='multipart/form-data; boundary='+boundary
+ else:
+  data=json.dumps(payload).encode();content_type='application/json'
+ req=URLRequest("https://api.telegram.org/bot"+bot+"/"+method,data=data,headers={"Content-Type":content_type})
+ try:
+  with urlopen(req,timeout=7) as response:
+   result=json.load(response)
+ except Exception as error:
+  from urllib.error import HTTPError
+  if method=='editMessageMedia' and isinstance(error,HTTPError) and error.code==400:
+   try:detail=json.loads(error.read(4096)).get('description','')
+   except (ValueError,OSError):detail=''
+   if 'message is not modified' in detail.lower():
+    return {'message_id':payload['message_id'],'chat':{'id':payload['chat_id']}}
+  raise
  if not result.get("ok"):raise RuntimeError("Telegram rejected payment operation")
  return result.get("result")
 

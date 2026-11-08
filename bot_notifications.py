@@ -61,7 +61,14 @@ def dispatch(db,api,limit=10):
         payload=row['payload']
         if isinstance(payload,str):payload=json.loads(payload)
         try:
-            result=api('sendMessage',dict(payload,chat_id=target))
+            if row['kind']=='visual':
+                import bot_visuals
+                result=bot_visuals.deliver(target,payload,api)
+            else:
+                import task_bot
+                if 'inline_keyboard' in (payload.get('reply_markup') or {}):
+                    payload=dict(payload,reply_markup={'inline_keyboard':task_bot.style_inline_buttons(payload['reply_markup']['inline_keyboard'])})
+                result=api('sendMessage',dict(payload,chat_id=target))
             if not isinstance(result,dict) or type(result.get('message_id')) is not int or (result.get('chat') or {}).get('id')!=target:
                 raise RuntimeError('Notification delivery was not confirmed')
         except Exception:

@@ -16,6 +16,7 @@ import uuid
 import bot_extras
 import bot_economy
 import bot_ui
+import bot_visuals
 import bot_quests
 import bot_monetag_cash
 import bot_about
@@ -148,7 +149,8 @@ def is_danger_label(label):
     label=str(label or '').strip().casefold()
     # Handle emoji prefixes, custom labels and localized text.
     return any(word in label for word in (
-        'отмен', 'скасув', 'cancel', 'удал', 'видал', 'відхил', 'отклон'
+        'отмен', 'скасув', 'cancel', 'удал', 'видал', 'відхил', 'отклон',
+        'заблок', 'блокувати', 'отказ', 'відмов', 'остановить'
     ))
 
 
@@ -166,9 +168,11 @@ def button_style(action):
                             'admin:cancel','delete:','remove:','cancel:','reject:'))):
         return 'danger'
     if (name in ('earn','balance','withdraw','daily','daily_bonus','claim_bonus',
-                 'deposit','friends','bonus','pay','topup','cashout')
+                 'deposit','bonus','pay','topup','cashout')
         or name.startswith(('withdraw:card','withdraw:crypto','deposit:','topup:',
-                            'claim:','bonus:','quest:claim','daily:','payment:'))):
+                            'claim:','bonus:','quest:claim','quests:claim','daily:','payment:',
+                            'admin:cardapprove:','admin:cardconfirm:','admin:payconfirm:',
+                            'admin:moneyconfirm:'))):
         return 'success'
     # Navigational, informational, task-selection, and review controls are blue.
     return 'primary'
@@ -289,13 +293,15 @@ def cabinet(c, uid):
     buttons = [
         [button('➕ Пополнить','deposit'),button('💸 Вывести','withdraw')],
         [button('✅ Выполнения','claims'),button('📥 Заявки','payouts')],
-        [button('📜 История','history')],
+        [button('📋 Мои задания','mine:0'),button('📜 История','history')],
+        [button('👥 Рефералы','friends'),button('🔄 Обновить','cabinet')],
     ]
     if bot_copy.owner():
         buttons.append([button('📱 Привязать номер','identity:share'),button('🛡 Админ-панель','admin')])
     else:
         buttons.append([button('📱 Привязать номер','identity:share')])
-    return bot_ui.screen(uid, text, buttons)
+    return bot_visuals.attach(bot_ui.screen(uid, text, buttons), 'profile',
+        uid=uid, name=a['name'], balance=int(a['available']), created=a['created'])
 
 def resolve_chat(api, target, kind):
     if re.fullmatch('-\\d+', target):
@@ -552,6 +558,18 @@ def handle(payload, db, api, is_admin, deliver_posts_inline=True):
                         response = route(c, uid, text, action[4:] if callback else '', message, api, admin)
                 except UserError as error:
                     response = {'method': 'answerCallbackQuery', 'callback_query_id': callback['id'], 'text': str(error)[:200], 'show_alert': True} if channel_claim else input_prompt(uid, str(error)) if state(c, uid) else say(uid, str(error))
+                if '_visual' in response:
+                    if not deliver_posts_inline:
+                        # Persist once with the existing event receipt, then render off webhook.
+                        media = dict(response)
+                        if callback and message.get('photo') and isinstance(message.get('message_id'), int):
+                            media['_visual'] = dict(media['_visual'], edit_message_id=message['message_id'])
+                        c.execute("INSERT INTO bot_notifications(id,recipient,subject,kind,payload,created) VALUES(%s,%s,%s,'visual',%s,%s) ON CONFLICT DO NOTHING",
+                                  ('visual:'+event, uid, uid, Jsonb(media), time.time()))
+                        response = {'ok': True}
+                    else:
+                        response = dict(response)
+                        response.pop('_visual', None)
                 c.execute('INSERT INTO bot_receipts VALUES(%s,%s,%s)', (event, Jsonb(dict(response,_requires_admin=admin)), time.time()))
     except Exception:
         log.exception('task_bot_update_failed')
@@ -638,7 +656,7 @@ def route(c, uid, text, action, message, api, admin):
     if manual is not None:return manual
     if action=='identity:share':
         return {'method':'sendMessage','chat_id':uid,'text':'По желанию отправь свой номер телефона кнопкой ниже. Он будет доступен администратору для поиска твоего аккаунта.',
-          'reply_markup':{'keyboard':[[{'text':'📱 Поделиться своим номером','request_contact':True}],[{'text':'👤 Мой кабинет'}]],'resize_keyboard':True,'one_time_keyboard':True}}
+          'reply_markup':{'keyboard':[[{'text':'📱 Поделиться своим номером','request_contact':True,'style':'primary'}],[{'text':'👤 Мой кабинет','style':'primary'}]],'resize_keyboard':True,'one_time_keyboard':True}}
     if message.get('contact'):
         contact=message['contact']
         if contact.get('user_id')!=uid or not bot_identity.phone(contact.get('phone_number')):
