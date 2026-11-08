@@ -156,6 +156,22 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("window.Telegram?.WebApp?.ready?.();",js)
   self.assertIn("Перезапустить приложение",html)
   self.assertIn("Не загрузился файл игры",html)
+ def test_login_is_available_without_auth_config_fetch(self):
+  root=Path(__file__).resolve().parents[1]
+  js=(root/"assets"/"game.js").read_text(encoding="utf-8")
+  html=(root/"index.html").read_text(encoding="utf-8")
+  start=js.index("function configureTelegramEntry()")
+  stop=js.index("configureTelegramEntry();",start)
+  setup=js[start:stop]
+  self.assertNotIn("/api/auth/config",setup)
+  self.assertIn("Boolean(tgInitData())",setup)
+  self.assertIn("window.retryFarmStartup=retryFarmStartup",js)
+  self.assertIn("window.chooseFarmLogin=chooseFarmLogin",js)
+  self.assertIn("Войти другим способом",html)
+  self.assertIn("Продолжить через Telegram",html)
+  self.assertIn("STARTUP_RETRIES = 3",js)
+  self.assertIn("if(!state||el(\"app\")?.hidden)throw Error",js)
+
  def test_entrypoints_and_app_present(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   for value in ['id="app"','id="login"','id="nav"','id="farm"']:
