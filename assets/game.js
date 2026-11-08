@@ -26,10 +26,17 @@ function retryFarmStartup() {
   clearTimeout(startupRetryTimer);
   startupRetryTimer=null;
   startupRetryCount=0;
-  if(el("boot-status"))el("boot-status").textContent="Загружаем ферму…";
-  // A restart should not lose a signed-in session or reset a farm account.
+  if(el("boot-status"))el("boot-status").textContent="Подключаемся к ферме…";
+  // Keep the existing token: a retry must never sign out a farmer.
   if(token)refresh();else showLogin();
 }
+function chooseFarmLogin() {
+  // Explicit alternate-login action only. Never clear credentials on a retry.
+  showLogin();
+  configureTelegramEntry();
+}
+window.retryFarmStartup=retryFarmStartup;
+window.chooseFarmLogin=chooseFarmLogin;
 function hideStartup() {
   clearTimeout(startupRetryTimer);
   startupRetryTimer=null;
@@ -42,7 +49,7 @@ function retryTransientStartup(error) {
   const transient=[500,502,503,504,423,429].includes(error?.status)||
     /Сервер не ответил вовремя|Failed to fetch|NetworkError|Load failed|The network connection was lost/i.test(String(error?.message||""));
   if(!transient||startupRetryCount>=STARTUP_RETRIES)return false;
-  const delays=[1500,2500,4000,6000,8500,11000];
+  const delays=[1200,2200,3500];
   const delay=delays[startupRetryCount++];
   const label=el("boot-status");
   if(label)label.textContent="Сервер занят. Подключаемся автоматически… ("+startupRetryCount+"/"+STARTUP_RETRIES+")";
@@ -78,7 +85,7 @@ let refreshPromise = null,
   refreshedAt = 0;
 let startupRetryTimer = null;
 let startupRetryCount = 0;
-const STARTUP_RETRIES = 6;
+const STARTUP_RETRIES = 3;
 let lastTimerRefresh = 0;
 function safe(s) {
   return String(s).replace(
@@ -290,9 +297,11 @@ function tgInitData() {
  return new URLSearchParams(location.hash.slice(1)).get("tgWebAppData") || "";
 }
 async function useLoginResult(result) {
+  if(!result?.token)throw Error("Сервер не выдал данные для входа.");
   token=result.token;
   storage.setItem("farm_token",token);
   await refresh();
+  if(!state||el("app")?.hidden)throw Error("Вход выполнен, но ферма ещё не загрузилась. Нажми «Повторить загрузку».");
 }
 async function telegramLogin() {
   if(pending)return;
@@ -1379,17 +1388,12 @@ tab("farm");
 if (token) {refresh();loadAdRewardStatus();}
 else showLogin();
 
-async function configureTelegramEntry(){
-  // Tell Telegram the Mini App has loaded before any slow network call.
+function configureTelegramEntry(){
+  // Never depend on a network request to show the Telegram login control.
+  // The server verifies the signed initData on the actual login request.
   window.Telegram?.WebApp?.ready?.();
   const init=Boolean(tgInitData());
-  let enabled=false;
-  if(init) {
-    try{const config=await api("/api/auth/config");enabled=Boolean(config.telegram_enabled);}
-    catch(e){enabled=false;}
-  }
-  document.querySelectorAll(".telegram-entry").forEach(x=>x.hidden=!(init&&enabled));
-  window.Telegram?.WebApp?.ready?.();
+  document.querySelectorAll(".telegram-entry").forEach(x=>x.hidden=!init);
 }
 configureTelegramEntry();
 window.addEventListener("telegram-sdk-ready",configureTelegramEntry);
