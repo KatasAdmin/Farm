@@ -907,17 +907,58 @@ function openWithdrawalRequest() {
   el("withdrawal-amount").value=100;
   el("withdrawal-dialog").showModal();
 }
-function openTopup(){
-  if(!state?.me?.telegram_id){
-    toast("Привяжи Telegram в настройках профиля, чтобы пополнить ферму картой.");
-    tab("profile");
-    return;
+async function openTopup(){
+ const dialog=el("card-topup-dialog"),status=el("card-topup-status");
+ if(!dialog)return;
+ if(status)status.textContent="Загружаем реквизиты…";
+ dialog.showModal();
+ try{
+  const settings=await api("/api/farm/card/config");
+  if(!settings.enabled){
+   if(status)status.textContent=settings.reason||"Пополнение пока недоступно.";
+   el("card-topup-submit").disabled=true;
+   return;
   }
-  const url="https://t.me/Farmlife2026bot?start=farmdeposit";
-  const tg=window.Telegram?.WebApp;
-  if(tg?.openTelegramLink)tg.openTelegramLink(url);
-  else window.open(url,"_blank","noopener");
-  toast("В боте укажи сумму, переведи на карту и пришли квитанцию. После подтверждения монеты появятся в ферме.");
+  el("card-topup-number").textContent=settings.card;
+  el("card-topup-recipient").textContent=settings.recipient||"Не указан";
+  el("card-topup-submit").disabled=false;
+  if(status)status.textContent="Укажи сумму, сделай перевод, прикрепи фото или PDF квитанции.";
+ }catch(e){
+  el("card-topup-submit").disabled=true;
+  if(status)status.textContent=e.message;
+ }
+}
+function copyCardTopupNumber(){
+ const value=el("card-topup-number")?.textContent||"";
+ if(!/^\\d{16}$/.test(value))return toast("Сначала дождись реквизитов.");
+ if(navigator.clipboard?.writeText)navigator.clipboard.writeText(value).then(()=>toast("Номер карты скопирован")).catch(()=>toast("Не удалось скопировать"));
+ else toast("Выдели номер карты и скопируй его.");
+}
+async function submitGameCardTopup(){
+ if(pending)return;
+ const n=Number(el("card-topup-amount")?.value);
+ const file=el("card-topup-file")?.files?.[0];
+ if(!Number.isSafeInteger(n)||n<1||n>100000)return toast("Укажи целую сумму от 1 до 100000 грн.");
+ if(!file||!["image/jpeg","image/png","application/pdf"].includes(file.type)||file.size<100||file.size>4*1024*1024)
+  return toast("Выбери JPG, PNG или PDF квитанцию до 4 МБ.");
+ const submit=el("card-topup-submit"),status=el("card-topup-status");
+ submit.disabled=true;
+ if(status)status.textContent="Отправляем квитанцию на проверку…";
+ try{
+  const b64=await new Promise((resolve,reject)=>{
+   const reader=new FileReader();
+   reader.onerror=()=>reject(Error("Не удалось прочитать квитанцию."));
+   reader.onload=()=>resolve(String(reader.result||"").split(",")[1]||"");
+   reader.readAsDataURL(file);
+  });
+  const result=await api("/api/farm/card/receipt",{amount:n,mime:file.type,receipt_b64:b64});
+  if(status)status.textContent="✅ Квитанция отправлена! Заявка "+result.id+". После подтверждения администратором монеты появятся в игре.";
+  el("card-topup-file").value="";
+  toast("✅ Заявка на пополнение отправлена.");
+ }catch(e){
+  if(status)status.textContent=e.message||"Не удалось отправить квитанцию.";
+  toast(e.message||"Ошибка отправки");
+ }finally{submit.disabled=false;}
 }
 async function submitWithdrawalRequest() {
   if(pending)return;
