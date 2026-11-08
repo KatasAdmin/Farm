@@ -85,7 +85,7 @@ class TopupTests(unittest.TestCase):
         self.assertEqual(self.balance(3),0)
         from unittest.mock import patch
         import farm_exchange
-        with patch.object(farm_exchange,'mint_from_card',return_value=(10,{})), patch.object(farm_exchange,'credit_verified_card',return_value=True):
+        with patch.object(farm_exchange,'mint_from_card',return_value=(10,{})), patch.object(farm_exchange,'credit_verified_card',return_value=True),patch('bot_cash_ad_credits.nbu_usd_uah',return_value=40):
             self.confirm_card(tid)
         self.assertEqual(self.c.execute('SELECT coins FROM players WHERE id=%s',('farm-player',)).fetchone()['coins'],20)
         self.assertEqual(self.balance(3),0,'Do not double credit bot wallet and farm')
