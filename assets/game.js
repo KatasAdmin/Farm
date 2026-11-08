@@ -66,7 +66,7 @@ const art = {
   eggs: "redesign/egg",
   chickens: "redesign/hen",
   geese: "goose-v2.png",
-  cows:"cow-v1.webp",milk:"milk-v1.webp",
+  cows:"cow-v1.webp",milk:"milk-v1.webp",wool:"wool.svg",
 };
 function eggQuantity(n) {
   const v=Math.abs(n)%100, last=v%10;
