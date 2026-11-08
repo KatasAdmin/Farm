@@ -213,6 +213,17 @@ async def lifespan(app):
  retention_thread.start()
  notification_thread=threading.Thread(target=task_bot.bot_notifications.worker,args=(db,telegram_api,stop_retention),daemon=True)
  notification_thread.start()
+ # Publish queued advertising posts out of band so routine Telegram clicks
+ # never wait for post delivery, locks, or Telegram network timeouts.
+ def post_publication_worker():
+  while not stop_retention.is_set():
+   try:
+    task_bot.bot_extras.deliver_posts(db,telegram_api)
+   except Exception:
+    logger.exception("post_publication_worker_failed")
+   stop_retention.wait(3)
+ post_thread=threading.Thread(target=post_publication_worker,daemon=True)
+ post_thread.start()
  try:
   yield
  finally:
