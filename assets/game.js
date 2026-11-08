@@ -862,15 +862,26 @@ async function loadWithdrawalStatus() {
     const cancelButton=el("withdrawal-cancel");
     if(cancelButton)cancelButton.hidden=!request||request.status!=="pending";
     const rate=Number(value.rate||0);
-    const coins=value.available||0;
-    const sum=(Number(value.value_kopeks||0)/100).toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2});
-    note.textContent="Расчётная цена монеты: "+preciseCoinPrice(value.nominal_rate)+
-      " грн · Цена вывода: "+preciseCoinPrice(rate)+
-      " грн · Монет: "+number(coins)+" · Доступно к выводу: "+sum+
-      " грн. "+(value.payouts_enabled?"Минимальный перевод — "+number(value.minimum||100)+" монет.":"Вывод временно недоступен: подтверждённого денежного обеспечения пока нет.")+
-      (request?" · Предыдущая заявка: "+number(request.amount)+" монет ("+request.status+").":"");
+    const coins=Number(value.available||0);
+    const sum=Number(value.value_kopeks||0)/100;
+    const formatUah=n=>n.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})+" грн";
+    const formatRate=n=>{
+      if(!Number.isFinite(n)||n<=0)return "—";
+      const decimals=n<0.000001?12:n<0.01?8:6;
+      return n.toLocaleString("ru-RU",{maximumFractionDigits:decimals})+" грн";
+    };
+    const rateNode=el("wallet-coin-rate"),valueNode=el("wallet-transfer-value");
+    if(rateNode)rateNode.textContent=formatRate(rate);
+    if(valueNode)valueNode.textContent=formatUah(sum);
+    const minimum=Number(value.minimum||100);
+    const ready=!!value.payouts_enabled && coins>=minimum && sum>=0.01;
+    note.textContent=coins<minimum?"Для перевода нужно минимум "+number(minimum)+" монет."
+      :!value.payouts_enabled?"Вывод сейчас недоступен. Попробуй позже."
+      :sum<0.01?"Сейчас сумма перевода меньше 1 копейки."
+      :"Монеты переводятся на баланс бота по текущему курсу.";
+    if(request)note.textContent+=" Предыдущий перевод: "+number(request.amount)+" монет ("+request.status+").";
     const btn=el("withdrawal-launch");
-    if(btn)btn.disabled=!value.payouts_enabled||coins<(value.minimum||100);
+    if(btn){btn.disabled=!ready;btn.title=ready?"Перевести монеты на баланс бота":note.textContent;}
   }catch(error){note.textContent="Не удалось проверить курс: "+error.message;}
 }
 async function cancelWithdrawalRequest(){
@@ -902,10 +913,8 @@ async function openWithdrawalRequest() {
     input.min="100";input.max=String(Math.min(1000000000,state.me.coins));
     input.value=String(state.me.coins);
     const desc=el("withdrawal-quote");
-    if(desc)desc.textContent="Расчётная цена монеты: "+preciseCoinPrice(q.nominal_coin_price_uah)+
-      " грн · Цена вывода: "+preciseCoinPrice(q.coin_price_uah)+
-      " грн. Стоимость всего баланса по курсу: "+(Number(q.balance_value_kopeks)/100).toFixed(2)+
-      " грн. Реально обеспечено для перевода до "+(Number(q.backed_available_kopeks||0)/100).toFixed(2)+" грн.";
+    if(desc)desc.textContent="Курс: 1 монета ≈ "+preciseCoinPrice(q.coin_price_uah)+
+      " грн. Доступно для перевода сейчас: "+(Number(q.backed_available_kopeks||0)/100).toFixed(2)+" грн.";
     el("withdrawal-dialog").showModal();
   }catch(e){toast(e.message);}
 }
