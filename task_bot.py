@@ -510,7 +510,7 @@ def route(c, uid, text, action, message, api, admin):
                '🌱 <b>Реферальные уровни</b>']
         for index,amount in enumerate(earnings['levels'],1):
             lines.append(str(index)+' уровень: '+price(amount))
-        lines.append('💡 Monetag: оценка в USD — ещё не подтверждённая выплата. AdsGram: подтверждённый доход начисляется в гривнах по контрольным точкам /reklama (старые суточные начисления также учтены). Это две рекламные сети, а не два баланса. Доли меньше копейки накапливаются.')
+        lines.append('💡 Monetag: оценка в USD — ещё не подтверждённая выплата. AdsGram: за каждый подтверждённый просмотр в денежном режиме начисляем 3 копейки после сверки /reklama, только если рекламный доход покрывает награду (старые суточные начисления также учтены). Это две рекламные сети, а не два баланса. Доли меньше копейки накапливаются.')
         return bot_ui.screen(uid,'\n'.join(lines),[[{'text':'🎬 Смотреть рекламу','web_app':{'url':farm_url()+'cash-ads-preview.html'}}],[button('🤝 Моя команда','friends')],[button('⬅️ Кабинет','cabinet')]])
     if cmd.startswith('/bonus'):
         return bot_promos.command(c,uid,text,admin)
