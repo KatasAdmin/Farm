@@ -875,6 +875,13 @@ async function loadHistory(append=false) {
   else toast(error.message);
  }
 }
+function preciseCoinPrice(value) {
+  const price=Number(value);
+  if(!Number.isFinite(price)||price<=0)return "0";
+  // Display up to 18 decimal digits; never turn a positive quote into "0".
+  if(price<1e-18)return price.toExponential(6).replace(".",",");
+  return new Intl.NumberFormat("ru-RU",{maximumFractionDigits:18,minimumFractionDigits:0,useGrouping:false}).format(price);
+}
 async function loadWithdrawalStatus() {
   const note=el("withdrawal-status");
   if(!note||!token)return;
@@ -886,9 +893,10 @@ async function loadWithdrawalStatus() {
     const rate=Number(value.rate||0);
     const coins=value.available||0;
     const sum=(Number(value.value_kopeks||0)/100).toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2});
-    note.textContent="Цена монеты: "+rate.toLocaleString("ru-RU",{maximumFractionDigits:8})+
-      " грн · Монет: "+number(coins)+" · Стоимость для вывода: "+sum+
-      " грн. "+(value.payouts_enabled?"Можно перевести любые монеты по текущему курсу.":"Вывод временно недоступен: нет подтверждённого денежного обеспечения.")+
+    note.textContent="Расчётная цена монеты: "+preciseCoinPrice(value.nominal_rate)+
+      " грн · Цена вывода: "+preciseCoinPrice(rate)+
+      " грн · Монет: "+number(coins)+" · Доступно к выводу: "+sum+
+      " грн. "+(value.payouts_enabled?"Можно перевести любые монеты по текущему курсу.":"Вывод временно недоступен: подтверждённого денежного обеспечения пока нет.")+
       (request?" · Предыдущая заявка: "+number(request.amount)+" монет ("+request.status+").":"");
     const btn=el("withdrawal-launch");
     if(btn)btn.disabled=!value.payouts_enabled||coins<1;
@@ -923,7 +931,8 @@ async function openWithdrawalRequest() {
     input.max=String(Math.min(1000000000,state.me.coins));
     input.value=String(state.me.coins);
     const desc=el("withdrawal-quote");
-    if(desc)desc.textContent="Цена монеты: "+Number(q.coin_price_uah).toLocaleString("ru-RU",{maximumFractionDigits:8})+
+    if(desc)desc.textContent="Расчётная цена монеты: "+preciseCoinPrice(q.nominal_coin_price_uah)+
+      " грн · Цена вывода: "+preciseCoinPrice(q.coin_price_uah)+
       " грн. За весь баланс: "+(Number(q.balance_value_kopeks)/100).toFixed(2)+" грн.";
     el("withdrawal-dialog").showModal();
   }catch(e){toast(e.message);}
@@ -942,9 +951,9 @@ async function openTopup(){
   }
   try {
     const q=await api("/api/farm/exchange/quote");
-    const price=Number(q.purchase_price_uah||0);
+    const price=preciseCoinPrice(q.purchase_price_uah);
     const help=el("card-topup-help");
-    if(help)help.textContent="Текущая цена покупки: "+price.toLocaleString("ru-RU",{maximumFractionDigits:8})+
+    if(help)help.textContent="Текущая цена покупки: "+price+
       " грн за монету. Точное количество монет рассчитается при подтверждении администратором. "+
       "Деньги зачислятся только после сверки поступления в банке.";
   }catch(e){if(status)status.textContent="Курс не удалось загрузить: "+e.message;}

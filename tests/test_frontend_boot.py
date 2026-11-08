@@ -24,9 +24,18 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('id="weekly-extra"',html)
   self.assertIn('weekly.market_purchases',js)
   self.assertIn('weekly.feathers',js)
+ def test_nominal_price_shows_sub_kopeck_precision(self):
+  root=Path(__file__).resolve().parents[1]
+  js=(root/"assets"/"game.js").read_text(encoding="utf-8")
+  main=(root/"main.py").read_text(encoding="utf-8")
+  self.assertIn('maximumFractionDigits:18',js)
+  self.assertIn('Расчётная цена монеты:',js)
+  self.assertIn('Цена вывода:',js)
+  self.assertIn('nominal_coin_price_uah',main)
+  self.assertIn('nominal_rate',main)
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
-  self.assertIn("/assets/game.js?v=94",html)
+  self.assertIn("/assets/game.js?v=95",html)
  def test_launch_help_and_placeholder_polish(self):
   root=Path(__file__).resolve().parents[1]
   html=(root/"index.html").read_text(encoding="utf-8")
