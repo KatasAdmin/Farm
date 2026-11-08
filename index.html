@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="/assets/cattle.css?v=5" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=91" defer></script>
+    <script src="/assets/game.js?v=92" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
@@ -433,8 +433,24 @@
               + Пополнить</button
             ><button class="btn blue" onclick="openWithdrawalRequest()">→ На баланс бота</button>
           </div>
+          <p class="muted"><button type="button" class="btn alt small" data-ad-free="coins" onclick="window.FarmAds?.watch('coins')">🎬 Смотреть рекламу · +3 бонусные монеты</button><small> Монеты за рекламу — только для покупок, не для вывода.</small></p>
           <p class="muted">Пополнение картой: 1 грн = 1 монета, после подтверждения администратором. Перевод заработанных монет в бот — 1 монета = 1 грн. Бонусные монеты доступны только для покупок.</p><p id="withdrawal-status" class="muted" aria-live="polite"></p><button id="withdrawal-cancel" class="btn alt small" onclick="cancelWithdrawalRequest()" hidden>Отменить заявку и вернуть резерв</button>
         </div>
+        <dialog id="card-topup-dialog" class="recovery-dialog">
+          <h2>💳 Пополнение фермы</h2>
+          <p class="muted" id="card-topup-help">Переведи сумму на карту и отправь чек. Администратор проверит поступление.</p>
+          <p><strong>Номер карты:</strong> <code id="card-topup-number">—</code>
+            <button type="button" class="btn alt small" onclick="copyCardTopupNumber()">Копировать</button></p>
+          <p><strong>Получатель:</strong> <span id="card-topup-recipient">—</span></p>
+          <label for="card-topup-amount">Сумма пополнения, грн</label>
+          <input id="card-topup-amount" type="number" min="1" max="100000" step="1" value="100">
+          <p class="muted">1 грн = 1 игровая монета. Зачисление только после проверки перевода администратором.</p>
+          <label for="card-topup-file">Фото или PDF квитанции</label>
+          <input id="card-topup-file" type="file" accept="image/jpeg,image/png,application/pdf">
+          <p id="card-topup-status" role="status" class="muted" aria-live="polite"></p>
+          <button class="btn wide" type="button" id="card-topup-submit" onclick="submitGameCardTopup()">Отправить квитанцию</button>
+          <button class="btn alt wide" type="button" onclick="document.getElementById('card-topup-dialog').close()">Отмена</button>
+        </dialog>
         <form id="promo-form" class="card promo-wallet-card" onsubmit="redeemPromoCode(event)">
           <h2 class="cardtitle">🎁 Бонусный код</h2>
           <p class="muted">Есть бонусный код? Введи его здесь и получи награду на баланс. Каждый код можно использовать только один раз.</p>
@@ -889,6 +905,6 @@
   <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
 <script src="/assets/fields.js?v=9" defer></script>
 <script src="/assets/adsgram-fallback.js?v=20261106-r38" defer></script>
-<script src="/assets/monetag-rewards.js?v=9" defer></script>
+<script src="/assets/monetag-rewards.js?v=10" defer></script>
 </body>
 </html>
