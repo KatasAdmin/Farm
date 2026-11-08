@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from bot_economy import monetag_cash_allocation
 from bot_cash_ad_credits import nbu_usd_uah
+from bot_admin import adsgram_view_reward
 
 KYIV=ZoneInfo('Europe/Kyiv')
 
@@ -131,12 +132,13 @@ def report(c,owner_uid,new_balance,now=None):
     if delta>0 and count==0:
         raise ValueError('Доход вырос, но за этот период нет подтверждённых AdsGram просмотров. Начисления остановлены; проверь источник дохода.')
     rate=nbu_usd_uah(c) if delta>0 else None
+    reward_kopeks=adsgram_view_reward(c)
     # One verified cash-mode bot view earns exactly 3 kopeks, but no
     # checkpoint is accepted when the viewer's 30% revenue allocation
     # cannot cover that minimum. Referral shares remain in the existing
     # budget; the platform keeps at least 35% of the gross reporting share.
-    if delta>0 and cash and (delta/Decimal(count))*rate*Decimal(100)*Decimal('0.30')<Decimal(3):
-        raise ValueError('Недостаточно подтверждённого рекламного дохода для награды 3 коп/просмотр. Сверку не провели.')
+    if delta>0 and cash and (delta/Decimal(count))*rate*Decimal(100)*Decimal('0.30')<Decimal(reward_kopeks):
+        raise ValueError('Недостаточно подтверждённого рекламного дохода для заданной награды за просмотр. Сверку не провели.')
     ident=uuid.uuid4().hex
     total=0
     c.execute("""INSERT INTO bot_adsgram_balance_checkpoints
@@ -157,7 +159,7 @@ def report(c,owner_uid,new_balance,now=None):
         for r in cash:
             viewer_counts[int(r['uid'])]=viewer_counts.get(int(r['uid']),0)+1
             alloc=monetag_cash_allocation(per_view,tuple(r['referral_chain']))
-            entries=[('viewer',int(r['uid']),0,Decimal(3)/(rate*Decimal(100)))]
+            entries=[('viewer',int(r['uid']),0,Decimal(reward_kopeks)/(rate*Decimal(100)))]
             entries.extend(('referral',int(q['uid']),int(q['level']),Decimal(q['usd']))
                            for q in alloc['referrals'])
             for role,uid,level,usd in entries:
@@ -172,7 +174,7 @@ def report(c,owner_uid,new_balance,now=None):
             fraction=c.execute("""SELECT remainder FROM bot_cash_ad_fraction
               WHERE uid=%s FOR UPDATE""",(uid,)).fetchone()
             kopeks=Decimal(str(fraction['remainder']))+earned*rate*100
-            whole=(viewer_counts[uid]*3 if role=='viewer'
+            whole=(viewer_counts[uid]*reward_kopeks if role=='viewer'
                    else int(kopeks.to_integral_value(rounding=ROUND_FLOOR)))
             if whole<0 or whole>9223372036854775807:
                 raise ValueError('Сумма начисления вне диапазона')
