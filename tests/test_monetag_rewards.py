@@ -107,6 +107,22 @@ class MonetagRewardsTests(AdFixture):
     self.assertEqual(pending,int(i+1==views))
    self.deliver();self.assertEqual(self.p()[item],100+qty if item=='coins' else qty)
   self.assertEqual(self.p()['fed_hens'],1);self.assertEqual(self.p()['coins'],103)
+ def test_ad_chicken_rewards_referrers_fractionally_only_once(self):
+  for i in range(ads.REWARDS['chickens'][0]):
+   self.now+=4000
+   a=self.prepare('chickens',now=self.now)
+   self.post(a,request_var='chickens_reward')
+  awards=[]
+  def referral(c,p,item,quantity):awards.append((p['id'],item,quantity))
+  with self.c:
+   result=ads.deliver(self.c,self.p(),lambda c,p:p,lambda p:10,lambda p:100,referral_award=referral)
+  self.assertEqual(result['granted'],[{'item':'chickens','quantity':1}])
+  self.assertEqual(awards,[('p','chickens',1)])
+  with self.c:
+   second=ads.deliver(self.c,self.p(),lambda c,p:p,lambda p:10,lambda p:100,referral_award=referral)
+  self.assertEqual(second['granted'],[])
+  self.assertEqual(awards,[('p','chickens',1)])
+
  def test_deliver_catches_up_before_adding_hen_and_preserves_full_coop(self):
   self.c.execute("INSERT INTO monetag_reward_grants VALUES('hen','p','chickens',1,1,NULL)")
   self.c.execute("UPDATE players SET geese=10 WHERE id='p'");self.c.raw.commit()
