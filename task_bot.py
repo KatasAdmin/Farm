@@ -495,14 +495,15 @@ def route(c, uid, text, action, message, api, admin):
         earnings=bot_monetag_cash.estimated_earnings(c,uid)
         price=lambda x:'$'+format(x,'.9f')
         sumrow=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_cash_ad_credits WHERE uid=%s",(uid,)).fetchone()
-        adsgram_credits=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_adsgram_daily_credits WHERE uid=%s",(uid,)).fetchone()
+        adsgram_credits=c.execute("SELECT COALESCE(SUM(reward_kopeks),0) AS n FROM bot_adsgram_immediate_rewards WHERE uid=%s",(uid,)).fetchone()
+        adsgram_legacy=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_adsgram_daily_credits WHERE uid=%s",(uid,)).fetchone()
         adsgram_intervals=c.execute("SELECT COALESCE(SUM(credited_kopeks),0) AS n FROM bot_adsgram_interval_credits WHERE uid=%s",(uid,)).fetchone()
         adsgram_confirmed=c.execute("SELECT COUNT(*) AS n FROM bot_adsgram_attempts WHERE uid=%s AND state='confirmed'",(uid,)).fetchone()
         a=c.execute("SELECT available FROM bot_accounts WHERE uid=%s",(uid,)).fetchone()
         lines=['💵 <b>Мой рекламный доход</b>',
                '💰 Monetag зачислено: <b>'+money(int(sumrow['n']))+'</b>',
                '🎬 AdsGram подтверждено: '+str(adsgram_confirmed['n'])+' просмотров',
-               '💰 AdsGram начислено: <b>'+money(int(adsgram_credits['n'])+int(adsgram_intervals['n']))+'</b>',
+               '💰 AdsGram начислено: <b>'+money(int(adsgram_credits['n'])+int(adsgram_legacy['n'])+int(adsgram_intervals['n']))+'</b>',
                '💳 Доступный баланс: <b>'+money(a['available'] if a else 0)+'</b>', '',
                '👀 За свои просмотры (USD): '+price(earnings['viewer']),
                '🤝 От рефералов (USD): '+price(earnings['referral']),
@@ -510,7 +511,7 @@ def route(c, uid, text, action, message, api, admin):
                '🌱 <b>Реферальные уровни</b>']
         for index,amount in enumerate(earnings['levels'],1):
             lines.append(str(index)+' уровень: '+price(amount))
-        lines.append('💡 Monetag: оценка в USD — ещё не подтверждённая выплата. AdsGram: за каждый подтверждённый просмотр в денежном режиме начисляем 3 копейки после сверки /reklama, только если рекламный доход покрывает награду (старые суточные начисления также учтены). Это две рекламные сети, а не два баланса. Доли меньше копейки накапливаются.')
+        lines.append('💡 AdsGram: '+money(bot_admin.adsgram_view_reward(c))+' за подтверждённый просмотр начисляется сразу. /reklama фиксирует реальный доход сети для сверки и не начисляет награды повторно. Monetag: оценка в USD не является подтверждённой выплатой.')
         return bot_ui.screen(uid,'\n'.join(lines),[[{'text':'🎬 Смотреть рекламу','web_app':{'url':farm_url()+'cash-ads-preview.html'}}],[button('🤝 Моя команда','friends')],[button('⬅️ Кабинет','cabinet')]])
     if cmd.startswith('/bonus'):
         return bot_promos.command(c,uid,text,admin)
