@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=93" defer></script>
+    <script src="/assets/game.js?v=94" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
@@ -30,10 +30,24 @@
       <h1 style="font-size:30px">🐔 Ферма</h1>
       <p id="boot-status">Загружаем ферму…</p>
       <button type="button" style="margin-top:16px;padding:14px 24px;border-radius:14px;border:1px solid #80d6ff;background:#1267b8;color:white;font-size:17px" onclick="if(window.retryFarmStartup)retryFarmStartup();else location.reload()">Повторить загрузку</button>
+      <a href="/" style="display:inline-block;text-decoration:none;margin-top:9px;padding:9px 16px;border:1px solid #80d6ff;background:transparent;color:white;border-radius:11px;font-size:14px">Перезапустить приложение</a>
       <noscript>Для запуска игры необходимо включить JavaScript.</noscript>
     </section>
     <style>#boot-screen[hidden]{display:none!important}</style>
-    <script>window.addEventListener('error',function(e){var s=document.getElementById('boot-screen'),p=document.getElementById('boot-status');if(s&&!s.hidden&&p)p.textContent='Не удалось загрузить игру. Нажми «Повторить загрузку».';},true);</script>
+    <script>
+      window.addEventListener('error',function(e){
+        var s=document.getElementById('boot-screen'),p=document.getElementById('boot-status');
+        if(s&&!s.hidden&&p){
+          p.textContent=e.target&&e.target.tagName==='SCRIPT'
+            ?'Не загрузился файл игры. Проверь интернет и нажми «Перезапустить приложение».'
+            :'Ошибка запуска игры. Попробуй повторить загрузку.';
+        }
+      },true);
+      window.addEventListener('unhandledrejection',function(e){
+        var s=document.getElementById('boot-screen'),p=document.getElementById('boot-status');
+        if(s&&!s.hidden&&p)p.textContent='Приложение не завершило загрузку. Повтори попытку.';
+      });
+    </script>
     <div id="toast" role="status" aria-live="polite" hidden></div><dialog id="recovery-dialog" class="recovery-dialog"><h2>🔑 Сохрани код доступа</h2><p>Этот код поможет вернуть ферму на новом устройстве. Он показывается только сейчас.</p><code id="recovery-shown-code"></code><button class="btn wide" onclick="copyRecoveryCode()">Скопировать код</button><button class="btn alt wide" onclick="closeRecoveryCode()">Я сохранил код</button></dialog>
     <section id="login" class="login" hidden>
       <img

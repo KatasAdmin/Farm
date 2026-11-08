@@ -26,7 +26,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('weekly.feathers',js)
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
-  self.assertIn("/assets/game.js?v=93",html)
+  self.assertIn("/assets/game.js?v=94",html)
  def test_launch_help_and_placeholder_polish(self):
   root=Path(__file__).resolve().parents[1]
   html=(root/"index.html").read_text(encoding="utf-8")
@@ -96,6 +96,16 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("if(id===\"market\")id=\"shop\"",js)
   self.assertIn('<span>Рынок</span>',html)
   self.assertIn('Мои объявления',html)
+ def test_miniapp_startup_recovers_from_busy_server_and_script_error(self):
+  root=Path(__file__).resolve().parents[1]
+  js=(root/"assets"/"game.js").read_text(encoding="utf-8")
+  html=(root/"index.html").read_text(encoding="utf-8")
+  self.assertIn("[500,502,503,504,423,429]",js)
+  self.assertIn("showStartupError(error)",js)
+  self.assertIn("retryTransientStartup(error)",js)
+  self.assertIn("window.Telegram?.WebApp?.ready?.();",js)
+  self.assertIn("Перезапустить приложение",html)
+  self.assertIn("Не загрузился файл игры",html)
  def test_entrypoints_and_app_present(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
   for value in ['id="app"','id="login"','id="nav"','id="farm"']:
