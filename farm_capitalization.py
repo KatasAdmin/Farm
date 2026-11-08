@@ -17,6 +17,8 @@ def initialize(c):
       seed_usd numeric(14,2) NOT NULL DEFAULT 1 CHECK(seed_usd>=0))""")
     c.execute("""INSERT INTO farm_capitalization_baseline(id,started_at,seed_usd)
       VALUES(1,%s,1) ON CONFLICT(id) DO NOTHING""",(time.time(),))
+    # Freeze the historical USD seed in kopeks at first quote; it must not float with FX.
+    c.execute('ALTER TABLE farm_capitalization_baseline ADD COLUMN IF NOT EXISTS seed_kopeks bigint CHECK(seed_kopeks>=0)')
 
 
 def calculate(seed_kopeks, game_views, approved_game_deposits_kopeks,
@@ -43,13 +45,24 @@ def calculate(seed_kopeks, game_views, approved_game_deposits_kopeks,
             'reason':'Nominal capitalization is not verified available cash'}
 
 
-def preview(c,usd_uah):
-    rate=Decimal(str(usd_uah))
-    if not rate.is_finite() or rate<=0 or rate>Decimal(1000):
-        raise ValueError('Unreliable USD rate')
-    baseline=c.execute("SELECT started_at,seed_usd FROM farm_capitalization_baseline WHERE id=1").fetchone()
+def preview(c,usd_uah=None):
+    # Capitalization is denominated in UAH kopeks. Once the historical seed
+    # is frozen, no subsequent FX quote can change the game coin price.
+    baseline=c.execute("SELECT started_at,seed_usd,seed_kopeks FROM farm_capitalization_baseline WHERE id=1 FOR UPDATE").fetchone()
     if not baseline:raise ValueError('Capitalization baseline not initialized')
-    seed=int((Decimal(str(baseline['seed_usd']))*rate*100).to_integral_value(rounding=ROUND_FLOOR))
+    fixed=baseline.get('seed_kopeks')
+    if fixed is None:
+        # One-time migration of the original $1 reference; not a live FX index.
+        if usd_uah is None:
+            from bot_cash_ad_credits import nbu_usd_uah
+            usd_uah=nbu_usd_uah(c)
+        rate=Decimal(str(usd_uah))
+        if not rate.is_finite() or rate<=0 or rate>Decimal(1000):
+            raise ValueError('Unreliable seed conversion rate')
+        seed=int((Decimal(str(baseline['seed_usd']))*rate*100).to_integral_value(rounding=ROUND_FLOOR))
+        c.execute("UPDATE farm_capitalization_baseline SET seed_kopeks=%s WHERE id=1 AND seed_kopeks IS NULL",(seed,))
+    else:
+        seed=int(fixed)
     since=float(baseline['started_at'])
     confirmed_farm=c.execute("""SELECT count(*) AS n
       FROM bot_adsgram_farm_attempts
@@ -70,7 +83,7 @@ def preview(c,usd_uah):
       FROM farm_coin_redemptions WHERE created_at>=%s""",(since,)).fetchone()['n']
     result=calculate(seed,int(confirmed_farm)+int(monetag),int(deposits),
                      int(transfers)*100+int(redeemed),coins)
-    result['usd_seed']=str(baseline['seed_usd'])
+    result['seed_kopeks']=seed
     result['started_at']=since
-    result['usd_uah_reference']=str(rate)
+    # USD is only a historical seed-migration reference, never a moving rate.
     return result
