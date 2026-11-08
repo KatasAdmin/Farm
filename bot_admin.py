@@ -22,6 +22,8 @@ def core():
     return task_bot
 
 def initialize(c):
+    import farm_exchange
+    farm_exchange.initialize(c)
     bot_account_controls.initialize(c)
     bot_broadcast.initialize(c)
     farm_wallet.initialize_sources(c)
@@ -179,12 +181,15 @@ def section_screen(c,uid,key):
         ]
     elif key=='finance':
         pool=c.execute('SELECT amount FROM bot_cash_pool WHERE id=1').fetchone()['amount']
+        earmarked=c.execute('SELECT backed_kopeks FROM farm_cash_reserve WHERE id=1').fetchone()['backed_kopeks']
         liabilities=b.liability(c)
         debt=c.execute('SELECT coalesce(sum(amount),0) AS n FROM bot_debts').fetchone()['n']
-        text=tr('💰 <b>Финансы</b>\n\n<b>Средства и обязательства</b>\nРезерв: <b>{v0}</b>\nОбязательства: {v1}\nСвободно: {v2}\n\n<b>Требует внимания</b>\nНехватка покрытия: {v3}\nДолги исполнителей: {v4}',{'v0':b.money(pool),'v1':b.money(liabilities),'v2':b.money(max(0,pool-liabilities)),'v3':b.money(max(0,liabilities-pool)),'v4':b.money(debt)},html_mode=True,section='bot_admin')
+        text=tr('💰 <b>Финансы</b>\n\n<b>Средства и обязательства</b>\nРезерв: <b>{v0}</b>\nОбязательства: {v1}\nСвободно: {v2}\n\n<b>Требует внимания</b>\nНехватка покрытия: {v3}\nДолги исполнителей: {v4}',{'v0':b.money(pool),'v1':b.money(liabilities),'v2':b.money(max(0,pool-liabilities-earmarked)),'v3':b.money(max(0,liabilities+earmarked-pool)),'v4':b.money(debt)},html_mode=True,section='bot_admin')
+        text+='\\n\\nДля монет фермы отдельно выделено: <b>'+b.money(earmarked)+'</b> (не доступно для других выплат).'
         rows=[[b.button('💸 Выплаты','admin:payouts'),b.button('💳 Пополнения на проверке','admin:cardtopups')],
              [b.button('💳 Способы оплаты','admin:paymethods'),b.button('⭐ Курс Stars и карта','admin:topupsettings')],
-             [b.button('🧾 История платежей','admin:payments:all:0'),b.button('📒 Учёт поступлений','admin:money')]]
+             [b.button('🧾 История платежей','admin:payments:all:0'),b.button('📒 Учёт поступлений','admin:money')],
+             [b.button('🪙 Обеспечение монеты фермы','admin:farmreserve')]]
     elif key=='tasks':
         text=tr('📝 <b>Задания и публикации</b>\n\nПроверяй заказы, управляй рекламными постами и разбирай спорные отписки.',html_mode=True,section='bot_admin')
         rows=[[b.button('✅ Модерация заданий','admin:tasks')],[b.button('🔎 Проверка публикаций','admin:postissues')],[b.button('📣 Канал постов','admin:channel')],[b.button('⚠️ Спорные отписки','admin:retention')]]
@@ -453,6 +458,29 @@ def admin(c, uid, text, action, api):
         if len(parts)!=4 or not parts[3].isdecimal():
             raise b.UserError('Неизвестная страница истории.')
         return bot_payments.screen(c,uid,parts[2],int(parts[3]))
+    if action=='admin:farmreserve':
+        owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
+        if not owner or owner['telegram_id']!=uid:raise b.UserError('Только владелец может подтверждать денежный резерв фермы.')
+        import farm_exchange
+        backing=c.execute('SELECT backed_kopeks FROM farm_cash_reserve WHERE id=1').fetchone()
+        amount=int(backing['backed_kopeks']) if backing else 0
+        b.state(c,uid,'clear')
+        return ui.screen(uid,'🪙 <b>Обеспечение монет фермы</b>\\n\\n'
+            +'Подтверждено ликвидных денег: <b>'+b.money(amount)+'</b>.\\n'
+            +'Вводи только реально доступные для выплат деньги, выделенные для фермы. '
+            +'Не вводи остаток рекламного кабинета, если он не доступен для вывода. '
+            +'Пополнения игроков, подтверждённые после обновления, учитываются автоматически.',
+            [[b.button('🏦 Подтвердить собственное обеспечение','admin:farmreserve:fund')],
+             [b.button('⬅️ Финансы','admin:section:finance')]])
+    if action=='admin:farmreserve:fund':
+        owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
+        if not owner or owner['telegram_id']!=uid:raise b.UserError('Только владелец может подтверждать резерв.')
+        b.state(c,uid,'admin_farmreserve_fund',{'reference':uuid.uuid4().hex})
+        return ui.input_screen(uid,'🏦 <b>Обеспечение фермы</b>\\n\\n'
+            'Введи сумму в гривнах, которая уже реально доступна на банковском счёте '
+            'или в выведенных средствах и не включена в прошлые подтверждения. '
+            'Например: 40,00. Рекламный баланс до монетизации не учитывай.',
+            cancel_action='admin:farmreserve')
     if action.startswith('admin:section:'):
         return section_screen(c,uid,action.split(':')[-1])
     if action.startswith('admin:moneyconfirm:'):
@@ -550,6 +578,20 @@ def input_text(c, uid, text, message, current, api):
         return b.bot_moderation.input_text(c,uid,text,current)
     if stage in ('admin_rejection_reason','admin_rejection_confirm'):
         return b.bot_decisions.input_text(c,uid,text,current)
+    if stage == 'admin_farmreserve_fund':
+        owner=c.execute('SELECT telegram_id FROM farm_admin_identity WHERE slot=1').fetchone()
+        if not owner or owner['telegram_id']!=uid:raise b.UserError('Нет доступа к резерву.')
+        import farm_exchange
+        try:
+            kopeks=b.amount(text)
+            recorded=farm_exchange.fund_verified(c,'owner-verified:'+data['reference'],kopeks,'seed')
+        except ValueError as exc:
+            raise b.UserError(str(exc))
+        b.state(c,uid,'clear')
+        return ui.screen(uid,'✅ '+('Обеспечение подтверждено: '+b.money(kopeks) if recorded
+            else 'Этот взнос уже учтён.'),
+            [[b.button('🪙 Резерв фермы','admin:farmreserve')],
+             [b.button('⬅️ Финансы','admin:section:finance')]])
     if stage == 'admin_crypto_cap':
         import bot_crypto_pay as crypto
         if not text.isdecimal() or len(text)>7:

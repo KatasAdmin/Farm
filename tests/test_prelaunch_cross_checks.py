@@ -164,8 +164,8 @@ class PrelaunchCrossChecks(unittest.TestCase):
         from unittest.mock import patch
         import main
         with patch.object(main, "db", side_effect=AssertionError("DB must not be opened")):
-            for amount, key in [(99, "00000000-0000-0000-0000-000000000001"),
-                                (1000001, "00000000-0000-0000-0000-000000000001"),
+            for amount, key in [(0, "00000000-0000-0000-0000-000000000001"),
+                                (1000000001, "00000000-0000-0000-0000-000000000001"),
                                 (100, "not-a-uuid")]:
                 with self.subTest(amount=amount, key=key):
                     with self.assertRaises(main.HTTPException):
@@ -183,7 +183,7 @@ class PrelaunchCrossChecks(unittest.TestCase):
                 self.last_sql = sql
                 return self
         db = DB()
-        with patch.object(main, "db", return_value=db), patch.object(main, "person", return_value={"id": "p"}), patch.object(main, "advance", side_effect=lambda c,p:p), patch.object(main.farm_wallet, "transfer", return_value={"ok": True}) as transfer, patch.object(main.task_bot.bot_notifications, "wake"):
+        with patch.object(main, "db", return_value=db), patch.object(main, "person", return_value={"id": "p","telegram_id":7}), patch.object(main, "advance", side_effect=lambda c,p:p), patch.object(main.bot_cash_ad_credits,"nbu_usd_uah",return_value=40),patch.object(main.farm_exchange, "redeem", return_value={"ok": True}) as transfer, patch.object(main.task_bot.bot_notifications, "wake"):
             self.assertEqual(main.request_withdrawal(main.Request(amount=100, transfer_id=key), "Bearer p"), {"ok": True})
             transfer.assert_called_once()
             args = transfer.call_args.args

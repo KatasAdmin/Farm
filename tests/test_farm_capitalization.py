@@ -17,6 +17,7 @@ class FakeCapitalDB:
         if "from monetag_ad_attempts" in q:return Row(8)
         if "from bot_card_topups" in q:return Row(5000)
         if "from farm_bot_transfers" in q:return Row(10)
+        if "from farm_coin_redemptions" in q:return Row(0)
         if "from players" in q:return Row(800)
         if "from economy" in q:return Row(200)
         raise AssertionError(q)
