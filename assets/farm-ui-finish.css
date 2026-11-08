@@ -1,0 +1,160 @@
+/* TREVIXO farm and wallet finish. Last-loaded stylesheet deliberately
+   scopes overrides to the affected panels, preserving the original theme. */
+#farm .bird-resources{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+  align-items:stretch;
+}
+#farm .bird-resources>.resource{
+  box-sizing:border-box;
+  grid-column:auto!important;
+  display:grid!important;
+  grid-template-columns:53px minmax(0,1fr)!important;
+  grid-template-rows:auto auto!important;
+  align-content:center!important;
+  min-height:88px!important;
+  padding:13px 12px!important;
+  gap:1px 10px!important;
+  border:1px solid rgba(130,212,255,.56)!important;
+  border-radius:17px!important;
+  background:linear-gradient(142deg,rgba(26,121,196,.76),rgba(9,49,116,.93))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 4px 12px rgba(1,14,48,.14)!important;
+}
+#farm .bird-resources>.resource>.icon,
+#farm .bird-resources>.resource>.feather-art{
+  grid-column:1!important;
+  grid-row:1/3!important;
+  width:48px!important;height:52px!important;
+  font-size:38px!important;line-height:52px!important;
+  object-fit:contain!important;
+  justify-self:center;align-self:center;
+}
+#farm .bird-resources>.resource>span:not(.icon):not(.feather-art){
+  grid-column:2!important;grid-row:1!important;
+  align-self:end!important;
+  font-size:13px!important;line-height:1.24!important;
+  padding:0!important;margin:0!important;text-align:left!important;
+  color:#d8edff!important;
+}
+#farm .bird-resources>.resource>strong{
+  grid-column:2!important;grid-row:2!important;
+  align-self:start!important;
+  font-size:27px!important;line-height:1.08!important;
+  text-align:left!important;min-width:0;
+  font-variant-numeric:tabular-nums;
+}
+#farm .farm-supplies{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;margin:11px 0 5px!important;
+}
+#farm .farm-supplies>button{
+  box-sizing:border-box;min-width:0;min-height:54px;
+  display:flex;align-items:center;justify-content:center;
+  gap:8px;padding:10px 8px!important;
+  border-radius:15px!important;
+  border:1px solid rgba(133,212,255,.6)!important;
+  background:linear-gradient(145deg,rgba(23,109,175,.85),rgba(7,53,121,.92))!important;
+}
+#farm .farm-supplies>button img{height:33px;width:33px;object-fit:contain}
+#farm .farm-ads-strip{margin:8px 0 14px!important}
+#farm .farm-ads-strip>.btn{min-height:38px;font-size:12px}
+#coop .production-types{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;margin:10px 0 15px;
+}
+#coop .production-types>span{
+  display:flex;flex-direction:column;gap:4px;
+  min-width:0;padding:10px 12px;
+  border:1px solid rgba(113,197,255,.42);
+  border-radius:12px;background:rgba(3,33,84,.45);
+  color:#d5edff;font-size:13px;
+}
+#coop .production-types b{color:#fff;font-size:15px;font-weight:750}
+#coop .production-timers,
+#coop .production-forecast{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;margin-bottom:12px;
+}
+#coop .production-timer{
+  display:flex;flex-direction:column;justify-content:center;gap:7px;
+  min-width:0;min-height:82px;padding:12px 11px;
+  border:1px solid rgba(103,195,255,.6);border-radius:14px;
+  background:linear-gradient(145deg,#1166b0aa,#052c69bb);
+}
+#coop .production-timer>span{font-size:12px;color:#c5e6ff}
+#coop .production-timer>strong{font-size:23px;color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap}
+#coop .production-forecast>div{
+  min-width:0;display:flex;flex-direction:column;gap:5px;
+  padding:12px 10px;
+  background:rgba(4,43,93,.56);border-radius:12px;
+  border:1px solid rgba(111,189,243,.42)
+}
+#coop .production-forecast span{font-size:12px;color:#c3e3fd}
+#coop .production-forecast strong{font-size:17px;color:#a5fa91;white-space:nowrap}
+#coop .production-forecast strong b{font:inherit}
+#coop .production-ration{
+  padding:11px 12px;margin:4px 0;
+  border-radius:12px;background:rgba(4,30,73,.36);
+  font-size:13px;line-height:1.5;color:#d6ecff
+}
+#coop .production-ration strong{color:#fff}
+#coop .production-feed-status{font-size:13px;margin:6px 0 13px!important}
+#coop details.production-history{padding:13px 17px!important}
+#coop details.production-history>summary{font-size:16px;cursor:pointer}
+#coop .payback-redesign{
+  display:block!important;padding:17px!important;margin-top:12px;
+  border-radius:17px!important;overflow:hidden;
+}
+#coop .payback-redesign .payback-heading{
+  font-size:16px;font-weight:750;line-height:1.3;margin-bottom:12px;color:#fff;
+}
+#coop .payback-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px
+}
+#coop .payback-grid>div{
+  display:flex;flex-direction:column;gap:6px;
+  background:rgba(6,40,94,.5);border-radius:12px;
+  border:1px solid rgba(248,211,117,.42);padding:10px 12px;
+}
+#coop .payback-grid span{font-size:13px;color:#d8eaff}
+#coop .payback-grid strong{font-size:19px;color:#ffe184;line-height:1.2}
+#coop .payback-redesign>small{display:block;margin-top:12px;color:#c9def4;font-size:11px;line-height:1.4}
+#wallet .moneyhero{padding:20px 16px!important}
+#wallet .moneyhero .buttons{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px!important}
+#wallet .moneyhero .buttons>.btn{min-width:0;width:100%;min-height:48px;padding:9px 6px!important;font-size:17px}
+#wallet .wallet-ad-action{text-align:center;margin:14px 0}
+#wallet .wallet-ad-action .btn{max-width:100%;font-size:14px}
+#wallet .wallet-rate-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;margin:14px 0 10px;
+}
+#wallet .wallet-rate-grid>div{
+  box-sizing:border-box;min-width:0;
+  border:1px solid rgba(134,207,255,.56);
+  border-radius:14px;padding:12px 10px;
+  background:linear-gradient(145deg,rgba(13,83,150,.76),rgba(5,37,92,.76));
+  display:flex;flex-direction:column;gap:7px
+}
+#wallet .wallet-rate-grid span{font-size:12px;color:#c6e2fc;line-height:1.3}
+#wallet .wallet-rate-grid strong{color:#fff;font-size:17px;line-height:1.2;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+#wallet .wallet-transfer-hint{
+  font-size:12px;line-height:1.5;color:#d0e9ff;
+  margin:5px 0 8px;overflow-wrap:anywhere;text-align:center
+}
+#wallet .wallet-dialog-quote{
+  padding:12px;border-radius:12px;
+  background:rgba(12,77,137,.27);
+  font-size:14px;line-height:1.45;overflow-wrap:anywhere
+}
+@media(min-width:760px){
+ #farm .bird-resources{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+}
+@media(max-width:370px){
+ #farm .bird-resources>.resource{grid-template-columns:40px minmax(0,1fr)!important;padding:10px 7px!important;gap:2px 5px!important}
+ #farm .bird-resources>.resource>.icon,#farm .bird-resources>.resource>.feather-art{width:37px!important;height:44px!important;font-size:31px!important}
+ #farm .bird-resources>.resource>strong{font-size:23px!important}
+ #coop .production-timer>strong{font-size:20px}
+ #wallet .wallet-rate-grid strong{font-size:15px}
+}
