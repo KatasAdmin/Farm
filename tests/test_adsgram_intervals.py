@@ -1,4 +1,4 @@
-"""Cumulative AdsGram publisher snapshots: delta, viewer weighting, and replay guards."""
+"""AdsGram publisher balance snapshots are audit-only; they never mint rewards."""
 import unittest
 from decimal import Decimal
 from unittest.mock import patch
@@ -95,17 +95,16 @@ class IntervalTests(unittest.TestCase):
             earned=ads.report(db,1,'1.60',now=t+100)
         self.assertEqual(earned['delta'],'0.60')
         self.assertEqual((earned['cash_views'],earned['farm_views']),(2,1))
-        self.assertEqual(db.wallet[2],6)  # 2 bot views x $0.20 x 30% x 40 UAH
-        self.assertEqual(earned['credited_kopeks'],6)
-        self.assertEqual(Decimal(earned['farm_share_usd']),Decimal('0.20'))
-        self.assertEqual(len(db.farm_allocations),1)
-        self.assertEqual(Decimal(db.farm_allocations[0][3]),Decimal('0.20'))
-        self.assertEqual(len(db.credits),1)
-        self.assertEqual(len(db.ledger),1)
+        self.assertEqual(db.wallet[2],0)  # All cash rewards arrive at callback, never here
+        self.assertEqual(earned['credited_kopeks'],0)
+        self.assertTrue(earned['report_only'])
+        self.assertEqual(len(db.farm_allocations),0)
+        self.assertEqual(len(db.credits),0)
+        self.assertEqual(len(db.ledger),0)
         repeated=ads.report(db,1,'1.60',now=t+200)
         self.assertTrue(repeated['unchanged'])
         self.assertEqual(len(db.checkpoints),2)
-        self.assertEqual(db.wallet[2],6)
+        self.assertEqual(db.wallet[2],0)
 
     def test_low_revenue_does_not_block_fixed_reward_for_preexisting_unpaid_views(self):
         db=FakeDB()
@@ -115,7 +114,7 @@ class IntervalTests(unittest.TestCase):
         with patch.object(ads,'nbu_usd_uah',return_value=Decimal('40')):
             result=ads.report(db,1,'1.0001',now=t+20)
         self.assertEqual(result['delta'],'0.0001')
-        self.assertEqual(db.wallet[2],3)
+        self.assertEqual(db.wallet[2],0)
         self.assertEqual(len(db.checkpoints),2)
 
     def test_revenue_without_confirmed_views_cannot_be_distributed(self):
@@ -148,7 +147,7 @@ class IntervalTests(unittest.TestCase):
         self.assertEqual(result['delta'],'0.20')
         self.assertEqual(result['cash_views'],1)
         self.assertEqual(db.wallet[2],3)
-        self.assertEqual(len(db.ledger),1)
+        self.assertEqual(len(db.ledger),0)
 
     def test_reset_preserves_earlier_paid_credits_and_allows_lower_balance(self):
         db=FakeDB()
