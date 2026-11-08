@@ -1449,12 +1449,15 @@ def claim_staged_achievement(q:Request,authorization:str=Header(default="")):
 
 @app.get("/api/state")
 def state(authorization:str=Header(default="")):
+ # Farm production needs a write lock, but it must not be held while the
+ # dashboard runs dozens of independent analytics/market queries.
+ # Commit advancement before beginning the read-heavy snapshot.
  with db() as c:
   p=advance(c,person(c,authorization,True))
-  # New accounts start with 10 coins; previous balances remain untouched.
   if not p["welcome_granted"]:
    c.execute("UPDATE players SET welcome_granted=true WHERE id=%s",(p["id"],))
-   p={**p,"welcome_granted":True}
+ with db() as c:
+  p=person(c,authorization)
   listings=c.execute("SELECT m.item,m.price,m.quantity,p.name AS seller FROM market m JOIN players p ON p.id=m.seller WHERE m.quantity>0 ORDER BY m.price LIMIT 40").fetchall()
   available_eggs=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("eggs",p["id"])).fetchone()["total"]
   available_milk=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("milk",p["id"])).fetchone()["total"]
