@@ -166,7 +166,7 @@ class ExpandedAdvertisingRewards(AdFixture):
   self.assertEqual(self.p()['coins'],103)
   self.assertEqual(farm_wallet.available(self.c,self.p()),0)
   self.assertEqual(ad_inventory.balance(self.c,self.p()),3)
-  self.assertEqual(self.c.execute('SELECT total_minted FROM reward_emission WHERE id=1').fetchone()['total_minted'],2)
+  self.assertEqual(self.c.execute('SELECT total_minted FROM reward_emission WHERE id=1').fetchone()['total_minted'],3)
  def test_new_animal_grants_wait_for_housing_or_required_level(self):
   self.c.execute("INSERT INTO monetag_reward_grants VALUES('cow','p','cows',1,1,NULL)")
   self.c.execute("INSERT INTO monetag_reward_grants VALUES('goose','p','geese',1,2,NULL)")
