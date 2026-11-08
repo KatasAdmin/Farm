@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR
 
 from bot_economy import monetag_cash_allocation
-from bot_cash_ad_credits import nbu_usd_uah, FxUnavailable
+from bot_cash_ad_credits import nbu_usd_uah
+from bot_admin import adsgram_view_reward, FxUnavailable
 
 
 def initialize(c):
@@ -205,16 +206,17 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
     if len(rows)+int(farm_count)!=provider_impressions:
         raise ValueError("Publisher impressions do not match confirmed user events; review before credit")
     rate=nbu_usd_uah(c)
+    reward_kopeks=adsgram_view_reward(c)
     per_view=revenue/Decimal(provider_impressions)
-    if rows and per_view*rate*Decimal(100)*Decimal('0.30')<Decimal(3):
-        raise ValueError('Недостаточно подтверждённого рекламного дохода для 3 коп/просмотр. Начисления не проведены.')
+    if rows and per_view*rate*Decimal(100)*Decimal('0.30')<Decimal(reward_kopeks):
+        raise ValueError('Недостаточно подтверждённого рекламного дохода для установленной награды за просмотр. Начисления не проведены.')
     ledger={}
     viewer_counts={}
     for r in rows:
         alloc=monetag_cash_allocation(per_view,tuple(r["referral_chain"]))
         uid=int(r["uid"])
         viewer_counts[uid]=viewer_counts.get(uid,0)+1
-        for key,who,level,usd in [("viewer",uid,0,Decimal(3)/(rate*Decimal(100)))]+[
+        for key,who,level,usd in [("viewer",uid,0,Decimal(reward_kopeks)/(rate*Decimal(100)))]+[
            ("referral",int(ref["uid"]),int(ref["level"]),Decimal(ref["usd"]))
            for ref in alloc["referrals"]]:
             tup=(who,key,level)
@@ -232,7 +234,7 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
         fraction=c.execute("""SELECT remainder FROM bot_cash_ad_fraction
           WHERE uid=%s FOR UPDATE""",(uid,)).fetchone()
         amount=Decimal(str(fraction["remainder"]))+earned*rate*100
-        whole=(viewer_counts[uid]*3 if role=="viewer"
+        whole=(viewer_counts[uid]*reward_kopeks if role=="viewer"
                else int(amount.to_integral_value(rounding=ROUND_FLOOR)))
         if whole<0 or whole>9223372036854775807:raise ValueError("Amount out of range")
         c.execute("UPDATE bot_cash_ad_fraction SET remainder=%s WHERE uid=%s",
