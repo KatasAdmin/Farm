@@ -252,7 +252,7 @@ class BotScreenTests(unittest.TestCase):
         self.assertIsNone(bot.state(self.c,2))
         self.assertEqual(self.balance(2),1000)
         self.assertIn('Мой кабинет',self.send(2,'/start wallet')['text'])
-        self.assertEqual(self.send(2,'/start')['reply_markup']['keyboard'],bot.MENU)
+        self.assertEqual([[button['text'] for button in row] for row in self.send(2,'/start')['reply_markup']['keyboard']],bot.MENU)
 
     def test_new_earn_buttons_and_promotion_reach_working_routes_without_mutations(self):
         response=self.send(3,action='earn')
