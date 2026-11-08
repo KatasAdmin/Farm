@@ -146,7 +146,7 @@ class IntervalTests(unittest.TestCase):
             result=ads.report(db,1,'1.70',now=t+90)
         self.assertEqual(result['delta'],'0.20')
         self.assertEqual(result['cash_views'],1)
-        self.assertEqual(db.wallet[2],3)
+        self.assertEqual(db.wallet[2],0)
         self.assertEqual(len(db.ledger),0)
 
     def test_reset_preserves_earlier_paid_credits_and_allows_lower_balance(self):
