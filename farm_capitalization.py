@@ -7,7 +7,7 @@ from decimal import Decimal, ROUND_FLOOR
 import time
 
 SEED_USD=Decimal('1.00')
-GAME_VIEW_SUPPORT_KOPEKS=3
+GAME_VIEW_SUPPORT_KOPEKS=5
 
 
 def initialize(c):
