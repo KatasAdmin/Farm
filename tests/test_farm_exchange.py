@@ -143,17 +143,22 @@ class ExchangeTests(unittest.TestCase):
               'reserve_kopeks':500,'free_pool_kopeks':0}
         player={'id':'p','telegram_id':7,'coins':100}
         with patch.object(farm_exchange,'quote',return_value=rate):
-            first=farm_exchange.redeem(c,player,10,'redemption-1',bot,Decimal('40'))
-            again=farm_exchange.redeem(c,player,10,'redemption-1',bot,Decimal('40'))
+            first=farm_exchange.redeem(c,player,100,'redemption-1',bot,Decimal('40'))
+            again=farm_exchange.redeem(c,player,100,'redemption-1',bot,Decimal('40'))
             with self.assertRaises(HTTPException):
-                farm_exchange.redeem(c,player,11,'redemption-1',bot,Decimal('40'))
-        self.assertEqual(first['credited_kopeks'],50)
+                farm_exchange.redeem(c,player,101,'redemption-1',bot,Decimal('40'))
+        self.assertEqual(first['credited_kopeks'],500)
         self.assertFalse(first['repeated'])
         self.assertTrue(again['repeated'])
-        self.assertEqual(c.coins,90)
-        self.assertEqual(c.reserve,450)
-        self.assertEqual(credits,[(7,50)])
+        self.assertEqual(c.coins,0)
+        self.assertEqual(c.reserve,0)
+        self.assertEqual(credits,[(7,500)])
         self.assertEqual(len(c.logs),1)
+
+    def test_minimum_redemption_is_100_coins(self):
+        with self.assertRaises(HTTPException) as err:
+            farm_exchange.redeem(object(),{'id':'p','telegram_id':7,'coins':100},99,'some-transfer',object(),Decimal('40'))
+        self.assertEqual(err.exception.status_code,400)
 
     def test_cannot_redeem_at_zero_cash_price(self):
         class C:
@@ -165,7 +170,7 @@ class ExchangeTests(unittest.TestCase):
                 raise AssertionError(low)
         with patch.object(farm_exchange,'quote',return_value={'payout_enabled':False}):
             with self.assertRaises(HTTPException) as err:
-                farm_exchange.redeem(C(),{'id':'p','coins':100,'telegram_id':7},1,'idem-1',object(),Decimal('40'))
+                farm_exchange.redeem(C(),{'id':'p','coins':100,'telegram_id':7},100,'idem-1',object(),Decimal('40'))
         self.assertEqual(err.exception.status_code,409)
 
 if __name__=='__main__':
