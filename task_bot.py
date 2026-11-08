@@ -377,7 +377,7 @@ def bot_click_feed(c,uid,message,after_id=None,success=''):
     else:
         out=bot_ui.screen(uid,(success+'\n\n' if success else '')+'🤖 <b>Пока больше нет заданий на переход в ботов.</b>',
             [[button('🔄 Сначала','botclick:feed')],[button('⬅️ Заработать','earn')]])
-    if message.get('_callback_id') and isinstance(message.get('message_id'),int):
+    if message.get('_callback_id') and isinstance(message.get('message_id'),int) and not (message.get('photo') or message.get('video') or message.get('animation') or message.get('document')):
         out['method']='editMessageText'
         out['message_id']=message['message_id']
     return out
@@ -435,7 +435,7 @@ def membership_feed(c,uid,message,kind='channel',after_id=None,success='',api=No
         body=(success+'\n\n' if success else '')+'📭 <b>Пока больше нет заданий на '+label+'.</b>'
         buttons=[[button('🔄 Сначала',prefix+':feed')],[button('⬅️ Заработать','earn')]]
     out=bot_ui.screen(uid,body,buttons)
-    if message.get('_callback_id') and isinstance(message.get('message_id'),int):
+    if message.get('_callback_id') and isinstance(message.get('message_id'),int) and not (message.get('photo') or message.get('video') or message.get('animation') or message.get('document')):
         out['method']='editMessageText'
         out['message_id']=message['message_id']
     return out
