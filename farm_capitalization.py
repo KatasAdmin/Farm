@@ -65,7 +65,7 @@ def preview(c,usd_uah):
     players=c.execute("""SELECT COALESCE(SUM(coins),0) AS n FROM players""").fetchone()['n']
     treasury=c.execute("""SELECT COALESCE(treasury,0) AS n FROM economy WHERE id=1""").fetchone()
     # The treasury may later credit players; it is also part of coin circulation.
-    coins=int(players['n'])+int(treasury['n'] if treasury else 0)
+    coins=int(players)+int(treasury['n'] if treasury else 0)
     redeemed=c.execute("""SELECT COALESCE(SUM(credited_kopeks),0) AS n
       FROM farm_coin_redemptions WHERE created_at>=%s""",(since,)).fetchone()['n']
     result=calculate(seed,int(confirmed_farm)+int(monetag),int(deposits),
