@@ -144,7 +144,6 @@ def say(uid, text, buttons=None):
     return out
 
 def button_style(action):
-    "def button_style(action):
     """Semantic palette for all user-accessible callback buttons.
 
     Action identifiers are stable even when button labels are customized in
