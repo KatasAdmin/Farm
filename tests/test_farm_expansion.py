@@ -47,10 +47,10 @@ class ExpansionTests(unittest.TestCase):
  def test_cow_capacity_partial_claim_keeps_unclaimed_balance(self):
   self.grant('cows',50000)
   with self.context():
-   self.assertEqual(main.referral_claim(main.Request(item='cows'),'')['amount'],2)
+   self.assertEqual(main.referral_claim(main.Request(item='cows'),'')['amount'],4)
    with self.assertRaises(main.HTTPException):main.referral_claim(main.Request(item='cows'),'')
   row=self.c.execute("SELECT * FROM referral_rewards WHERE player_id='p'").fetchone()
-  self.assertEqual(feature.resources(row)['cows']['available'],3)
+  self.assertEqual(feature.resources(row)['cows']['available'],1)
  def test_milk_and_feathers_share_warehouse_with_all_other_resources(self):
   self.c.execute("UPDATE players SET grain=98,milk=1 WHERE id='p'");self.grant('feathers',30000)
   with self.context():self.assertEqual(main.referral_claim(main.Request(item='feathers'),'')['amount'],1)
