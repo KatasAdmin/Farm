@@ -3,7 +3,7 @@
 (()=>{
 'use strict';
 let cfg=null,working=false,recovering=null,lastRecover=0;
-const labels={grain:'зерно',eggs:'яйца',milk:'молоко',chickens:'курицу',geese:'гусыню',cows:'корову',coins:'монеты для покупок'};
+const labels={grain:'зерно',eggs:'яйца',milk:'молоко',chickens:'курицу',geese:'гусыню',cows:'корову',sheep:'овцу',coins:'монеты для покупок'};
 const adApi=(path,payload)=>api('/api/ads/adsgram/farm/'+path,payload,tgInitData()?{'X-Telegram-Init-Data':tgInitData()}:{});
 function notify(message){toast(message);const node=el('ad-inline-status');if(node)node.textContent=message;}
 function itemButton(item){
