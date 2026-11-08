@@ -180,6 +180,7 @@ async def lifespan(app):
   task_bot.initialize(c)
   logger.warning("farm_startup_bot_schema_ready")
   farm_wallet.initialize(c)
+  farm_capitalization.initialize(c)
   if os.environ.get("FARM_STAGING", "").lower() not in ("1", "true", "yes"):
    if release_grants.apply(c,task_bot):
     logger.warning("one_time_wallet_grant_applied uid=%s kopeks=%s",release_grants.UID,release_grants.AMOUNT)
