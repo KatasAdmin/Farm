@@ -36,7 +36,7 @@ class FakeDB:
             return Query(rows=[])
         if query.startswith('select 1 from bot_adsgram_daily_settlements'):
             return Query({'found':1} if args[0] in self.settlements else None)
-        if query.startswith('select uid,referral_chain from bot_adsgram_attempts'):
+        if query.startswith('select uid,referral_chain,paid_immediate from bot_adsgram_attempts'):
             return Query(rows=self.rows)
         if query.startswith('select count(*) as n from bot_adsgram_farm_attempts'):
             self.farm_time_bounds=args
