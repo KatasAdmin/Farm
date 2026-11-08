@@ -79,12 +79,12 @@ class DailyAdsGramTests(unittest.TestCase):
         db=FakeDB(rows)
         with patch.object(ads,'nbu_usd_uah',return_value=Decimal('40')):
             result=ads.settle_day(db,self.day(),'1.50',15,1)
-        self.assertEqual(result['credited_kopeks'],2000)
-        self.assertEqual(db.balances[1],600)  # viewer 5x
-        self.assertEqual(db.balances[2],1200) # viewer 10x
+        self.assertEqual(result['credited_kopeks'],245)
+        self.assertEqual(db.balances[1],15)  # viewer 5x
+        self.assertEqual(db.balances[2],30) # viewer 10x
         self.assertEqual(db.balances[3],200)  # 10% from 5 views
         self.assertEqual(len(db.ledger),3)
-        self.assertEqual(sum(x[2] for x in db.ledger),2000)
+        self.assertEqual(sum(x[2] for x in db.ledger),245)
         self.assertEqual(db.settlements[self.day()]['impressions'],15)
 
     def test_farm_views_count_in_shared_block_but_not_cash_rewarded(self):
@@ -93,7 +93,7 @@ class DailyAdsGramTests(unittest.TestCase):
             result=ads.settle_day(db,self.day(),'0.20',2,1)
         self.assertEqual(result['cash_views'],1)
         self.assertEqual(result['farm_views'],1)
-        self.assertEqual(db.balances[1],120)  # 30% of cash view's $0.10
+        self.assertEqual(db.balances[1],3)  # 30% of cash view's $0.10
 
     def test_dst_transition_uses_kyiv_day_bounds_for_farm_views(self):
         # 2026-10-25 has 25 hours in Europe/Kyiv, not 24.

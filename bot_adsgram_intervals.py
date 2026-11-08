@@ -130,8 +130,14 @@ def report(c,owner_uid,new_balance,now=None):
     count=len(cash)+farm_count
     if delta>0 and count==0:
         raise ValueError('Доход вырос, но за этот период нет подтверждённых AdsGram просмотров. Начисления остановлены; проверь источник дохода.')
-    ident=uuid.uuid4().hex
     rate=nbu_usd_uah(c) if delta>0 else None
+    # One verified cash-mode bot view earns exactly 3 kopeks, but no
+    # checkpoint is accepted when the viewer's 30% revenue allocation
+    # cannot cover that minimum. Referral shares remain in the existing
+    # budget; the platform keeps at least 35% of the gross reporting share.
+    if delta>0 and cash and (delta/Decimal(count))*rate*Decimal(100)*Decimal('0.30')<Decimal(3):
+        raise ValueError('Недостаточно подтверждённого рекламного дохода для награды 3 коп/просмотр. Сверку не провели.')
+    ident=uuid.uuid4().hex
     total=0
     c.execute("""INSERT INTO bot_adsgram_balance_checkpoints
       (id,observed_at,cumulative_usd,delta_usd,cash_views,farm_views,owner_uid,created_at)
@@ -147,9 +153,11 @@ def report(c,owner_uid,new_balance,now=None):
           VALUES(%s,%s,%s,%s,%s)""",
           (ident,farm_count,len(cash),farm_share,time.time()))
         ledger={}
+        viewer_counts={}
         for r in cash:
+            viewer_counts[int(r['uid'])]=viewer_counts.get(int(r['uid']),0)+1
             alloc=monetag_cash_allocation(per_view,tuple(r['referral_chain']))
-            entries=[('viewer',int(r['uid']),0,Decimal(alloc['viewer_usd']))]
+            entries=[('viewer',int(r['uid']),0,Decimal(3)/(rate*Decimal(100)))]
             entries.extend(('referral',int(q['uid']),int(q['level']),Decimal(q['usd']))
                            for q in alloc['referrals'])
             for role,uid,level,usd in entries:
@@ -164,11 +172,12 @@ def report(c,owner_uid,new_balance,now=None):
             fraction=c.execute("""SELECT remainder FROM bot_cash_ad_fraction
               WHERE uid=%s FOR UPDATE""",(uid,)).fetchone()
             kopeks=Decimal(str(fraction['remainder']))+earned*rate*100
-            whole=int(kopeks.to_integral_value(rounding=ROUND_FLOOR))
+            whole=(viewer_counts[uid]*3 if role=='viewer'
+                   else int(kopeks.to_integral_value(rounding=ROUND_FLOOR)))
             if whole<0 or whole>9223372036854775807:
                 raise ValueError('Сумма начисления вне диапазона')
             c.execute("UPDATE bot_cash_ad_fraction SET remainder=%s WHERE uid=%s",
-                      (kopeks-Decimal(whole),uid))
+                      (Decimal(str(fraction['remainder'])) if role=='viewer' else kopeks-Decimal(whole),uid))
             c.execute("""INSERT INTO bot_adsgram_interval_credits
               (checkpoint_id,uid,role,level,earned_usd,credited_kopeks)
               VALUES(%s,%s,%s,%s,%s,%s)""",(ident,uid,role,level,earned,whole))
