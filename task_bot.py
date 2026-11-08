@@ -147,7 +147,9 @@ def is_danger_label(label):
     """Cancel/decline/delete always looks dangerous regardless of callback route."""
     label=str(label or '').strip().casefold()
     # Handle emoji prefixes, custom labels and localized text.
-    return bool(re.search(r'\\b(отмен\\w*|отменить|скасув\\w*|скасувати|cancel|delete|удал\\w*|видал\\w*|відхил\\w*|отклон\\w*)\\b',label))
+    return any(word in label for word in (
+        'отмен', 'скасув', 'cancel', 'удал', 'видал', 'відхил', 'отклон'
+    ))
 
 
 def button_style(action):
