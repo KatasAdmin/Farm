@@ -58,6 +58,10 @@ def earn(c, uid):
         return ''
 
     def label(text, kind):
+        # Catalog counts cannot tell whether a user already belongs to a channel/group.
+        # Don't advertise a payout before the membership eligibility check runs.
+        if kind in ('channel', 'group', 'bot'):
+            return text
         reward = rate(kind)
         return text + (' · ' + reward if reward else '')
     text = tr('🚀 <b>Как хочешь заработать?</b>\n\n<b>💼 Доступные задания</b>\n📣 Подписаться на канал: <b>{v0}</b>\n👁 Посмотреть пост: <b>{v1}</b>\n🤖 Перейти в бота: <b>{v2}</b>\n👥 Вступить в группу: <b>{v3}</b>\n📝 Выполнить задание: <b>{v4}</b>\n🤝 Приглашать друзей: <b>можно</b>\n⭐ Квесты: <i>готовятся</i>\n\n<b>💎 Награды в доступных заданиях: {v5}</b>\n<i>За каждое задание награда выдаётся один раз после проверки.</i>', {'v0': f"{count('channel')}", 'v1': f"{count('post')}", 'v2': f"{count('bot')}", 'v3': f"{count('group')}", 'v4': f"{count('manual')}", 'v5': f'{b.money(total)}'}, html_mode=True, section='bot_ui', limit=3000)
