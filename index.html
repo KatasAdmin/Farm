@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="/assets/stars-mobile.css?v=13" />
     <link rel="stylesheet" href="/assets/market-polish.css?v=1" />
     <link rel="stylesheet" href="/assets/cattle.css?v=5" />
+    <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
     <script src="/assets/game.js?v=92" defer></script>
@@ -172,6 +173,7 @@
           <button type="button" class="resource resource-link" onclick="openResourceActions('milk')" aria-label="Молоко: купить или выставить на продажу"><img src="/assets/milk-v1.webp" class="icon" alt=""/><span>Молоко</span><strong data-value="milk">0</strong></button>
         </div>
         <div class="farm-supplies"><button onclick="openResourceActions('grain')"><img src="/assets/redesign/grain.webp" alt="">Зерно <strong data-value="grain">—</strong></button><button onclick="tab('storage')">Склад <strong><span data-building="storage_used">—</span> / <span data-building="storage_capacity">—</span></strong></button></div>
+        <div class="farm-ads-strip"><button type="button" class="btn alt small" data-ad-free="coins" onclick="window.FarmAds?.watch('coins')">🎬 Смотреть рекламу · +3 монеты</button></div>
         <div class="card herd compact-herd">
           <div class="health-line">
             <img
@@ -447,6 +449,7 @@
           <p class="muted">1 грн = 1 игровая монета. Зачисление только после проверки перевода администратором.</p>
           <label for="card-topup-file">Фото или PDF квитанции</label>
           <input id="card-topup-file" type="file" accept="image/jpeg,image/png,application/pdf">
+          <div class="muted" id="card-topup-history"></div>
           <p id="card-topup-status" role="status" class="muted" aria-live="polite"></p>
           <button class="btn wide" type="button" id="card-topup-submit" onclick="submitGameCardTopup()">Отправить квитанцию</button>
           <button class="btn alt wide" type="button" onclick="document.getElementById('card-topup-dialog').close()">Отмена</button>
