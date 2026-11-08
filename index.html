@@ -24,7 +24,7 @@
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
-    <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=1">
+    <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=2">
   </head>
   <body>
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
@@ -173,19 +173,27 @@
         <h2 class="section-title">
           Моё хозяйство
         </h2>
-        <div class="three resource-actions bird-resources">
-          <button type="button" class="resource resource-link" onclick="openResourceActions('chickens')" aria-label="Куры: купить или продать">
+        <div class="farm-resource-section">
+          <h3 class="farm-resource-heading"><span>🐾 Животные</span><small>Твоё поголовье</small></h3>
+          <div class="farm-resource-grid farm-resource-animals">
+            <button type="button" class="resource resource-link" onclick="openResourceActions('chickens')" aria-label="Куры: купить или продать">
             <img src="/assets/redesign/hen.webp" class="icon" alt="" decoding="async"/><span>Куры</span><strong data-value="chickens">—</strong>
           </button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('geese')" aria-label="Гуси: купить или продать"><img src="/assets/goose-v2.png" class="icon" alt=""/><span>Гуси</span><strong data-value="geese">0</strong></button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('cows')" aria-label="Коровы: купить или продать"><img src="/assets/cow-v1.webp" class="icon" alt=""/><span>Коровы</span><strong data-value="cows">0</strong></button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('sheep')" aria-label="Овцы: купить или продать"><span class="icon" role="img" aria-label="">🐑</span><span>Овцы</span><strong data-value="sheep">0</strong></button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('wool')" aria-label="Шерсть: купить или продать"><span class="icon" role="img" aria-label="">🧶</span><span>Шерсть</span><strong data-value="wool">0</strong></button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('eggs')" aria-label="Яйца: купить или выставить на продажу">
+            <button type="button" class="resource resource-link" onclick="openResourceActions('geese')" aria-label="Гуси: купить или продать"><img src="/assets/goose-v2.png" class="icon" alt=""/><span>Гуси</span><strong data-value="geese">0</strong></button>
+            <button type="button" class="resource resource-link" onclick="openResourceActions('cows')" aria-label="Коровы: купить или продать"><img src="/assets/cow-v1.webp" class="icon" alt=""/><span>Коровы</span><strong data-value="cows">0</strong></button>
+            <button type="button" class="resource resource-link" onclick="openResourceActions('sheep')" aria-label="Овцы: купить или продать"><span class="icon" role="img" aria-label="">🐑</span><span>Овцы</span><strong data-value="sheep">0</strong></button>
+          </div>
+        </div>
+        <div class="farm-resource-section">
+          <h3 class="farm-resource-heading"><span>📦 Продукция</span><small>Собрано и доступно</small></h3>
+          <div class="farm-resource-grid farm-resource-products">
+            <button type="button" class="resource resource-link" onclick="openResourceActions('eggs')" aria-label="Яйца: купить или выставить на продажу">
             <img src="/assets/redesign/egg.webp" class="icon" alt="" decoding="async"/><span>Яйца</span><strong data-value="eggs">—</strong>
           </button>
-          <button type="button" class="resource resource-link feather-resource" onclick="openResourceActions('feathers')" aria-label="Перья: хранить или продать"><img src="/assets/illustrations/feather-icon-v3.webp" class="icon" alt=""><span>Перья</span><strong data-value="feathers">0</strong></button>
-          <button type="button" class="resource resource-link" onclick="openResourceActions('milk')" aria-label="Молоко: купить или выставить на продажу"><img src="/assets/milk-v1.webp" class="icon" alt=""/><span>Молоко</span><strong data-value="milk">0</strong></button>
+            <button type="button" class="resource resource-link" onclick="openResourceActions('milk')" aria-label="Молоко: купить или выставить на продажу"><img src="/assets/milk-v1.webp" class="icon" alt=""/><span>Молоко</span><strong data-value="milk">0</strong></button>
+            <button type="button" class="resource resource-link" onclick="openResourceActions('wool')" aria-label="Шерсть: купить или продать"><span class="icon" role="img" aria-label="">🧶</span><span>Шерсть</span><strong data-value="wool">0</strong></button>
+            <button type="button" class="resource resource-link feather-resource" onclick="openResourceActions('feathers')" aria-label="Перья: хранить или продать"><img src="/assets/illustrations/feather-icon-v3.webp" class="icon" alt=""><span>Перья</span><strong data-value="feathers">0</strong></button>
+          </div>
         </div>
         <div class="farm-supplies"><button onclick="openResourceActions('grain')"><img src="/assets/redesign/grain.webp" alt="">Зерно <strong data-value="grain">—</strong></button><button onclick="tab('storage')">Склад <strong><span data-building="storage_used">—</span> / <span data-building="storage_capacity">—</span></strong></button></div>
         <div class="farm-ads-strip"><button type="button" class="btn alt small" data-ad-free="coins" onclick="window.FarmAds?.watch('coins')">🎬 Смотреть рекламу · +3 монеты</button></div>
@@ -371,7 +379,7 @@
           <div class="product catalog-row market-card animals"><span class="product-image" role="img" aria-label="Овца" style="display:grid;place-items:center;font-size:2.3rem">🐑</span><div class="product-copy"><h3>Овца</h3><small data-market-available="sheep">У игроков: — шт.</small><small>1 шерсть / сутки · окупаемость ~30 дней при продаже</small><small>2 зерна / 18 ч · место в хлеву</small></div><strong class="price">200<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" onclick="showShop('sheep')">Купить</button><button class="btn alt small" onclick="openSell('sheep')">Продать</button></div></div>
           <div class="product catalog-row market-card resources"><span class="product-image" role="img" aria-label="Шерсть" style="display:grid;place-items:center;font-size:2.3rem">🧶</span><div class="product-copy"><h3>Шерсть</h3><small data-market-available="wool">У игроков: — шт.</small><small>На складе: <b data-value="wool">0</b> шт.</small></div><strong class="price">12<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" onclick="selectBuy('wool')">Купить</button><button class="btn alt small" onclick="openSell('wool')">Продать</button></div></div>
           <div class="product catalog-row market-card resources"><img src="/assets/milk-v1.webp" class="product-image" alt="Молоко"><div class="product-copy"><h3>Молоко</h3><small id="milk-available">Доступно: — шт.</small><small>У других фермеров · на складе: <b data-value="milk">0</b></small></div><strong class="price">11<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button id="milk-buy-button" class="btn small" onclick="selectBuy('milk')">Купить</button><button class="btn alt small" onclick="openSell('milk')">Продать</button></div></div>
-          <div class="product catalog-row market-card resources"><img src="/assets/illustrations/feather-icon-v3.webp" class="product-image" alt="Перо"><div class="product-copy"><h3>Перо</h3><small data-market-available="feathers">У игроков: — шт.</small><small>На складе: <b data-value="feathers">0</b> шт.</small><small>Советуем сохранить для развития фермы</small></div><strong class="price">5<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn alt small" onclick="openSell('feathers')">Продать</button><button class="btn small" onclick="selectBuy('feathers')">Купить</button></div></div>
+          <div class="product catalog-row market-card resources"><img src="/assets/illustrations/feather-icon-v3.webp" class="product-image" alt="Перо"><div class="product-copy"><h3>Перо</h3><small data-market-available="feathers">У игроков: — шт.</small><small>На складе: <b data-value="feathers">0</b> шт.</small><small>Советуем сохранить для развития фермы</small></div><strong class="price">5<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" onclick="selectBuy('feathers')">Купить</button><button class="btn alt small" onclick="openSell('feathers')">Продать</button></div></div>
           <div class="product catalog-row market-card equipment incubator-shop"><img src="/assets/redesign/incubator.webp" class="product-image" alt="Инкубатор"><div class="product-copy"><h3>Инкубатор</h3><small data-incubator-summary>Выведение цыплят</small></div><strong class="price"><span data-incubator-price>Бесплатно</span><img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить</button></div></div>
           <div class="product catalog-row market-card equipment fields-market-row"><img class="product-image" src="/assets/illustrations/combine-icon-v2.webp" alt="Комбайн"><div class="product-copy"><h3>Комбайн</h3><small>Обслуживает до 5 полей</small></div><strong class="price">200<img src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="fields-buy-combine-market" onclick="buyFieldItem('combine')">Купить</button></div></div>
           </div>
