@@ -109,11 +109,11 @@ class MonetagRewardsTests(AdFixture):
    self.deliver();self.assertEqual(self.p()[item],100+qty if item=='coins' else qty)
   self.assertEqual(self.p()['fed_hens'],1);self.assertEqual(self.p()['coins'],103)
  def test_ad_sheep_reward_uses_shared_cowshed_capacity(self):
-  self.c.execute("UPDATE players SET cows=2 WHERE id='p'");self.c.raw.commit()
+  self.c.execute("UPDATE players SET cows=4 WHERE id='p'");self.c.raw.commit()
   self.c.execute("INSERT INTO monetag_reward_grants(id,player_id,item,quantity,created) VALUES('sheep-grant','p','sheep',1,1)");self.c.raw.commit()
   self.assertEqual(self.deliver()['pending'],1)
   self.assertEqual(self.p()['sheep'],0)
-  self.c.execute("UPDATE players SET cows=1 WHERE id='p'");self.c.raw.commit()
+  self.c.execute("UPDATE players SET cows=3 WHERE id='p'");self.c.raw.commit()
   self.assertEqual(self.deliver()['granted'],[{'item':'sheep','quantity':1}])
   self.assertEqual((self.p()['sheep'],self.p()['fed_sheep'],self.p()['ad_sheep']),(1,1,1))
   self.assertEqual(self.deliver()['granted'],[])
@@ -197,7 +197,7 @@ class ExpandedAdvertisingRewards(AdFixture):
  def test_new_animal_grants_wait_for_housing_or_required_level(self):
   self.c.execute("INSERT INTO monetag_reward_grants VALUES('cow','p','cows',1,1,NULL)")
   self.c.execute("INSERT INTO monetag_reward_grants VALUES('goose','p','geese',1,2,NULL)")
-  self.c.execute("UPDATE players SET cows=2,farmer_level=1 WHERE id='p'");self.c.raw.commit()
+  self.c.execute("UPDATE players SET cows=4,farmer_level=1 WHERE id='p'");self.c.raw.commit()
   self.assertEqual(self.deliver()['pending'],2)
   with self.assertRaises(HTTPException):self.prepare('geese')
   self.c.execute("UPDATE players SET cowshed_level=2,farmer_level=3 WHERE id='p'");self.c.raw.commit()
