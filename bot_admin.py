@@ -32,6 +32,7 @@ def initialize(c):
     for key, (_, enabled) in PAYMENT_METHODS.items():
         c.execute('INSERT INTO bot_controls VALUES(%s,%s) ON CONFLICT DO NOTHING',(key,enabled))
     c.execute("INSERT INTO bot_controls VALUES('crypto_payout_cap',10000) ON CONFLICT DO NOTHING")
+    c.execute("INSERT INTO bot_controls VALUES('adsgram_view_reward',3) ON CONFLICT DO NOTHING")
     # One-time policy migration: 15 UAH global minimum; later owner edits remain authoritative.
     c.execute("CREATE TABLE IF NOT EXISTS bot_settings_migrations(key text PRIMARY KEY)")
     if os.getenv('RAILWAY_ENVIRONMENT_NAME') == 'production':
@@ -43,6 +44,11 @@ PAYMENT_METHODS = {
     'crypto_deposit': ('💎 Пополнение Crypto Bot', 0),
     'crypto_withdraw': ('💎 Вывод Crypto Bot', 0),
 }
+
+def adsgram_view_reward(c):
+    row=c.execute("SELECT value FROM bot_controls WHERE key='adsgram_view_reward'").fetchone()
+    return int(row['value']) if row else 3
+
 
 def method_enabled(c, key):
     if key not in PAYMENT_METHODS:
@@ -207,7 +213,9 @@ def settings(c, uid, section):
     elif section == 'rewards':
         n = c.execute('SELECT daily FROM bot_settings WHERE id=1').fetchone()['daily']
         text = tr('🎁 <b>Награды и партнёры</b>\n\nЕжедневная награда: {v0}\n\n', {'v0': b.money(n)}, html_mode=True, section='bot_admin', limit=3000)
-        rows = [[b.button('🎁 Ежедневная награда', 'admin:field:daily')]]
+        text+='📺 За подтверждённый просмотр рекламы в боте: <b>'+b.money(adsgram_view_reward(c))+'</b>\n\n'
+        rows = [[b.button('🎁 Ежедневная награда', 'admin:field:daily')],
+                [b.button('📺 Награда за просмотр', 'admin:field:adsgram_view_reward')]]
         for i in range(1, 6):
             text += tr('Уровень {v0}: {v1}%\n', {'v0': f'{i}', 'v1': f"{b.bot_economy.pct(cfg['ref' + str(i)])}"}, html_mode=True, section='bot_admin', limit=3000)
             rows.append([b.button('🤝 Уровень ' + str(i), 'admin:field:ref' + str(i))])
@@ -238,6 +246,8 @@ def field_value(c, key):
         return ('Комиссия заданий' if key == 'fee' else 'Реферальный уровень ' + key[-1], b.bot_economy.pct(cfg[key]) + '%')
     if key == 'daily':
         return ('Ежедневная награда', b.money(c.execute('SELECT daily FROM bot_settings WHERE id=1').fetchone()['daily']))
+    if key == 'adsgram_view_reward':
+        return ('Награда за подтверждённый просмотр в боте',b.money(adsgram_view_reward(c)))
     if key in ('days', 'multiplier'):
         return ('Срок подписки' if key == 'days' else 'Множитель штрафа', str(cfg[key]))
     if key in LIMITS:
@@ -271,6 +281,14 @@ def save_field(c, uid, key, text):
     elif key == 'daily':
         b.bot_economy.edit(c, uid, text, {'field': 'bonus'})
         section = 'rewards'
+    elif key == 'adsgram_view_reward':
+        value=b.amount(text)
+        if value>100:raise b.UserError('Максимальная награда 1 грн за просмотр.')
+        old=adsgram_view_reward(c)
+        c.execute("UPDATE bot_controls SET value=%s WHERE key='adsgram_view_reward'",(value,))
+        c.execute("INSERT INTO bot_ledger VALUES(%s,%s,0,'economy_config',%s,%s)",
+                  (uuid.uuid4().hex,uid,'adsgram_view_reward: '+str(old)+' -> '+str(value),time.time()))
+        section='rewards'
     elif key in ('days', 'multiplier'):
         values = [str(cfg['days']), str(cfg['multiplier'])]
         values[0 if key == 'days' else 1] = text

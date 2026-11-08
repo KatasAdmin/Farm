@@ -27,13 +27,15 @@ class FakeDB:
         self.farm_allocations=[]
     def execute(self,sql,args=()):
         q=' '.join(sql.lower().split())
+        if q.startswith("select value from bot_controls where key='adsgram_view_reward'"):
+            return Query({'value':3})
         if q.startswith('select pg_advisory_xact_lock'):
             return Query()
         if q.startswith('select * from bot_adsgram_balance_checkpoints'):
             return Query(self.checkpoints[-1] if self.checkpoints else None)
         if q.startswith('select 1 from bot_adsgram_daily_settlements'):
             return Query()
-        if q.startswith('select id,uid,referral_chain from bot_adsgram_attempts'):
+        if q.startswith('select id,uid,referral_chain,paid_immediate from bot_adsgram_attempts'):
             lo,hi=args
             return Query(many=[x for x in self.views if lo<=x['confirmed_at']<hi])
         if q.startswith('select count(*) as n from bot_adsgram_farm_attempts'):
@@ -105,16 +107,16 @@ class IntervalTests(unittest.TestCase):
         self.assertEqual(len(db.checkpoints),2)
         self.assertEqual(db.wallet[2],6)
 
-    def test_low_publisher_revenue_cannot_mint_fixed_cash(self):
+    def test_low_revenue_does_not_block_fixed_reward_for_preexisting_unpaid_views(self):
         db=FakeDB()
         t=1762500000.0
         ads.report(db,1,'1.00',now=t)
         db.views=[{'id':'tiny','uid':2,'referral_chain':[],'confirmed_at':t+2}]
         with patch.object(ads,'nbu_usd_uah',return_value=Decimal('40')):
-            with self.assertRaisesRegex(ValueError,'Недостаточно подтверждённого'):
-                ads.report(db,1,'1.0001',now=t+20)
-        self.assertEqual(db.wallet[2],0)
-        self.assertEqual(len(db.checkpoints),1)
+            result=ads.report(db,1,'1.0001',now=t+20)
+        self.assertEqual(result['delta'],'0.0001')
+        self.assertEqual(db.wallet[2],3)
+        self.assertEqual(len(db.checkpoints),2)
 
     def test_revenue_without_confirmed_views_cannot_be_distributed(self):
         db=FakeDB()
