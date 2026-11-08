@@ -34,7 +34,8 @@ class Database:
             columns = {row[1] for row in self.raw.execute('PRAGMA table_info(bot_accounts)')}
             sql = 'SELECT 1' if 'advertising' in columns else sql.replace(' IF NOT EXISTS', '')
         for table, column in (('bot_payout_channel_posts','recipient_uid'),
-                              ('bot_payouts','public_profile')):
+                              ('bot_payouts','public_profile'),
+                              ('bot_card_topups','approved_at')):
             prefix='ALTER TABLE '+table+' ADD COLUMN IF NOT EXISTS '+column
             if sql.startswith(prefix):
                 columns={row[1] for row in self.raw.execute('PRAGMA table_info('+table+')')}
