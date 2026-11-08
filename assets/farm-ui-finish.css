@@ -257,3 +257,13 @@
   grid-template-columns:38px minmax(0,1fr) 49px!important;column-gap:6px!important
  }
 }
+
+/* One shared animal shelter for cows and sheep. */
+#coop .stadnik-card{border:1px solid rgba(124,201,255,.55);border-radius:19px;padding:17px}
+#coop .stadnik-card>.cardtitle{margin:0 0 7px}
+#coop .stadnik-card>p{color:#cfebff;font-size:13px;line-height:1.45;margin:5px 0 12px}
+#coop .stadnik-capacity{display:flex;align-items:center;gap:13px;padding:13px 15px;margin:8px 0 13px;background:rgba(5,34,85,.52);border:1px solid rgba(115,204,255,.4);border-radius:13px}
+#coop .stadnik-capacity>strong{font-size:27px;line-height:1.1;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums}
+#coop .stadnik-capacity>span{font-size:13px;line-height:1.3;color:#d5edff}
+#coop .stadnik-card>.btn{min-height:45px}
+#coop .stadnik-card>p.muted{margin-top:9px;margin-bottom:0;font-size:12px}
