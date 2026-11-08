@@ -17,6 +17,7 @@ import farm_ranking
 import release_grants
 import farm_wallet
 import farm_exchange
+import farm_capitalization
 import farm_card_web
 import referral_bridge
 from bot_copy import tr
@@ -180,6 +181,7 @@ async def lifespan(app):
   task_bot.initialize(c)
   logger.warning("farm_startup_bot_schema_ready")
   farm_wallet.initialize(c)
+  farm_capitalization.initialize(c)
   farm_exchange.initialize(c)
   if os.environ.get("FARM_STAGING", "").lower() not in ("1", "true", "yes"):
    if release_grants.apply(c,task_bot):
