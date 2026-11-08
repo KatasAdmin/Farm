@@ -54,6 +54,17 @@ class BotScreenTests(unittest.TestCase):
                 if 'callback_data' in button:
                     self.assertLessEqual(len(button['callback_data'].encode()),64)
 
+    def test_cancel_buttons_are_red_even_when_they_navigate_to_deposit(self):
+        # CryptoPay input uses cancel_action='deposit', which is normally green.
+        cancel=bot.button('✖️ Отмена', 'deposit')
+        self.assertEqual(cancel['callback_data'], 'bot:deposit')
+        self.assertEqual(cancel['style'], 'danger')
+        self.assertEqual(bot.button('➕ Пополнить', 'deposit')['style'], 'success')
+        self.assertEqual(bot.button('⬅️ Мой кабинет', 'cabinet')['style'], 'primary')
+        raw={'text': '✖️ Отмена', 'callback_data': 'bot:deposit', 'style': 'success'}
+        self.assertEqual(bot.style_inline_buttons([[raw]])[0][0]['style'], 'danger')
+        self.assertEqual(raw['style'], 'success')
+
     def test_cabinet_actions_reordered_and_no_unwanted_sentence(self):
         self.credit()
         response=self.send(2,action='cabinet')
