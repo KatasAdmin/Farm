@@ -104,8 +104,8 @@ def mint_from_card(c,amount_kopeks,usd_uah):
     return count,offer
 
 def redeem(c,player,coins,key,bot,usd_uah):
-    if type(coins) is not int or not 1<=coins<=MAX_REDEEM:
-        raise HTTPException(400,'Укажи количество монет от 1 до 1 000 000 000')
+    if type(coins) is not int or not 100<=coins<=MAX_REDEEM:
+        raise HTTPException(400,'Минимальный перевод — 100 монет')
     if not isinstance(key,str) or len(key)>128 or not key:
         raise HTTPException(400,'Некорректный номер вывода')
     uid=player.get('telegram_id')
