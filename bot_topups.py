@@ -354,9 +354,8 @@ def admin(c, uid, action):
                 raise b.UserError('Связь с фермой изменилась. Пополнение не проведено; проверь заявку.')
             if row['amount']%100:raise b.UserError('Сумма фермы должна быть целым количеством гривен.')
             import farm_exchange
-            from bot_cash_ad_credits import nbu_usd_uah
             try:
-                coins,_quote=farm_exchange.mint_from_card(c,row['amount'],nbu_usd_uah(c))
+                coins,_quote=farm_exchange.mint_from_card(c,row['amount'],None)
             except ValueError as exc:
                 raise b.UserError('Пополнение не выполнено: '+str(exc))
             c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(coins,player['id']))
