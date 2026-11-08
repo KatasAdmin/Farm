@@ -20,6 +20,7 @@ def initialize(c):
     # obsolete partial index while retaining all existing requests and money.
     c.execute("DROP INDEX IF EXISTS bot_one_pending_card")
     c.execute("CREATE INDEX IF NOT EXISTS bot_card_pending_user ON bot_card_topups(uid,status)")
+    c.execute("ALTER TABLE bot_card_topups ADD COLUMN IF NOT EXISTS approved_at double precision")
     c.execute("""CREATE TABLE IF NOT EXISTS farm_card_topup_targets(
       topup_id text PRIMARY KEY REFERENCES bot_card_topups(id),
       player_id text NOT NULL, telegram_id bigint NOT NULL)""")
@@ -344,7 +345,7 @@ def admin(c, uid, action):
         reference='card-receipt:'+row['id']
         if not c.execute('INSERT INTO bot_deposits VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING reference', (reference, row['uid'], row['amount'], time.time())).fetchone():
             raise b.UserError(tr('Эта банковская операция уже учтена. Повторного начисления нет.', html_mode=False, section='bot_topups', limit=3000))
-        c.execute("UPDATE bot_card_topups SET status='approved',reference=%s WHERE id=%s", (reference, row['id']))
+        c.execute("UPDATE bot_card_topups SET status='approved',reference=%s,approved_at=%s WHERE id=%s", (reference, time.time(), row['id']))
         target=c.execute("SELECT player_id,telegram_id FROM farm_card_topup_targets WHERE topup_id=%s FOR UPDATE",(row['id'],)).fetchone()
         if target:
             # Commit the cash payment and farm coins in the same DB transaction.
