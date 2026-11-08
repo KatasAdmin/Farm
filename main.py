@@ -1795,6 +1795,19 @@ def admin_summary(authorization:str=Header(default="")):
   pending=c.execute("SELECT COUNT(*)::int AS n,COALESCE(SUM(amount),0)::bigint AS coins FROM withdrawal_requests WHERE status='pending'").fetchone()
  return {"players":players["n"],"player_coins":players["coins"],"pending_requests":pending["n"],"pending_reserved_coins":pending["coins"],"read_only":True}
 
+@app.get("/api/farm/exchange/quote")
+def farm_exchange_quote(authorization:str=Header(default="")):
+ with db() as c:
+  player=person(c,authorization)
+  rate=bot_cash_ad_credits.nbu_usd_uah(c)
+  raw=farm_exchange.quote(c,rate)
+  return {"coin_price_uah":raw['coin_price_uah'],
+          "purchase_price_uah":raw['purchase_price_uah'],
+          "payout_enabled":raw['payout_enabled'],
+          "balance_value_kopeks":int((Decimal(str(raw['coin_price_kopeks']))*
+                  Decimal(player['coins'])).to_integral_value(rounding=ROUND_FLOOR)),
+          "coin_count":player['coins']}
+
 @app.get("/api/farm/card/config")
 def farm_card_config(authorization:str=Header(default="")):
  with db() as c:
