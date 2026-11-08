@@ -1799,8 +1799,7 @@ def admin_summary(authorization:str=Header(default="")):
 def farm_exchange_quote(authorization:str=Header(default="")):
  with db() as c:
   player=person(c,authorization)
-  rate=bot_cash_ad_credits.nbu_usd_uah(c)
-  raw=farm_exchange.quote(c,rate)
+  raw=farm_exchange.quote(c,None)
   return {"coin_price_uah":raw['coin_price_uah'],
           "nominal_coin_price_uah":str(Decimal(str(raw['nominal_kopeks']))/Decimal(str(raw['total_coins']))/Decimal(100)) if raw['total_coins'] else "0",
           "purchase_price_uah":raw['purchase_price_uah'],
@@ -1837,8 +1836,7 @@ def request_withdrawal(q:Request,authorization:str=Header(default="")):
   c.execute("SELECT pg_advisory_xact_lock(%s)",(task_bot.LOCK,))
   p=advance(c,person(c,authorization,True))
   if not p.get('telegram_id'):raise HTTPException(403,'Сначала привяжи Telegram к ферме')
-  rate=bot_cash_ad_credits.nbu_usd_uah(c)
-  result=farm_exchange.redeem(c,p,q.amount,key,task_bot,rate)
+  result=farm_exchange.redeem(c,p,q.amount,key,task_bot,None)
  task_bot.bot_notifications.wake()
  return result
 
@@ -1859,8 +1857,7 @@ def withdrawal_status(authorization:str=Header(default="")):
   p=person(c,authorization)
   last=c.execute("SELECT id,amount,status,created,reserved FROM withdrawal_requests WHERE player_id=%s ORDER BY created DESC LIMIT 1",(p["id"],)).fetchone()
   sources=farm_wallet.balances(c,p)
-  rate=bot_cash_ad_credits.nbu_usd_uah(c)
-  price=farm_exchange.quote(c,rate)
+  price=farm_exchange.quote(c,None)
   amount=(int(Decimal(str(price['coin_price_kopeks']))*Decimal(p['coins']))
           if price['payout_enabled'] else 0)
  return {"sources":sources,"minimum":100,"request":last,
