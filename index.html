@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=102" defer></script>
+    <script src="/assets/game.js?v=103" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
@@ -30,7 +30,8 @@
     <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
       <h1 style="font-size:30px">🐔 Ферма</h1>
       <p id="boot-status">Загружаем ферму…</p>
-      <button type="button" style="margin-top:16px;padding:14px 24px;border-radius:14px;border:1px solid #80d6ff;background:#1267b8;color:white;font-size:17px" onclick="if(window.retryFarmStartup)retryFarmStartup();else location.reload()">Повторить загрузку</button>
+      <button type="button" style="margin-top:16px;padding:14px 24px;border-radius:14px;border:1px solid #80d6ff;background:#1267b8;color:white;font-size:17px" onclick="if(window.retryFarmStartup)window.retryFarmStartup();else location.reload()">Повторить загрузку</button>
+      <button type="button" style="margin-top:9px;padding:10px 18px;border-radius:12px;border:1px solid #6ba8ee;background:#133c7d;color:white;font-size:14px" onclick="if(window.chooseFarmLogin)window.chooseFarmLogin();else location.reload()">Войти другим способом</button>
       <a href="/" style="display:inline-block;text-decoration:none;margin-top:9px;padding:9px 16px;border:1px solid #80d6ff;background:transparent;color:white;border-radius:11px;font-size:14px">Перезапустить приложение</a>
       <noscript>Для запуска игры необходимо включить JavaScript.</noscript>
     </section>
@@ -73,6 +74,7 @@
           />
           10 монет при регистрации · 1 курица · 5 зерна
         </p>
+        <div class="fast-telegram-login"><button type="button" class="btn blue wide telegram-entry" onclick="telegramLogin()" hidden>⚡ Продолжить через Telegram</button><p class="muted">Есть ферма с ником и паролем? Войди ниже и привяжи Telegram, чтобы сохранить прогресс.</p></div>
         <form id="join-form">
           <label for="name">Имя фермера</label
           ><input
@@ -87,7 +89,7 @@
           <button class="btn wide" type="submit">Начать новую жизнь →</button>
         </form>
         <form id="password-login-form" class="password-login"><h3>Уже есть ферма? Войти</h3><label for="login-name">Ник</label><input id="login-name" autocomplete="username" maxlength="22" required><label for="login-password">Пароль</label><input id="login-password" type="password" autocomplete="current-password" required><button class="btn blue wide" type="submit">Войти</button></form>
-        <button type="button" class="btn blue wide telegram-entry" onclick="telegramLogin()" hidden>Войти через Telegram</button><p class="muted">Если у тебя уже есть ферма с паролем, сначала войди в неё внутри Telegram и привяжи Telegram в профиле. Иначе будет создана новая ферма.</p>
+        
 
         <small>Регистрируйся по уникальному нику и паролю. Если уже есть ферма, войди по нику и паролю либо через Telegram.</small>
       </div>
