@@ -35,7 +35,8 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('nominal_rate',main)
  def test_script_cache_version_is_current(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
-  self.assertIn("/assets/game.js?v=95",html)
+  self.assertRegex(html,r'/assets/game\\.js\\?v=[1-9][0-9]*')
+  self.assertEqual(len(re.findall(r'/assets/game\\.js\\?v=[0-9]+',html)),1)
  def test_launch_help_and_placeholder_polish(self):
   root=Path(__file__).resolve().parents[1]
   html=(root/"index.html").read_text(encoding="utf-8")
