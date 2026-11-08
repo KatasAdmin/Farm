@@ -488,7 +488,7 @@ function openResourceActions(item) {
   el("resource-action-sell").textContent="Выставить на продажу";
   el("resource-actions-dialog").showModal();
 }
-const adRewards={grain:[1,1,"🌾"],eggs:[2,2,"🥚"],milk:[5,1,"🥛"],chickens:[20,1,"🐔"],geese:[80,1,"🪿"],cows:[250,1,"🐄"],coins:[1,3,"🪙"]};
+const adRewards={grain:[1,1,"🌾"],eggs:[2,2,"🥚"],milk:[5,1,"🥛"],chickens:[20,1,"🐔"],geese:[80,1,"🪿"],cows:[250,1,"🐄"],sheep:[100,1,"🐑"],coins:[1,3,"🪙"]};
 let selectedAdReward="grain";
 let adProgress={};
 function selectAdReward(item){
