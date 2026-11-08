@@ -1285,12 +1285,12 @@ def _administration(c, uid, text, action, api):
             pending=int(c.execute("""SELECT COUNT(*) AS n FROM bot_adsgram_attempts
                 WHERE state='pending' AND started_at>=%s""",(start,)).fetchone()['n'])
             return bot_ui.screen(uid,
-                '📊 <b>AdsGram — контроль начислений</b>\n\n'
+                '📊 <b>AdsGram — статистика дохода</b>\n\n'
                 'Точка отсчёта: $'+bot_ui.esc(str(current['cumulative_usd']))+'\n'
                 'Новых подтверждённых просмотров в боте: <b>'+str(confirmed_bot)+'</b>\n'
                 'Новых подтверждённых просмотров в ферме: <b>'+str(confirmed_farm)+'</b>\n'
                 'Ожидают подтверждения в боте: '+str(pending)+'\n\n'
-                'Если подтверждённых просмотров нет, прирост баланса не распределяется. '
+                'Прибыль только фиксируется для статистики; награды уже начислены за успешные просмотры. '
                 'Сброс не заменяет настройку SDK-подтверждений.',
                 [[button('⬅️ Админка','admin')]])
         if len(parts)==3 and parts[1].lower()=='reset':
@@ -1319,12 +1319,12 @@ def _administration(c, uid, text, action, api):
         elif result.get('unchanged'):
             output='🕒 <b>AdsGram: баланс не изменился</b>\n\nБаланс: $'+result['balance']+'\nКонтрольная точка сохранена прежней. Просмотры ожидают прироста дохода.'
         else:
-            output=('✅ <b>AdsGram: начисления за интервал</b>\n\n'
+            output=('✅ <b>AdsGram: новый доход записан</b>\n\n'
                  +'Баланс: $'+result['balance']
                  +'\nПрирост: $'+result['delta']
                  +'\nПросмотры в боте: '+str(result['cash_views'])
                  +'\nПросмотры в ферме: '+str(result['farm_views'])
-                 +'\nНачислено: '+money(result['credited_kopeks']))
+                 +'\nВознаграждения за рекламу начисляются отдельно, сразу после успешного просмотра.')
         return bot_ui.screen(uid,output,[[button('⬅️ Кабинет','cabinet')]])
     if command == '/adsincome':
         # Only the primary FARM owner may allocate actual publisher revenue.
@@ -1339,14 +1339,14 @@ def _administration(c, uid, text, action, api):
         except (ValueError,TypeError) as exc:
             raise UserError('Начисления НЕ выполнены: '+str(exc))
         return bot_ui.screen(uid,
-            '✅ <b>AdsGram: вчерашний доход распределён</b>\n'
+            '✅ <b>AdsGram: вчерашний доход записан</b>\n'
             +'Дата по Киеву: '+result['day']+'\n'
             +'Всего подтверждённых реклам: '+str(result['provider_impressions'])+'\n'
             +'Из них за игровые ресурсы: '+str(result['farm_views'])+'\n'
             +'За деньги в боте: '+str(result['cash_views'])+'\n'
             +'Доход AdsGram: '+result['publisher_usd']+' USDT\n'
-            +'Начислено зрителям и рефералам: '+money(result['credited_kopeks'])+'\n'
-            +'Остаток FARM: не менее '+result['platform_usd_at_least']+' USD',
+            +'Зрители получают фиксированную награду сразу после просмотра; рекламных комиссий рефералам нет.\n'
+            +'Это статистика, а не распределение денег.',
             [[button('⬅️ Админ-панель','admin')]])
     if command == '/adsgramsettle':
         # Additional bot moderators must not approve money transfers.
@@ -1361,12 +1361,12 @@ def _administration(c, uid, text, action, api):
         except (ValueError,TypeError) as exc:
             raise UserError('Невозможно провести суточную сверку AdsGram: '+str(exc))
         return bot_ui.screen(uid,
-            '✅ <b>AdsGram: суточный доход распределён</b>\n'
+            '✅ <b>AdsGram: суточный доход записан</b>\n'
             +'Дата по Киеву: '+result['day']+'\n'
             +'Подтверждённых показов: '+str(result['provider_impressions'])+'\n'
             +'Доход AdsGram: '+result['publisher_usd']+' USDT\n'
-            +'Начислено людям: '+money(result['credited_kopeks'])+'\n'
-            +'Доля проекта: не менее '+result['platform_usd_at_least']+' USD',
+            +'Фиксированные награды начисляются за просмотр, без этой команды.\n'
+            +'Реферальные награды по рекламе не начисляются.',
             [[button('⬅️ Админ-панель','admin')]])
     if command in ('/botcredit', '/botfund', '/botpaid'):
         try:
