@@ -354,8 +354,14 @@ def admin(c, uid, action):
             if not player or target['telegram_id']!=row['uid']:
                 raise b.UserError('Связь с фермой изменилась. Пополнение не проведено; проверь заявку.')
             if row['amount']%100:raise b.UserError('Сумма фермы должна быть целым количеством гривен.')
-            coins=row['amount']//100
+            import farm_exchange
+            from bot_cash_ad_credits import nbu_usd_uah
+            try:
+                coins,_quote=farm_exchange.mint_from_card(c,row['amount'],nbu_usd_uah(c))
+            except ValueError as exc:
+                raise b.UserError('Пополнение не выполнено: '+str(exc))
             c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(coins,player['id']))
+            farm_exchange.credit_verified_card(c,row['id'],row['amount'])
             log_id=uuid.uuid4().hex
             c.execute("INSERT INTO money_log(id,player_id,kind,delta,details,created) VALUES(%s,%s,%s,%s,%s,%s)",
                       (log_id,player['id'],'card_purchase',coins,'Пополнение фермы картой · '+row['id'],time.time()))
@@ -364,12 +370,12 @@ def admin(c, uid, action):
         else:
             b.change(c, row['uid'], row['amount'], 'manual_deposit', 'Перевод на карту · ' + row['id'])
         c.execute('UPDATE bot_cash_pool SET amount=amount+%s WHERE id=1', (row['amount'],))
-        notice=('🐔 ✅ Пополнение фермы подтверждено\\n\\nНачислено: '+str(row['amount']//100)+' монет'
+        notice=('🐔 ✅ Пополнение фермы подтверждено\\n\\nНачислено: '+str(coins)+' монет'
                 if target else '✅ Пополнение подтверждено\\n\\nНа баланс зачислено: '+b.money(row['amount']))
         b.bot_notifications.enqueue(c,'card-approved:'+row['id'],
                                     notice+'\\nЗаявка: '+row['id'],recipient=row['uid'])
         b.state(c, uid, 'clear')
-        label=(str(row['amount']//100)+' монет в ферму' if target else b.money(row['amount'])+' в бот')
+        label=(str(coins)+' монет в ферму' if target else b.money(row['amount'])+' в бот')
         return ui.screen(uid,'✅ Зачислено '+label+' пользователю '+str(row['uid']))
     return None
 
