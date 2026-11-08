@@ -109,11 +109,30 @@ def state(c, uid, stage=None, data=None):
     else:
         c.execute('INSERT INTO bot_states VALUES(%s,%s,%s,%s) ON CONFLICT(uid)\n          DO UPDATE SET state=EXCLUDED.state,data=EXCLUDED.data,updated=EXCLUDED.updated', (uid, stage, Jsonb(data or {}), time.time()))
 
+# Native Telegram keyboard colors: primary (blue), success (green),
+# danger (red).  Styling is presentation-only: labels, aliases, callbacks,
+# visibility settings and financial logic remain unchanged.
+MENU_STYLES = [
+    ['success', 'primary'],  # Earn, Promotion
+    ['primary', 'success'],  # Games, My account
+    ['primary', None],       # Partners, About
+]
+
 def say(uid, text, buttons=None):
     c=bot_copy.active_connection()
     menu=bot_copy.menu(MENU)
+    styles_by_label={
+        label: MENU_STYLES[i][j]
+        for i,row in enumerate(menu)
+        for j,label in enumerate(row)
+    }
     if c:
         menu=bot_visibility.filter_menu(c,menu,MENU)
+    menu=[
+        [{'text':label, **({'style':styles_by_label[label]} if styles_by_label.get(label) else {})}
+         for label in row]
+        for row in menu
+    ]
     out={'method':'sendMessage','chat_id':uid,'text':text}
     if menu:
         out['reply_markup']={'keyboard':menu,'resize_keyboard':True,'is_persistent':True,'one_time_keyboard':False}
@@ -127,7 +146,14 @@ def say(uid, text, buttons=None):
 def button(text, action):
     if action == 'cancel_input':
         text = '✖️ Отмена'
-    return {'text': bot_copy.label(text, action), 'callback_data': 'bot:' + action}
+    result={'text':bot_copy.label(text,action),'callback_data':'bot:'+action}
+    if action in ('cancel_input','cancel','delete','confirm_delete'):
+        result['style']='danger'
+    elif action in ('earn','account','balance','withdraw','claim_bonus','daily_bonus'):
+        result['style']='success'
+    elif action in ('promotion','games','partners','stats','statistics','back','home'):
+        result['style']='primary'
+    return result
 
 def input_prompt(uid, text, buttons=None, cancel_action='cancel_input'):
     rows = list(buttons or [])
