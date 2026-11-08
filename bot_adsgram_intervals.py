@@ -131,71 +131,13 @@ def report(c,owner_uid,new_balance,now=None):
     count=len(cash)+farm_count
     if delta>0 and count==0:
         raise ValueError('Доход вырос, но за этот период нет подтверждённых AdsGram просмотров. Начисления остановлены; проверь источник дохода.')
-    rate=nbu_usd_uah(c) if delta>0 else None
-    reward_kopeks=adsgram_view_reward(c)
-    # One verified cash-mode bot view earns exactly 3 kopeks, but no
-    # checkpoint is accepted when the viewer's 30% revenue allocation
-    # cannot cover that minimum. Referral shares remain in the existing
-    # budget; the platform keeps at least 35% of the gross reporting share.
-    # Bot viewers are credited immediately on verified reward callbacks.
-    # Publisher income is reconciled separately to calculate referral shares.
+    # Viewer rewards are credited on verified callbacks, not at reporting time.
+    # No revenue-based referral payments or artificial farm reserve deposits.
     ident=uuid.uuid4().hex
-    total=0
     c.execute("""INSERT INTO bot_adsgram_balance_checkpoints
       (id,observed_at,cumulative_usd,delta_usd,cash_views,farm_views,owner_uid,created_at)
       VALUES(%s,%s,%s,%s,%s,%s,%s,%s)""",
       (ident,now,balance,delta,len(cash),farm_count,owner_uid,time.time()))
-    if delta>0:
-        per_view=delta/Decimal(count)
-        # This amount stays in internal USD accounting until a separate,
-        # fully funded coin-value mechanism is explicitly approved.
-        farm_share=per_view*Decimal(farm_count)
-        c.execute("""INSERT INTO farm_adsgram_revenue_allocations
-          (checkpoint_id,farm_views,bot_views,share_usd,recorded_at)
-          VALUES(%s,%s,%s,%s,%s)""",
-          (ident,farm_count,len(cash),farm_share,time.time()))
-        ledger={}
-        viewer_counts={}
-        for r in cash:
-            if not r.get('paid_immediate',False):
-                viewer_counts[int(r['uid'])]=viewer_counts.get(int(r['uid']),0)+1
-            alloc=monetag_cash_allocation(per_view,tuple(r['referral_chain']))
-            entries=[]
-            if not r.get('paid_immediate',False):
-                entries.append(('viewer',int(r['uid']),0,Decimal(reward_kopeks)/(rate*Decimal(100))))
-            entries.extend(('referral',int(q['uid']),int(q['level']),Decimal(q['usd']))
-                           for q in alloc['referrals'])
-            for role,uid,level,usd in entries:
-                key=(uid,role,level)
-                ledger[key]=ledger.get(key,Decimal(0))+usd
-        for (uid,role,level),earned in sorted(ledger.items()):
-            if earned<=0:continue
-            if not c.execute("SELECT 1 FROM bot_accounts WHERE uid=%s",(uid,)).fetchone():
-                raise ValueError('Реферал не найден; начисления остановлены для сверки.')
-            c.execute("""INSERT INTO bot_cash_ad_fraction(uid,remainder)
-              VALUES(%s,0) ON CONFLICT(uid) DO NOTHING""",(uid,))
-            fraction=c.execute("""SELECT remainder FROM bot_cash_ad_fraction
-              WHERE uid=%s FOR UPDATE""",(uid,)).fetchone()
-            kopeks=Decimal(str(fraction['remainder']))+earned*rate*100
-            whole=(viewer_counts[uid]*reward_kopeks if role=='viewer'
-                   else int(kopeks.to_integral_value(rounding=ROUND_FLOOR)))
-            if whole<0 or whole>9223372036854775807:
-                raise ValueError('Сумма начисления вне диапазона')
-            c.execute("UPDATE bot_cash_ad_fraction SET remainder=%s WHERE uid=%s",
-                      (Decimal(str(fraction['remainder'])) if role=='viewer' else kopeks-Decimal(whole),uid))
-            c.execute("""INSERT INTO bot_adsgram_interval_credits
-              (checkpoint_id,uid,role,level,earned_usd,credited_kopeks)
-              VALUES(%s,%s,%s,%s,%s,%s)""",(ident,uid,role,level,earned,whole))
-            if whole:
-                c.execute("UPDATE bot_accounts SET available=available+%s WHERE uid=%s",(whole,uid))
-                c.execute("""INSERT INTO bot_ledger(id,uid,delta,kind,details,created)
-                  VALUES(%s,%s,%s,%s,%s,%s)""",(
-                   uuid.uuid4().hex,uid,whole,'adsgram_interval_'+role,
-                   'AdsGram interval '+ident+' level '+str(level),time.time()))
-            total+=whole
-    c.execute("UPDATE bot_adsgram_balance_checkpoints SET credited_kopeks=%s WHERE id=%s",
-              (total,ident))
     return {'baseline':False,'balance':str(balance),'delta':str(delta),
-            'cash_views':len(cash),'farm_views':farm_count,'credited_kopeks':total,
-            'farm_share_usd':str(delta*Decimal(farm_count)/Decimal(count)),
-            'platform_usd_at_least':str(delta*Decimal('0.35'))}
+            'cash_views':len(cash),'farm_views':farm_count,
+            'credited_kopeks':0,'report_only':True}

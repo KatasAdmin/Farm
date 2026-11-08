@@ -34,6 +34,7 @@ def schema(c):
  c.execute('CREATE TABLE reward_emission(id int PRIMARY KEY,total_minted int)')
  c.execute('INSERT INTO reward_emission VALUES(1,0)')
  c.execute('CREATE TABLE farm_money_sources(log_id text PRIMARY KEY,bonus int,purchased int,earned int)')
+ c.execute('CREATE TABLE referrals(child_id text PRIMARY KEY,parent_id text,created real,qualified boolean)')
  c.execute('CREATE TABLE monetag_ad_attempts(ymid text PRIMARY KEY,player_id text,created_at double precision,rewarded_at double precision,zone_id int,placement text,'+','.join(k+' '+v for k,v in ads.FIELDS.items())+')')
  c.execute('CREATE TABLE monetag_reward_grants(id text PRIMARY KEY,player_id text,item text,quantity int,created real,claimed_at real)')
  c.execute('CREATE TABLE monetag_postback_events(ymid text,event_type text,sub_zone_id int,reward_event_type text,estimated_usd numeric,received_at real,PRIMARY KEY(ymid,event_type,sub_zone_id,reward_event_type))')
@@ -107,6 +108,22 @@ class MonetagRewardsTests(AdFixture):
     self.assertEqual(pending,int(i+1==views))
    self.deliver();self.assertEqual(self.p()[item],100+qty if item=='coins' else qty)
   self.assertEqual(self.p()['fed_hens'],1);self.assertEqual(self.p()['coins'],103)
+ def test_ad_chicken_rewards_referrers_fractionally_only_once(self):
+  for i in range(ads.REWARDS['chickens'][0]):
+   self.now+=4000
+   a=self.prepare('chickens',now=self.now)
+   self.post(a,request_var='chickens_reward')
+  awards=[]
+  def referral(c,p,item,quantity):awards.append((p['id'],item,quantity))
+  with self.c:
+   result=ads.deliver(self.c,self.p(),lambda c,p:p,lambda p:10,lambda p:100,referral_award=referral)
+  self.assertEqual(result['granted'],[{'item':'chickens','quantity':1}])
+  self.assertEqual(awards,[('p','chickens',1)])
+  with self.c:
+   second=ads.deliver(self.c,self.p(),lambda c,p:p,lambda p:10,lambda p:100,referral_award=referral)
+  self.assertEqual(second['granted'],[])
+  self.assertEqual(awards,[('p','chickens',1)])
+
  def test_deliver_catches_up_before_adding_hen_and_preserves_full_coop(self):
   self.c.execute("INSERT INTO monetag_reward_grants VALUES('hen','p','chickens',1,1,NULL)")
   self.c.execute("UPDATE players SET geese=10 WHERE id='p'");self.c.raw.commit()

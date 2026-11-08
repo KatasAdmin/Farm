@@ -27,12 +27,12 @@ class CapitalizationTests(unittest.TestCase):
     def test_quote_from_one_usd_ads_confirmed_cards_and_all_coins(self):
         result=preview(FakeCapitalDB(),Decimal('40'))
         self.assertEqual(result['game_views'],20)
-        self.assertEqual(result['game_views_kopeks'],60)
+        self.assertEqual(result['game_views_kopeks'],100)
         self.assertEqual(result['approved_deposits_kopeks'],5000)
         self.assertEqual(result['historical_transfers_kopeks'],1000)
         self.assertEqual(result['total_coins'],1000)
-        self.assertEqual(result['nominal_capitalization_kopeks'],8060)
-        self.assertEqual(Decimal(result['nominal_coin_price_uah']),Decimal('0.0806'))
+        self.assertEqual(result['nominal_capitalization_kopeks'],8100)
+        self.assertEqual(Decimal(result['nominal_coin_price_uah']),Decimal('0.081'))
         self.assertFalse(result['payout_enabled'])
 
     def test_zero_denominator_and_zero_reserve_never_imply_a_cash_payout(self):

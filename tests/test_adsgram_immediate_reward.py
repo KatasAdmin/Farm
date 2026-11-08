@@ -10,7 +10,7 @@ class Q:
 
 
 class ImmediateDB:
-    def __init__(self,reward=3):
+    def __init__(self,reward=5):
         self.pending=True
         self.reward=reward
         self.balance=100
@@ -45,20 +45,20 @@ class ImmediateDB:
 
 
 class ConfirmedCashRewardTests(unittest.TestCase):
-    def test_fixed_three_kopeks_once_at_confirmation(self):
+    def test_fixed_five_kopeks_once_at_confirmation(self):
         c=ImmediateDB()
-        self.assertEqual(ad.confirm(c,7)['credited_kopeks'],3)
-        self.assertEqual(c.balance,103)
+        self.assertEqual(ad.confirm(c,7)['credited_kopeks'],5)
+        self.assertEqual(c.balance,105)
         self.assertEqual(len(c.credits),1)
         self.assertEqual(len(c.ledger),1)
         self.assertFalse(ad.confirm(c,7)['confirmed'])
-        self.assertEqual(c.balance,103)
+        self.assertEqual(c.balance,105)
 
     def test_owner_can_change_reward_for_new_confirmations(self):
-        c=ImmediateDB(reward=5)
-        self.assertEqual(ad.confirm(c,7)['credited_kopeks'],5)
-        self.assertEqual(c.balance,105)
-        self.assertEqual(c.credits[0][2],5)
+        c=ImmediateDB(reward=7)
+        self.assertEqual(ad.confirm(c,7)['credited_kopeks'],7)
+        self.assertEqual(c.balance,107)
+        self.assertEqual(c.credits[0][2],7)
 
 
 if __name__=='__main__':

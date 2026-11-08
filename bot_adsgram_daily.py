@@ -226,56 +226,16 @@ def settle_day(c,day,revenue_usd,provider_impressions,owner_uid):
     if len(rows)+int(farm_count)!=provider_impressions:
         raise ValueError("Publisher impressions do not match confirmed user events; review before credit")
     rate=nbu_usd_uah(c)
-    reward_kopeks=adsgram_view_reward(c)
-    per_view=revenue/Decimal(provider_impressions)
-    # New views already receive their configured reward upon confirmation.
-    ledger={}
-    viewer_counts={}
-    for r in rows:
-        alloc=monetag_cash_allocation(per_view,tuple(r["referral_chain"]))
-        uid=int(r["uid"])
-        viewer_counts[uid]=viewer_counts.get(uid,0)+1
-        entries=[("referral",int(ref["uid"]),int(ref["level"]),Decimal(ref["usd"]))
-                 for ref in alloc["referrals"]]
-        if not r.get('paid_immediate',False):
-            entries.insert(0,("viewer",uid,0,Decimal(reward_kopeks)/(rate*Decimal(100))))
-        for key,who,level,usd in entries:
-            tup=(who,key,level)
-            ledger[tup]=ledger.get(tup,Decimal(0))+usd
+    # Record the publisher report for audit only. Verified viewer callbacks
+    # already paid the configurable fixed reward exactly once. There are
+    # no referral commissions derived from advertising revenue.
     c.execute("""INSERT INTO bot_adsgram_daily_settlements
       (utc_day,publisher_usd,impressions,nbu_rate,created_at,owner_uid)
       VALUES(%s,%s,%s,%s,%s,%s)""",(day,revenue,provider_impressions,rate,time.time(),owner_uid))
-    credited_total=0
-    for (uid,role,level),earned in sorted(ledger.items()):
-        if earned<=0:continue
-        if not c.execute("SELECT 1 FROM bot_accounts WHERE uid=%s",(uid,)).fetchone():
-            raise ValueError("Referrer account missing; settlement requires reconciliation")
-        c.execute("""INSERT INTO bot_cash_ad_fraction(uid,remainder) VALUES(%s,0)
-          ON CONFLICT(uid) DO NOTHING""",(uid,))
-        fraction=c.execute("""SELECT remainder FROM bot_cash_ad_fraction
-          WHERE uid=%s FOR UPDATE""",(uid,)).fetchone()
-        amount=Decimal(str(fraction["remainder"]))+earned*rate*100
-        whole=(viewer_counts[uid]*reward_kopeks if role=="viewer"
-               else int(amount.to_integral_value(rounding=ROUND_FLOOR)))
-        if whole<0 or whole>9223372036854775807:raise ValueError("Amount out of range")
-        c.execute("UPDATE bot_cash_ad_fraction SET remainder=%s WHERE uid=%s",
-                  (Decimal(str(fraction["remainder"])) if role=="viewer" else amount-Decimal(whole),uid))
-        c.execute("""INSERT INTO bot_adsgram_daily_credits
-          (utc_day,uid,role,level,earned_usd,credited_kopeks)
-          VALUES(%s,%s,%s,%s,%s,%s)""",(day,uid,role,level,earned,whole))
-        if whole:
-            c.execute("UPDATE bot_accounts SET available=available+%s WHERE uid=%s",(whole,uid))
-            c.execute("""INSERT INTO bot_ledger(id,uid,delta,kind,details,created)
-              VALUES(%s,%s,%s,%s,%s,%s)""",(
-               uuid.uuid4().hex,uid,whole,"adsgram_daily_"+role,
-               "AdsGram "+day+" level "+str(level)+" NBU="+str(rate),time.time()))
-        credited_total+=whole
-    c.execute("UPDATE bot_adsgram_daily_settlements SET credited_kopeks=%s WHERE utc_day=%s",
-              (credited_total,day))
     return {"ok":True,"day":day,"provider_impressions":provider_impressions,
-            "publisher_usd":str(revenue),"credited_kopeks":credited_total,
+            "publisher_usd":str(revenue),"credited_kopeks":0,
             "cash_views":len(rows),"farm_views":int(farm_count),
-            "platform_usd_at_least":str(revenue*Decimal("0.35"))}
+            "report_only":True}
 
 
 def settle_yesterday(c,revenue_usd,owner_uid):

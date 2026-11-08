@@ -26,15 +26,17 @@ class FakeDb:
         normalized=" ".join(sql.split()).lower()
         if normalized.startswith("select viewer_uid,allocation"):
             return Result(self.events.get(args[0]))
+        if normalized.startswith("select value from bot_controls where key='adsgram_view_reward'"):
+            return Result({"value":5})
         if normalized.startswith("select pg_advisory_xact_lock"):
             return Result(None)
         if normalized.startswith("select 1 from bot_accounts"):
             return Result({"present":1} if args[0] in self.accounts else None)
         if normalized.startswith("insert into bot_cash_ad_credits"):
-            ymid,uid,role,level,usd,rate,_=args
-            key=(ymid,uid,role,level)
+            ymid,uid,usd,amount,_=args
+            key=(ymid,uid,"viewer",0)
             if key in self.credited:return Result(None)
-            self.credited[key]={"usd":usd,"kopeks":0}
+            self.credited[key]={"usd":usd,"kopeks":amount}
             return Result({"uid":uid})
         if normalized.startswith("insert into bot_cash_ad_fraction"):
             self.fractions.setdefault(args[0],Decimal(0))
@@ -68,25 +70,22 @@ class CashAdPayoutTests(unittest.TestCase):
             "event_type":"impression",
             "estimated_usd":Decimal(price)
         }
-    def test_fractional_kopeks_accumulate_without_inflation(self):
+    def test_every_valued_event_pays_five_kopeks_with_no_ad_referrals(self):
         db=FakeDb()
-        with patch.object(credits,"nbu_usd_uah",return_value=Decimal("45.443200")):
-            for n in range(3):
-                self.valued(db,str(n),"0.0003000",referrer=22)
-                credits.credit_verified_event(db,str(n))
-        # 30% viewer of $0.0003 = 0.4089888 kopeks per event.
-        self.assertEqual(db.accounts[11],1)
+        for n in range(3):
+            self.valued(db,str(n),"0.0003000",referrer=22)
+            result=credits.credit_verified_event(db,str(n))
+            self.assertEqual(result["credited_kopeks"],5)
+        self.assertEqual(db.accounts[11],15)
         self.assertEqual(db.accounts[22],0)
-        self.assertGreater(db.fractions[11],0)
-        self.assertLess(db.fractions[11],1)
-        self.assertEqual(sum(item[2] for item in db.entries),1)
+        self.assertEqual(sum(item[2] for item in db.entries),15)
+        self.assertEqual(len(db.credited),3)
     def test_duplicate_postback_never_pays_twice(self):
         db=FakeDb()
         self.valued(db,"duplicate","0.010000",referrer=22)
-        with patch.object(credits,"nbu_usd_uah",return_value=Decimal("45.443200")):
-            credits.credit_verified_event(db,"duplicate")
-            before=(dict(db.accounts),dict(db.fractions),len(db.entries))
-            credits.credit_verified_event(db,"duplicate")
+        credits.credit_verified_event(db,"duplicate")
+        before=(dict(db.accounts),dict(db.fractions),len(db.entries))
+        credits.credit_verified_event(db,"duplicate")
         self.assertEqual((db.accounts,db.fractions,len(db.entries)),before)
     def test_nonvalued_event_not_paid(self):
         db=FakeDb()
@@ -96,19 +95,17 @@ class CashAdPayoutTests(unittest.TestCase):
         self.assertFalse(outcome["credited"])
         self.assertEqual(db.accounts[11],0)
 
-    def test_confirmed_impression_funds_viewer_and_all_seven_referral_levels(self):
+    def test_legacy_referral_snapshots_no_longer_pay_ad_cash_referrals(self):
         db=FakeDb()
         self.valued(db,"all-levels","1.0")
         chain=tuple(range(22,29))
         db.accounts.update(dict.fromkeys(chain,0))
-        allocation=monetag_cash_allocation(Decimal(1),chain)
-        db.events["all-levels"]["allocation"]=allocation
-        with patch.object(credits,"nbu_usd_uah",return_value=Decimal("40")):
-            result=credits.credit_verified_event(db,"all-levels")
-        self.assertEqual(Decimal(allocation["platform_usd"]),Decimal("0.35"))
-        self.assertEqual(list(db.accounts.values()),[1200,400,280,200,160,120,120,120])
-        self.assertEqual(result["credited_kopeks"],2600)
-        self.assertEqual(len(db.entries),8)
+        db.events["all-levels"]["allocation"]=monetag_cash_allocation(Decimal(1),chain)
+        result=credits.credit_verified_event(db,"all-levels")
+        self.assertEqual(db.accounts[11],5)
+        self.assertTrue(all(db.accounts[x]==0 for x in chain))
+        self.assertEqual(result["credited_kopeks"],5)
+        self.assertEqual(len(db.entries),1)
 
 
 if __name__=="__main__":

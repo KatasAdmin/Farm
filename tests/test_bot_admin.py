@@ -36,7 +36,7 @@ class AdminTests(unittest.TestCase):
         return preview
 
     def test_owner_can_edit_fixed_confirmed_ad_view_reward(self):
-        self.assertEqual(admin.adsgram_view_reward(self.c),3)
+        self.assertEqual(admin.adsgram_view_reward(self.c),5)
         view=self.send(1,action='admin:settings:rewards')
         self.assertIn('Награда за просмотр',str(view['reply_markup']))
         result=self.field('adsgram_view_reward','0.05')

@@ -72,51 +72,28 @@ def credit_verified_event(c,ymid):
     if not row or row["reward_event_type"]!="valued" or row["event_type"]!="impression":
         return {"credited":False,"reason":"not_valued"}
     if Decimal(str(row["estimated_usd"]))<=0:return {"credited":False,"reason":"zero"}
-    allocation=row["allocation"]
-    recipients=[(int(row["viewer_uid"]),"viewer",0,Decimal(str(allocation["viewer_usd"])))]
-    for ref in allocation.get("referrals",[]):
-        recipients.append((int(ref["uid"]),"referral",int(ref["level"]),Decimal(str(ref["usd"]))))
-    # Avoid a race between parallel postbacks for the same recipient by
-    # locking a deterministic global credit sequence within transaction.
+    # Monetag and AdsGram both pay the bot's owner-configured FIXED reward
+    # per valued impression. Old per-impression USD allocations are historical
+    # records only: never issue cash referral payouts from advertising revenue.
+    from bot_admin import adsgram_view_reward
+    uid=int(row["viewer_uid"])
+    kopeks=adsgram_view_reward(c)
     c.execute("SELECT pg_advisory_xact_lock(%s)",(125492051,))
-    try:
-        rate=nbu_usd_uah(c)
-    except (OSError, ValueError, InvalidOperation, KeyError, TypeError) as exc:
-        raise FxUnavailable from exc
-    credited=0
-    for uid,role,level,usd in recipients:
-        if usd<=0:continue
-        if not c.execute("SELECT 1 FROM bot_accounts WHERE uid=%s",(uid,)).fetchone():
-            if role=="viewer":raise ValueError("Viewer account missing")
-            continue
-        inserted=c.execute("""INSERT INTO bot_cash_ad_credits
-         (ymid,uid,role,level,earned_usd,uah_rate,credited_kopeks,created_at)
-         VALUES(%s,%s,%s,%s,%s,%s,0,%s)
-         ON CONFLICT DO NOTHING RETURNING uid""",
-         (ymid,uid,role,level,usd,rate,time.time())).fetchone()
-        if not inserted:continue
-        c.execute("""INSERT INTO bot_cash_ad_fraction(uid,remainder)
-          VALUES(%s,0) ON CONFLICT(uid) DO NOTHING""",(uid,))
-        fraction=c.execute("""SELECT remainder FROM bot_cash_ad_fraction
-          WHERE uid=%s FOR UPDATE""",(uid,)).fetchone()
-        total=Decimal(str(fraction["remainder"]))+usd*rate*Decimal(100)
-        whole=int(total.to_integral_value(rounding=ROUND_FLOOR))
-        remainder=total-Decimal(whole)
-        if whole>9223372036854775807:raise OverflowError("Credit exceeds bigint")
-        c.execute("UPDATE bot_cash_ad_fraction SET remainder=%s WHERE uid=%s",(remainder,uid))
-        c.execute("""UPDATE bot_cash_ad_credits SET credited_kopeks=%s
-          WHERE ymid=%s AND uid=%s AND role=%s AND level=%s""",
-          (whole,ymid,uid,role,level))
-        if whole:
-            account=c.execute("""UPDATE bot_accounts
-              SET available=available+%s WHERE uid=%s
-              RETURNING uid""",(whole,uid)).fetchone()
-            if not account:raise ValueError("Cash recipient missing")
-            c.execute("""INSERT INTO bot_ledger(id,uid,delta,kind,details,created)
-              VALUES(%s,%s,%s,%s,%s,%s)""",
-              (uuid.uuid4().hex,uid,whole,
-               "cash_ad_viewer" if role=="viewer" else "cash_ad_referral",
-               "Monetag "+ymid+"; "+role+"; level "+str(level)+"; NBU USD/UAH="+str(rate),
-               time.time()))
-            credited+=whole
-    return {"credited":True,"credited_kopeks":credited,"fx_rate":str(rate)}
+    if not c.execute("SELECT 1 FROM bot_accounts WHERE uid=%s",(uid,)).fetchone():
+        raise ValueError("Viewer account missing")
+    inserted=c.execute("""INSERT INTO bot_cash_ad_credits
+      (ymid,uid,role,level,earned_usd,uah_rate,credited_kopeks,created_at)
+      VALUES(%s,%s,'viewer',0,%s,1,%s,%s)
+      ON CONFLICT DO NOTHING RETURNING uid""",
+      (ymid,uid,Decimal(str(row["estimated_usd"])),kopeks,time.time())).fetchone()
+    if not inserted:
+        return {"credited":False,"reason":"duplicate","credited_kopeks":0}
+    if kopeks:
+        updated=c.execute("""UPDATE bot_accounts
+          SET available=available+%s WHERE uid=%s RETURNING uid""",(kopeks,uid)).fetchone()
+        if not updated:raise ValueError("Cash recipient missing")
+        c.execute("""INSERT INTO bot_ledger(id,uid,delta,kind,details,created)
+          VALUES(%s,%s,%s,'cash_ad_viewer',%s,%s)""",
+          (uuid.uuid4().hex,uid,kopeks,
+           'Monetag verified view: fixed bonus · '+ymid,time.time()))
+    return {"credited":True,"credited_kopeks":kopeks,"fixed_reward":True}
