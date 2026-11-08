@@ -28,6 +28,8 @@ class FakeDB:
         self.farm_time_bounds=None
     def execute(self,sql,args=()):
         query=' '.join(sql.lower().split())
+        if query.startswith("select value from bot_controls where key='adsgram_view_reward'"):
+            return Query({'value':3})
         if query.startswith('select pg_advisory_xact_lock'):
             return Query()
         if query.startswith('select observed_at from bot_adsgram_balance_checkpoints'):
