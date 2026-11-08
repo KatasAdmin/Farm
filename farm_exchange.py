@@ -64,7 +64,16 @@ def quote(c,usd_uah,lock=False):
     outstanding=_supply(c)
     backing=int(row['backed_kopeks'])
     nominal_value=int(nominal['nominal_capitalization_kopeks'])
-    spendable=min(backing,nominal_value)
+    # Free, actually recorded bot cash can cover farm redemptions automatically.
+    # The outstanding bot wallet/task/payout obligations and funds already
+    # earmarked for the farm are NOT spendable again.
+    import task_bot
+    cash=c.execute("SELECT amount FROM bot_cash_pool WHERE id=1"+
+                   (" FOR UPDATE" if lock else "")).fetchone()
+    pool_kopeks=int(cash['amount']) if cash else 0
+    other_liabilities=int(task_bot.liability(c))
+    free_pool=max(0,pool_kopeks-other_liabilities-backing)
+    spendable=min(nominal_value,backing+free_pool)
     rate=Decimal(spendable)/Decimal(outstanding) if outstanding else Decimal(0)
     nominal_rate=(Decimal(nominal_value)/Decimal(outstanding)
                   if outstanding and nominal_value>0 else Decimal(0))
@@ -72,7 +81,7 @@ def quote(c,usd_uah,lock=False):
     # first verified reserve deposit we quote the nominal seed for bootstrap;
     # redemptions remain impossible until actual cash is earmarked.
     purchase_rate=rate if rate>0 else nominal_rate
-    return {'reserve_kopeks':backing,
+    return {'reserve_kopeks':backing,'free_pool_kopeks':free_pool,
             'nominal_kopeks':nominal_value,'cashable_kopeks':spendable,
             'total_coins':outstanding,
             'coin_price_kopeks':str(rate),
@@ -129,10 +138,19 @@ def redeem(c,player,coins,key,bot,usd_uah):
     player_row=c.execute("UPDATE players SET coins=coins-%s WHERE id=%s AND coins>=%s RETURNING id",
                          (coins,player['id'],coins)).fetchone()
     if not player_row:raise HTTPException(409,'Баланс изменился, обнови страницу')
-    debited=c.execute("""UPDATE farm_cash_reserve
-      SET backed_kopeks=backed_kopeks-%s WHERE id=1 AND backed_kopeks>=%s
-      RETURNING backed_kopeks""",(amount,amount)).fetchone()
-    if not debited:raise HTTPException(409,'Недостаточно подтверждённых денег для вывода')
+    # Spend earmarked farm cash first. Any remainder is automatically funded
+    # by the verified *free* bot cash pool, while crediting this amount to
+    # bot liabilities in the same transaction. The common bot lock makes
+    # competing cashouts and payouts serialize.
+    from_reserve=min(amount,int(pricing['reserve_kopeks']))
+    if from_reserve:
+        debited=c.execute("""UPDATE farm_cash_reserve
+          SET backed_kopeks=backed_kopeks-%s
+          WHERE id=1 AND backed_kopeks>=%s RETURNING backed_kopeks""",
+          (from_reserve,from_reserve)).fetchone()
+        if not debited:raise HTTPException(409,'Резерв изменился, обнови курс')
+    if amount-from_reserve>int(pricing['free_pool_kopeks']):
+        raise HTTPException(409,'Недостаточно доступных средств для перевода')
     c.execute("""INSERT INTO farm_coin_redemptions(id,player_id,telegram_id,coins,credited_kopeks,created_at)
       VALUES(%s,%s,%s,%s,%s,%s)""",(key,player['id'],uid,coins,amount,time.time()))
     c.execute("""INSERT INTO money_log(id,player_id,kind,delta,details,created)
