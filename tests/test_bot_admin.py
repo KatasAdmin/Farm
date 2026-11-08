@@ -42,8 +42,8 @@ class AdminTests(unittest.TestCase):
         result=self.field('adsgram_view_reward','0.05')
         self.assertEqual(admin.adsgram_view_reward(self.c),5)
         self.assertIn('0,05',result['text'])
-        with self.assertRaises(bot.UserError):
-            self.field('adsgram_view_reward','1.50')
+        invalid=self.field('adsgram_view_reward','1.50')
+        self.assertIn('Максимальная награда',invalid['text'])
         self.assertEqual(admin.adsgram_view_reward(self.c),5)
 
     def test_payment_method_toggles_hide_disabled_options_and_deny_stale_clicks(self):
