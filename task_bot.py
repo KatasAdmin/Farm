@@ -571,7 +571,8 @@ def handle(payload, db, api, is_admin, deliver_posts_inline=True):
                 return cached
             if channel_claim and (not account(c, uid)):
                 return {'method': 'answerCallbackQuery', 'callback_query_id': callback['id'], 'text': tr('Сначала открой @Farmlife2026bot и нажми /start, затем вернись к посту.', html_mode=False, section='task_bot', limit=3000), 'show_alert': True}
-            text = bot_copy.canonical_menu(c, text)
+            if text:
+                text = bot_copy.canonical_menu(c, text)
             is_new = not c.execute('SELECT 1 FROM bot_accounts WHERE uid=%s', (uid,)).fetchone()
             sync_referrals = is_new or cmd == '/start'
             ref = None
