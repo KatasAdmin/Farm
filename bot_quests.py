@@ -53,15 +53,17 @@ def vip(c,uid):
 def metrics(c,uid):
  start=dt.datetime.now(ZoneInfo('Europe/Kyiv')).replace(hour=0,minute=0,second=0,microsecond=0)
  end=start+dt.timedelta(days=1)
- scalar=lambda sql,args: int((c.execute(sql,args).fetchone() or {}).get('n') or 0)
- return {
-  'daily':scalar("SELECT count(*) AS n FROM bot_daily_claims WHERE uid=%s",(uid,)),
-  'refs':scalar("SELECT count(*) AS n FROM bot_accounts WHERE referrer=%s AND uid<>%s",(uid,uid)),
-  'paid_jobs':scalar("SELECT count(*) AS n FROM bot_claims WHERE uid=%s AND status='paid'",(uid,)),
-  # SDK completion is activity only, not proof of advertiser payment.
-  'ads_total':scalar("SELECT count(*) AS n FROM bot_monetag_cash_attempts WHERE viewer_uid=%s AND finished_at IS NOT NULL",(uid,)) + scalar("SELECT count(*) AS n FROM bot_adsgram_attempts WHERE uid=%s AND state='confirmed'",(uid,)),
-  'ads_day':scalar("SELECT count(*) AS n FROM bot_monetag_cash_attempts WHERE viewer_uid=%s AND finished_at>=%s AND finished_at<%s",(uid,start.timestamp(),end.timestamp())) + scalar("SELECT count(*) AS n FROM bot_adsgram_attempts WHERE uid=%s AND state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s",(uid,start.timestamp(),end.timestamp())),
- }
+ # One database round trip instead of seven sequential queries per quest click.
+ row=c.execute("""SELECT
+  (SELECT count(*) FROM bot_daily_claims WHERE uid=%s) AS daily,
+  (SELECT count(*) FROM bot_accounts WHERE referrer=%s AND uid<>%s) AS refs,
+  (SELECT count(*) FROM bot_claims WHERE uid=%s AND status='paid') AS paid_jobs,
+  (SELECT count(*) FROM bot_monetag_cash_attempts WHERE viewer_uid=%s AND finished_at IS NOT NULL)
+   + (SELECT count(*) FROM bot_adsgram_attempts WHERE uid=%s AND state='confirmed') AS ads_total,
+  (SELECT count(*) FROM bot_monetag_cash_attempts WHERE viewer_uid=%s AND finished_at>=%s AND finished_at<%s)
+   + (SELECT count(*) FROM bot_adsgram_attempts WHERE uid=%s AND state='confirmed' AND confirmed_at>=%s AND confirmed_at<%s) AS ads_day
+ """,(uid,uid,uid,uid,uid,uid,uid,start.timestamp(),end.timestamp(),uid,start.timestamp(),end.timestamp())).fetchone()
+ return {key:int(row[key] or 0) for key in ('daily','refs','paid_jobs','ads_total','ads_day')}
 
 def show(c,uid):
  from task_bot import button
