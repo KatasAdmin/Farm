@@ -49,7 +49,7 @@ function retryTransientStartup(error) {
   const transient=[500,502,503,504,423,429].includes(error?.status)||
     /Сервер не ответил вовремя|Failed to fetch|NetworkError|Load failed|The network connection was lost/i.test(String(error?.message||""));
   if(!transient||startupRetryCount>=STARTUP_RETRIES)return false;
-  const delays=[1200,2200,3500,5000,7000,9000];
+  const delays=[1200,2200,3500];
   const delay=delays[startupRetryCount++];
   const label=el("boot-status");
   if(label)label.textContent="Сервер занят. Подключаемся автоматически… ("+startupRetryCount+"/"+STARTUP_RETRIES+")";
@@ -86,7 +86,7 @@ let refreshPromise = null,
   refreshedAt = 0;
 let startupRetryTimer = null;
 let startupRetryCount = 0;
-const STARTUP_RETRIES = 6;
+const STARTUP_RETRIES = 3;
 let lastTimerRefresh = 0;
 function safe(s) {
   return String(s).replace(
