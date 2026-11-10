@@ -390,7 +390,15 @@ el("join-form").addEventListener("submit", async (event) => {
 el("password-login-form").addEventListener("submit",async event=>{
   event.preventDefault();
   if(pending)return;
-  try{busy(true);await useLoginResult(await api("/api/login",{name:el("login-name").value.trim(),password:el("login-password").value}));el("login-password").value="";}
+  try{
+    busy(true);
+    const init=tgInitData();
+    const response=await api("/api/login",{name:el("login-name").value.trim(),password:el("login-password").value,telegram_data:init||""});
+    if(response.telegram_link_conflict)toast("Пароль верный, вход выполнен. Этот Telegram уже связан с другой фермой — для объединения обратись в поддержку.");
+    else if(response.telegram_linked)toast("Telegram привязан к существующей ферме ✓");
+    await useLoginResult(response);
+    el("login-password").value="";
+  }
   catch(e){toast(e.message);}finally{busy(false);}
 });
 function tab(id) {
