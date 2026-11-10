@@ -47,7 +47,7 @@ function hideStartup() {
 function retryTransientStartup(error) {
   // Only transient server/database outages. Never retry bad credentials.
   const transient=[500,502,503,504,423,429].includes(error?.status)||
-    /Сервер не ответил вовремя|Failed to fetch|NetworkError|Load failed|The network connection was lost/i.test(String(error?.message||""));
+    /Сервер не ответил вовремя|Сервер временно не отвечает|Данные остались без изменений|Failed to fetch|NetworkError|Load failed|The network connection was lost/i.test(String(error?.message||""));
   if(!transient||startupRetryCount>=STARTUP_RETRIES)return false;
   const delays=[1200,2200,3500];
   const delay=delays[startupRetryCount++];
