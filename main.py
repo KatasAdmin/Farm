@@ -211,6 +211,8 @@ async def lifespan(app):
  with db() as audit_db:
   supply_row=audit_db.execute("SELECT COUNT(*)::int AS players, COALESCE(SUM(coins),0)::bigint AS coins FROM players").fetchone()
   logger.warning("farm_live_supply_audit players=%s coins=%s",supply_row["players"],supply_row["coins"])
+  coin_rows=audit_db.execute("SELECT name,coins FROM players ORDER BY name").fetchall()
+  logger.warning("farm_live_holdings_audit %s",json.dumps([{"name":r["name"],"coins":r["coins"]} for r in coin_rows],ensure_ascii=False))
  # Register this dedicated farm bot's webhook without blocking game startup on Telegram outages.
  try:
   token=os.environ.get("TELEGRAM_BOT_TOKEN","")
