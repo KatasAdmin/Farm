@@ -252,6 +252,10 @@ async def lifespan(app):
  finally:
   stop_retention.set()
 app=FastAPI(lifespan=lifespan)
+@app.exception_handler(psycopg.errors.LockNotAvailable)
+async def market_lock_busy(request,error):
+ logger.warning("database_lock_busy path=%s",request.url.path)
+ return JSONResponse(status_code=409,content={"detail":"Операция занята другой сделкой. Обнови данные и попробуй ещё раз. Списание не выполнено."})
 @app.exception_handler(psycopg.OperationalError)
 async def database_unavailable(request,error):
  logger.warning("database_request_aborted type=%s",type(error).__name__)
