@@ -1516,10 +1516,20 @@ def state(authorization:str=Header(default="")):
  # Farm production needs a write lock, but it must not be held while the
  # dashboard runs dozens of independent analytics/market queries.
  # Commit advancement before beginning the read-heavy snapshot.
- with db() as c:
-  p=advance(c,person(c,authorization,True))
-  if not p["welcome_granted"]:
-   c.execute("UPDATE players SET welcome_granted=true WHERE id=%s",(p["id"],))
+ # A slow production/referral transaction must never prevent opening
+ # an existing farm. Keep production atomic; on lock contention roll back
+ # the attempted tick and return the last committed player snapshot.
+ try:
+  with db() as c:
+   c.execute("SET LOCAL lock_timeout = '700ms'")
+   c.execute("SET LOCAL statement_timeout = '5000ms'")
+   p=advance(c,person(c,authorization,True))
+   if not p["welcome_granted"]:
+    c.execute("UPDATE players SET welcome_granted=true WHERE id=%s",(p["id"],))
+ except psycopg.errors.LockNotAvailable:
+  logger.warning("farm_state_advance_busy_using_committed_snapshot")
+ except psycopg.errors.QueryCanceled:
+  logger.warning("farm_state_advance_slow_using_committed_snapshot")
  with dashboard_db() as c:
   p=person(c,authorization)
   listings=c.execute("SELECT m.item,m.price,m.quantity,p.name AS seller FROM market m JOIN players p ON p.id=m.seller WHERE m.quantity>0 ORDER BY m.price LIMIT 40").fetchall()
