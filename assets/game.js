@@ -98,7 +98,7 @@ function safe(s) {
   );
 }
 function image(path, cls = "icon") {
-  return `<img src="/assets/${path}${/\.(svg|png|webp)$/.test(path)?"":".webp"}" class="${cls}" alt="" decoding="async">`;
+  return `<img src="/assets/${path}${/\.(svg|png|webp)$/.test(path)?"":".webp"}" class="${cls}" alt="" decoding="async" loading="lazy">`;
 }
 function toast(message) {
   el("toast").textContent = message;
