@@ -144,6 +144,10 @@ async def lifespan(app):
 
 
   c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
+  # Dashboard and achievement lookups always filter by player; avoid whole-table scans.
+  c.execute("CREATE INDEX IF NOT EXISTS money_log_player_kind_created_idx ON money_log(player_id,kind,created)")
+  c.execute("CREATE INDEX IF NOT EXISTS market_audit_seller_created_idx ON market_trade_audit(seller_id,created)")
+  c.execute("CREATE INDEX IF NOT EXISTS market_audit_buyer_created_idx ON market_trade_audit(buyer_id,created)")
   c.execute("""UPDATE players p SET
     xp_legacy_eggs=COALESCE((SELECT SUM(eggs_produced)::int FROM daily_activity d WHERE d.player_id=p.id),0),
     xp_legacy_listed=COALESCE((SELECT SUM(eggs_listed)::int FROM daily_activity d WHERE d.player_id=p.id),0),
