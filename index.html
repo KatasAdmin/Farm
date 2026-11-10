@@ -27,9 +27,9 @@
     <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
   </head>
   <body>
-    <section id="boot-screen" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:9999;display:grid;place-content:center;text-align:center;padding:24px;background:linear-gradient(#1064bb,#03132e);color:white;font-family:Arial,sans-serif">
+    <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #80d6ff;border-radius:14px;background:#103c7c;color:white;font-family:Arial,sans-serif">
       <h1 style="font-size:30px">🐔 Ферма</h1>
-      <p id="boot-status">Загружаем ферму…</p>
+      <p id="boot-status">Не удалось получить данные фермы.</p>
       <button type="button" style="margin-top:16px;padding:14px 24px;border-radius:14px;border:1px solid #80d6ff;background:#1267b8;color:white;font-size:17px" onclick="if(window.retryFarmStartup)window.retryFarmStartup();else location.reload()">Повторить загрузку</button>
       <button type="button" style="margin-top:9px;padding:10px 18px;border-radius:12px;border:1px solid #6ba8ee;background:#133c7d;color:white;font-size:14px" onclick="if(window.chooseFarmLogin)window.chooseFarmLogin();else location.reload()">Войти другим способом</button>
       <a href="/" style="display:inline-block;text-decoration:none;margin-top:9px;padding:9px 16px;border:1px solid #80d6ff;background:transparent;color:white;border-radius:11px;font-size:14px">Перезапустить приложение</a>
