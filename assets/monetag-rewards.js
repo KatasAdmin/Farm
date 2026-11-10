@@ -37,7 +37,7 @@ function decorate(){
  // The voluntary wallet reward button is permitted; confirmed rewards remain non-withdrawable.
  document.querySelectorAll('[data-ad-free]').forEach(button=>{
   const item=button.dataset.adFree;const r=adRewards[item];if(!r)return;
-  const ready=cfg?.enabled&&!!tgInitData();
+  const ready=cfg?.enabled&&matchingFarmTelegram();
   const reason=!tgInitData()?'Только в Telegram':!cfg?.enabled?'AdsGram недоступен':working?'Реклама открывается':pending?'Дождитесь завершения действия':'';
   button.disabled=!!reason;
   button.title=reason||('Награда: '+r[1]+' '+labels[item]+' за '+r[0]+' подтверждённых просмотров');
@@ -46,8 +46,15 @@ function decorate(){
  });
 }
 
+function matchingFarmTelegram(){
+ // UX optimization only. Server always verifies signed Telegram initData.
+ const current=Number(window.Telegram?.WebApp?.initDataUnsafe?.user?.id);
+ const linked=Number(state?.me?.telegram_id);
+ return Boolean(token&&state?.me&&tgInitData()&&current&&linked&&current===linked);
+}
 async function recover(force=false){
- if(!token||!tgInitData())return;
+ // No ad status requests during authentication or for another Telegram identity.
+ if(!matchingFarmTelegram())return;
  if(recovering)return recovering;
  if(!force&&Date.now()-lastRecover<15000){decorate();return;}
  lastRecover=Date.now();
@@ -66,7 +73,7 @@ async function recover(force=false){
     const body=holder.querySelector('.ad-history-rows');body.replaceChildren();
     for(const row of data.history||[]){const p=document.createElement('p');p.className='muted';const status=row.state==='credited'?'Подтверждено':row.state==='cancelled'?'Отменено':row.state==='expired'||(row.state==='pending'&&Date.now()/1000-row.created_at>600)?'Не подтверждено':'Ожидается подтверждение';p.textContent=new Date(row.created_at*1000).toLocaleString('ru-RU')+' · '+(labels[row.item]||row.item)+' · '+status;body.appendChild(p);}
    }
-  }catch(e){if(force)notify('Статистика AdsGram недоступна: '+String(e.message||e));}
+  }catch(e){if(e?.status===403){cfg=null;return;}if(force&&state&&!el('app')?.hidden)notify('Статистика AdsGram недоступна: '+String(e.message||e));}
   finally{recovering=null;decorate();}
  })();
  return recovering;
@@ -74,6 +81,7 @@ async function recover(force=false){
 async function watch(item){
  if(working||pending||!adRewards[item])return;
  if(!tgInitData()){notify('AdsGram доступен только в Telegram Mini App');return;}
+ if(!matchingFarmTelegram()){notify('Для рекламы войди через Telegram, привязанный к этой ферме. Прогресс не потерян.');return;}
  if(!cfg?.enabled){notify('Подключаем AdsGram…');await recover(true);if(!cfg?.enabled)return;}
  working=true;decorate();
  let prepared=null;
@@ -97,8 +105,8 @@ async function watch(item){
 }
 window.FarmAds={recover,watch};
 new MutationObserver(()=>decorate()).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')recover(true);});
-window.addEventListener('telegram-sdk-ready',()=>recover(true));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')recover();});
+window.addEventListener('telegram-sdk-ready',()=>recover());
 setInterval(()=>{if(token&&document.visibilityState==='visible')recover();},30000);
-decorate();recover(true);
+decorate();
 })();
