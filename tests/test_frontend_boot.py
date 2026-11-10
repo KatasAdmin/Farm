@@ -170,7 +170,8 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("Войти другим способом",html)
   self.assertIn("Продолжить через Telegram",html)
   self.assertIn("STARTUP_RETRIES = 3",js)
-  self.assertIn('if(el("boot-screen"))el("boot-screen").hidden=false',js)
+  self.assertIn('if (token) {el("login").hidden=false;refresh();loadAdRewardStatus();}',js)
+  self.assertIn('id="boot-screen" hidden',html)
   self.assertIn('if(requestToken!==token)return;',js)
   self.assertNotIn('if(!state||el("app")?.hidden)throw Error',js)
 
