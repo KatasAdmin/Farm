@@ -1753,9 +1753,6 @@ def buy(q:Request,authorization:str=Header(default="")):
  check(q.amount)
  if q.item not in ("grain","eggs","milk","feathers","wool","chickens","geese","cows","sheep"):raise HTTPException(400,"Товар не найден")
  with db() as c:
-  # Bound market waits: a failed lock aborts this transaction before
-  # any debit or inventory movement and returns a retryable conflict.
-  c.execute("SET LOCAL lock_timeout = '2500ms'")
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
   system_price={"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE,"sheep":SHEEP_PRICE}.get(q.item,0)
