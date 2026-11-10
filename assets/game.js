@@ -662,9 +662,14 @@ function selectBuy(item) {
     price: ["eggs","milk"].includes(item) ? (state.shop[item]||1) : (rows.length?Math.min(...rows.map((x) => x.price)):(state.shop[item]||5)),
   });
 }
+function minAnimalLevel(item) {
+  return item==="geese"?Number(state?.shop?.goose_min_level||3)
+    :item==="sheep"?Number(state?.shop?.sheep_min_level||4)
+    :item==="cows"?Number(state?.shop?.cow_min_level||5):1;
+}
 function showShop(item) {
   if (!state) return;
-  if(item==="geese" && (state.progression?.level||1)<(state.shop.goose_min_level||3))return toast("Гуси открываются с 3-го уровня. Зарабатывай опыт и развивай ферму!");
+  if((state.progression?.level||1)<minAnimalLevel(item))return toast("Животное откроется на "+minAnimalLevel(item)+"-м уровне фермера.");
   const price = state.shop[item];
   if (!price) return;
   openPurchase({ kind: "shop", item, price });
@@ -1067,8 +1072,16 @@ function render() {
   const pr = state.progression || {};
   const xp = Number(pr.xp || 0), lvl = Number(pr.level || 1);
   celebrateLevel(p.id,lvl);
-  const gooseBuy=el("goose-buy-button");
-  if(gooseBuy){gooseBuy.disabled=pending||lvl<3;gooseBuy.textContent=lvl<3?"Ур. 3":"Купить";}
+  for(const item of ["geese","sheep","cows"]){
+    const required=minAnimalLevel(item);
+    document.querySelectorAll('[data-unlock-buy="'+item+'"]').forEach(button=>{
+      const locked=lvl<required;
+      button.disabled=pending||locked;
+      button.textContent=locked?"🔒 Ур. "+required:"Купить";
+      button.classList.toggle("animal-locked",locked);
+      button.setAttribute("aria-label",locked?"Откроется на уровне "+required:"Купить");
+    });
+  }
   document.querySelectorAll("[data-birds-total]").forEach(n=>n.textContent=number(p.chickens+(p.geese||0)));
   const prev = 25*(lvl-1)*(lvl-1), next = Number(pr.next_level_xp || 25);
   const percent = Math.max(0,Math.min(100,100*(xp-prev)/Math.max(1,next-prev)));
@@ -1278,12 +1291,19 @@ function render() {
   const dead=el("weekly-deadline");
   if(dead&&weekly.ends_at){const hours=Math.max(0,Math.ceil((weekly.ends_at-Date.now()/1000)/3600));dead.textContent="До конца недели: "+Math.floor(hours/24)+" дн. "+hours%24+" ч";}
 
-  el("leaders").innerHTML = state.top.slice(0,5)
-    .map(
-      (x, i) =>
-        `<div class="ledger-row"><b>${i + 1}</b><div><strong>${safe(x.name)}</strong><small>Основной уровень</small></div><b>Ур. ${number(x.farmer_level||1)}</b></div>`,
-    )
-    .join("");
+  el("leaders").innerHTML=(state.top||[]).slice(0,5).map((x,i)=>{
+    const place=i+1,rankIcon=["👑","🥈","🥉"][i]||String(place);
+    const avatar=avatarSource(x);
+    const validSrc=avatar.startsWith("/assets/")||avatar.startsWith("data:image/") ? avatar : "/assets/redesign/farmer.webp";
+    const avatarTag='<img class="rank-avatar" src="'+safe(validSrc)+'" alt="Аватар" loading="lazy">';
+    return '<div class="rank-card rank-'+place+(x.is_me?' rank-me':'')+'">'+
+      '<span class="rank-place">'+rankIcon+'</span>'+avatarTag+
+      '<div class="rank-info"><strong class="rank-name">'+safe(x.name)+'</strong>'+
+      '<span class="rank-details">⭐ Уровень '+number(x.farmer_level||1)+' · 🐾 '+number(x.animals||0)+' животных</span>'+
+      '<span class="rank-coins">🪙 '+number(x.coins||0)+' монет</span></div>'+
+      (place===1?'<span class="rank-crown">ЛИДЕР</span>':'')+
+      '</div>';
+  }).join("") || '<p class="muted">В рейтинге пока нет игроков</p>';
   if(el("my-rank"))el("my-rank").textContent="Ваше место: "+(state.my_rank?number(state.my_rank):"—");
   el("mylist").innerHTML = state.my_listings.length
     ? state.my_listings
