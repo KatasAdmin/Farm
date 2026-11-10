@@ -1753,11 +1753,10 @@ def buy(q:Request,authorization:str=Header(default="")):
  check(q.amount)
  if q.item not in ("grain","eggs","milk","feathers","wool","chickens","geese","cows","sheep"):raise HTTPException(400,"Товар не найден")
  with db() as c:
-  # Do not leave the client waiting behind a long-running market transaction.
-  # Failure occurs before any debit or asset movement, so retry is safe.
-  if not c.execute("SELECT pg_try_advisory_xact_lock(1984533) AS acquired").fetchone()["acquired"]:
-   raise HTTPException(409,"Рынок занят другой операцией. Повтори покупку через несколько секунд.")
+  # Bound market waits: a failed lock aborts this transaction before
+  # any debit or inventory movement and returns a retryable conflict.
   c.execute("SET LOCAL lock_timeout = '2500ms'")
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
   system_price={"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE,"sheep":SHEEP_PRICE}.get(q.item,0)
   if q.expected_price is not None and q.item in ("grain","chickens","geese","cows","sheep") and q.expected_price!=system_price:
