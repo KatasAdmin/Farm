@@ -170,7 +170,9 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn("Войти другим способом",html)
   self.assertIn("Продолжить через Telegram",html)
   self.assertIn("STARTUP_RETRIES = 3",js)
-  self.assertIn("if(!state||el(\"app\")?.hidden)throw Error",js)
+  self.assertIn('if(el("boot-screen"))el("boot-screen").hidden=false',js)
+  self.assertIn('if(requestToken!==token)return;',js)
+  self.assertNotIn('if(!state||el("app")?.hidden)throw Error',js)
 
  def test_entrypoints_and_app_present(self):
   html=(Path(__file__).resolve().parents[1]/"index.html").read_text(encoding="utf-8")
