@@ -52,9 +52,10 @@ def credit_verified_card(c,request_id,amount_kopeks):
     return fund_verified(c,'game-card:'+request_id,amount_kopeks,'bank_reconciliation')
 
 def _supply(c):
+    # Keep the cash exchange in sync with the displayed capitalization:
+    # only coins currently held by players count toward the supply.
     players=c.execute("SELECT COALESCE(SUM(coins),0)::bigint AS n FROM players").fetchone()
-    treasury=c.execute("SELECT COALESCE(treasury,0)::bigint AS n FROM economy WHERE id=1").fetchone()
-    return int(players['n'])+int(treasury['n'] if treasury else 0)
+    return int(players['n'])
 
 def quote(c,usd_uah,lock=False):
     row=c.execute("SELECT backed_kopeks FROM farm_cash_reserve WHERE id=1"+
