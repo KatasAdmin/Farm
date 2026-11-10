@@ -1578,6 +1578,8 @@ def state(authorization:str=Header(default="")):
   if level>p.get("farmer_level",1):
    c.execute("UPDATE players SET farmer_level=%s WHERE id=%s",(level,p["id"]))
    p={**p,"farmer_level":level}
+   # A concurrent login must not wait for the remaining heavy dashboard reads.
+   c.commit()
   top,my_rank=farm_ranking.snapshot(c,p["id"])
   next_xp=25*level*level
   unlocked={
