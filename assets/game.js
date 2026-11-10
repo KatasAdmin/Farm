@@ -302,7 +302,6 @@ async function useLoginResult(result) {
   token=result.token;
   storage.setItem("farm_token",token);
   // Login has already succeeded: show connection progress, never a signup error.
-  if(el("boot-screen"))el("boot-screen").hidden=false;
   if(el("boot-status"))el("boot-status").textContent="Вход выполнен. Загружаем ферму…";
   await refresh();
 }
@@ -379,8 +378,7 @@ el("join-form").addEventListener("submit", async (event) => {
     const result = await api("/api/join", { name: el("name").value.trim(), gender: el("join-gender").value, password: el("register-password").value, referral: incomingReferralCode() });
     token = result.token;
     storage.setItem("farm_token", token);
-    if(el("boot-screen"))el("boot-screen").hidden=false;
-    if(el("boot-status"))el("boot-status").textContent="Аккаунт создан. Загружаем ферму…";
+      if(el("boot-status"))el("boot-status").textContent="Аккаунт создан. Загружаем ферму…";
     await refresh();
     el("register-password").value="";
   } catch (error) {
@@ -1398,7 +1396,7 @@ setInterval(() => {
 }, 60000);
 setInterval(countdown, 1000);
 tab("farm");
-if (token) {refresh();loadAdRewardStatus();}
+if (token) {el("login").hidden=false;refresh();loadAdRewardStatus();}
 else showLogin();
 
 function configureTelegramEntry(){
