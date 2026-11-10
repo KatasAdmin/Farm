@@ -190,6 +190,12 @@ async def lifespan(app):
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("08d38f2ed9c32a780af77de096d60936f1bff93abd706d799067d4a8cfd06109",))
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("291e6403c1cc47ceed2db62b9a003a7d1e34d05ce195f6362f8433f634703cb6",))
   c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("92d208756fedf7104756f8a1710499aeb73069f496635470fa18d0f2e40330e1",))
+  # General-test one-use promo codes: hashes only, never raw redeemable codes.
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("00eb4e71a22c4ee199454e6728fdd136378e1cce5e2caa0f48ca4cce100b075e",))
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("3fdf5994de75cd1991589de8c1def487d0a4246d63a5e5604e4135f9d9415919",))
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("2b429b22b7a6a04bc33ebdd42bdbc5041dc7d5f5653d4c939dcc35fdd163ea4e",))
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("51054ce0932e51c2acee23c34c838d5e83999bd250c1b940087c3b59495b2a04",))
+  c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING",("e5fd8f9c19aab2a757b3dc769d09d040f6150529ffd7b86acde8fa4af16fe35d",))
   c.execute("CREATE TABLE IF NOT EXISTS reward_emission(id int PRIMARY KEY,total_minted bigint NOT NULL DEFAULT 0)")
   c.execute("INSERT INTO reward_emission(id,total_minted) VALUES(1,0) ON CONFLICT(id) DO NOTHING")
   c.execute("UPDATE players SET last_tick=%s WHERE last_tick IS NULL",(time.time(),))
