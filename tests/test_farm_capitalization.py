@@ -35,9 +35,9 @@ class CapitalizationTests(unittest.TestCase):
         self.assertEqual(result['game_views_kopeks'],100)
         self.assertEqual(result['approved_deposits_kopeks'],5000)
         self.assertEqual(result['historical_transfers_kopeks'],1000)
-        self.assertEqual(result['total_coins'],1000)
+        self.assertEqual(result['total_coins'],800)
         self.assertEqual(result['nominal_capitalization_kopeks'],8100)
-        self.assertEqual(Decimal(result['nominal_coin_price_uah']),Decimal('0.081'))
+        self.assertEqual(Decimal(result['nominal_coin_price_uah']),Decimal('0.10125'))
         self.assertFalse(result['payout_enabled'])
 
     def test_capitalization_seed_does_not_float_with_usd_rate(self):
