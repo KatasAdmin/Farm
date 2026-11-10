@@ -369,10 +369,13 @@ def admin(c, uid, action):
             b.change(c, row['uid'], row['amount'], 'manual_deposit', 'Перевод на карту · ' + row['id'])
         c.execute("UPDATE bot_card_topups SET status='approved',reference=%s,approved_at=%s WHERE id=%s", (reference, time.time(), row['id']))
         c.execute('UPDATE bot_cash_pool SET amount=amount+%s WHERE id=1', (row['amount'],))
-        notice=('🐔 ✅ Пополнение фермы подтверждено\\n\\nНачислено: '+str(coins)+' монет'
-                if target else '✅ Пополнение подтверждено\\n\\nНа баланс зачислено: '+b.money(row['amount']))
-        b.bot_notifications.enqueue(c,'card-approved:'+row['id'],
-                                    notice+'\\nЗаявка: '+row['id'],recipient=row['uid'])
+        notice=(('🐔 <b>Пополнение фермы подтверждено</b>\n\n'
+                 '🪙 Начислено: <b>'+str(coins)+' монет</b>\n'
+                 '🧾 Заявка: <code>'+row['id']+'</code>')
+                if target else ('✅ <b>Пополнение подтверждено</b>\n\n'
+                                '💰 Зачислено: <b>'+b.money(row['amount'])+'</b>\n'
+                                '🧾 Заявка: <code>'+row['id']+'</code>'))
+        b.bot_notifications.enqueue(c,'card-approved:'+row['id'],notice,recipient=row['uid'])
         b.state(c, uid, 'clear')
         label=(str(coins)+' монет в ферму' if target else b.money(row['amount'])+' в бот')
         return ui.screen(uid,'✅ Зачислено '+label+' пользователю '+str(row['uid']))
