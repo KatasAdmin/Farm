@@ -1749,7 +1749,11 @@ def buy(q:Request,authorization:str=Header(default="")):
  check(q.amount)
  if q.item not in ("grain","eggs","milk","feathers","wool","chickens","geese","cows","sheep"):raise HTTPException(400,"Товар не найден")
  with db() as c:
-  c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  # Do not leave the client waiting behind a long-running market transaction.
+  # Failure occurs before any debit or asset movement, so retry is safe.
+  if not c.execute("SELECT pg_try_advisory_xact_lock(1984533) AS acquired").fetchone()["acquired"]:
+   raise HTTPException(409,"Рынок занят другой операцией. Повтори покупку через несколько секунд.")
+  c.execute("SET LOCAL lock_timeout = '2500ms'")
   p=advance(c,person(c,authorization,True))
   system_price={"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"geese":GOOSE_PRICE,"cows":COW_PRICE,"sheep":SHEEP_PRICE}.get(q.item,0)
   if q.expected_price is not None and q.item in ("grain","chickens","geese","cows","sheep") and q.expected_price!=system_price:
@@ -1779,7 +1783,10 @@ def buy(q:Request,authorization:str=Header(default="")):
   seller_rows={}
   for seller_id in sorted({x["seller"] for x,n in chosen}):
    seller=c.execute("SELECT * FROM players WHERE id=%s FOR UPDATE",(seller_id,)).fetchone()
-   if seller:seller_rows[seller_id]=advance(c,seller)
+   if seller:
+    # Listed resources were already removed from seller inventory on listing.
+    # Only living animals need a production tick before ownership transfers.
+    seller_rows[seller_id]=advance(c,seller) if q.item in ("chickens","geese","cows","sheep") else seller
    if not seller:raise HTTPException(409,"Продавец больше не существует")
    pending=c.execute("""SELECT 1 FROM stars_refund_intents i
      JOIN star_orders o ON o.id=i.order_id
