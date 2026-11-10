@@ -980,10 +980,18 @@ def join(q:Request):
 def password_login(q:Request):
  name=q.name.strip()
  if not name or not q.password:raise HTTPException(400,"Укажите ник и пароль")
+ # Existing password accounts may explicitly link their signed Telegram session
+ # without creating a second farm. Never reassign a Telegram used by another farm.
+ uid=telegram_identity(q.telegram_data) if q.telegram_data else None
  now=time.time()
  failure=None
  token=None
+ linked=False
+ link_conflict=False
  with db() as c:
+  if uid:
+   c.execute("SELECT pg_advisory_xact_lock(1984533)")
+   c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
   c.execute("INSERT INTO login_failures(name,attempts,locked_until) VALUES(%s,0,0) ON CONFLICT DO NOTHING",(name.lower(),))
   fail=c.execute("SELECT * FROM login_failures WHERE name=%s FOR UPDATE",(name.lower(),)).fetchone()
   if fail["locked_until"]>now:
@@ -999,11 +1007,21 @@ def password_login(q:Request):
     c.execute("UPDATE login_failures SET attempts=0,locked_until=0 WHERE name=%s",(name.lower(),))
     token=secrets.token_hex(24)
     c.execute("UPDATE players SET token=%s WHERE id=%s",(token,p["id"]))
+    if uid:
+     linked_player=c.execute("SELECT id FROM players WHERE telegram_id=%s",(uid,)).fetchone()
+     own=c.execute("SELECT telegram_id FROM players WHERE id=%s",(p["id"],)).fetchone()
+     if (linked_player and linked_player["id"]!=p["id"]) or (own["telegram_id"] is not None and own["telegram_id"]!=uid):
+      link_conflict=True
+     else:
+      if own["telegram_id"] is None:
+       c.execute("UPDATE players SET telegram_id=%s WHERE id=%s",(uid,p["id"]))
+       referral_bridge.sync(c,uid)
+      linked=True
  if failure==429:raise HTTPException(429,"Слишком много попыток. Попробуйте через 15 минут")
  if failure:
   logger.warning("password_login_failed")
   raise HTTPException(401,"Неверный ник или пароль")
- return {"token":token}
+ return {"token":token,"telegram_linked":linked,"telegram_link_conflict":link_conflict}
 
 @app.post("/api/password/set")
 def set_password(q:Request,authorization:str=Header(default="")):
