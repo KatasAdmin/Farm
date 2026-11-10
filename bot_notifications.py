@@ -21,7 +21,7 @@ def initialize(c):
     c.execute('CREATE INDEX IF NOT EXISTS bot_notifications_queue ON bot_notifications(status,next_at)')
 
 
-def enqueue(c,event,text,action=None,recipient=0,subject=0,kind='event',url=None,url_label='🎁 Забрать чек'):
+def enqueue(c,event,text,action=None,recipient=0,subject=0,kind='event',url=None,url_label='🎁 Забрать чек',html=False):
     # Recipient 0 means the verified owner; a caller cannot nominate another owner.
     now=time.time()
     if kind=='intent' and c.execute('SELECT 1 FROM bot_notifications WHERE subject=%s AND kind=%s AND created>%s',
