@@ -61,20 +61,37 @@ function toast(message) {
   toast.timer = setTimeout(() => (el("toast").hidden = true), 4500);
 }
 async function api(path, payload, extraHeaders={}) {
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),payload===undefined?15000:45000);
+  const isRead=payload===undefined;
+  const maxAttempts=isRead && path==="/api/state" ? 2 : 1;
   let response,value;
-  try {
-    response=await fetch(path, {
-      method: payload === undefined ? "GET" : "POST",
-      headers: {"Content-Type":"application/json",Authorization:"Bearer "+(token||""),...extraHeaders},
-      body:payload===undefined?undefined:JSON.stringify(payload),cache:"no-store",signal:controller.signal
-    });
-    value=await response.json();
-  } catch(error) {
-    if(error.name==="AbortError")throw Error("Сервер не ответил вовремя. Обнови данные перед повтором действия.");
-    throw error;
-  } finally {clearTimeout(timer);}
+  for(let attempt=0;attempt<maxAttempts;attempt++){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),isRead?15000:45000);
+    try {
+      response=await fetch(path, {
+        method: isRead ? "GET" : "POST",
+        headers: {"Content-Type":"application/json",Authorization:"Bearer "+(token||""),...extraHeaders},
+        body:isRead?undefined:JSON.stringify(payload),cache:"no-store",signal:controller.signal
+      });
+      value=await response.json();
+      break;
+    } catch(error) {
+      if(isRead && error.name==="AbortError" && attempt+1<maxAttempts)continue;
+      if(error.name==="AbortError"){
+        const failure=Error(isRead
+          ? "Сервер временно не отвечает. Данные остались без изменений."
+          : "Ответ о выполнении действия не получен. Не повторяйте покупку до проверки баланса и имущества.");
+        failure.unknownResult=!isRead;
+        throw failure;
+      }
+      if(!isRead){
+        const failure=Error("Связь прервалась. Результат действия неизвестен — сначала проверьте баланс и имущество.");
+        failure.unknownResult=true;
+        throw failure;
+      }
+      throw error;
+    } finally {clearTimeout(timer);}
+  }
   if (!response.ok) {
     const error = Error(
       typeof value.detail === "string"
