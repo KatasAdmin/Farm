@@ -18,7 +18,9 @@ class StateLockScopeTests(unittest.TestCase):
   self.assertLess(advance,snapshot)
   self.assertLess(snapshot,market)
   self.assertIn(' with db() as c:\n  p=advance(c,person(c,authorization,True))',state)
-  self.assertIn(' with db() as c:\n  p=person(c,authorization)',state)
+  self.assertIn(' with dashboard_db() as c:\n  p=person(c,authorization)',state)
+  self.assertIn('c.autocommit=True',source)
+  self.assertIn('c.autocommit=False',source)
   self.assertNotIn('p=advance(c,person(c,authorization,True))\n  listings=',state)
 
 if __name__=='__main__':unittest.main()
