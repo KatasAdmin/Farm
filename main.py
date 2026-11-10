@@ -207,6 +207,10 @@ async def lifespan(app):
    if release_grants.apply(c,task_bot):
     logger.warning("one_time_wallet_grant_applied uid=%s kopeks=%s",release_grants.UID,release_grants.AMOUNT)
  logger.warning("farm_startup_schema_committed")
+ # Read-only circulation audit for the general test; no player data or secrets.
+ with db() as audit_db:
+  supply_row=audit_db.execute("SELECT COUNT(*)::int AS players, COALESCE(SUM(coins),0)::bigint AS coins FROM players").fetchone()
+  logger.warning("farm_live_supply_audit players=%s coins=%s",supply_row["players"],supply_row["coins"])
  # Register this dedicated farm bot's webhook without blocking game startup on Telegram outages.
  try:
   token=os.environ.get("TELEGRAM_BOT_TOKEN","")
