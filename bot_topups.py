@@ -375,7 +375,7 @@ def admin(c, uid, action):
                 if target else ('✅ <b>Пополнение подтверждено</b>\n\n'
                                 '💰 зачислено: <b>'+b.money(row['amount'])+'</b>\n'
                                 '🧾 Заявка: <code>'+row['id']+'</code>'))
-        b.bot_notifications.enqueue(c,'card-approved:'+row['id'],notice,recipient=row['uid'])
+        b.bot_notifications.enqueue(c,'card-approved:'+row['id'],notice,recipient=row['uid'],html=True)
         b.state(c, uid, 'clear')
         label=(str(coins)+' монет в ферму' if target else b.money(row['amount'])+' в бот')
         return ui.screen(uid,'✅ Зачислено '+label+' пользователю '+str(row['uid']))
