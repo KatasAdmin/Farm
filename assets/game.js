@@ -49,7 +49,7 @@ function retryTransientStartup(error) {
   const transient=[500,502,503,504,423,429].includes(error?.status)||
     /Сервер не ответил вовремя|Failed to fetch|NetworkError|Load failed|The network connection was lost/i.test(String(error?.message||""));
   if(!transient||startupRetryCount>=STARTUP_RETRIES)return false;
-  const delays=[1200,2200,3500];
+  const delays=[1200,2200,3500,5000,7000,9000];
   const delay=delays[startupRetryCount++];
   const label=el("boot-status");
   if(label)label.textContent="Сервер занят. Подключаемся автоматически… ("+startupRetryCount+"/"+STARTUP_RETRIES+")";
@@ -82,10 +82,11 @@ let state = null,
   currentTab = "farm",
   purchase = null;
 let refreshPromise = null,
+  refreshPromiseToken = null,
   refreshedAt = 0;
 let startupRetryTimer = null;
 let startupRetryCount = 0;
-const STARTUP_RETRIES = 3;
+const STARTUP_RETRIES = 6;
 let lastTimerRefresh = 0;
 function safe(s) {
   return String(s).replace(
@@ -300,8 +301,10 @@ async function useLoginResult(result) {
   if(!result?.token)throw Error("Сервер не выдал данные для входа.");
   token=result.token;
   storage.setItem("farm_token",token);
+  // Login has already succeeded: show connection progress, never a signup error.
+  if(el("boot-screen"))el("boot-screen").hidden=false;
+  if(el("boot-status"))el("boot-status").textContent="Вход выполнен. Загружаем ферму…";
   await refresh();
-  if(!state||el("app")?.hidden)throw Error("Вход выполнен, но ферма ещё не загрузилась. Нажми «Повторить загрузку».");
 }
 async function telegramLogin() {
   if(pending)return;
@@ -376,6 +379,8 @@ el("join-form").addEventListener("submit", async (event) => {
     const result = await api("/api/join", { name: el("name").value.trim(), gender: el("join-gender").value, password: el("register-password").value, referral: incomingReferralCode() });
     token = result.token;
     storage.setItem("farm_token", token);
+    if(el("boot-screen"))el("boot-screen").hidden=false;
+    if(el("boot-status"))el("boot-status").textContent="Аккаунт создан. Загружаем ферму…";
     await refresh();
     el("register-password").value="";
   } catch (error) {
@@ -1340,23 +1345,31 @@ function countdown() {
   if (el("purchase-dialog").open) purchaseQuote();
 }
 async function refresh() {
-  if (refreshPromise) return refreshPromise;
+  // An earlier request may belong to the token used before a fresh login.
+  if (refreshPromise) {
+    if(refreshPromiseToken===token)return refreshPromise;
+    await refreshPromise;
+  }
+  const requestToken=token;
+  refreshPromiseToken=requestToken;
   refreshPromise = (async () => {
     try {
       const next=await api("/api/state");
+      if(requestToken!==token)return;
       state=next;
       refreshedAt=Date.now();
       render();
       hideStartup();
       window.FarmAds?.recover();
     } catch (error) {
+      if(requestToken!==token)return;
       if (error.status === 401) {hideStartup();showLogin();}
       else if(el("app").hidden){
         if(!retryTransientStartup(error))showStartupError(error);
       }
       else toast("Не удалось обновить данные: " + error.message);
     } finally {
-      refreshPromise = null;
+      if(refreshPromiseToken===requestToken){refreshPromise = null;refreshPromiseToken=null;}
     }
   })();
   return refreshPromise;
