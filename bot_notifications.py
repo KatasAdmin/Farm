@@ -28,6 +28,7 @@ def enqueue(c,event,text,action=None,recipient=0,subject=0,kind='event',url=None
                                    (subject,kind,now-300)).fetchone():
         return
     payload={'text':text[:3500]}
+    if html: payload['parse_mode']='HTML'
     if url is not None:
         # External check links may only be sent to the actual recipient.
         from urllib.parse import urlsplit
