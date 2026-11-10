@@ -41,10 +41,21 @@ from fastapi import FastAPI,HTTPException,Header,Request as HTTPRequest
 from fastapi.responses import HTMLResponse,JSONResponse,RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager,contextmanager
 from production import CYCLE, FEED_EVERY, GRAIN_PRICE, simulate, forecast
 from production_v4 import simulate as simulate_v4, forecast as forecast_v4, feed_required, COW_PRICE, COW_FEED, MILK_PRICE, MILK_INTERVAL, SHEEP_PRICE, SHEEP_FEED, WOOL_PRICE, WOOL_INTERVAL
 def db():return database_pool.connection()
+@contextmanager
+def dashboard_db():
+ # The dashboard runs many reporting queries. Do not keep a transaction open
+ # while assembling unrelated sections; restore pool connection settings.
+ with db() as c:
+  c.autocommit=True
+  try:
+   yield c
+  finally:
+   c.autocommit=False
+
 @asynccontextmanager
 async def lifespan(app):
  logger.warning("farm_startup_database_connecting release=%s",RELEASE)
@@ -1509,7 +1520,7 @@ def state(authorization:str=Header(default="")):
   p=advance(c,person(c,authorization,True))
   if not p["welcome_granted"]:
    c.execute("UPDATE players SET welcome_granted=true WHERE id=%s",(p["id"],))
- with db() as c:
+ with dashboard_db() as c:
   p=person(c,authorization)
   listings=c.execute("SELECT m.item,m.price,m.quantity,p.name AS seller FROM market m JOIN players p ON p.id=m.seller WHERE m.quantity>0 ORDER BY m.price LIMIT 40").fetchall()
   available_eggs=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("eggs",p["id"])).fetchone()["total"]
