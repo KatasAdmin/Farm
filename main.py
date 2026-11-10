@@ -49,6 +49,10 @@ def db():return database_pool.connection()
 async def lifespan(app):
  logger.warning("farm_startup_database_connecting release=%s",RELEASE)
  with db() as c:
+  # Startup performs idempotent DDL against live tables. It must not inherit
+  # short request lock deadlines while older instances still serve traffic.
+  c.execute("SET LOCAL lock_timeout = '90s'")
+  c.execute("SET LOCAL statement_timeout = '120s'")
   logger.warning("farm_startup_database_connected")
   # Match request lock order before DDL takes exclusive table locks.
   # Otherwise a live webhook can hold this lock while waiting on our tables.
