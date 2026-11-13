@@ -1,6 +1,7 @@
 """Continuous eggs for production model 4, with feed events every 18 hours."""
 import math
 import ad_inventory
+import city_nutrition
 from production import CYCLE, FEED_EVERY, GRAIN_PRICE
 GOOSE_CYCLE=2*3600
 GOOSE_FEED=2
@@ -56,13 +57,16 @@ def simulate(p, now):
   # Interleave feather events and egg production by time, so polling cannot
   # change which resource occupies the last warehouse slot. Eggs win ties.
   while until>cursor:
-   step=min(until,cursor+(FEATHER_INTERVAL-feather_progress)/fed_geese) if fed_geese else until
-   if fed_cows:step=min(step,cursor+(MILK_INTERVAL-milk_progress)/fed_cows)
-   if fed_sheep:step=min(step,cursor+(WOOL_INTERVAL-wool_progress)/fed_sheep)
+   # Keep each resource event boundary exact even at maximum 2x food boost.
+   # Half a natural interval cannot cross more than one event per resource.
+   step=min(until,cursor+max(1e-6,(FEATHER_INTERVAL-feather_progress)/fed_geese/2)) if fed_geese else until
+   if fed_cows:step=min(step,cursor+max(1e-6,(MILK_INTERVAL-milk_progress)/fed_cows/2))
+   if fed_sheep:step=min(step,cursor+max(1e-6,(WOOL_INTERVAL-wool_progress)/fed_sheep/2))
    elapsed=max(0,step-cursor)
+   productive_elapsed=elapsed+city_nutrition.bonus_seconds(p.get("_city_food"),cursor,step)
    before_progress=progress
    rate=fed/CYCLE+fed_geese/GOOSE_CYCLE
-   total=progress+rate*elapsed
+   total=progress+rate*productive_elapsed
    whole=math.floor(total+1e-10)
    progress=max(0,min(.999999999,total-whole))
    laid=min(whole,max(0,capacity-grain-eggs-feathers-milk-wool))
@@ -75,12 +79,12 @@ def simulate(p, now):
     at_last=lambda count:ad_ep+ad_rate*max(0,(count-before_progress)/rate) if rate and count else ad_ep
     stored_ad=min(laid,max(0,math.ceil(at_last(laid)-1e-10))) if laid else 0
     generated_ad=min(whole,max(0,math.ceil(at_last(whole)-1e-10))) if whole else 0
-    ad_ep+=ad_rate*elapsed-generated_ad
+    ad_ep+=ad_rate*productive_elapsed-generated_ad
     ad_eggs+=stored_ad
-    ad_mp+=ad_cow_fed*elapsed;ad_fp+=ad_goose_fed*elapsed;ad_wp+=ad_sheep_fed*elapsed
-   feather_progress+=fed_geese*elapsed
-   milk_progress+=fed_cows*elapsed
-   wool_progress+=fed_sheep*elapsed
+    ad_mp+=ad_cow_fed*productive_elapsed;ad_fp+=ad_goose_fed*productive_elapsed;ad_wp+=ad_sheep_fed*productive_elapsed
+   feather_progress+=fed_geese*productive_elapsed
+   milk_progress+=fed_cows*productive_elapsed
+   wool_progress+=fed_sheep*productive_elapsed
    cursor=step
    if feather_progress>=FEATHER_INTERVAL-1e-7:
     feather_progress=max(0,feather_progress-FEATHER_INTERVAL)
