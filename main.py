@@ -154,12 +154,10 @@ async def lifespan(app):
   c.execute("CREATE INDEX IF NOT EXISTS trade_audit_pair_recent ON market_trade_audit(buyer_id,seller_id,created)")
   # Dashboard reads are player-scoped; avoid scanning growing event / trade
   # histories for every refresh. Preserve all events and existing balances.
-  c.execute("CREATE INDEX IF NOT EXISTS trade_audit_seller_created_idx ON market_trade_audit(seller_id,created)")
-  c.execute("CREATE INDEX IF NOT EXISTS trade_audit_buyer_created_idx ON market_trade_audit(buyer_id,created)")
   c.execute("CREATE INDEX IF NOT EXISTS money_log_player_created_idx ON money_log(player_id,created)")
   c.execute("CREATE INDEX IF NOT EXISTS market_seller_active_idx ON market(seller) WHERE quantity>0")
   c.execute("CREATE INDEX IF NOT EXISTS incubation_jobs_player_mature_idx ON incubation_jobs(player_id,mature_at)")
-  c.execute("CREATE INDEX IF NOT EXISTS players_farmer_rank_idx ON players(farmer_level DESC,name,id)"
+  c.execute("CREATE INDEX IF NOT EXISTS players_farmer_rank_idx ON players(farmer_level DESC,name,id)")
 
 
   c.execute("CREATE TABLE IF NOT EXISTS daily_activity(player_id text NOT NULL,day text NOT NULL,grain_bought int NOT NULL DEFAULT 0,eggs_listed int NOT NULL DEFAULT 0,eggs_produced int NOT NULL DEFAULT 0,PRIMARY KEY(player_id,day))")
