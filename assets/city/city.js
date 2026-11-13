@@ -142,7 +142,7 @@ function showBusinessDirectory(){
  openPanel("🏙️ Мои предприятия",'<p class="city-help">Выбирай здание, выпускай товары и развивай город. Новые предприятия открываются за репутацию ⭐</p>'+entries.map(([kind,b])=>
   '<button type="button" class="item-card business-entry" data-action="business" data-item="'+kind+'">'+
   '<span><strong>'+b.emoji+' '+esc(b.name)+'</strong><small>'+
-  (data.business_levels[kind]?"🟢 Работает · уровень "+data.business_levels[kind]:"🔒 Откроется при "+b.min_reputation+" ⭐")+
+  (data.business_levels[kind]?"🟢 Работает · уровень "+data.business_levels[kind]:"🔒 "+b.min_reputation+" ⭐"+(b.feather_cost?" · "+b.feather_cost+" 🪶":""))+
   '</small></span><span class="business-chevron" aria-hidden="true">›</span></button>').join(""));
 }
 function showBusiness(kind){
@@ -153,9 +153,10 @@ function showBusiness(kind){
  let body="";
  if(!level){
   const required=b.min_reputation;
-  const ready=data.reputation>=required;
-  body='<div class="empty">'+(ready?'✨ Условия выполнены — предприятие готово к открытию':'🔒 Для открытия нужно '+required+' ⭐ репутации. Сейчас '+data.reputation+' ⭐')+'</div>'+
-   '<button class="btn gold" data-action="open" data-item="'+kind+'" '+(ready?'':'disabled')+'>Открыть предприятие</button>';
+  const feathers=b.feather_cost||0;
+  const ready=data.reputation>=required&&(data.stock.feathers||0)>=feathers;
+  body='<div class="empty">'+(ready?'✨ Условия выполнены — предприятие готово к открытию':'🔒 Нужно '+required+' ⭐ репутации'+(feathers?' и '+feathers+' 🪶 на складе':'')+'. Сейчас '+data.reputation+' ⭐ и '+(data.stock.feathers||0)+' 🪶')+'</div>'+
+   '<button class="btn gold" data-action="open" data-item="'+kind+'" '+(ready?'':'disabled')+'>🏙️ Открыть предприятие</button>'+(feathers?'<p class="city-help">🪶 Перья можно перенести со склада фермы через городской склад.</p>':'');
  }else{
   body='<div class="badge-line"><span class="pill">Уровень '+level+'</span><span class="pill">Рецепты · '+recipes.length+'</span></div>';
  }
@@ -285,6 +286,7 @@ async function action(action,item,amountId,listingId){
  if(action==="shopping"){lastShoppingRecipe=item;return showShoppingList(item)}
  if(action==="business"){return showBusiness(item)}
  if(action==="open")path="/open";
+ else if(action==="transfer"){path="/transfer-feathers";body.item="feathers";body.amount=amount}
  else if(action==="produce"){path="/produce";body.amount=getAmount("qty-craft-"+item);if(!body.amount)return}
  else if(action==="raw"){path="/buy-ingredient";body.amount=amount}
  else if(action==="product"){path="/buy-product";body.amount=amount}
@@ -293,7 +295,7 @@ async function action(action,item,amountId,listingId){
  else if(action==="fulfill"){path="/fulfill-order";body.order_day=data.resident_orders.find(order=>order.id===item)?.day}
  else return;
  working=true;
- if(["raw","product","produce","list","cancel","fulfill"].includes(action)){
+ if(["raw","product","produce","list","cancel","fulfill","transfer"].includes(action)){
   body.request_id=(globalThis.crypto?.randomUUID?.()||(Date.now().toString(16)+Math.floor(Math.random()*1e15).toString(16)).padEnd(32,"a")).replaceAll("-","").slice(0,32);
  }
  if(action==="raw"||action==="product"){
@@ -303,7 +305,7 @@ async function action(action,item,amountId,listingId){
    if(!confirm("Купить "+body.amount+" шт. за "+number(quote.cost)+" монет?")){working=false;return}
   }catch(e){toast(e.message);working=false;return}
  }
- try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар на рынке · смотри в «Мои лоты»":action==="open"?"Предприятие открыто!":"Готово!");
+ try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар на рынке · смотри в «Мои лоты»":action==="open"?"Предприятие открыто!":action==="transfer"?"🪶 Перья перенесены в город!":"Готово!");
  await load();
  }catch(e){toast(e.message)}
  finally{working=false}
