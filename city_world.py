@@ -192,7 +192,7 @@ def state(authorization: str=Header(default="")):
         my_city_offers=c.execute("SELECT id,item,quantity,price FROM city_listings WHERE seller=%s AND quantity>0 ORDER BY created DESC",(p["id"],)).fetchall()
         city_offers=c.execute("""SELECT l.id,l.item,l.price,l.quantity,p.name AS seller
             FROM city_listings l JOIN players p ON p.id=l.seller
-            WHERE l.quantity>0 ORDER BY l.item,l.price,l.id LIMIT 70""").fetchall()
+            WHERE l.quantity>0 AND l.seller<>%s ORDER BY l.item,l.price,l.id LIMIT 70""",(p["id"],)).fetchall()
         jobs=c.execute("SELECT recipe,quantity,ready_at FROM city_jobs WHERE player_id=%s ORDER BY ready_at",(p["id"],)).fetchall()
         rep=c.execute("SELECT points FROM city_reputation WHERE player_id=%s",(p["id"],)).fetchone()
         return {"name":p["name"],"coins":p["coins"],"businesses":businesses,
@@ -350,6 +350,11 @@ def buy_product(q:Action,authorization:str=Header(default="")):
         for seller in sorted({row["seller"] for row,n in chosen}):
             if not c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(seller,)).fetchone():
                 raise HTTPException(409,"Продавец недоступен")
+            refund=c.execute("""SELECT 1 FROM stars_refund_intents i
+                JOIN star_orders o ON o.id=i.order_id
+                WHERE o.player_id=%s AND i.status IN ('calling','needs_review') LIMIT 1""",
+                (seller,)).fetchone()
+            if refund:raise HTTPException(409,"Продавец временно недоступен: проверка возврата Stars")
         c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(cost,p["id"]))
         for row,n in chosen:
             c.execute("UPDATE city_listings SET quantity=quantity-%s WHERE id=%s",(n,row["id"]))
