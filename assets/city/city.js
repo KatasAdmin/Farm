@@ -252,6 +252,7 @@ function showProfile(){
 function showWarehouse(){
  let s='<h3 class="section-subtitle">Сырьё</h3><div class="mini-grid">';
  s+=Object.entries(names).map(([key,name])=>'<div class="mini-box"><small>'+name+'</small><strong>'+number(data.stock[key]||0)+'</strong></div>').join("")+'</div>';
+ s+='<div class="city-transfer"><div><strong>🪶 Перья с фермы</strong><small>На ферме: '+number(data.farm_feathers||0)+' · в городе: '+number(data.stock.feathers||0)+'<span>Для открытия молочной и ателье</span></small></div><div class="item-actions"><input class="number-input" id="qty-transfer-feathers" aria-label="Перенести перья" type="number" min="1" max="500" value="1"><button class="btn gold" data-action="transfer" data-item="feathers" data-amount-id="qty-transfer-feathers" '+(!data.farm_feathers?'disabled':'')+'>Перенести</button></div></div>';
  s+='<h3 class="section-subtitle">Готовая продукция</h3>';
  const products=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key]);
  s+=products.length?products.map(([key,n])=>saleRow(key,n)).join(""):'<div class="empty">Склад пока пуст</div>';
