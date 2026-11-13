@@ -28,7 +28,7 @@ function retryFarmStartup() {
   startupRetryCount=0;
   if(el("boot-status"))el("boot-status").textContent="Подключаемся к ферме…";
   // Keep the existing token: a retry must never sign out a farmer.
-  if(token)refresh();else showLogin();
+  if(token)refresh();else startFarmEntry();
 }
 function chooseFarmLogin() {
   // Explicit alternate-login action only. Never clear credentials on a retry.
@@ -1441,8 +1441,56 @@ setInterval(() => {
 }, 60000);
 setInterval(countdown, 1000);
 tab("farm");
-if (token) {el("login").hidden=false;refresh();loadAdRewardStatus();}
-else showLogin();
+// Keep existing credentials first. On first Mini App launch (or an expired
+// saved session), seamlessly authenticate using Telegram signed initData.
+// Do not auto-sign-out on transient /api/state failures.
+let entryInProgress = null;
+async function startFarmEntry() {
+  if (entryInProgress) return entryInProgress;
+  entryInProgress = (async () => {
+    if (token) {
+      await refresh();
+      if (token && state) { loadAdRewardStatus(); return; }
+      // A transient state failure keeps the token and retry path intact.
+      if (token) return;
+    }
+    if (!tgInitData()) {
+      await new Promise(resolve => {
+        let completed = false;
+        let timer = null;
+        const finish = () => {
+          if(completed)return;
+          completed = true;
+          window.removeEventListener("telegram-sdk-ready",finish);
+          clearTimeout(timer);
+          resolve();
+        };
+        window.addEventListener("telegram-sdk-ready",finish,{once:true});
+        timer = setTimeout(finish,1200);
+        if(tgInitData())finish();
+      });
+    }
+    if (tgInitData()) {
+      const result = await (async () => {
+        try {
+          busy(true);
+          const login = await api("/api/telegram/login",{telegram_data:tgInitData(),referral:incomingReferralCode()});
+          await useLoginResult(login);
+          return Boolean(token && state);
+        } catch(e) {
+          toast(e.message || "Не удалось войти через Telegram");
+          return false;
+        } finally {
+          busy(false);
+        }
+      })();
+      if(result) {loadAdRewardStatus();return;}
+    }
+    showLogin();
+  })().finally(()=>{entryInProgress=null;});
+  return entryInProgress;
+}
+startFarmEntry();
 
 function configureTelegramEntry(){
   // Never depend on a network request to show the Telegram login control.
