@@ -50,6 +50,7 @@ async function enterDemo(){
   const catalog=await api("/catalog");
   data={name:"Гость • демоверсия",coins:0,reputation:0,
    businesses:Object.keys(catalog.business_catalog),stock:{},products:{},
+   farm_market_totals:{},city_demand_today:{},
    recipes:catalog.recipes,business_catalog:catalog.business_catalog,
    farm_offers:[],city_offers:[],my_city_offers:[],jobs:[],resident_orders:[],demo:true};
   $("city-auth").classList.add("hidden");
@@ -76,7 +77,8 @@ function paint(){
  $("reputation").textContent=number(data.reputation);
  $("greeting").textContent="Привет, "+data.name+"! Выбирай свой бизнес";
  $("business-count").textContent=data.businesses.length;
- $("eggs-on-market").textContent=number(data.farm_offers.filter(x=>x.item==="eggs").reduce((n,x)=>n+x.quantity,0));
+ $("eggs-on-market").textContent=number(data.farm_market_totals?.eggs??data.farm_offers.filter(x=>x.item==="eggs").reduce((n,x)=>n+x.quantity,0));
+ $("eggs-demand-today").textContent=number(data.city_demand_today?.eggs||0);
  $("products-count").textContent=number(Object.values(data.products).reduce((a,b)=>a+b,0));
  document.querySelectorAll(".building").forEach(x=>x.classList.toggle("unlocked",data.businesses.includes(x.dataset.business)));
  if(!$("panel-overlay").classList.contains("hidden"))refreshPanel();
@@ -149,7 +151,9 @@ function showShoppingList(recipeId){
   const missing=Math.max(0,entry.need-entry.stock);
   const name=entry.type==="raw"?esc(names[entry.item]):(icons[entry.item]||"📦")+" "+esc(data.recipes[entry.item]?.name||entry.item);
   const offers=(entry.type==="raw"?data.farm_offers:data.city_offers).filter(r=>r.item===entry.item);
-  const available=offers.reduce((sum,r)=>sum+r.quantity,0);
+  const available=entry.type==="raw"
+    ?(data.farm_market_totals?.[entry.item]??offers.reduce((sum,r)=>sum+r.quantity,0))
+    :offers.reduce((sum,r)=>sum+r.quantity,0);
   return row(name,"Нужно "+entry.need+" · На складе "+entry.stock+" · На рынке "+available,
   !missing?'<span class="pill">✅ Достаточно</span>':
   input("shopping-"+i,missing)+
@@ -161,7 +165,7 @@ function showShoppingList(recipeId){
 function showMarket(){
  const offers=data.farm_offers.filter(x=>names[x.item]);
  let s='<p class="panel-note">Здесь настоящий рынок фермы, а не магазин с бесконечными товарами. Продавец получает монеты. Свои объявления для закупки скрыты.</p>';
- s+='<div class="badge-line">'+Object.entries(names).map(([key,name])=>'<span class="pill">'+name+': '+number(offers.filter(r=>r.item===key).reduce((n,r)=>n+r.quantity,0))+'</span>').join("")+'</div>';
+ s+='<div class="badge-line">'+Object.entries(names).map(([key,name])=>'<span class="pill">'+name+': '+number(data.farm_market_totals?.[key]??offers.filter(r=>r.item===key).reduce((n,r)=>n+r.quantity,0))+'</span>').join("")+'</div>';
  s+=offers.length?offers.map(x=>row(esc(names[x.item]),'Фермер: '+esc(x.seller)+' · '+x.quantity+' шт. · '+x.price+' мон./шт.',
   input('qty-raw-'+x.id)+ '<button class="btn" data-action="raw" data-item="'+esc(x.item)+'" data-amount-id="qty-raw-'+x.id+'">Купить</button>')).join(""):'<div class="empty">На общем рынке пока нет сырья от других игроков. Фермеры могут выставить яйца через игру «Ферма».</div>';
  openPanel("🧺 Сырьевой рынок",s);
