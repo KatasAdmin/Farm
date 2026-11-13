@@ -41,7 +41,7 @@ class CityWorldSafety(unittest.TestCase):
         self.assertIn('"/api/promo/redeem"',js)
         self.assertIn('INSERT INTO promo_codes(code_hash,amount)',city)
         self.assertNotIn('FARM-8892DB409F313BE04DFC0FB',city)
-        self.assertIn('get("farm_token")',js)
+        self.assertIn('getItem("farm_token")',js)
 
     def test_city_page_isolated(self):
         html=(ROOT/"city.html").read_text("utf8")
