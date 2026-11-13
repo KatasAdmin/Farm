@@ -15,7 +15,7 @@ function showStartupError() {
 }
 function retryFarmStartup() {
   if(el("boot-status"))el("boot-status").textContent="Загружаем ферму…";
-  if(token)refresh();else showLogin();
+  startFarmEntry();
 }
 function hideStartup() { const screen=el("boot-screen");if(screen)screen.hidden=true; }
 
@@ -1337,8 +1337,50 @@ setInterval(() => {
 }, 60000);
 setInterval(countdown, 1000);
 tab("farm");
-if (token) {refresh();loadAdRewardStatus();}
-else showLogin();
+// Give the Telegram SDK a brief opportunity to load before showing the login form.
+// A valid saved session is always preferred, preserving existing accounts.
+let entryInProgress = null;
+async function startFarmEntry() {
+  if (entryInProgress) return entryInProgress;
+  entryInProgress = (async () => {
+    if (el("boot-status")) el("boot-status").textContent = "Подключаем ферму…";
+    if (token) {
+      await refresh();
+      if (state && token) {
+        loadAdRewardStatus();
+        return;
+      }
+    }
+    if (!tgInitData()) {
+      await new Promise(resolve => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          window.removeEventListener("telegram-sdk-ready", finish);
+          clearTimeout(wait);
+          resolve();
+        };
+        window.addEventListener("telegram-sdk-ready", finish, {once:true});
+        const wait = setTimeout(finish, 1200);
+        if (tgInitData()) finish();
+      });
+    }
+    if (tgInitData()) {
+      if (el("boot-status")) el("boot-status").textContent = "Входим через Telegram…";
+      await telegramLogin();
+      if (token && state) {
+        loadAdRewardStatus();
+        return;
+      }
+    }
+    // Standalone browser and unavailable Telegram authentication retain the
+    // existing nickname/password/recovery fallback without losing game data.
+    showLogin();
+  })().finally(() => { entryInProgress = null; });
+  return entryInProgress;
+}
+startFarmEntry();
 
 async function configureTelegramEntry(){
   const init=Boolean(tgInitData());
