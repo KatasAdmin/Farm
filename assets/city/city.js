@@ -12,7 +12,7 @@ function toast(text){$("city-toast").textContent=text;$("city-toast").classList.
 async function api(path,body){
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),18000);
  try{
-  const response=await fetch(path.startsWith("/")?path:root+path,{
+  const response=await fetch(path.startsWith("/api/")?path:root+path,{
    method:body===undefined?"GET":"POST",
    headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},
    body:body===undefined?undefined:JSON.stringify(body),
@@ -149,7 +149,10 @@ async function action(action,item,amountId){
  else if(action==="consume"){path="/consume";body.amount=getAmount("qty-list-"+item);if(!body.amount)return}
  else return;
  working=true;
- try{const result=await api(path,body);toast(action==="raw"?"Сырьё закуплено на общий рынок!":action==="produce"?"Производство запущено!":action==="list"?"Товар выставлен в городе":action==="open"?"Предприятие открыто!":"Готово!");
+ if(action==="raw"||action==="product"){
+  body.request_id=(globalThis.crypto?.randomUUID?.()||(["a",Date.now().toString(16),Math.floor(Math.random()*1e9).toString(16)].join(""))).replaceAll("-","").slice(0,32);
+ }
+ try{const result=await api(path,body);toast(action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар выставлен в городе":action==="open"?"Предприятие открыто!":"Готово!");
  await load();
  }catch(e){toast(e.message)}
  finally{working=false}
