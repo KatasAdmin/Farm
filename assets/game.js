@@ -435,6 +435,7 @@ function tab(id) {
   });
   window.scrollTo({ top: 0, behavior: "instant" });
   if (id === "wallet") { loadHistory(); loadWithdrawalStatus(); }
+  if (id === "production") window.farmCityProducts?.load?.();
 }
 function dismissLaunchGuide(){
  if(!state?.me?.id)return;

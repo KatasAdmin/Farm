@@ -8,10 +8,10 @@ class FarmNavigationTests(unittest.TestCase):
         page = HTML.read_text(encoding="utf-8")
         farm = page.split('<section id="farm"', 1)[1].split("</section>", 1)[0]
         shortcuts = farm.split('class="farm-tiles-v2"', 1)[1].split("</div>", 1)[0]
-        self.assertEqual(shortcuts.count("<button"), 3)
+        self.assertEqual(shortcuts.count("<button"), 4)
         self.assertIn("tab('fields')", shortcuts)
         self.assertIn("Предприятия", shortcuts)
-        self.assertIn('href="/city"', shortcuts)
+        self.assertIn("tab(\'production\')", shortcuts)
         self.assertNotIn("Скоро", shortcuts)
         self.assertIn("tab('coop')", shortcuts)
         self.assertIn("tab('storage')", shortcuts)

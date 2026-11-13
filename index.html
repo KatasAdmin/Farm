@@ -20,12 +20,13 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=110" defer></script>
+    <script src="/assets/game.js?v=111" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
     <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
+      <link rel="stylesheet" href="/assets/city/farm-products.css?v=1" />
   </head>
   <body>
     <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #80d6ff;border-radius:14px;background:#103c7c;color:white;font-family:Arial,sans-serif">
@@ -160,7 +161,7 @@
           <button type="button" class="farm-tile" onclick="tab('coop')"><img loading="lazy" src="/assets/redesign/coop-icon.webp" alt=""><strong>Животные</strong></button>
           <button type="button" class="farm-tile" onclick="tab('storage')"><img loading="lazy" src="/assets/redesign/storage.webp" alt=""><strong>Склад</strong></button>
           <button type="button" class="farm-tile farm-tile-fields" onclick="tab('fields')"><img loading="lazy" src="/assets/illustrations/field-icon-v2.webp" alt=""><strong>Поля</strong></button>
-          <a class="farm-tile farm-tile-enterprise" href="/city" aria-label="Открыть предприятия в городе" style="text-decoration:none;color:inherit"><img loading="lazy" src="/assets/illustrations/factory-icon-v2.webp" alt=""><strong>Предприятия</strong><small>🏙️ Город</small></a>
+          <button type="button" class="farm-tile farm-tile-enterprise" onclick="tab('production')" aria-label="Открыть производство и городские товары"><img loading="lazy" src="/assets/illustrations/factory-icon-v2.webp" alt=""><strong>Предприятия</strong><small>🛍️ Продукция</small></button>
         </div>
         <details class="card launch-guide" id="launch-guide" hidden>
  <summary>🌱 Как начать играть? · подсказка для новичка</summary>
@@ -273,6 +274,37 @@
           <p class="muted">За текущие сутки по UTC. Разница учитывает только продажи и покупку зерна, без покупки животных, построек и инкубатора. Выставленные товары ещё не считаются проданными.</p>
         </details>
 
+      </section>
+      <section id="production" class="panel unified-farm-panel" aria-label="Предприятия и продукция города">
+        <div class="scene-banner compact-trade-scene">
+          <img loading="lazy" src="/assets/illustrations/factory-icon-v2.webp" class="scene-image" alt="Предприятия"/>
+          <div class="scene-caption"><h1>Предприятия</h1><p>Общий рынок фермы и города</p></div>
+        </div>
+        <div class="farm-city-header card">
+          <div class="farm-city-intro"><span class="farm-city-eyebrow">TREVIXO • ЕДИНАЯ ЭКОНОМИКА</span><h2>🏙️ Городская продукция</h2>
+          <p>Пекарни и рестораны покупают яйца, зерно и молоко на общем рынке. А ты можешь купить их блюда здесь — для заказов жителей и развития своих предприятий.</p></div>
+          <div class="farm-city-actions">
+            <a href="/city" class="farm-city-cta">🏭 Открыть свои предприятия</a>
+            <button type="button" id="farm-city-refresh" class="farm-city-cta farm-city-cta-alt">↻ Обновить товары</button>
+          </div>
+        </div>
+        <div class="farm-city-section card" id="farm-city-catalog">
+          <div class="farm-city-heading"><h3>🛍️ Купить у других игроков</h3><small>Монеты переходят продавцам, товары — на твой городской склад</small></div>
+          <div id="farm-city-catalog-list" class="farm-city-grid"><p class="muted">Открой раздел для загрузки каталога.</p></div>
+        </div>
+        <div class="farm-city-section card">
+          <div class="farm-city-heading"><h3>🍽️ Моя еда и товары</h3><small>Покупки доступны и в городе, и на ферме</small></div>
+          <div id="farm-city-inventory" class="farm-city-grid"><p class="muted">Загружаем склад…</p></div>
+        </div>
+        <div class="farm-city-section card">
+          <div class="farm-city-heading"><h3>👥 Заказы жителей</h3><small>Сдай готовую продукцию и получи городскую репутацию для открытия бизнесов</small></div>
+          <div id="farm-city-orders" class="farm-city-grid"><p class="muted">Загружаем заказы…</p></div>
+        </div>
+        <div class="farm-city-hint card">
+          <strong>Для чего нужна еда?</strong>
+          <p>🍳 Омлеты, блины и пироги можно передавать жителям по ежедневным заказам либо использовать ради репутации города. 🧀 Сыр и 🍞 хлеб также нужны другим предприятиям для сложных рецептов. 🧶 Шерсть и 🪶 перья превращаются в товары для дома.</p>
+          <p>Жители не создают монеты: они начисляют только репутацию. Бизнес и ферма используют один монетный баланс, но разные склады.</p>
+        </div>
       </section>
       <section id="coop" class="panel unified-farm-panel" aria-label="Животные">
         <div class="panelhead">
@@ -966,6 +998,6 @@
 <script src="/assets/fields.js?v=9" defer></script>
 <script src="/assets/adsgram-fallback.js?v=20261106-r38" defer></script>
 <script src="/assets/monetag-rewards.js?v=13" defer></script>
-<script src="/assets/city/farm-bridge.js?v=1" defer></script>
+<script src="/assets/city/farm-bridge.js?v=2" defer></script>
 </body>
 </html>

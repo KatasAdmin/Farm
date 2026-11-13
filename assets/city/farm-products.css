@@ -1,0 +1,38 @@
+/* Farm-native City trade panels: keep existing Farm visual language, not City dark theme. */
+.farm-city-header,.farm-city-section,.farm-city-hint{margin:12px 0;padding:16px;border-radius:19px;box-shadow:0 5px 20px #125ca01a}
+.farm-city-header{background:linear-gradient(140deg,#f0fbff,#d7f4fd 60%,#ebf5ff);border:1px solid #a7dff1;color:#11436d}
+.farm-city-header h2{font-size:22px;margin:5px 0 8px;font-weight:900}
+.farm-city-header p,.farm-city-hint p{line-height:1.6;font-size:13px;margin:4px 0 10px}
+.farm-city-eyebrow{font-size:10px;letter-spacing:1.1px;font-weight:900;color:#167da8}
+.farm-city-actions{display:flex;gap:9px;flex-wrap:wrap}
+.farm-city-cta{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:43px;padding:11px 14px;border:0;border-radius:13px;background:linear-gradient(120deg,#087ec3,#245bd2);color:#fff;text-decoration:none;font-size:13px;font-weight:900;box-shadow:0 5px 15px #0c74b32d}
+.farm-city-cta-alt{background:#e3f2fc;color:#195b8d;border:1px solid #aed6ee;box-shadow:none;cursor:pointer}
+.farm-city-section{background:linear-gradient(150deg,#faffff,#ebf8ff);border:1px solid #c4e8f6;color:#153d62}
+.farm-city-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.farm-city-heading h3{margin:0;font-size:18px}.farm-city-heading small{color:#53758d;font-size:12px;line-height:1.5;max-width:290px}
+.farm-city-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.farm-city-product{background:#fff;border:1px solid #d5e6f3;border-radius:15px;padding:13px;box-shadow:0 4px 12px #17578c10;min-width:0;display:flex;flex-direction:column;gap:8px}
+.farm-city-product .farm-city-product-top{display:flex;align-items:center;gap:9px}
+.farm-city-product .farm-city-icon{display:grid;place-items:center;flex:none;width:47px;height:47px;border-radius:14px;background:#e0f6ff;font-size:29px}
+.farm-city-product strong{font-size:14px;font-weight:900;line-height:1.3}
+.farm-city-product small{font-size:11px;color:#648099;line-height:1.4}
+.farm-city-product .farm-city-description{font-size:12px;color:#365874;line-height:1.5;flex:1}
+.farm-city-product .farm-city-meta{font-size:12px;color:#235c7c;font-weight:800}
+.farm-city-trade-row{display:flex;align-items:center;gap:6px;margin-top:auto}
+.farm-city-trade-row input{width:62px;max-width:30%;min-width:0;border:1px solid #8fc4de;background:#f6fcff;color:#1f4e73;border-radius:9px;padding:10px 6px;text-align:center;font-size:14px}
+.farm-city-trade-row button{flex:1;min-width:0;padding:10px 7px;border-radius:10px;border:0;background:linear-gradient(125deg,#1b94cb,#2567c3);color:#fff;font-size:12px;font-weight:900}
+.farm-city-trade-row button:disabled{opacity:.5;cursor:default}
+.farm-city-trade-row .farm-city-use{background:linear-gradient(125deg,#35a27c,#188c89)}
+.farm-city-product.ordered{background:#edfff7;border-color:#9bd8bc}
+.farm-city-blank{grid-column:1/-1;padding:18px;border:1px dashed #a2d1e8;border-radius:13px;color:#557c94;font-size:13px;line-height:1.5;text-align:center}
+.farm-city-hint{background:#fff;border:1px solid #d3e8f4;color:#254b6e}
+.farm-city-hint strong{font-size:16px}
+#farm-city-products .farm-city-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+#city-commerce .farm-city-product{color:#154367}
+.farm-city-hint p:last-child{margin-bottom:0}
+@media(max-width:520px){
+ .farm-city-grid,#farm-city-products .farm-city-grid{grid-template-columns:1fr}
+ .farm-city-header,.farm-city-section,.farm-city-hint{padding:13px}
+ .farm-city-heading h3{font-size:16px}
+ .farm-city-product{padding:12px}
+}
