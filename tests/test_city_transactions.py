@@ -275,7 +275,7 @@ class CityTransactions(unittest.TestCase):
         with self.connect() as c:
             self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200)
             self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='omelet'").fetchone()["quantity"],1)
-            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_requests WHERE player_id='buyer' AND kind='eat'").fetchone()["n"],1)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_requests WHERE player_id='buyer' AND action='eat'").fetchone()["n"],1)
 
     def test_city_daily_orders_do_not_pay_coins(self):
         with self.connect() as c:
