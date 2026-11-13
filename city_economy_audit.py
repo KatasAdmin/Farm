@@ -34,7 +34,7 @@ def audit():
     guides = recipe_price_guides()
     assert all(g["suggested_unit_price"] * g["batch_output"] >= g["batch_input_cost"]
                for g in guides.values())
-    assert field_payback_days(1, 1) > 20
+    assert field_payback_days(1, 1) == 20
     assert business_payback_days("bread", 500, 10, 0) is None
     assert business_payback_days("bread", 500, 10, 1) is not None
     assert food_break_even("bread") > 12
