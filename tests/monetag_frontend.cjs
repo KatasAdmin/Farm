@@ -20,7 +20,7 @@ async function scenario(configured=true, fail=false){
  w.FarmAdsgramFallback={show:async()=>{shows++;if(fail)throw Error('SDK unavailable');confirmed=true;}};
  w.toast=message=>notifications.push(message);w.refresh=async()=>{};w.el=id=>w.document.getElementById(id);
  w.eval("var token='token',pending=false,selectedResource='grain',purchase={item:'milk',kind:'market'},state={me:{telegram_id:12345},farm:{effective_grain_shortage:2}},adProgress={},adRewards={grain:[1,2],eggs:[2,2],milk:[5,1],cows:[250,1],coins:[1,2]};function tgInitData(){return 'signed-data';}");
- w.eval(source);await tick();await tick();
+ w.eval(source);await w.FarmAds.recover(true);await tick();await tick();
  assert.ok(w.document.querySelector('#shop [data-ad-free="milk"]'));
  assert.ok(w.document.querySelector('#coop [data-ad-free="cows"]'));
  assert.equal(w.document.getElementById('harvest-ad-eggs').hidden,!configured);
