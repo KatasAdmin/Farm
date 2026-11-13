@@ -61,6 +61,9 @@ def initialize(c):
         id text PRIMARY KEY, buyer text NOT NULL, seller text NOT NULL,
         item text NOT NULL, quantity integer NOT NULL, coins integer NOT NULL,
         created double precision NOT NULL)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS city_requests(
+        id text PRIMARY KEY, player_id text NOT NULL, action text NOT NULL,
+        item text NOT NULL, quantity integer NOT NULL, result jsonb)""")
     c.execute("""CREATE TABLE IF NOT EXISTS city_reputation(
         player_id text PRIMARY KEY, points bigint NOT NULL DEFAULT 0 CHECK(points>=0))""")
 
@@ -87,6 +90,24 @@ class Action(BaseModel):
     amount: int = 1
     price: int = 1
     request_id: str = ""
+
+def _request(c, q, pid, action):
+    # Same transaction-level market lock as the farm. An identical retry key
+    # returns its recorded result without repeating any resource or coin changes.
+    key=q.request_id
+    if not isinstance(key,str) or len(key)!=32 or any(ch not in "0123456789abcdef" for ch in key):
+        raise HTTPException(400,"Операция требует действительный ключ повтора")
+    existing=c.execute("SELECT * FROM city_requests WHERE id=%s FOR UPDATE",(key,)).fetchone()
+    if existing:
+        if (existing["player_id"],existing["action"],existing["item"],existing["quantity"])!=(pid,action,q.item,q.amount):
+            raise HTTPException(409,"Ключ операции уже использован")
+        return existing["result"]
+    c.execute("INSERT INTO city_requests VALUES(%s,%s,%s,%s,%s,NULL)",(key,pid,action,q.item,q.amount))
+    return None
+
+def _finish_request(c,q,result):
+    from psycopg.types.json import Jsonb
+    c.execute("UPDATE city_requests SET result=%s WHERE id=%s",(Jsonb(result),q.request_id))
 
 def _amount(n, maximum=10000):
     if type(n) is not int or n<1 or n>maximum:
@@ -131,6 +152,8 @@ def buy_ingredient(q:Action,authorization:str=Header(default="")):
     with _db() as c:
         c.execute("SELECT pg_advisory_xact_lock(1984533)")
         p=_advance(c,_auth(c,authorization,True))
+        previous=_request(c,q,p["id"],"buy_ingredient")
+        if previous is not None:return previous
         rows=c.execute("""SELECT * FROM market WHERE item=%s AND seller<>%s
             AND quantity>0 ORDER BY price,id FOR UPDATE""",(q.item,p["id"])).fetchall()
         if sum(int(row["quantity"]) for row in rows)<q.amount:
@@ -163,6 +186,9 @@ def buy_ingredient(q:Action,authorization:str=Header(default="")):
                 (log_id,row["seller"],receipt,q.item+" x"+str(n),time.time()))
             c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,%s,%s)",
                 (log_id,parts["bonus"],parts["purchased"],parts["earned"]))
+            seller=c.execute("SELECT * FROM players WHERE id=%s",(row["seller"],)).fetchone()
+            if ad_inventory.active(seller):
+                ad_inventory.credit(c,log_id,tagged*row["price"])
             c.execute("""INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created)
                 VALUES(%s,%s,%s,%s,%s,%s,%s)""",
                 (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,time.time()))
@@ -171,7 +197,9 @@ def buy_ingredient(q:Action,authorization:str=Header(default="")):
         c.execute("""INSERT INTO city_stock(player_id,item,quantity) VALUES(%s,%s,%s)
             ON CONFLICT(player_id,item) DO UPDATE SET quantity=city_stock.quantity+EXCLUDED.quantity""",
             (p["id"],q.item,q.amount))
-    return {"ok":True,"spent":cost,"item":q.item,"quantity":q.amount}
+        result={"ok":True,"spent":cost,"item":q.item,"quantity":q.amount}
+        _finish_request(c,q,result)
+    return result
 
 @router.post("/produce")
 def produce(q:Action,authorization:str=Header(default="")):
@@ -216,6 +244,8 @@ def buy_product(q:Action,authorization:str=Header(default="")):
     with _db() as c:
         c.execute("SELECT pg_advisory_xact_lock(1984533)")
         p=_auth(c,authorization,True)
+        previous=_request(c,q,p["id"],"buy_product")
+        if previous is not None:return previous
         rows=c.execute("""SELECT * FROM city_listings WHERE item=%s AND seller<>%s
             AND quantity>0 ORDER BY price,id FOR UPDATE""",(q.item,p["id"])).fetchall()
         if sum(int(row["quantity"]) for row in rows)<q.amount:
@@ -244,7 +274,9 @@ def buy_product(q:Action,authorization:str=Header(default="")):
         c.execute("""INSERT INTO city_products(player_id,item,quantity) VALUES(%s,%s,%s)
             ON CONFLICT(player_id,item) DO UPDATE SET quantity=city_products.quantity+EXCLUDED.quantity""",
             (p["id"],q.item,q.amount))
-    return {"ok":True,"spent":cost}
+        result={"ok":True,"spent":cost}
+        _finish_request(c,q,result)
+    return result
 
 @router.post("/consume")
 def consume(q:Action,authorization:str=Header(default="")):
