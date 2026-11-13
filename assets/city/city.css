@@ -96,3 +96,29 @@ button:focus-visible,a:focus-visible{outline:2px solid #a5edff;outline-offset:2p
 #panel-body .item-card strong{letter-spacing:.1px}
 #panel-body .btn:focus-visible,.city-transfer .btn:focus-visible{outline:2px solid #ffda83;outline-offset:2px}
 @media(max-width:480px){.city-transfer{padding:12px}.city-transfer .item-actions{width:100%}.city-transfer .btn{flex:1}.city-market-tabs .btn{flex:1 1 auto}}
+
+/* Premium City: shared wallet, clearer forms and identity */
+.wallet-trigger{appearance:none;color:var(--ink);display:flex;align-items:center;gap:7px;transition:transform .18s,border-color .18s;min-height:42px}
+.wallet-trigger:active{transform:scale(.96)}
+.wallet-trigger .coin-art{width:25px;height:25px;object-fit:contain}
+.wallet-chevron{opacity:.7;font-size:20px;font-weight:800}
+.wallet-hero{padding:25px 20px;text-align:center;border:1px solid rgba(255,214,127,.35);border-radius:24px;background:radial-gradient(circle at 50% 0%,rgba(252,184,73,.20),transparent 70%),linear-gradient(145deg,#173e5b,#09233e);box-shadow:0 12px 32px rgba(0,0,0,.13)}
+.wallet-hero-coin{width:74px;height:74px;object-fit:contain;display:block;margin:0 auto 8px;filter:drop-shadow(0 7px 15px rgba(255,185,52,.35))}
+.wallet-hero>span{display:block;color:#b9d1e8;font-size:13px;font-weight:700;letter-spacing:.04em}
+.wallet-hero>strong{display:block;font-size:36px;line-height:1.3;font-weight:800;color:#ffe1a0;font-variant-numeric:tabular-nums}
+.wallet-hero>strong small{font-size:15px;color:#d8e8f4}
+.wallet-hero p{margin:10px 0 0;color:#b9cee0;line-height:1.55}
+.wallet-info{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:15px 0}
+.wallet-info span{padding:9px 11px;border:1px solid rgba(133,198,235,.25);border-radius:12px;background:rgba(255,255,255,.05);font-weight:700}
+.wallet-farm-link{display:block!important;text-align:center;text-decoration:none;padding:15px!important;margin-top:12px}
+.profile-hero{display:flex;align-items:center;gap:15px;padding:18px;border-radius:21px;background:linear-gradient(135deg,rgba(43,114,153,.45),rgba(12,43,72,.7));border:1px solid rgba(149,204,242,.25)}
+.profile-avatar{display:grid;place-items:center;flex:0 0 64px;width:64px;height:64px;font-size:32px;border-radius:20px;background:linear-gradient(140deg,#427ca2,#153b60)}
+.profile-hero div:last-child{display:flex;flex-direction:column;min-width:0;gap:4px}
+.profile-hero strong{font-size:20px;overflow-wrap:anywhere}
+.profile-hero span,.profile-hero small{color:#b4cce2}
+.profile-wallet-button{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;margin:12px 0;padding:16px;border-radius:16px;border:1px solid rgba(255,206,110,.35);color:#ffe3aa;background:linear-gradient(120deg,rgba(255,183,66,.16),rgba(16,60,92,.85));text-align:left;font-weight:800}
+.profile-wallet-button strong{white-space:nowrap}
+.sale-fields{display:flex;flex-wrap:wrap;gap:9px;margin:9px 0}
+.sale-fields label{display:flex;flex:1 1 120px;flex-direction:column;gap:6px;font-size:12px;color:#b9d1e8;font-weight:700}
+.sale-fields input{width:100%;max-width:100%;min-height:43px}
+@media(max-width:370px){.wallet-hero>strong{font-size:30px}.profile-wallet-button{flex-direction:column;align-items:flex-start}}
