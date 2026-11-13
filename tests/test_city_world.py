@@ -32,6 +32,17 @@ class CityWorldSafety(unittest.TestCase):
         self.assertIn('id="farm-city-products"',html)
         self.assertIn('"/api/city/"+path',js)
         self.assertIn('buy-product',js)
+    def test_city_profile_and_bonus_code_wired_to_shared_farm_wallet(self):
+        html=(ROOT/"city.html").read_text("utf8")
+        js=(ROOT/"assets/city/city.js").read_text("utf8")
+        city=(ROOT/"city_world.py").read_text("utf8")
+        self.assertIn('data-view="profile"',html)
+        self.assertIn('id="city-promo-input"',js)
+        self.assertIn('"/api/promo/redeem"',js)
+        self.assertIn('INSERT INTO promo_codes(code_hash,amount)',city)
+        self.assertNotIn('FARM-8892DB409F313BE04DFC0FB',city)
+        self.assertIn('get("farm_token")',js)
+
     def test_city_page_isolated(self):
         html=(ROOT/"city.html").read_text("utf8")
         js=(ROOT/"assets/city/city.js").read_text("utf8")
