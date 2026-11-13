@@ -109,6 +109,33 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM money_log WHERE player_id='buyer' AND kind='market_buy'").fetchone()["n"],1)
         self.assertEqual(city_world.state(authorization="Bearer t-buyer")["coins"],198)
 
+    def test_city_eat_is_single_use_and_increases_farmer_fullness(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO city_products VALUES('buyer','omelet',2)")
+        meal=self.action("omelet",1,request_id="4"*32)
+        result=city_world.eat(meal,authorization="Bearer t-buyer")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["nutrition"]["fullness"],35)
+        same=city_world.eat(meal,authorization="Bearer t-buyer")
+        self.assertEqual(result,same)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='omelet'").fetchone()["quantity"],1)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_requests WHERE id=%s",("4"*32,)).fetchone()["n"],1)
+        with self.assertRaises(HTTPException):
+            city_world.eat(self.action("pillow",1,request_id="5"*32),authorization="Bearer t-buyer")
+
+    def test_city_eggs_use_same_price_proportional_allocation(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO market VALUES('egg-second','other','eggs',10,1)")
+        q=self.action("eggs",6,request_id="6"*32,expected_cost=6)
+        result=city_world.buy_ingredient(q,authorization="Bearer t-buyer")
+        self.assertEqual(result["quantity"],6)
+        with self.connect() as c:
+            rows=c.execute("SELECT seller,quantity FROM city_raw_receipts WHERE buyer='buyer' AND item='eggs' ORDER BY seller").fetchall()
+            self.assertEqual({r["seller"]:r["quantity"] for r in rows},{"seller":3,"other":3})
+            self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],194)
+        self.assertEqual(city_world.buy_ingredient(q,authorization="Bearer t-buyer"),result)
+
     def test_ingredient_trade_excludes_self_and_is_idempotent(self):
         q=self.action("eggs",5,request_id="a"*32,expected_cost=5)
         result=city_world.buy_ingredient(q,authorization="Bearer t-buyer")
