@@ -180,6 +180,9 @@ def initialize(c):
         created double precision NOT NULL)""")
     c.execute("CREATE INDEX IF NOT EXISTS city_receipts_buyer ON city_receipts(buyer)")
     c.execute("CREATE INDEX IF NOT EXISTS city_receipts_seller ON city_receipts(seller)")
+    c.execute("ALTER TABLE city_receipts ADD COLUMN IF NOT EXISTS listing_id text")
+    c.execute("""CREATE INDEX IF NOT EXISTS city_receipts_listing
+        ON city_receipts(listing_id) WHERE listing_id IS NOT NULL""")
     c.execute("""CREATE TABLE IF NOT EXISTS city_raw_receipts(
         id text PRIMARY KEY, buyer text NOT NULL, seller text NOT NULL, item text NOT NULL,
         quantity integer NOT NULL CHECK(quantity>0), coins integer NOT NULL CHECK(coins>=0),
@@ -469,12 +472,12 @@ def _amount(n, maximum=10000):
         raise HTTPException(400,"Укажите корректное количество")
 
 def _product_catalog(c, pid, items=None):
-    rows=c.execute("""SELECT item,COUNT(DISTINCT seller)::int AS sellers,
+    rows=c.execute("""SELECT item,COUNT(*)::int AS offers,COUNT(DISTINCT seller)::int AS sellers,
         SUM(quantity)::bigint AS quantity,MIN(price)::int AS min_price
         FROM city_listings WHERE quantity>0
         AND (%s::text[] IS NULL OR item=ANY(%s::text[]))
         GROUP BY item ORDER BY item""",(items,items)).fetchall()
-    return {row["item"]:{"quantity":row["quantity"],"sellers":row["sellers"],
+    return {row["item"]:{"quantity":row["quantity"],"sellers":row["sellers"],"offers":row["offers"],
                           "min_price":row["min_price"]} for row in rows}
 
 
@@ -506,14 +509,19 @@ def state(authorization: str=Header(default=""), compact: bool=False):
         _settle(c,p["id"])
         business_levels={r["kind"]:r["level"] for r in c.execute(
             "SELECT kind,level FROM city_businesses WHERE player_id=%s",(p["id"],)).fetchall()}
-        raw_catalog_rows=c.execute("""SELECT item,COUNT(DISTINCT seller)::int AS sellers,
+        raw_catalog_rows=c.execute("""SELECT item,COUNT(*)::int AS offers,COUNT(DISTINCT seller)::int AS sellers,
             SUM(quantity)::bigint AS quantity,MIN(price)::int AS min_price
             FROM market WHERE quantity>0 AND seller<>%s AND item=ANY(%s)
             GROUP BY item ORDER BY item""",(p["id"],list(INGREDIENTS+ANIMALS))).fetchall()
-        market_catalog={r["item"]:{"quantity":r["quantity"],"sellers":r["sellers"],
+        market_catalog={r["item"]:{"quantity":r["quantity"],"sellers":r["sellers"],"offers":r["offers"],
                                "min_price":r["min_price"]} for r in raw_catalog_rows}
-        my_city_offers=c.execute("""SELECT id,item,quantity,price FROM city_listings
-            WHERE seller=%s AND quantity>0 ORDER BY created DESC""",(p["id"],)).fetchall()
+        my_city_offers=c.execute("""SELECT l.id,l.item,l.quantity,l.price,
+            sold.quantity AS sold,sold.coins AS revenue
+            FROM city_listings l LEFT JOIN LATERAL (
+                SELECT SUM(quantity) AS quantity,SUM(coins) AS coins
+                FROM city_receipts WHERE listing_id=l.id
+            ) sold ON true
+            WHERE l.seller=%s AND l.quantity>0 ORDER BY l.created DESC""",(p["id"],)).fetchall()
         city_catalog=_product_catalog(c,p["id"])
         jobs=c.execute("SELECT recipe,quantity,ready_at FROM city_jobs WHERE player_id=%s ORDER BY ready_at",(p["id"],)).fetchall()
         rep=c.execute("SELECT points FROM city_reputation WHERE player_id=%s",(p["id"],)).fetchone()
@@ -543,6 +551,7 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "animal_catalog":{item:offer for item,offer in market_catalog.items() if item in ANIMALS},
             "city_catalog":city_catalog,
             "food_items":list(city_nutrition.FOOD_RESTORE),"materials":sorted(MATERIALS),
+            "avatar_photo":p.get("avatar_photo") if p.get("avatar")=="custom" else None,
             "wallet_mode":"shared_farm_city","cashflow":city_cashflow,
             "stock":_counts(c,"city_stock",p["id"]),
             "farm_feathers":int(p.get("feathers",0)),
@@ -555,6 +564,7 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
             "resident_orders":daily_orders(c,p["id"],now),
             "reputation":int(rep["points"]) if rep else 0}
+        snapshot["nutrition"] = city_nutrition.status(city_nutrition.get(c,p["id"]),now)
         snapshot["achievements"] = _achievements(c, p["id"], now)
         snapshot["progress"] = _progress_summary(c, p["id"])
         snapshot["cosmetics"] = city_goals.cosmetics(c, p["id"])
@@ -566,7 +576,6 @@ def state(authorization: str=Header(default=""), compact: bool=False):
         # The previous client may still be open during a rolling deployment.
         today_start=now-now%86400
         snapshot.update(
-            nutrition=city_nutrition.status(city_nutrition.get(c,p["id"])),
             farm_offers=c.execute("""SELECT l.id,l.item,l.price,l.quantity,p.name AS seller
                 FROM market l JOIN players p ON p.id=l.seller
                 WHERE l.quantity>0 AND l.seller<>%s AND l.item=ANY(%s)
@@ -833,8 +842,9 @@ def buy_product(q:Action,authorization:str=Header(default="")):
             c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,0)",(log_id,receipt))
             receipt_id = uuid.uuid4().hex
             sold_at = time.time()
-            c.execute("INSERT INTO city_receipts VALUES(%s,%s,%s,%s,%s,%s,%s)",
-                      (receipt_id,p["id"],row["seller"],q.item,n,receipt,sold_at))
+            c.execute("""INSERT INTO city_receipts(id,buyer,seller,item,quantity,coins,created,listing_id)
+                VALUES(%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (receipt_id,p["id"],row["seller"],q.item,n,receipt,sold_at,row["id"]))
             if row["seller"] != p["id"]:
                 _progress_event(c, row["seller"], "sale:" + receipt_id, "sale", sold_at, 0)
         if cost:

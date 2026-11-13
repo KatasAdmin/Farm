@@ -4,7 +4,7 @@ const root="/api/city";
 const names={eggs:"🥚 Яйца",grain:"🌾 Зерно",milk:"🥛 Молоко",feathers:"🪶 Перья",wool:"🧶 Шерсть"};
 const icons={pancakes:"🥞",pie:"🥧",omelet:"🍳",cheese:"🧀",bread:"🍞",pillow:"🛏️",scarf:"🧣",breakfast_set:"🍱",dessert_box:"🍰",home_set:"🎁",lunch_box:"🥡",yogurt:"🥣"};
 let token="",data=null,activeView="map",activeBusiness=null,working=false,lastShoppingRecipe=null;
-let loading=null,jobTimer,marketCategory="raw";
+let loading=null,jobTimer,marketCategory="raw",walletDetails=null,warehouseTab="raw";
 const statePath="/state?compact=true";
 let receivedAt=0;
 const secondsLeft=job=>Math.max(0,Math.ceil(job.ready_at-data.now-(performance.now()-receivedAt)/1000));
@@ -98,6 +98,7 @@ function openPanel(title,html){
  const focused=document.activeElement?.id;
  const scrollTop=samePanel?body.scrollTop:0;
  $("panel-heading").textContent=title;
+ body.dataset.scene=activeView;
  body.innerHTML=html;
  for(const input of body.querySelectorAll("input[id]")){
   if(values.has(input.id))input.value=values.get(input.id);
@@ -121,6 +122,7 @@ function view(tab){
  if(tab==="map")closePanel();
  else if(["season","events","daily"].includes(tab))showGoals(tab);
  else if(tab==="ranking")showRanking("reputation");
+ else if(tab==="wallet")showWallet(true);
  else refreshPanel();
 }
 function refreshPanel(){
@@ -133,6 +135,7 @@ function refreshPanel(){
  if(activeView==="wallet")return showWallet();
  if(activeView==="residents")return showResidents();
  if(activeView==="achievements")return showAchievements();
+ if(activeView==="nutrition")return showNutrition();
  if(activeView==="settings")return showSettings();
  if(activeView==="help")return showHelp();
  if(activeView==="store")return showBusiness("store");
@@ -229,7 +232,7 @@ function showShoppingList(recipeId){
 }
 function showMarket(){
  const categories={raw:"Сырьё",food:"Еда",products:"Готовая продукция",materials:"Материалы",animals:"Животные"};
- let html='<div class="city-market-tabs" aria-label="Категории">'+Object.entries(categories).map(([key,label])=>
+ let html='<div class="city-scene market-scene"><strong>Рынок города</strong><button class="btn ghost" data-action="market-lots">📦 Мои лоты</button></div><div class="city-market-tabs" aria-label="Категории">' +Object.entries(categories).map(([key,label])=>
    '<button type="button" class="btn ghost" aria-pressed="'+(key===marketCategory)+'" data-action="category" data-item="'+key+'">'+label+'</button>').join("")+'</div>';
  if(marketCategory==="animals"){
   const animals={chickens:"🐔 Курица",geese:"🪿 Гусыня",cows:"🐄 Корова",sheep:"🐑 Овца"};
@@ -243,10 +246,13 @@ function showMarket(){
  if(marketCategory==="food")html+='<a class="btn ghost city-link city-food-link" href="/?food=1">🍽️ Купить еду на ферму →</a>';
  const raw=["raw","materials"].includes(marketCategory);
  const catalog=raw?Object.fromEntries((marketCategory==='materials'?['feathers','wool']:['eggs','grain','milk']).map(item=>[item,data.raw_catalog[item]||{quantity:0,min_price:item==='grain'?data.system_grain_price:0}])):data.city_catalog;
- const listed=Object.entries(catalog).filter(([item,offer])=>raw||offer.quantity>0&&data.food_items.includes(item)===(marketCategory==="food"));
+ const listed=raw?Object.entries(catalog):Object.keys(data.recipes)
+  .filter(item=>data.food_items.includes(item)===(marketCategory==="food"))
+  .map(item=>[item,catalog[item]||{quantity:0}]);
  html+=listed.length?listed.map(([item,offer])=>row(raw?esc(names[item]):(icons[item]||"📦")+" "+esc(data.recipes[item].name),
-   (offer.quantity?number(offer.quantity)+' шт. на рынке · от '+number(offer.min_price)+' 🪙':item==='grain'?'🌾 Доступно зерно системы':'Нет предложений — появится, когда игроки выставят товар'),
-   input("qty-market-"+item,1,raw&&item==="grain"?500:Math.min(offer.quantity,500))+'<button class="btn" data-action="'+(raw?"raw":"product")+'" data-item="'+item+'" data-amount-id="qty-market-'+item+'" '+(!offer.quantity&&item!=='grain'?'disabled':'')+'>Купить</button>')).join(""):
+   (offer.quantity?number(offer.quantity)+' шт. · '+number(offer.offers)+' предложений · от '+number(offer.min_price)+' 🪙':item==='grain'?'🌾 Доступно зерно системы':'Нет предложений — появится, когда игроки выставят товар'),
+   input("qty-market-"+item,1,raw&&item==="grain"?500:Math.min(offer.quantity,500))+'<button class="btn" data-action="'+(raw?"raw":"product")+'" data-item="'+item+'" data-amount-id="qty-market-'+item+'" '+(!offer.quantity&&item!=='grain'?'disabled':'')+'>Купить</button>'+
+   (!raw&&data.products[item]?'<button class="btn ghost" data-action="sell-product" data-item="'+item+'">Продать</button>':""))).join(""):
    '<div class="empty">Пока нет предложений</div>';
  openPanel("🧺 Рынок",html);
 }
@@ -261,10 +267,33 @@ function showResidents(){
  }).join("");
  openPanel("👥 Заказы жителей",html);
 }
-function showWallet(){
- activeBusiness=null;
- const html='<div class="wallet-hero"><img src="/assets/redesign/coin.webp" alt="" class="wallet-hero-coin"><span>Единый баланс TREVIXO</span><strong>'+number(data.coins)+' <small>монет</small></strong><p>Монеты общие для фермы и города. Покупки и продажи сразу отражаются в одном кошельке.</p></div><div class="wallet-info"><span>🏙️ Город</span><span>🌾 Ферма</span><span>🪙 Один баланс</span></div><a class="btn gold wallet-farm-link" href="/?wallet=1">🌾 Перейти в кошелёк фермы</a>';
- openPanel("🪙 Мой кошелёк",html);
+async function showWallet(fetchDetails=false){
+ const quote=walletDetails?.quote,history=walletDetails?.history;
+ const balance='<div class="wallet-hero"><img src="/assets/redesign/coin.webp" alt="" class="wallet-hero-coin"><span>Единый баланс TREVIXO</span><strong>'+number(data.coins)+' <small>монет</small></strong></div>';
+ const actions='<div class="profile-links"><a class="btn gold city-link" href="/?wallet=1">Пополнение</a><a class="btn city-link" href="/?wallet=1">Вывод</a></div>';
+ const details=quote?row("Курс монеты",esc(quote.nominal_coin_price_uah)+" грн","")+
+  row("Капитализация",number(quote.capitalization_kopeks/100)+" грн · "+number(quote.total_coins)+" монет в обращении","")+
+  row("Бонусные монеты",number(quote.bonus_coins),""):"";
+ const logs=history?'<h3>Последние операции</h3>'+(history.entries.length?history.entries.map(entry=>
+  row(esc(entry.details||entry.kind),new Date(entry.created*1000).toLocaleString("ru-RU"),
+   '<span class="pill">'+(entry.delta>0?"+":"")+number(entry.delta)+' 🪙</span>')).join(""):'<p class="empty">Операций пока нет</p>'):"";
+ openPanel("🪙 Мой кошелёк",balance+actions+details+logs);
+ if(!fetchDetails)return;
+ try{
+  const [quote,history]=await Promise.all([api("/api/farm/exchange/quote"),api("/api/finance?limit=10")]);
+  if(activeView!=="wallet")return;
+  walletDetails={quote,history};
+  showWallet();
+ }catch(error){if(activeView==="wallet")toast(error.message)}
+}
+
+function showNutrition(){
+ const nutrition=data.nutrition;
+ const html=row("Сытость",nutrition.fullness+"% · Бонус фермы +"+nutrition.bonus_percent+"%","")+
+  '<p class="city-help">Сытость снижается на '+nutrition.decay_per_hour+' п. п. в час.</p>'+
+  '<div class="profile-links"><button class="btn gold" data-action="order-market" data-item="bread">Рынок еды</button>'+
+  '<a class="btn city-link" href="/?food=1">Питание на ферме</a></div>';
+ openPanel("🍽️ Питание",html);
 }
 const progressNames={production:"Производство завершено",production_xp:"Первая партия дня",
  upgrade:"Улучшение предприятия",order:"Заказ жителя выполнен",achievement:"Достижение открыто",sale:"Товар продан"};
@@ -308,7 +337,7 @@ async function showGoals(tab){
   let html=tab==="events"?'<button class="btn gold" data-action="navigate" data-item="daily">Ежедневные задания</button>':"";
   html+=periods.map(period=>{
    const date=new Date(period.ends*1000).toLocaleString("ru-RU");
-   const heading='<div class="campaign-hero"><strong>'+esc(period.name||"Цели дня")+'</strong><small>'+
+   const heading='<div class="campaign-hero city-scene"><strong>'+esc(period.name||"Цели дня")+'</strong><small>'+
     (period.active?"До "+date:period.starts*1000>Date.now()?"Скоро":"Завершено")+'</small>'+
     (period.description?'<p>'+esc(period.description)+'</p>':"")+
     (period.kind==="season"?'<p>Уровень '+period.level+' · '+number(period.xp)+' сезонного XP</p>':"")+'</div>';
@@ -369,10 +398,12 @@ function showHelp(){
 
 function showProfile(){
  activeBusiness=null;
- let html='<div class="profile-hero"><div class="profile-avatar">👤</div><div><span>Профиль жителя</span><strong>'+esc(data.name)+'</strong><small>⭐ '+number(data.reputation)+' репутации</small></div></div><button class="profile-wallet-button" data-action="wallet">🪙 Общий кошелёк <strong>'+number(data.coins)+' монет ›</strong></button>';
+ const avatar=data.avatar_photo?.startsWith("data:image/jpeg;base64,")?
+  '<img class="profile-avatar" src="'+esc(data.avatar_photo)+'" alt="">':'<div class="profile-avatar">👤</div>';
+ let html='<div class="profile-hero">'+avatar+'<div><span>Профиль жителя</span><strong>'+esc(data.name)+'</strong><small>⭐ '+number(data.reputation)+' репутации</small></div></div><button class="profile-wallet-button" data-action="wallet">🪙 Общий кошелёк <strong>'+number(data.coins)+' монет ›</strong></button>';
  const progress=data.progress||{};
  html+='<div class="badge-line"><span class="pill">Ур. '+number(progress.level)+'</span><span class="pill">'+number(progress.xp)+' XP'+(progress.next_xp?" / "+number(progress.next_xp):"")+'</span><span class="pill">Заказов · '+number(progress.orders)+'</span></div>';
- const links={businesses:"🏙️ Мои бизнесы",warehouse:"📦 Склад",residents:"📋 Заказы жителей",market:"🛒 Магазин",achievements:"🏆 Достижения",ranking:"📈 Рейтинг",settings:"⚙️ Настройки",help:"❔ Помощь"};
+ const links={businesses:"🏙️ Мои бизнесы",warehouse:"📦 Склад",residents:"📋 Заказы жителей",market:"🛒 Магазин",achievements:"🏆 Достижения",ranking:"📈 Рейтинг",settings:"⚙️ Настройки",nutrition:"🍽️ Питание",help:"❔ Помощь"};
  html+='<div class="profile-links">'+Object.entries(links).map(([target,label])=>'<button class="btn ghost" data-action="navigate" data-item="'+target+'">'+label+'</button>').join("")+'</div>';
  const finance=data.cashflow||{};
  html+='<h3 class="section-subtitle">📊 Финансы городских бизнесов</h3>';
@@ -383,18 +414,24 @@ function showProfile(){
  openPanel("👤 Мой профиль",html);
 }
 function showWarehouse(){
- let s='<h3 class="section-subtitle">Сырьё</h3><div class="mini-grid">';
- s+=Object.entries(names).map(([key,name])=>'<div class="mini-box"><small>'+name+'</small><strong>'+number(data.stock[key]||0)+'</strong></div>').join("")+'</div>';
- s+='<h3 class="section-subtitle">Готовая продукция</h3>';
- const products=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key]);
- s+=products.length?products.map(([key,n])=>saleRow(key,n)).join(""):'<div class="empty">Склад пока пуст</div>';
- s+='<h3 class="section-subtitle">Мои лоты</h3>';
- s+=(data.my_city_offers||[]).length?data.my_city_offers.map(x=>
-  row((icons[x.item]||"📦")+" "+esc(data.recipes[x.item]?.name||x.item),
-  x.quantity+" шт. · "+x.price+" мон./шт.",
-  '<button class="btn ghost" data-action="cancel" data-listing-id="'+esc(x.id)+'">Снять</button>'
- )).join(""):'<div class="empty">Активных предложений пока нет</div>';
- openPanel("📦 Склад бизнеса",s);
+ const tabs={raw:"Сырьё",products:"Готовая продукция",lots:"Мои объявления"};
+ let html='<div class="city-market-tabs">'+Object.entries(tabs).map(([key,label])=>
+  '<button class="btn ghost" aria-pressed="'+(warehouseTab===key)+'" data-action="warehouse-tab" data-item="'+key+'">'+label+'</button>').join("")+'</div>';
+ if(warehouseTab==="raw"){
+  html+='<div class="mini-grid">'+Object.entries(names).map(([key,name])=>
+   '<div class="mini-box"><small>'+name+'</small><strong>'+number(data.stock[key]||0)+'</strong></div>').join("")+'</div>';
+ }else if(warehouseTab==="products"){
+  const products=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key]);
+  html+=products.length?products.map(([key,n])=>saleRow(key,n)).join(""):'<div class="empty">Склад пока пуст</div>';
+ }else{
+  html+=data.my_city_offers.length?data.my_city_offers.map(lot=>row(
+   (icons[lot.item]||"📦")+" "+esc(data.recipes[lot.item]?.name||lot.item),
+   "Осталось "+number(lot.quantity)+" шт. · "+number(lot.price)+" 🪙/шт."+
+    (lot.sold!==null?" · Продано "+number(lot.sold)+" шт. · Выручка "+number(lot.revenue)+" 🪙":""),
+   '<button class="btn danger" data-action="cancel" data-listing-id="'+esc(lot.id)+'">Снять</button>'
+  )).join(""):'<div class="empty">Активных объявлений пока нет</div>';
+ }
+ openPanel("📦 Склад бизнеса",html);
 }
 async function redeemPromo(event){
  event.preventDefault();
@@ -420,6 +457,9 @@ async function action(action,item,amountId,listingId){
   catch(error){toast(error.message)}finally{working=false}
   return;
  }
+ if(action==="market-lots"){warehouseTab="lots";return view("warehouse")}
+ if(action==="warehouse-tab"){warehouseTab=item;return showWarehouse()}
+ if(action==="sell-product"){warehouseTab="products";view("warehouse");$("qty-list-"+item)?.focus();return}
  if(action==="ranking")return showRanking(item);
  if(action==="navigate")return view(item);
  if(action==="order-market"){
@@ -442,8 +482,8 @@ async function action(action,item,amountId,listingId){
  else if(action==="produce"){path="/produce";body.amount=getAmount("qty-craft-"+item);if(!body.amount)return}
  else if(action==="raw"){path="/buy-ingredient";body.amount=amount}
  else if(action==="product"){path="/buy-product";body.amount=amount}
- else if(action==="list"){path="/list-product";body.amount=getAmount("qty-list-"+item);body.price=Number($("price-"+item)?.value);if(!body.amount||!Number.isSafeInteger(body.price)||body.price<1||body.price>100000){toast("Укажи количество и цену");return}}
- else if(action==="cancel"){path="/cancel-product";body.listing_id=listingId}
+ else if(action==="list"){path="/list-product";body.amount=getAmount("qty-list-"+item);body.price=Number($("price-"+item)?.value);if(!body.amount||!Number.isSafeInteger(body.price)||body.price<1||body.price>100000){toast("Укажи количество и цену");return}if(!confirm("Выставить "+body.amount+" шт. на "+number(body.amount*body.price)+" монет?"))return}
+ else if(action==="cancel"){if(!confirm("Снять объявление и вернуть остаток на склад?"))return;path="/cancel-product";body.listing_id=listingId}
  else if(action==="fulfill"){path="/fulfill-order";body.order_day=data.resident_orders.find(order=>order.id===item)?.day}
  else return;
  working=true;
@@ -473,6 +513,7 @@ $("view-businesses").addEventListener("click",()=>view("businesses"));
 $("view-orders").addEventListener("click",()=>view("warehouse"));
 $("view-jobs").addEventListener("click",()=>view("jobs"));
 $("view-residents").addEventListener("click",()=>view("residents"));
+$("view-market").addEventListener("click",()=>view("market"));
 $("view-store").addEventListener("click",()=>view("store"));
 $("open-city-wallet").addEventListener("click",()=>view("wallet"));
 $("close-panel").addEventListener("click",closePanel);

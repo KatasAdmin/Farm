@@ -215,3 +215,39 @@ body{background:radial-gradient(ellipse at 50% 0,#482458 0,#22152e 40%,#100e1c 8
 .city-low-effects .backdrop-glow{display:none}
 .city-low-effects .district-target strong,.city-low-effects .district-pass{box-shadow:none}
 .city-low-effects .panel-backdrop{backdrop-filter:none}
+
+.city-admin{max-width:680px;margin:auto;padding:24px 14px 60px}
+.city-admin form,.city-admin section{display:grid;gap:12px}
+.city-admin label{display:grid;gap:5px}
+.city-admin input:not([type=checkbox]),.city-admin select,.city-admin textarea{
+ min-width:0;width:100%;border:1px solid #a884c8;border-radius:8px;padding:9px;
+ color:var(--ink);background:#291b36;font:inherit;color-scheme:dark
+}
+.city-admin dd{margin:0 0 8px;color:var(--gold)}
+#panel-body .btn.danger{background:linear-gradient(145deg,#913b58,#552033);color:#fff}
+.profile-avatar{object-fit:cover}
+
+.city-scene{min-height:102px;display:flex;align-items:flex-start;justify-content:center;
+ flex-direction:column;gap:8px;border-radius:17px;border:1px solid #ba81d1;background-size:cover;
+ background-position:center;overflow:hidden}
+.city-scene strong{font-size:clamp(20px,5vw,29px);color:#ffdf98;text-shadow:0 2px 7px #000}
+.market-scene{min-height:124px;margin-bottom:12px;padding:14px;
+ background-image:linear-gradient(90deg,#24122a66,#24122a22),url("market-scene.webp");
+ flex-direction:row;align-items:flex-end;justify-content:space-between;gap:6px}
+.market-scene .btn{font-size:11px;white-space:nowrap}
+#panel-body[data-scene="season"] .campaign-hero{background-image:linear-gradient(90deg,#25162ff7 18%,#25162f33),url("season-scene.webp")}
+#panel-body[data-scene="events"] .campaign-hero{background-image:linear-gradient(90deg,#25162ff7 18%,#25162f33),url("events-scene.webp")}
+#panel-body .profile-hero{background-image:linear-gradient(90deg,#261738f5 22%,#26173866),url("profile-scene.webp");background-size:cover;background-position:center}
+#panel-body .profile-links{grid-template-columns:repeat(2,minmax(0,1fr))}
+#panel-body .profile-links .btn{padding:10px 6px;white-space:normal;line-height:1.2;text-align:center}
+.bottom-nav{border:1px solid #ad74d4;border-radius:21px 21px 0 0;box-shadow:0 -8px 25px #0b0619a0}
+.bottom-nav button{min-height:53px}
+.bottom-nav button.nav-active{box-shadow:inset 0 0 13px #65facc55,0 0 12px #36e1aa44}
+.quick-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+.quick-actions .quick-action{min-height:47px;padding-inline:5px}
+.quick-actions .market-quick{background:linear-gradient(145deg,#87501b,#482214);border-color:#ffce7b}
+.quick-actions .quick-action:only-child{grid-column:span 3}
+@media(max-width:400px){
+ .quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .bottom-nav button small{font-size:10px}
+}
