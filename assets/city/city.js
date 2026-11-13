@@ -40,6 +40,18 @@ function showLogin(){
  $("telegram-login").hidden=!tgData();
  $("auth-status").textContent="Войди через аккаунт своей фермы";
 }
+async function enterDemo(){
+ try{
+  const catalog=await api("/catalog");
+  data={name:"Гость • демоверсия",coins:0,reputation:0,
+   businesses:Object.keys(catalog.business_catalog),stock:{},products:{},
+   recipes:catalog.recipes,business_catalog:catalog.business_catalog,
+   farm_offers:[],city_offers:[],my_city_offers:[],jobs:[],resident_orders:[],demo:true};
+  $("city-auth").classList.add("hidden");
+  paint();
+  toast("Деморежим: для настоящей торговли войди в аккаунт фермы.");
+ }catch(e){$("auth-status").textContent=e.message}
+}
 async function loginTelegram(){
  if(!tgData()){toast("Открой игру через Telegram");return}
  $("auth-status").textContent="Проверяем Telegram…";
@@ -157,6 +169,7 @@ function showWarehouse(){
  openPanel("📦 Склад бизнеса",s);
 }
 async function action(action,item,amountId,listingId){
+ if(data?.demo){toast("Это демонстрация. Войди через свою ферму, чтобы торговать.");showLogin();return}
  if(working)return;
  const amount=amountId?getAmount(amountId):null;
  if(amountId&&amount===null)return;
@@ -193,7 +206,10 @@ $("view-market").addEventListener("click",()=>view("market"));
 $("view-products").addEventListener("click",()=>view("products"));
 $("view-orders").addEventListener("click",()=>view("warehouse"));
 $("view-residents").addEventListener("click",()=>view("residents"));
-$("refresh").addEventListener("click",async()=>{try{await load();toast("Данные обновлены")}catch(e){toast(e.message)}});
+$("refresh").addEventListener("click",async()=>{
+ if(data?.demo){toast("Демоверсия — данные не обновляются");return}
+ try{await load();toast("Данные обновлены")}catch(e){toast(e.message)}
+});
 $("close-panel").addEventListener("click",closePanel);
 $("panel-backdrop").addEventListener("click",closePanel);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closePanel()});
@@ -203,6 +219,7 @@ $("panel-body").addEventListener("click",e=>{
 });
 $("auth-form").addEventListener("submit",loginPassword);
 $("telegram-login").addEventListener("click",loginTelegram);
+$("demo-enter").addEventListener("click",enterDemo);
 window.addEventListener("telegram-sdk-ready",()=>{if(!data&&!token)loginTelegram()});
-setInterval(()=>{if(data&&document.visibilityState==="visible")load().catch(()=>{})},30000);
+setInterval(()=>{if(data&&!data.demo&&document.visibilityState==="visible")load().catch(()=>{})},30000);
 entry();
