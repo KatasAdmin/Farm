@@ -10,8 +10,9 @@ class FarmNavigationTests(unittest.TestCase):
         shortcuts = farm.split('class="farm-tiles-v2"', 1)[1].split("</div>", 1)[0]
         self.assertEqual(shortcuts.count("<button"), 3)
         self.assertIn("tab('fields')", shortcuts)
-        self.assertIn("Производство", shortcuts)
-        self.assertIn("Скоро", shortcuts)
+        self.assertIn("Предприятия", shortcuts)
+        self.assertIn('href="/city"', shortcuts)
+        self.assertNotIn("Скоро", shortcuts)
         self.assertIn("tab('coop')", shortcuts)
         self.assertIn("tab('storage')", shortcuts)
         self.assertNotIn("tab('shop')", shortcuts)
