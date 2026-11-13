@@ -251,3 +251,89 @@ body{background:radial-gradient(ellipse at 50% 0,#482458 0,#22152e 40%,#100e1c 8
  .quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
  .bottom-nav button small{font-size:10px}
 }
+
+/* Full-screen City tabs share the header and persistent navigation. */
+#city-shell{max-width:720px;padding-inline:12px}
+.topbar{gap:6px;padding-block:8px;flex-wrap:nowrap;position:relative;z-index:3}
+.city-identity{gap:5px;flex:1;min-width:0}
+.city-logo{width:29px;height:34px;flex-shrink:0;font-size:23px;background:none}
+.city-identity h1{font-size:clamp(12px,3.4vw,24px);white-space:nowrap}
+.brand-kicker{font-size:clamp(7px,1.8vw,11px);white-space:nowrap}
+.top-counters{flex:0 0 auto;gap:3px}
+.top-counters .counter,.farm-return{padding:4px;min-height:36px;border-radius:9px;font-size:10px}
+.top-counters .counter strong{font-size:clamp(9px,2.6vw,15px)}
+.top-counters .coin-art{width:15px;height:15px}
+.farm-return span,.wallet-chevron{display:none}
+.world-frame{margin-inline:-12px;border:0;border-radius:0;background:#21192e}
+.district-tools{position:absolute;inset:8px 10px auto;z-index:4;gap:12%;margin:0;pointer-events:none}
+.district-tools button{pointer-events:auto;border:1px solid #c479f1;border-radius:15px;
+ background:linear-gradient(140deg,#352044ef,#1a1429e8);box-shadow:inset 0 0 15px #a950d76d}
+#district-profile,.district-pass{display:flex;gap:6px;align-items:center;min-width:0}
+#district-profile>span:last-child{min-width:0;flex:1}
+#district-name{overflow:hidden;text-overflow:ellipsis;display:block;white-space:nowrap}
+.district-avatar,.district-avatar img{width:34px;height:34px;flex-shrink:0;border-radius:50%;object-fit:cover}
+.district-avatar{display:grid;place-items:center;border:1px solid #f6cb84;background:#321d46}
+progress{display:block;width:100%;height:9px;accent-color:#bb66fa}
+.district-pass i{font-size:26px;font-style:normal}
+.district-pass b{margin-left:auto;color:#ecc3ff}
+.world{aspect-ratio:1.18}
+.district-art{object-fit:fill;mask-image:linear-gradient(#000 94%,transparent)}
+.district-target strong{background:linear-gradient(#391d0d,#170c09);border-color:#f3ad52;box-shadow:0 3px 8px #000c,inset 0 0 5px #f1943988;transform:rotate(-5deg)}
+.restaurant-target strong,.atelier-target strong{transform:rotate(5deg)}
+.dairy-target strong,.warehouse-target strong{background:linear-gradient(#192c5e,#0d1229);border-color:#a4bffd}
+.atelier-target strong{background:linear-gradient(#471642,#220b22);border-color:#eea5e0}
+.map-shortcuts{position:absolute;z-index:3;left:7px;top:30%;display:grid;gap:7px}
+.map-shortcuts button{min-width:42px;min-height:45px;padding:3px;border-radius:11px;color:#fff;
+ background:linear-gradient(#352343,#171222);border:1px solid #ae7ec8;font-size:16px}
+.map-shortcuts small{display:block;font-size:8px}
+.dash{margin-top:0}
+.stat-grid,.profile-stats,.profile-menu{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.stat-grid .stat,.profile-stats .stat,.profile-menu .stat{min-width:0;display:flex;align-items:center;justify-content:center;
+ text-align:center;min-height:70px;padding:5px 2px;border-radius:13px;border:1px solid #be8cdb;
+ background:linear-gradient(150deg,#30273f,#1d1729);box-shadow:inset 0 -8px 15px #b05cdd38}
+.stat i{font-style:normal;font-size:21px;line-height:1.1}
+.stat span{font-size:clamp(8px,2.35vw,14px);line-height:1.13;color:#fff}
+.stat strong{font-size:clamp(13px,4vw,22px)}
+.quick-actions{display:flex;gap:6px}
+.quick-actions .quick-action{flex:1;min-width:0;border-color:#d491fc;background:linear-gradient(#6d3196,#351253);
+ box-shadow:inset 0 0 12px #cf60ff88}
+.quick-actions #city-watch-ad{background:linear-gradient(#146b57,#0c3b34);border-color:#69e8ba}
+.season-banner{width:100%;margin:10px 0;min-height:55px;padding:9px 12px;border:1px solid #c88ae5;
+ display:flex;align-items:center;justify-content:space-between;gap:6px;border-radius:13px;
+ color:#fff;background:linear-gradient(90deg,#35194bf2,#2d1b3977),url("profile-scene.webp") center/cover;font-weight:800}
+.season-banner b{background:linear-gradient(#ffce68,#a34e09);padding:7px 9px;border-radius:9px;color:#fff}
+.bottom-nav{bottom:calc(7px + env(safe-area-inset-bottom));width:calc(100% - 14px);border-radius:19px;
+ padding:5px;gap:5px;background:#1e172bf5}
+.bottom-nav button{flex:1;min-width:0;min-height:56px;padding:4px 1px;border-radius:13px;
+ border:1px solid #9c77b478;background:linear-gradient(#332642,#211827);color:#fff}
+.bottom-nav button i{font-style:normal;font-size:22px;line-height:1}
+#city-page{min-height:66vh;padding-top:4px}
+#city-page #panel-body{overflow:visible;padding:0}
+#page-heading{margin:6px 0 10px;color:#ffe5ac;text-align:center;font-size:clamp(23px,7vw,40px)}
+#city-page:has([data-scene="profile"]) #page-heading,#city-page:has([data-scene="market"]) #page-heading{position:absolute;clip-path:inset(50%)}
+#city-page .profile-hero{min-height:124px;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:12px;margin:4px 0 9px;padding:12px;border:1px solid #d59af1}
+.profile-hero .profile-avatar{width:clamp(56px,17vw,108px);height:clamp(56px,17vw,108px);
+ border:2px solid #ffd67e;border-radius:50%;background:#442658}
+.profile-hero progress{margin-top:7px}
+.profile-balance{display:flex;align-items:center;gap:9px;margin:9px 0;padding:10px;border-radius:15px;
+ border:1px solid #d59af1;background:linear-gradient(130deg,#3b244e,#211729)}
+.profile-balance img{width:36px;height:36px}
+.profile-balance span{flex:1;color:#dbc5e9}
+.profile-balance strong{display:block;color:#ffe6a4;font-size:22px}
+.profile-menu .stat{min-height:64px}
+.city-market-tabs{gap:4px}
+.city-market-tabs .btn{padding:5px 7px;border-radius:12px}
+.market-good{display:flex;align-items:center;gap:8px}
+.market-good img{width:42px;height:42px;border:1px solid #b183cc;border-radius:10px}
+.quantity-step{display:flex;gap:2px;align-items:center}
+#panel-body .quantity-step .number-input{width:43px;flex:0 0 43px;padding:0;text-align:center}
+.quantity-step button{min-width:31px;min-height:40px;background:#3b2b4b;color:white;border:1px solid #8a699b;border-radius:7px}
+.season-track{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0 14px}
+.season-track article{min-width:0;display:grid;justify-items:center;gap:7px;text-align:center;padding:10px 3px;
+ background:linear-gradient(#3b2852,#241832);border:1px solid #ae80d3;border-radius:12px}
+.season-track article i{font-style:normal;font-size:25px}
+.season-track article strong,.season-track article small{font-size:12px;overflow-wrap:anywhere}
+@media(max-width:365px){.city-logo{display:none}.district-tools{gap:6%}.district-pass i{font-size:19px}}
+.bottom-nav i img,.profile-menu i img{display:block;width:30px;height:29px;object-fit:cover;border-radius:8px}
+.season-track .item-card{width:100%;display:grid!important;padding:4px!important;border:0;background:none!important;box-shadow:none!important}
+.season-track .item-card .item-actions{justify-content:center!important}
