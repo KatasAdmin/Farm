@@ -84,6 +84,20 @@ def food_value_guides():
         }
     return guides
 
+# Capacity is tied to paid business upgrades, not unlimited instant jobs.
+# The initial bakery remains free to avoid locking new players out.
+BUSINESS_UPGRADE_BASE = {"bakery": 120, "restaurant": 180, "dairy": 240,
+                         "atelier": 240, "store": 200}
+MAX_BUSINESS_LEVEL = 10
+
+def business_upgrade_cost(kind, current_level):
+    if kind not in BUSINESS_UPGRADE_BASE or not 1 <= current_level < MAX_BUSINESS_LEVEL:
+        raise ValueError("No upgrade available")
+    return BUSINESS_UPGRADE_BASE[kind] * current_level
+
+def business_batch_limit(level):
+    return min(20, max(1, 2 * level))
+
 
 router = APIRouter(prefix="/api/city", tags=["city"])
 INGREDIENTS = ("eggs", "grain", "milk", "feathers", "wool")
@@ -366,6 +380,10 @@ def state(authorization: str=Header(default=""), compact: bool=False):
         now=time.time()
         snapshot={"system_grain_price":GRAIN_PRICE,"name":p["name"],"coins":p["coins"],"businesses":list(business_levels),
             "business_levels":business_levels,
+            "business_upgrade_prices":{kind:business_upgrade_cost(kind,level)
+                for kind,level in business_levels.items() if level<MAX_BUSINESS_LEVEL},
+            "business_batch_limits":{kind:business_batch_limit(level)
+                for kind,level in business_levels.items()},
             "raw_catalog":{item:offer for item,offer in market_catalog.items() if item in INGREDIENTS},
             "animal_catalog":{item:offer for item,offer in market_catalog.items() if item in ANIMALS},
             "city_catalog":city_catalog,
@@ -426,6 +444,27 @@ def open_business(q:Action, authorization: str=Header(default="")):
             if not paid:raise HTTPException(409,f"Для открытия нужно {required} перьев на ферме")
         c.execute("INSERT INTO city_businesses VALUES(%s,%s,1,%s)",(p["id"],q.item,time.time()))
     return {"ok":True}
+
+@router.post("/upgrade-business")
+def upgrade_business(q:Action, authorization:str=Header(default="")):
+    if q.item not in BUSINESSES:
+        raise HTTPException(400,"Неизвестное предприятие")
+    with _db() as c:
+        p=_auth(c,authorization,True)
+        row=c.execute("SELECT level FROM city_businesses WHERE player_id=%s AND kind=%s FOR UPDATE",
+                      (p["id"],q.item)).fetchone()
+        if not row:raise HTTPException(403,"Сначала откройте предприятие")
+        level=int(row["level"])
+        if level>=MAX_BUSINESS_LEVEL:raise HTTPException(409,"Достигнут максимальный уровень")
+        cost=business_upgrade_cost(q.item,level)
+        paid=c.execute("UPDATE players SET coins=coins-%s WHERE id=%s AND coins>=%s RETURNING coins",
+                       (cost,p["id"],cost)).fetchone()
+        if not paid:raise HTTPException(400,"Недостаточно монет")
+        c.execute("UPDATE city_businesses SET level=level+1 WHERE player_id=%s AND kind=%s",
+                  (p["id"],q.item))
+        c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
+    return {"ok":True,"level":level+1,"spent":cost,
+            "max_batch":business_batch_limit(level+1)}
 
 @router.post("/buy-ingredient")
 def buy_ingredient(q:Action,authorization:str=Header(default="")):
@@ -506,9 +545,11 @@ def produce(q:Action,authorization:str=Header(default="")):
             previous=_request(c,q,p["id"],"produce")
             if previous is not None:return previous
         _settle(c,p["id"])
-        opened=c.execute("SELECT 1 FROM city_businesses WHERE player_id=%s AND kind=%s",
+        opened=c.execute("SELECT level FROM city_businesses WHERE player_id=%s AND kind=%s",
                          (p["id"],recipe["business"])).fetchone()
         if not opened:raise HTTPException(403,"Сначала откройте предприятие")
+        if q.amount>business_batch_limit(int(opened["level"])):
+            raise HTTPException(409,"Увеличьте уровень предприятия для такой партии")
         for item,qty in recipe["needs"].items():
             changed=c.execute("""UPDATE city_stock SET quantity=quantity-%s
                 WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
