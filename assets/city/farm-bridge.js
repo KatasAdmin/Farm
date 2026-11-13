@@ -61,23 +61,17 @@
   '<div class="farm-city-trade-row">'+actions+'</div></article>';
  };
  function renderShop(target){
-  const offers=(info.city_offers||[]).filter(o=>info.recipes[o.item]);
-  if(!offers.length){
-   target.innerHTML='<div class="farm-city-blank">🏪 Другие игроки ещё не выставили продукцию. Как только пекарни и рестораны приготовят товары, они появятся здесь.</div>';
+  const groups=Object.entries(info.city_catalog||{}).filter(([item,entry])=>info.recipes[item]&&entry.quantity>0);
+  if(!groups.length){
+   target.innerHTML='<div class="farm-city-blank">🏪 Другие игроки пока не выставили готовую продукцию. Когда бизнесы начнут готовить товары, здесь появятся цены и количество.</div>';
    return;
   }
-  const groups={};
-  for(const offer of offers)(groups[offer.item] ||= []).push(offer);
-  target.innerHTML='<div class="farm-city-grid">'+Object.entries(groups).map(([item,list])=>{
-   list.sort((a,b)=>a.price-b.price);
-   const available=list.reduce((n,o)=>n+o.quantity,0);
-   return card(item,{
-    meta:"От "+fmt(list[0].price)+" 🪙 за шт. · "+fmt(available)+" шт. в продаже",
-    description:benefits[item],
-    actions:'<input type="number" min="1" max="500" value="1" aria-label="Количество '+esc(item)+'" data-city-qty="'+esc(item)+'">'+
-    '<button type="button" data-city-buy="'+esc(item)+'">Купить</button>'
-   });
-  }).join("")+'</div>';
+  target.innerHTML='<div class="farm-city-grid">'+groups.map(([item,entry])=>card(item,{
+   meta:"От "+fmt(entry.min_price)+" 🪙 за шт. · "+fmt(entry.quantity)+" шт. · Продавцов: "+entry.sellers,
+   description:benefits[item],
+   actions:'<input type="number" min="1" max="500" value="1" aria-label="Количество '+esc(item)+'" data-city-qty="'+esc(item)+'">'+
+   '<button type="button" data-city-buy="'+esc(item)+'">Купить</button>'
+  })).join("")+'</div>';
  }
  function renderInventory(){
   const mine=Object.entries(info.products||{}).filter(([k,n])=>n>0&&info.recipes[k]);
