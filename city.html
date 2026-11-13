@@ -2,15 +2,17 @@
 <html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#071e37"><title>НОВАЯ ЖИЗНЬ — ГОРОД</title>
-<link rel="stylesheet" href="/assets/city/city.css?v=1">
+<link rel="stylesheet" href="/assets/city/city.css?v=2">
 <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-<script src="/assets/city/city.js?v=1" defer></script>
+<script src="/assets/city/city.js?v=2" defer></script>
+<script src="/assets/adsgram-fallback.js?v=20261106-r38" defer></script>
+<script src="/assets/city/city-ads.js?v=1" defer></script>
 </head>
 <body>
 <div class="backdrop-glow"></div>
 <div id="city-shell">
 <header class="topbar">
-<div class="city-identity"><div class="city-logo">🏙️</div><div><span class="brand-kicker">НОВАЯ ЖИЗНЬ</span><h1>МОЙ ГОРОД <span class="city-beta">BETA 01</span></h1></div></div>
+<div class="city-identity"><div class="city-logo">🏙️</div><div><span class="brand-kicker">НОВАЯ ЖИЗНЬ</span><h1>МОЙ ГОРОД</h1></div></div>
 <div class="top-counters"><div class="counter"><span>🪙</span><strong id="coins">—</strong></div><div class="counter rep"><span>⭐</span><strong id="reputation">—</strong></div><a class="farm-return" href="/" title="Вернуться на ферму">🌾 <span>Ферма</span></a></div>
 </header>
 <main>
@@ -39,8 +41,8 @@
 </section>
 <section class="dash">
 <div class="section-heading"><div><span class="eyebrow">УПРАВЛЕНИЕ</span><h2>Твой бизнес-центр</h2></div><button class="refresh-button" id="refresh" type="button">↻ Обновить</button></div>
-<div class="stat-grid"><div class="stat"><span>🏢 Открыто предприятий</span><strong id="business-count">—</strong></div><div class="stat"><span>🥚 Яиц на рынке</span><strong id="eggs-on-market">—</strong></div><div class="stat"><span>📦 Готовых товаров</span><strong id="products-count">—</strong></div><div class="stat"><span>🥚 Куплено бизнесами сегодня</span><strong id="eggs-demand-today">—</strong></div></div>
-<div class="quick-actions"><button id="view-market" class="quick-action" type="button">🧺 <span>Закупить сырьё</span></button><button id="view-products" class="quick-action" type="button">🛍️ <span>Товары города</span></button><button id="view-orders" class="quick-action" type="button">📦 <span>Мои склады</span></button><button id="view-residents" class="quick-action" type="button">👥 <span>Заказы жителей</span></button><button id="view-store" class="quick-action" type="button">🛒 <span>Магазин</span></button></div>
+<div class="stat-grid"><div class="stat"><span>🏢 Открыто предприятий</span><strong id="business-count">—</strong></div><div class="stat"><span>🥚 Яиц на рынке</span><strong id="eggs-on-market">—</strong></div><div class="stat"><span>📦 Готовых товаров</span><strong id="products-count">—</strong></div><div class="stat"><span>🥚 Куплено бизнесами сегодня</span><strong id="eggs-demand-today">—</strong></div><div class="stat nutrition-stat"><span>🍽️ Сытость фермера</span><strong id="city-fullness">0%</strong><small id="city-boost">Бонус +0% к производству</small></div></div>
+<div class="quick-actions"><button id="view-market" class="quick-action" type="button">🧺 <span>Закупить сырьё</span></button><button id="view-products" class="quick-action" type="button">🛍️ <span>Товары города</span></button><button id="view-orders" class="quick-action" type="button">📦 <span>Мои склады</span></button><button id="view-residents" class="quick-action" type="button">👥 <span>Заказы жителей</span></button><button id="view-store" class="quick-action" type="button">🛒 <span>Магазин</span></button><button id="city-watch-ad" class="quick-action" type="button">🎬 <span>Монеты за рекламу</span></button></div><p id="city-ad-status" class="city-ad-status" role="status"></p>
 </section>
 </main>
 <nav class="bottom-nav" aria-label="Навигация"><button class="nav-active" data-view="map">🏙️<small>Город</small></button><button data-view="market">🧺<small>Рынок</small></button><button data-view="products">🛍️<small>Товары</small></button><button data-view="warehouse">📦<small>Склад</small></button><button data-view="profile">👤<small>Профиль</small></button></nav>
