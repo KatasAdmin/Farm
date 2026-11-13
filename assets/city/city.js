@@ -78,11 +78,14 @@ function paint(){
  $("products-count").textContent=number(Object.values(data.products).reduce((a,b)=>a+b,0));
  $("jobs-count").textContent=data.jobs.length;
  $("orders-count").textContent=data.resident_orders.filter(order=>!order.done).length;
- document.querySelectorAll(".building").forEach(x=>{
-  const level=data.business_levels[x.dataset.business];
-  x.classList.toggle("unlocked",Boolean(level));
-  x.classList.toggle("upgraded",level>1);
-  x.dataset.level=level?"Ур. "+level:"🔒";
+ document.body.classList.toggle("city-low-effects",data.preferences?.effects===false);
+ $("district-profile").dataset.cosmetic=data.preferences?.cosmetic||"";
+ $("district-name").textContent=data.name+(data.preferences?.cosmetic==="founder"?" ★":"");
+ $("district-level").textContent="Ур. "+number(data.progress?.level)+" · "+number(data.progress?.xp)+" XP";
+ document.querySelectorAll(".district-target[data-business]").forEach(button=>{
+  const level=data.business_levels[button.dataset.business];
+  button.classList.toggle("upgraded",level>1);
+  button.querySelector("small").textContent=level?"Ур. "+level:"🔒";
  });
  if(!$("panel-overlay").classList.contains("hidden"))refreshPanel();
  clearTimeout(jobTimer);
@@ -115,7 +118,9 @@ function view(tab){
  if(!data)return;
  activeView=tab;activeBusiness=null;
  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("nav-active",x.dataset.view===tab));
- if(tab==="map")closePanel();else refreshPanel();
+ if(tab==="map")closePanel();
+ else if(["season","events","daily"].includes(tab))showGoals(tab);
+ else refreshPanel();
 }
 function refreshPanel(){
  if(activeBusiness)return showBusiness(activeBusiness);
@@ -127,6 +132,7 @@ function refreshPanel(){
  if(activeView==="wallet")return showWallet();
  if(activeView==="residents")return showResidents();
  if(activeView==="achievements")return showAchievements();
+ if(activeView==="settings")return showSettings();
  if(activeView==="help")return showHelp();
  if(activeView==="store")return showBusiness("store");
  if(activeView==="shopping")return showShoppingList(lastShoppingRecipe);
@@ -287,11 +293,59 @@ async function showProgressLog(reputationOnly){
  }catch(error){if(activeView===current)openPanel(title,'<p class="empty">'+esc(error.message)+'</p>')}
 }
 
+const goalTitles={season:"👑 Городской пропуск",events:"🗓️ События",daily:"📋 Ежедневные задания"};
+
+async function showGoals(tab){
+ const title=goalTitles[tab];
+ if(!title)return;
+ openPanel(title,'<p class="city-help" role="status">Загрузка…</p>');
+ try{
+  const snapshot=await api("/goals");
+  if(activeView!==tab)return;
+  const periods=tab==="daily"?[snapshot.daily]:snapshot.campaigns.filter(period=>
+   period.kind===(tab==="season"?"season":"event"));
+  let html=tab==="events"?'<button class="btn gold" data-action="navigate" data-item="daily">Ежедневные задания</button>':"";
+  html+=periods.map(period=>{
+   const date=new Date(period.ends*1000).toLocaleString("ru-RU");
+   const heading='<div class="campaign-hero"><strong>'+esc(period.name||"Цели дня")+'</strong><small>'+
+    (period.active?"До "+date:period.starts*1000>Date.now()?"Скоро":"Завершено")+'</small>'+
+    (period.description?'<p>'+esc(period.description)+'</p>':"")+
+    (period.kind==="season"?'<p>Уровень '+period.level+' · '+number(period.xp)+' сезонного XP</p>':"")+'</div>';
+   const item=(goal,details)=>row(esc(goal.name),details,goal.claimed?'<span class="pill">Получено</span>':
+    goal.available?'<button class="btn" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Получить</button>':"");
+   const goals=period.goals.map(goal=>item(goal,number(Math.min(goal.value,goal.goal))+" / "+number(goal.goal)+" · +"+goal.xp+" XP")).join("");
+   const rewards=period.rewards?'<h3>Бесплатные награды</h3>'+period.rewards.map(goal=>item(goal,goal.goal+" сезонного XP")).join("")+
+    '<h3>Премиум · закрыт</h3>'+period.premium.map(label=>row(esc(label),"","")).join(""):"";
+   return heading+goals+rewards;
+  }).join("");
+  openPanel(title,html+(periods.length?"":'<div class="empty">Пока нет запланированных событий</div>'));
+ }catch(error){if(activeView===tab)openPanel(title,'<p class="empty">'+esc(error.message)+'</p>')}
+}
+
 function showAchievements(){
  const entries=data.achievements||[];
  openPanel("🏆 Достижения",entries.map(entry=>row(esc(entry.name),
   esc(entry.description)+" · "+number(Math.min(entry.value,entry.goal))+" / "+number(entry.goal),
   '<span class="pill">'+(entry.done?"Получено":"+"+entry.xp+" XP")+'</span>')).join(""));
+}
+
+function showSettings(){
+ const settings=data.preferences||{effects:true,cosmetic:""};
+ openPanel("⚙️ Настройки",'<form id="city-settings"><p><label><input id="city-effects" type="checkbox" '+
+  (settings.effects?"checked":"")+'> Визуальные эффекты</label></p><p><label>Оформление профиля <select id="city-cosmetic">'+
+  [{id:"",name:"Стандартное"},...(data.cosmetics||[])].map(item=>'<option value="'+esc(item.id)+'" '+
+  (item.id===settings.cosmetic?"selected":"")+'>'+esc(item.name)+'</option>').join("")+
+  '</select></label></p><button class="btn" type="submit">Сохранить</button></form>');
+}
+
+async function saveSettings(event){
+ event.preventDefault();
+ if(working)return;
+ working=true;
+ try{
+  await api("/preferences",{effects:$("city-effects").checked,cosmetic:$("city-cosmetic").value});
+  await load();toast("Настройки сохранены");
+ }catch(error){toast(error.message)}finally{working=false}
 }
 
 function showHelp(){
@@ -303,7 +357,7 @@ function showProfile(){
  let html='<div class="profile-hero"><div class="profile-avatar">👤</div><div><span>Профиль жителя</span><strong>'+esc(data.name)+'</strong><small>⭐ '+number(data.reputation)+' репутации</small></div></div><button class="profile-wallet-button" data-action="wallet">🪙 Общий кошелёк <strong>'+number(data.coins)+' монет ›</strong></button>';
  const progress=data.progress||{};
  html+='<div class="badge-line"><span class="pill">Ур. '+number(progress.level)+'</span><span class="pill">'+number(progress.xp)+' XP'+(progress.next_xp?" / "+number(progress.next_xp):"")+'</span><span class="pill">Заказов · '+number(progress.orders)+'</span></div>';
- const links={businesses:"🏙️ Мои бизнесы",warehouse:"📦 Склад",residents:"📋 Заказы жителей",market:"🛒 Магазин",achievements:"🏆 Достижения",help:"❔ Помощь"};
+ const links={businesses:"🏙️ Мои бизнесы",warehouse:"📦 Склад",residents:"📋 Заказы жителей",market:"🛒 Магазин",achievements:"🏆 Достижения",settings:"⚙️ Настройки",help:"❔ Помощь"};
  html+='<div class="profile-links">'+Object.entries(links).map(([target,label])=>'<button class="btn ghost" data-action="navigate" data-item="'+target+'">'+label+'</button>').join("")+'</div>';
  const finance=data.cashflow||{};
  html+='<h3 class="section-subtitle">📊 Финансы городских бизнесов</h3>';
@@ -345,6 +399,12 @@ async function action(action,item,amountId,listingId){
  const amount=amountId?getAmount(amountId):null;
  if(amountId&&amount===null)return;
  let path,body={item};
+ if(action==="claim-goal"){
+  working=true;
+  try{await api("/claim-goal",{scope:listingId,key:item});await load();await showGoals(activeView)}
+  catch(error){toast(error.message)}finally{working=false}
+  return;
+ }
  if(action==="navigate")return view(item);
  if(action==="order-market"){
   marketCategory=data.food_items.includes(item)?"food":"products";
@@ -386,8 +446,10 @@ async function action(action,item,amountId,listingId){
  }catch(e){toast(e.message)}
  finally{working=false}
 }
-document.querySelectorAll(".building").forEach(x=>x.addEventListener("click",()=>{if(data){activeView="business";showBusiness(x.dataset.business)}}));
+document.querySelectorAll(".district-target[data-business]").forEach(x=>x.addEventListener("click",()=>{if(data){activeView="business";showBusiness(x.dataset.business)}}));
 document.querySelectorAll(".bottom-nav button").forEach(x=>x.addEventListener("click",()=>view(x.dataset.view)));
+$("district-profile").addEventListener("click",()=>view("profile"));
+$("district-pass").addEventListener("click",()=>view("season"));
 $("map-warehouse").addEventListener("click",()=>view("warehouse"));
 $("view-reputation").addEventListener("click",()=>showProgressLog(true));
 $("view-notifications").addEventListener("click",()=>showProgressLog(false));
@@ -402,6 +464,7 @@ $("panel-backdrop").addEventListener("click",closePanel);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closePanel()});
 $("panel-body").addEventListener("submit",e=>{
  if(e.target.id==="city-promo-form")redeemPromo(e);
+ if(e.target.id==="city-settings")saveSettings(e);
 });
 $("panel-body").addEventListener("click",e=>{
  const button=e.target.closest("button[data-action]");if(!button)return;

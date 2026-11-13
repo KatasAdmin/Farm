@@ -2,9 +2,9 @@
 <html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#28243f"><title>НОВАЯ ЖИЗНЬ — ГОРОД</title>
-<link rel="stylesheet" href="/assets/city/city.css?v=8">
+<link rel="stylesheet" href="/assets/city/city.css?v=9">
 <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-<script src="/assets/city/city.js?v=10" defer></script>
+<script src="/assets/city/city.js?v=11" defer></script>
 <script src="/assets/adsgram-fallback.js?v=20261106-r38" defer></script>
 <script src="/assets/city/city-ads.js?v=2" defer></script>
 </head>
@@ -16,24 +16,20 @@
 <div class="top-counters"><button type="button" class="counter wallet-trigger" id="open-city-wallet" aria-label="Открыть общий кошелёк фермы и города"><img src="/assets/redesign/coin.webp" alt="" class="coin-art"><strong id="coins">—</strong><span class="wallet-chevron">›</span></button><button type="button" class="counter rep" id="view-reputation" aria-label="Репутация">⭐ <strong id="reputation">—</strong></button><button type="button" class="counter" id="view-notifications" aria-label="Уведомления">🔔 <strong id="unread">—</strong></button><a class="farm-return" href="/" title="Вернуться на ферму">🌾 <span>Ферма</span></a></div>
 </header>
 <main>
+<div class="district-tools">
+ <button class="quick-action" id="district-profile">👤 <strong id="district-name">Кабинет</strong><small id="district-level"></small></button>
+ <button class="quick-action district-pass" id="district-pass">👑 <span>Городской пропуск</span></button>
+</div>
 <section class="map-section" aria-label="Карта города">
 <div class="world-frame">
 <div class="world" id="world" aria-label="Интерактивный город">
-<div class="terrain terrain-a"></div><div class="terrain terrain-b"></div><div class="terrain terrain-c"></div>
-<div class="river"></div><div class="river-shine"></div>
-<div class="road road-x road-top"></div><div class="road road-x road-middle"></div>
-<div class="road road-y road-left"></div><div class="road road-y road-right"></div>
-<div class="crosswalk cross-1"></div><div class="crosswalk cross-2"></div>
-<div class="mini-lake"></div>
-<div class="tree t1">🌳</div><div class="tree t2">🌳</div><div class="tree t3">🌲</div><div class="tree t4">🌳</div><div class="tree t5">🌲</div><div class="tree t6">🌳</div><div class="tree t7">🌳</div><div class="tree t8">🌲</div><div class="tree t9">🌳</div><div class="tree t10">🌳</div>
-<div class="bush b1">🌼</div><div class="bush b2">🌻</div><div class="bush b3">🌸</div>
-<button class="building bakery-building" data-business="bakery" aria-label="Открыть пекарню"><span class="roof"></span><span class="building-face"><span class="shop-sign">🥐</span><span class="window">✦</span><span class="door"></span></span><span class="building-label">ПЕКАРНЯ</span></button>
-<button class="building restaurant-building" data-business="restaurant" aria-label="Открыть ресторан"><span class="roof"></span><span class="building-face"><span class="shop-sign">🍳</span><span class="window">✦</span><span class="door"></span></span><span class="building-label">РЕСТОРАН</span></button>
-<button class="building dairy-building" data-business="dairy" aria-label="Открыть молочную"><span class="roof"></span><span class="building-face"><span class="shop-sign">🥛</span><span class="window">✦</span><span class="door"></span></span><span class="building-label">МОЛОЧНАЯ</span></button>
-<button class="building atelier-building" data-business="atelier" aria-label="Открыть ателье"><span class="roof"></span><span class="building-face"><span class="shop-sign">🧶</span><span class="window">✦</span><span class="door"></span></span><span class="building-label">АТЕЛЬЕ</span></button>
-<button class="building store-building" data-business="store"><span class="roof"></span><span class="building-face"><span class="shop-sign">🛒</span><span class="window">✦</span><span class="door"></span></span><span class="building-label">МАГАЗИН</span></button><button class="map-warehouse" id="map-warehouse" type="button">📦 Склад</button><div class="home home-a"><span>🏠</span></div><div class="home home-b"><span>🏡</span></div><div class="home home-c"><span>🏘️</span></div>
-<div class="fountain">⛲</div><div class="car car-1">🚙</div><div class="car car-2">🚕</div>
-<div class="citizen citizen-1">🚶</div><div class="citizen citizen-2">🚶‍♀️</div><div class="citizen citizen-3">🧍</div><div class="citizen citizen-4">🚶</div><div class="citizen citizen-5">🚶‍♀️</div>
+<img class="district-art" src="/assets/city/district.webp" alt="" width="1000" height="1000" fetchpriority="high">
+<button class="district-target bakery-target" data-business="bakery"><strong>Пекарня</strong><small></small></button>
+<button class="district-target restaurant-target" data-business="restaurant"><strong>Ресторан</strong><small></small></button>
+<button class="district-target dairy-target" data-business="dairy"><strong>Молочная</strong><small></small></button>
+<button class="district-target atelier-target" data-business="atelier"><strong>Ателье</strong><small></small></button>
+<button class="district-target store-target" data-business="store"><strong>Магазин</strong><small></small></button>
+<button class="district-target warehouse-target" id="map-warehouse"><strong>Склад</strong></button>
 </div>
 </div>
 </section>
@@ -52,11 +48,11 @@
 </section>
 </main>
 <nav class="bottom-nav" aria-label="Навигация">
+<button data-view="profile">👤<small>Кабинет</small></button>
+<button data-view="season">👑<small>Сезон</small></button>
+<button data-view="events">🗓️<small>События</small></button>
 <button class="nav-active" data-view="map">🏙️<small>Город</small></button>
 <button data-view="market">🧺<small>Рынок</small></button>
-<button data-view="warehouse">📦<small>Склад</small></button>
-<button data-view="residents">👥<small>Заказы</small></button>
-<button data-view="profile">👤<small>Кабинет</small></button>
 </nav>
 </div>
 <div class="overlay hidden" id="panel-overlay"><div class="panel-backdrop" id="panel-backdrop"></div><aside class="city-panel" role="dialog" aria-modal="true" aria-labelledby="panel-heading"><div class="panel-grip"></div><div class="panel-top"><div><h2 id="panel-heading">Здание</h2></div><button id="close-panel" class="close-panel" type="button" aria-label="Закрыть">✕</button></div><div id="panel-body"></div></aside></div>

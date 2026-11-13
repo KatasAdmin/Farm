@@ -100,6 +100,23 @@ class CityTransactions(unittest.TestCase):
         self.assertEqual(progress["unread"], 0)
         self.assertEqual(progress["xp"], 50)
 
+    def test_daily_goal_uses_completed_batches_and_is_idempotent(self):
+        auth = "Bearer t-buyer"
+        now = city_world.time.time()
+        start = now - now % 86400
+        with self.connect() as c:
+            c.execute("INSERT INTO city_production_history VALUES(%s,%s,%s,%s,%s,%s)",
+                      ("test-batch", "buyer", "bread", 2, start-5, now+60))
+        daily = city_world.goals(authorization=auth)["daily"]
+        claim = city_world.GoalClaim(scope=daily["id"], key="batches")
+        with self.assertRaises(HTTPException):
+            city_world.claim_goal(claim, authorization=auth)
+        with self.connect() as c:
+            c.execute("UPDATE city_production_history SET ready_at=%s WHERE id='test-batch'", (start,))
+        self.assertTrue(city_world.claim_goal(claim, authorization=auth)["ok"])
+        self.assertTrue(city_world.claim_goal(claim, authorization=auth)["ok"])
+        self.assertEqual(city_world.state(authorization=auth, compact=True)["progress"]["xp"], 5)
+
     def test_single_use_promo_uses_existing_nonwithdrawable_farm_ledger(self):
         import hashlib
         import main

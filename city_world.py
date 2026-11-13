@@ -8,6 +8,7 @@ import market_allocation
 import farm_wallet
 import ad_inventory
 import city_nutrition
+import city_goals
 from production import GRAIN_PRICE
 from production_v4 import MILK_PRICE, WOOL_PRICE
 
@@ -140,6 +141,7 @@ def setup(db, person, advance):
 
 def initialize(c):
     city_nutrition.initialize(c)
+    city_goals.initialize(c)
     # One-time 1000-coin launch promo. Only the SHA-256 digest is persisted.
     # Redemption is handled by the existing farm promo endpoint and is
     # non-withdrawable by virtue of its promo_reward provenance.
@@ -256,6 +258,42 @@ def _achievements(c, pid, now):
         achieved.append({"name": name, "description": description, "goal": goal,
                          "value": value, "xp": xp, "done": done})
     return achieved
+
+
+class GoalClaim(BaseModel):
+    scope: str
+    key: str
+
+
+class CityPreferences(BaseModel):
+    effects: bool = True
+    cosmetic: str = ""
+
+
+@router.post("/preferences")
+def save_preferences(q: CityPreferences, authorization: str = Header(default="")):
+    with _db() as c:
+        pid = _auth(c, authorization, True)["id"]
+        if q.cosmetic and q.cosmetic not in {item["id"] for item in city_goals.cosmetics(c, pid)}:
+            raise HTTPException(403, "Оформление ещё не получено")
+        c.execute("""INSERT INTO city_preferences VALUES(%s,%s,%s)
+            ON CONFLICT(player_id) DO UPDATE SET effects=EXCLUDED.effects,cosmetic=EXCLUDED.cosmetic""",
+            (pid, q.effects, q.cosmetic))
+    return {"ok": True}
+
+
+@router.get("/goals")
+def goals(authorization: str = Header(default="")):
+    with _db() as c:
+        pid = _auth(c, authorization)["id"]
+        return city_goals.state(c, pid, time.time())
+
+
+@router.post("/claim-goal")
+def claim_goal(q: GoalClaim, authorization: str = Header(default="")):
+    with _db() as c:
+        pid = _auth(c, authorization, True)["id"]
+        return city_goals.claim(c, pid, q.scope, q.key, time.time(), _progress_event)
 
 
 @router.get("/progress-log")
@@ -490,6 +528,9 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "reputation":int(rep["points"]) if rep else 0}
         snapshot["achievements"] = _achievements(c, p["id"], now)
         snapshot["progress"] = _progress_summary(c, p["id"])
+        snapshot["cosmetics"] = city_goals.cosmetics(c, p["id"])
+        snapshot["preferences"] = c.execute("""SELECT effects,cosmetic FROM city_preferences
+            WHERE player_id=%s""", (p["id"],)).fetchone() or {"effects": True, "cosmetic": ""}
         if compact:
             return snapshot
 

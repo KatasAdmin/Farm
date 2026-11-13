@@ -187,3 +187,31 @@ body{background:radial-gradient(ellipse at 50% 0,#482458 0,#22152e 40%,#100e1c 8
  .world{aspect-ratio:1.28}
  .map-warehouse{left:50%;bottom:2%;font-size:11px}
 }
+
+.district-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.district-tools .quick-action{min-height:54px;text-align:left}
+.district-tools small{display:block;margin-top:3px;color:#e1c7f6}
+.district-pass{border-color:#df9efa!important;box-shadow:inset 0 0 15px #9a39d755}
+.world{aspect-ratio:1;background:#1f1628}
+.district-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.district-target{position:absolute;z-index:2;width:31%;height:22%;display:flex;align-items:center;
+ justify-content:center;flex-direction:column;gap:3px;padding-top:10%;background:transparent;border:0;color:white}
+.district-target strong,.district-target small{background:#1c1425ed;padding:3px 7px;border-radius:6px;
+ box-shadow:0 2px 6px #0009;line-height:1.2;font-size:clamp(10px,2.8vw,18px)}
+.district-target strong{border:1px solid #e6aa68;text-transform:uppercase}
+.district-target small{font-size:clamp(9px,2.4vw,13px)}
+.district-target small:empty{display:none}
+.district-target.upgraded strong{color:#ffdb96;box-shadow:0 0 10px #ffbc62aa}
+.bakery-target{left:13%;top:14%}.restaurant-target{left:55%;top:12%}
+.dairy-target{left:10%;top:42%}.atelier-target{left:61%;top:43%}
+.store-target{left:12%;top:72%}.warehouse-target{left:55%;top:73%}
+.campaign-hero{margin:8px 0 14px;padding:18px;border-radius:16px;border:1px solid #b980e1;
+ background:radial-gradient(ellipse at 90% 10%,#783b82,#261936 74%)}
+.campaign-hero strong,.campaign-hero small{display:block}
+.campaign-hero strong{font-size:22px;color:#ffe29b}
+.campaign-hero small{margin-top:6px;color:#ead6f3}
+#district-profile[data-cosmetic="violet"]{outline:2px solid #d29bff;outline-offset:-3px}
+#district-profile[data-cosmetic="gold"]{outline:2px solid #ffd675;outline-offset:-3px}
+.city-low-effects .backdrop-glow{display:none}
+.city-low-effects .district-target strong,.city-low-effects .district-pass{box-shadow:none}
+.city-low-effects .panel-backdrop{backdrop-filter:none}

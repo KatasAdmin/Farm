@@ -1903,6 +1903,21 @@ def require_farm_admin(authorization):
  if not expected or len(expected)<32 or not hmac.compare_digest(supplied,expected):
   raise HTTPException(403,"Административный доступ не настроен или запрещён")
 
+@app.get("/api/admin/city/campaigns")
+def admin_city_campaigns(authorization: str = Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:
+  return [row["definition"] for row in c.execute(
+   "SELECT definition FROM city_campaigns ORDER BY starts DESC").fetchall()]
+
+
+@app.post("/api/admin/city/campaigns")
+def admin_city_save_campaign(q: city_world.city_goals.Campaign, authorization: str = Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:
+  return city_world.city_goals.save(c, q)
+
+
 @app.get("/api/admin/withdrawals")
 def admin_withdrawals(authorization:str=Header(default="")):
  require_farm_admin(authorization)
