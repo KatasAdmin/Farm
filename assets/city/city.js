@@ -209,6 +209,7 @@ $("view-market").addEventListener("click",()=>view("market"));
 $("view-products").addEventListener("click",()=>view("products"));
 $("view-orders").addEventListener("click",()=>view("warehouse"));
 $("view-residents").addEventListener("click",()=>view("residents"));
+$("view-store").addEventListener("click",()=>{activeView="store";showBusiness("store")});
 $("refresh").addEventListener("click",async()=>{
  if(data?.demo){toast("Демоверсия — данные не обновляются");return}
  try{await load();toast("Данные обновлены")}catch(e){toast(e.message)}
