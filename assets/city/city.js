@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id);
 const root="/api/city";
 const names={eggs:"🥚 Яйца",grain:"🌾 Зерно",milk:"🥛 Молоко",feathers:"🪶 Перья",wool:"🧶 Шерсть"};
-const icons={pancakes:"🥞",pie:"🥧",omelet:"🍳",cheese:"🧀",bread:"🍞",pillow:"🛏️",scarf:"🧣"};
+const icons={pancakes:"🥞",pie:"🥧",omelet:"🍳",cheese:"🧀",bread:"🍞",pillow:"🛏️",scarf:"🧣",breakfast_set:"🍱",dessert_box:"🍰",home_set:"🎁",lunch_box:"🥡"};
 let token="",data=null,activeView="map",activeBusiness=null,working=false;
 const store={get(){try{return localStorage.getItem("farm_token")||""}catch{return ""}},set(x){try{localStorage.setItem("farm_token",x)}catch{}}};
 const number=n=>new Intl.NumberFormat("ru-RU").format(Number(n)||0);
@@ -99,6 +99,7 @@ function refreshPanel(){
  if(activeView==="products")return showProducts();
  if(activeView==="warehouse")return showWarehouse();
  if(activeView==="residents")return showResidents();
+ if(activeView==="store")return showBusiness("store");
 }
 function showBusiness(kind){
  activeBusiness=kind;
@@ -114,7 +115,9 @@ function showBusiness(kind){
   let recipes=Object.entries(data.recipes).filter(([k,v])=>v.business===kind);
   body+='<h3 class="section-subtitle">Производство</h3>';
   body+=recipes.map(([key,v])=>{
-   const need=Object.entries(v.needs).map(([k,n])=>esc(names[k])+' ×'+n+' (есть '+(data.stock[k]||0)+')').join(" · ");
+   const rawNeeds=Object.entries(v.needs).map(([k,n])=>esc(names[k])+' ×'+n+' (есть '+(data.stock[k]||0)+')');
+   const productNeeds=Object.entries(v.needs_products||{}).map(([k,n])=>(icons[k]||"📦")+' '+esc(data.recipes[k]?.name||k)+' ×'+n+' (есть '+(data.products[k]||0)+')');
+   const need=rawNeeds.concat(productNeeds).join(" · ");
    return row((icons[key]||"📦")+" "+esc(v.name),need+" · "+v.seconds+" сек. · результат ×"+v.output,
     input("qty-craft-"+key)+ '<button class="btn" data-action="produce" data-item="'+key+'">Готовить</button>');
   }).join("");
