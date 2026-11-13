@@ -37,8 +37,8 @@ RECIPES = {
 BUSINESSES = {
     "bakery": {"name": "Пекарня", "emoji": "🥐", "open_cost": 0, "min_reputation": 0},
     "restaurant": {"name": "Ресторан", "emoji": "🍳", "open_cost": 0, "min_reputation": 20},
-    "dairy": {"name": "Молочная", "emoji": "🥛", "open_cost": 0, "min_reputation": 50},
-    "atelier": {"name": "Ателье", "emoji": "🧶", "open_cost": 0, "min_reputation": 100},
+    "dairy": {"name": "Молочная", "emoji": "🥛", "open_cost": 0, "feather_cost": 5, "min_reputation": 50},
+    "atelier": {"name": "Ателье", "emoji": "🧶", "open_cost": 0, "feather_cost": 12, "min_reputation": 100},
     "store": {"name": "Магазин", "emoji": "🛒", "open_cost": 0, "min_reputation": 160},
 }
 
@@ -297,6 +297,7 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "food_items":list(city_nutrition.FOOD_RESTORE),"materials":sorted(MATERIALS),
             "wallet_mode":"shared_farm_city","cashflow":city_cashflow,
             "stock":_counts(c,"city_stock",p["id"]),
+            "farm_feathers":int(p["feathers"]),
             "products":_counts(c,"city_products",p["id"]),
             "recipes":RECIPES,"business_catalog":BUSINESSES,
             "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
@@ -334,8 +335,35 @@ def open_business(q:Action, authorization: str=Header(default="")):
         reputation=c.execute("SELECT points FROM city_reputation WHERE player_id=%s",(p["id"],)).fetchone()
         if (int(reputation["points"]) if reputation else 0)<BUSINESSES[q.item]["min_reputation"]:
             raise HTTPException(403,"Нужно больше репутации для открытия бизнеса")
-        c.execute("INSERT INTO city_businesses VALUES(%s,%s,1,%s) ON CONFLICT DO NOTHING",(p["id"],q.item,time.time()))
+        if c.execute("SELECT 1 FROM city_businesses WHERE player_id=%s AND kind=%s",(p["id"],q.item)).fetchone():
+            return {"ok":True,"already_open":True}
+        required=int(BUSINESSES[q.item].get("feather_cost",0))
+        if required:
+            paid=c.execute("""UPDATE city_stock SET quantity=quantity-%s
+                WHERE player_id=%s AND item='feathers' AND quantity>=%s RETURNING quantity""",
+                (required,p["id"],required)).fetchone()
+            if not paid:raise HTTPException(409,f"Для открытия нужно {required} перьев на городском складе")
+        c.execute("INSERT INTO city_businesses VALUES(%s,%s,1,%s)",(p["id"],q.item,time.time()))
     return {"ok":True}
+
+@router.post("/transfer-feathers")
+def transfer_feathers(q:Action,authorization:str=Header(default="")):
+    """Move feathers from farm to city without minting coins."""
+    if q.item!="feathers":raise HTTPException(400,"Переносить можно только перья")
+    _amount(q.amount,500)
+    with _db() as c:
+        c.execute("SELECT pg_advisory_xact_lock(1984533)")
+        p=_auth(c,authorization,True)
+        previous=_request(c,q,p["id"],"transfer_feathers")
+        if previous is not None:return previous
+        moved=c.execute("""UPDATE players SET feathers=feathers-%s
+            WHERE id=%s AND feathers>=%s RETURNING feathers""",
+            (q.amount,p["id"],q.amount)).fetchone()
+        if not moved:raise HTTPException(409,"На ферме недостаточно перьев")
+        _add_product(c,"city_stock",p["id"],"feathers",q.amount)
+        result={"ok":True,"moved":q.amount}
+        _finish_request(c,q,result)
+    return result
 
 @router.post("/buy-ingredient")
 def buy_ingredient(q:Action,authorization:str=Header(default="")):
