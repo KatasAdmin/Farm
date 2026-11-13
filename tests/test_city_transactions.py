@@ -206,7 +206,7 @@ class CityTransactions(unittest.TestCase):
         with self.connect() as c:
             balances=c.execute("SELECT coins FROM players ORDER BY id").fetchall()
             self.assertEqual([row["coins"] for row in balances],[200,200,0])
-            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_receipts").fetchone()["n"],3)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_receipts").fetchone()["n"],4)
             self.assertEqual(c.execute("SELECT quantity FROM city_listings WHERE id='own-old'").fetchone()["quantity"],0)
             self.assertEqual(c.execute("SELECT quantity FROM city_listings WHERE id='own-new'").fetchone()["quantity"],0)
             self.assertEqual(c.execute("SELECT quantity FROM city_listings WHERE id='external-old'").fetchone()["quantity"],1)
