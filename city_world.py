@@ -452,6 +452,8 @@ def upgrade_business(q:Action, authorization:str=Header(default="")):
     with _db() as c:
         p=_auth(c,authorization,True)
         c.execute("SELECT pg_advisory_xact_lock(1984533)")
+        previous=_request(c,q,p["id"],"upgrade_business")
+        if previous is not None:return previous
         row=c.execute("SELECT level FROM city_businesses WHERE player_id=%s AND kind=%s FOR UPDATE",
                       (p["id"],q.item)).fetchone()
         if not row:raise HTTPException(403,"Сначала откройте предприятие")
@@ -464,8 +466,10 @@ def upgrade_business(q:Action, authorization:str=Header(default="")):
         c.execute("UPDATE city_businesses SET level=level+1 WHERE player_id=%s AND kind=%s",
                   (p["id"],q.item))
         c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
-    return {"ok":True,"level":level+1,"spent":cost,
-            "max_batch":business_batch_limit(level+1)}
+        result={"ok":True,"level":level+1,"spent":cost,
+                "max_batch":business_batch_limit(level+1)}
+        _finish_request(c,q,result)
+    return result
 
 @router.post("/buy-ingredient")
 def buy_ingredient(q:Action,authorization:str=Header(default="")):
@@ -542,6 +546,7 @@ def produce(q:Action,authorization:str=Header(default="")):
     _amount(q.amount,20)
     with _db() as c:
         p=_auth(c,authorization,True)
+        c.execute("SELECT pg_advisory_xact_lock(1984533)")
         if q.request_id:
             previous=_request(c,q,p["id"],"produce")
             if previous is not None:return previous
