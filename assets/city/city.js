@@ -51,6 +51,7 @@ async function enterDemo(){
   data={name:"Гость • демоверсия",coins:0,reputation:0,
    businesses:Object.keys(catalog.business_catalog),stock:{},products:{},
    farm_market_totals:{},city_demand_today:{},
+   cashflow:{ingredient_spend:0,goods_purchases:0,goods_sales:0,net:0},wallet_mode:"shared_farm_city",
    recipes:catalog.recipes,business_catalog:catalog.business_catalog,
    farm_offers:[],city_offers:[],my_city_offers:[],jobs:[],resident_orders:[],demo:true};
   $("city-auth").classList.add("hidden");
@@ -194,6 +195,11 @@ function showProfile(){
  const demo=Boolean(data.demo);
  let html='<p class="panel-note">Один аккаунт для фермы и города. Монеты на общем балансе, промокоды одноразовые и бонусные монеты не выводятся.</p>';
  html+='<div class="mini-grid"><div class="mini-box"><small>👤 Игрок</small><strong style="font-size:16px">'+esc(data.name)+'</strong></div><div class="mini-box"><small>🪙 Общий баланс</small><strong>'+number(data.coins)+'</strong></div><div class="mini-box"><small>⭐ Репутация города</small><strong>'+number(data.reputation)+'</strong></div><div class="mini-box"><small>🏢 Предприятия</small><strong>'+number(data.businesses.length)+'</strong></div></div>';
+ const finance=data.cashflow||{};
+ html+='<h3 class="section-subtitle">📊 Финансы городских бизнесов</h3>';
+ html+='<div class="mini-grid"><div class="mini-box"><small>📦 Закупки сырья</small><strong>'+number(finance.ingredient_spend||0)+' 🪙</strong></div><div class="mini-box"><small>🛍️ Покупки товаров</small><strong>'+number(finance.goods_purchases||0)+' 🪙</strong></div><div class="mini-box"><small>💰 Продажи товаров</small><strong>'+number(finance.goods_sales||0)+' 🪙</strong></div><div class="mini-box"><small>📈 Денежный поток</small><strong>'+number(finance.net||0)+' 🪙</strong></div></div>';
+ html+='<p class="panel-note">Это учёт денег по сделкам города за всё время, а не второй кошелёк и не чистая прибыль: непроданные запасы и стоимость собственного производства ещё не учтены.</p>';
+ html+='<div class="empty">🔗 Ферма и город используют один баланс. <strong>+1 000 по промокоду</strong> отображается в обеих играх, но начисляется только один раз. Склады и производственные ресурсы остаются раздельными.</div>';
  html+='<h3 class="section-subtitle">🎁 Активировать промокод</h3>';
  html+='<p class="panel-note">Введи код от TREVIXO или фермы. Награда поступит на тот же аккаунт. Один код можно использовать только один раз.</p>';
  html+='<form id="city-promo-form" class="city-promo-form"><input id="city-promo-input" aria-label="Промокод" autocomplete="off" spellcheck="false" maxlength="64" placeholder="FARM-…" '+(demo?'disabled':'')+' required><button class="btn gold" type="submit" '+(demo?'disabled':'')+'>Получить награду</button></form>';
