@@ -21,7 +21,7 @@ const click=selector=>{const node=d.querySelector(selector);assert.ok(node,selec
 function reset(){run('state=JSON.parse(JSON.stringify(window.fixture));token="qa-token";pending=false;refreshedAt=Date.now();render()');d.querySelectorAll('dialog').forEach(x=>x.close());}
 (async()=>{
 reset();
-assert.deepEqual([...d.querySelectorAll('.bird-resources>button')].map(n=>n.querySelector('[data-value]')?.dataset.value||'storage'),['chickens','geese','cows','sheep','wool','eggs','feathers','milk']);
+assert.deepEqual([...d.querySelectorAll('.farm-resource-grid .resource')].map(n=>n.querySelector('[data-value]')?.dataset.value||'storage'),['chickens','geese','cows','sheep','wool','eggs','feathers','milk']);
 for(const animal of ['chickens','geese','cows','sheep']){
  const card=d.querySelector(`[data-animal-card="${animal}"]`);assert.ok(card,animal+' card');
  const buttons=[...card.querySelectorAll('.buttons>button')];assert.equal(buttons.length,2);
