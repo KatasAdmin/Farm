@@ -337,3 +337,41 @@ progress{display:block;width:100%;height:9px;accent-color:#bb66fa}
 .bottom-nav i img,.profile-menu i img{display:block;width:30px;height:29px;object-fit:cover;border-radius:8px}
 .season-track .item-card{width:100%;display:grid!important;padding:4px!important;border:0;background:none!important;box-shadow:none!important}
 .season-track .item-card .item-actions{justify-content:center!important}
+
+/* Evening lighting and dedicated artwork across the city. */
+.top-counters .counter.rep{display:flex!important}
+.topbar{background:radial-gradient(ellipse at 45% 110%,#a345c24f,transparent 75%);border-bottom:1px solid #b265dd70}
+body{background:radial-gradient(ellipse at 52% 7%,#39234d 0%,#17152a 48%,#100e1b 88%)}
+.city-panel,#panel-body .item-card,.profile-balance,.profile-menu .stat,.profile-stats .stat,.stat-grid .stat{
+ border-color:#bd81df;background:radial-gradient(ellipse at 48% 100%,#522963 0%,#251c37 54%,#1a1629 100%);
+ box-shadow:inset 0 0 9px #d59aff38,0 3px 12px #10071782
+}
+#panel-body .btn.ghost,.city-market-tabs .btn.ghost{
+ color:#fff;background:linear-gradient(#51405f,#2a203b);border:1px solid #a479c6;box-shadow:inset 0 0 10px #c98bff37
+}
+#panel-body .btn[aria-pressed=true],#panel-body .btn:not(.ghost):not(.gold):not(.danger),.bottom-nav button.nav-active{
+ background:linear-gradient(155deg,#12634d,#07362d);border:1px solid #73ffd5;
+ box-shadow:inset 0 0 13px #41ffba77,0 0 8px #31edb065
+}
+#panel-body .btn:disabled{box-shadow:none}
+#panel-body[data-scene="market"] .city-market-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+#panel-body[data-scene="market"] .city-market-tabs .btn{min-width:0;overflow-wrap:anywhere;font-size:clamp(8px,2.5vw,13px);padding:4px 2px}
+#panel-body[data-scene="market"] .item-card{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+#panel-body[data-scene="market"] .item-card .item-actions{display:flex;gap:8px;align-items:center}
+#panel-body .quantity-step{display:grid;grid-template-columns:34px 34px 34px;gap:0;flex:0 0 102px}
+#panel-body .quantity-step .number-input{width:100%;min-width:0;height:40px;border-radius:0;appearance:textfield}
+#panel-body .quantity-step button{width:100%;min-width:0}
+#panel-body .quantity-step input::-webkit-inner-spin-button{appearance:none}
+.market-scene,.festival-hero{min-height:130px;padding:15px;background-position:center}
+.market-scene{background-image:linear-gradient(90deg,#24132ad9,transparent),url("evening-market.webp")}
+#panel-body[data-scene="season"] .campaign-hero{min-height:150px;background-image:linear-gradient(90deg,#25162ff4 7%,#25162f12),url("evening-season.webp")}
+.festival-hero,#panel-body[data-scene="events"] .campaign-hero{background-image:linear-gradient(90deg,#25162fee,transparent),url("evening-festival.webp")}
+.season-banner{background-image:linear-gradient(90deg,#35194bec,#2d1b3922),url("evening-chest.webp")}
+#panel-body .profile-hero{background-image:linear-gradient(90deg,#261738ed 17%,#26173844),url("evening-profile.webp")}
+#panel-body[data-scene="businesses"]{padding-top:118px;background:url("evening-business.webp") center top/100% 112px no-repeat}
+#panel-body[data-scene="ranking"]{padding-top:118px;background:url("evening-profile.webp") center top/100% 112px no-repeat}
+.season-meter{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;color:#ffe3a4;margin:10px 0}
+.season-meter progress{accent-color:#48df99}
+.season-switch{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.bottom-nav i img,.profile-menu i img{width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 0 4px #e5b3fa65)}
+.city-low-effects .bottom-nav button,.city-low-effects .stat,.city-low-effects #panel-body .btn{box-shadow:none}
