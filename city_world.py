@@ -32,6 +32,36 @@ def recipe_price_guides():
     return guides
 
 
+def business_investment_guides(batches_per_day=8, sell_through=0.8):
+    """Indicative 20-30 day investments, not charges or guaranteed returns.
+
+    Assumes each business concentrates on its first recipe. Players can freely
+    select other recipes and market prices; unsold inventory earns nothing.
+    """
+    if batches_per_day <= 0 or not 0 <= sell_through <= 1:
+        raise ValueError("Invalid business assumptions")
+    guides = recipe_price_guides()
+    result = {}
+    for kind in BUSINESSES:
+        recipe_key = next(key for key, spec in RECIPES.items()
+                          if spec["business"] == kind)
+        spec = RECIPES[recipe_key]
+        quote = guides[recipe_key]
+        margin = (quote["suggested_unit_price"] * spec["output"] * sell_through
+                  - quote["batch_input_cost"])
+        daily = max(0, margin * batches_per_day)
+        result[kind] = {
+            "reference_recipe": recipe_key,
+            "assumed_batches_per_day": batches_per_day,
+            "assumed_sell_through": sell_through,
+            "estimated_daily_profit": round(daily, 2),
+            "target_investment_20_days": round(daily * 20),
+            "target_investment_30_days": round(daily * 30),
+            "pricing_is_advisory": True,
+        }
+    return result
+
+
 router = APIRouter(prefix="/api/city", tags=["city"])
 INGREDIENTS = ("eggs", "grain", "milk", "feathers", "wool")
 MATERIALS = {"feathers", "wool"}
@@ -322,7 +352,9 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "farm_feathers":int(p.get("feathers",0)),
             "products":_counts(c,"city_products",p["id"]),
             "recipes":RECIPES,"price_guides":recipe_price_guides(),
-            "farm_reference_prices":FARM_REFERENCE_PRICES,"business_catalog":BUSINESSES,
+            "farm_reference_prices":FARM_REFERENCE_PRICES,
+            "business_investment_guides":business_investment_guides(),
+            "business_catalog":BUSINESSES,
             "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
             "resident_orders":daily_orders(c,p["id"],now),
             "reputation":int(rep["points"]) if rep else 0}
