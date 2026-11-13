@@ -24,7 +24,7 @@
   container.innerHTML='<p style="opacity:.8">Загружаем товары городских бизнесов…</p>';
   try{
    const info=await call("state");
-   offers=info.city_offers.filter(x=>names[x.item]);
+   offers=info.city_offers.filter(x=>names[x.item]&&x.seller!==info.name);
    container.innerHTML=offers.length?offers.map(x=>
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px;padding:10px;margin:7px 0;background:#ffffff17"><div><strong>'+icons[x.item]+' '+names[x.item]+'</strong><small style="display:block;opacity:.8">'+esc(x.seller)+' · '+x.quantity+' шт. · '+x.price+' мон./шт.</small></div><div style="display:flex;gap:5px;align-items:center"><input aria-label="Количество" type="number" min="1" max="500" value="1" data-qty="'+esc(x.id)+'" style="width:52px;background:#092b45;color:white;border:1px solid #a1c5df;border-radius:8px;padding:9px 3px"><button class="btn" data-city-buy="'+esc(x.id)+'">Купить</button></div></div>'
    ).join(""):'<p style="opacity:.85">Товаров пока нет. Первые пекарни и рестораны смогут выставить их в городе.</p>';
@@ -41,10 +41,12 @@
   const input=container.querySelector('input[data-qty="'+button.dataset.cityBuy+'"]');
   const n=Number(input?.value);
   if(!offer||!Number.isSafeInteger(n)||n<1||n>500)return alert("Количество от 1 до 500");
-  const request_id=(globalThis.crypto?.randomUUID?.()||("0".repeat(32))).replaceAll("-","").slice(0,32);
+  const request_id=(globalThis.crypto?.randomUUID?.()||(Date.now().toString(16)+Math.floor(Math.random()*1e15).toString(16)).padEnd(32,"a")).replaceAll("-","").slice(0,32);
   busy=true;button.disabled=true;
   try{
-   await call("buy-product",{item:offer.item,amount:n,request_id});
+   const quote=await call("quote-product",{item:offer.item,amount:n});
+   if(!confirm("Купить "+n+" шт. за "+quote.cost+" монет у "+quote.sellers+" продавцов?"))return;
+   await call("buy-product",{item:offer.item,amount:n,request_id,expected_cost:quote.cost});
    if(typeof refresh==="function")await refresh();
    await load();
    if(typeof toast==="function")toast("🏙️ Товар куплен! Он поступил на склад города.");
