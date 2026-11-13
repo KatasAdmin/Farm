@@ -12,6 +12,7 @@ from pydantic import BaseModel
 import market_allocation
 import farm_wallet
 import ad_inventory
+import city_nutrition
 
 router = APIRouter(prefix="/api/city", tags=["city"])
 INGREDIENTS = ("eggs", "grain", "milk", "feathers", "wool")
@@ -195,6 +196,12 @@ def state(authorization: str=Header(default="")):
             JOIN players p ON p.id=l.seller
             WHERE l.quantity>0 AND l.seller<>%s AND l.item=ANY(%s)
             ORDER BY l.item,l.price,l.id LIMIT 70""",(p["id"],list(INGREDIENTS))).fetchall()
+        raw_catalog_rows=c.execute("""SELECT item,COUNT(DISTINCT seller)::int AS sellers,
+            COALESCE(SUM(quantity),0)::bigint AS quantity,MIN(price)::int AS min_price
+            FROM market WHERE quantity>0 AND seller<>%s AND item=ANY(%s)
+            GROUP BY item ORDER BY item""",(p["id"],list(INGREDIENTS))).fetchall()
+        raw_catalog={r["item"]:{"quantity":int(r["quantity"]),"sellers":int(r["sellers"]),
+                     "min_price":int(r["min_price"])} for r in raw_catalog_rows}
         all_raw=c.execute("""SELECT item,COALESCE(SUM(quantity),0)::bigint AS n
             FROM market WHERE quantity>0 AND item=ANY(%s) GROUP BY item""",
             (list(INGREDIENTS),)).fetchall()
@@ -207,6 +214,12 @@ def state(authorization: str=Header(default="")):
             COALESCE(SUM(coins),0)::bigint AS coins
             FROM city_receipts WHERE created>=%s""",(today_start,)).fetchone()
         my_city_offers=c.execute("SELECT id,item,quantity,price FROM city_listings WHERE seller=%s AND quantity>0 ORDER BY created DESC",(p["id"],)).fetchall()
+        city_catalog_rows=c.execute("""SELECT item,COUNT(DISTINCT seller)::int AS sellers,
+            COALESCE(SUM(quantity),0)::bigint AS quantity,MIN(price)::int AS min_price
+            FROM city_listings WHERE quantity>0 AND seller<>%s
+            GROUP BY item ORDER BY item""",(p["id"],)).fetchall()
+        city_catalog={r["item"]:{"quantity":int(r["quantity"]),"sellers":int(r["sellers"]),
+                      "min_price":int(r["min_price"])} for r in city_catalog_rows}
         city_offers=c.execute("""SELECT l.id,l.item,l.price,l.quantity,p.name AS seller
             FROM city_listings l JOIN players p ON p.id=l.seller
             WHERE l.quantity>0 AND l.seller<>%s ORDER BY l.item,l.price,l.id LIMIT 70""",(p["id"],)).fetchall()
@@ -228,6 +241,8 @@ def state(authorization: str=Header(default="")):
             "label":"Денежный поток города, не чистая прибыль",
         }
         return {"name":p["name"],"coins":p["coins"],"businesses":businesses,
+            "raw_catalog":raw_catalog,"city_catalog":city_catalog,
+            "nutrition":city_nutrition.status(city_nutrition.get(c,p["id"])),
             "wallet_mode":"shared_farm_city","cashflow":city_cashflow,
             "stock":_counts(c,"city_stock",p["id"]),
             "products":_counts(c,"city_products",p["id"]),
@@ -452,6 +467,31 @@ def fulfill_order(q:Action,authorization:str=Header(default="")):
             (p["id"],order["reputation"]))
         result={"ok":True,"reputation_earned":order["reputation"]}
         if q.request_id:_finish_request(c,q,result)
+    return result
+
+@router.post("/eat")
+def eat(q:Action,authorization:str=Header(default="")):
+    """Consume real city food. The bonus affects only future fed-animal
+    production. Never create bonus coins or duplicate the consumed item."""
+    if q.item not in city_nutrition.FOOD_RESTORE:
+        raise HTTPException(400,"Этот товар нельзя съесть")
+    _amount(q.amount,20)
+    if not q.request_id:raise HTTPException(400,"Нужен ключ операции")
+    with _db() as c:
+        c.execute("SELECT pg_advisory_xact_lock(1984533)")
+        p=_auth(c,authorization,True)
+        previous=_request(c,q,p["id"],"eat")
+        if previous is not None:return previous
+        # Settle all production BEFORE eating; food never boosts past hours.
+        p=_advance(c,p)
+        _settle(c,p["id"])
+        updated=c.execute("""UPDATE city_products SET quantity=quantity-%s
+            WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
+            (q.amount,p["id"],q.item,q.amount)).fetchone()
+        if not updated:raise HTTPException(409,"Недостаточно еды")
+        nutrition=city_nutrition.eat(c,p["id"],q.item,q.amount)
+        result={"ok":True,"nutrition":nutrition,"consumed":q.amount}
+        _finish_request(c,q,result)
     return result
 
 @router.post("/consume")
