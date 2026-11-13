@@ -61,17 +61,17 @@
   '<div class="farm-city-trade-row">'+actions+'</div></article>';
  };
  function renderShop(target){
-  const groups=Object.entries(info.city_catalog||{}).filter(([item,entry])=>info.recipes[item]&&entry.quantity>0);
+  const groups=Object.entries(info.city_catalog||{}).filter(([item,r])=>info.recipes[item]&&r.quantity>0);
   if(!groups.length){
-   target.innerHTML='<div class="farm-city-blank">🏪 Другие игроки пока не выставили готовую продукцию. Когда бизнесы начнут готовить товары, здесь появятся цены и количество.</div>';
+   target.innerHTML='<div class="farm-city-blank">🏪 Другие игроки ещё не выставили продукцию. Как только появятся товары, они будут здесь.</div>';
    return;
   }
-  target.innerHTML='<div class="farm-city-grid">'+groups.map(([item,entry])=>card(item,{
-   meta:"От "+fmt(entry.min_price)+" 🪙 за шт. · "+fmt(entry.quantity)+" шт. · Продавцов: "+entry.sellers,
-   description:benefits[item],
-   actions:'<input type="number" min="1" max="500" value="1" aria-label="Количество '+esc(item)+'" data-city-qty="'+esc(item)+'">'+
-   '<button type="button" data-city-buy="'+esc(item)+'">Купить</button>'
-  })).join("")+'</div>';
+  target.innerHTML='<div class="farm-city-grid">'+groups.map(([item,r])=>card(item,{
+    meta:"От "+fmt(r.min_price)+" 🪙 за шт. · "+fmt(r.quantity)+" шт. · Продавцов: "+r.sellers,
+    description:benefits[item],
+    actions:'<input type="number" min="1" max="500" value="1" aria-label="Количество '+esc(item)+'" data-city-qty="'+esc(item)+'">'+
+    '<button type="button" data-city-buy="'+esc(item)+'">Купить</button>'
+   })).join("")+'</div>';
  }
  function renderInventory(){
   const mine=Object.entries(info.products||{}).filter(([k,n])=>n>0&&info.recipes[k]);
