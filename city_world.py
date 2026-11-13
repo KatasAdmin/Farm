@@ -50,6 +50,12 @@ def setup(db, person, advance):
     return router
 
 def initialize(c):
+    # One-time 1000-coin launch promo. Only the SHA-256 digest is persisted.
+    # Redemption is handled by the existing farm promo endpoint and is
+    # non-withdrawable by virtue of its promo_reward provenance.
+    c.execute("""INSERT INTO promo_codes(code_hash,amount)
+        VALUES(%s,1000) ON CONFLICT(code_hash) DO NOTHING""",
+        ("045f21487f82922ac415acebd84bc553a9b44697ffbf81a09af5160914489013",))
     c.execute("""CREATE TABLE IF NOT EXISTS city_businesses(
         player_id text NOT NULL, kind text NOT NULL, level integer NOT NULL DEFAULT 1,
         opened double precision NOT NULL, PRIMARY KEY(player_id,kind))""")
