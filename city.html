@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071e37"><title>НОВАЯ ЖИЗНЬ — ГОРОД</title>
+<link rel="stylesheet" href="/assets/city/city.css?v=1">
+<script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
+<script src="/assets/city/city.js?v=1" defer></script>
+</head>
+<body>
+<div class="backdrop-glow"></div>
+<div id="city-shell">
+<header class="topbar">
+<div class="city-identity"><div class="city-logo">🏙️</div><div><span class="brand-kicker">НОВАЯ ЖИЗНЬ</span><h1>МОЙ ГОРОД <span class="city-beta">BETA 01</span></h1></div></div>
+<div class="top-counters"><div class="counter"><span>🪙</span><strong id="coins">—</strong></div><div class="counter rep"><span>⭐</span><strong id="reputation">—</strong></div><a class="farm-return" href="/" title="Вернуться на ферму">🌾 <span>Ферма</span></a></div>
+</header>
+<main>
+<section class="map-section" aria-label="Карта города">
+<div class="sky-banner"><span class="weather">☀️</span><div><strong>Добро пожаловать домой</strong><small id="greeting">Твой город просыпается</small></div><span class="banner-day">ГОРОД ЖИВЁТ</span></div>
+<div class="world-frame">
+<div class="world" id="world" aria-label="Интерактивный город">
+<div class="terrain terrain-a"></div><div class="terrain terrain-b"></div><div class="terrain terrain-c"></div>
+<div class="river"></div><div class="river-shine"></div>
+<div class="road road-x road-top"></div><div class="road road-x road-middle"></div>
+<div class="road road-y road-left"></div><div class="road road-y road-right"></div>
+<div class="crosswalk cross-1"></div><div class="crosswalk cross-2"></div>
+<div class="mini-lake"></div>
+<div class="tree t1">🌳</div><div class="tree t2">🌳</div><div class="tree t3">🌲</div><div class="tree t4">🌳</div><div class="tree t5">🌲</div><div class="tree t6">🌳</div><div class="tree t7">🌳</div><div class="tree t8">🌲</div><div class="tree t9">🌳</div><div class="tree t10">🌳</div>
+<div class="bush b1">🌼</div><div class="bush b2">🌻</div><div class="bush b3">🌸</div>
+<button class="building bakery-building" data-business="bakery" aria-label="Открыть пекарню"><span class="roof"></span><span class="building-face"><span class="shop-sign">🥐</span><span class="window">✦</span><span class="door"></span></span><span class="building-label">ПЕКАРНЯ</span></button>
+<button class="building restaurant-building" data-business="restaurant" aria-label="Открыть ресторан"><span class="roof"></span><span class="building-face"><span class="shop-sign">🍳</span><span class="window">✦</span><span class="door"></span></span><span class="building-label">РЕСТОРАН</span></button>
+<button class="building dairy-building" data-business="dairy" aria-label="Открыть молочную"><span class="roof"></span><span class="building-face"><span class="shop-sign">🥛</span><span class="window">✦</span><span class="door"></span></span><span class="building-label">МОЛОЧНАЯ</span></button>
+<button class="building atelier-building" data-business="atelier" aria-label="Открыть ателье"><span class="roof"></span><span class="building-face"><span class="shop-sign">🧶</span><span class="window">✦</span><span class="door"></span></span><span class="building-label">АТЕЛЬЕ</span></button>
+<div class="home home-a"><span>🏠</span></div><div class="home home-b"><span>🏡</span></div><div class="home home-c"><span>🏘️</span></div>
+<div class="fountain">⛲</div><div class="car car-1">🚙</div><div class="car car-2">🚕</div>
+<div class="citizen citizen-1">🚶</div><div class="citizen citizen-2">🚶‍♀️</div><div class="citizen citizen-3">🧍</div><div class="citizen citizen-4">🚶</div><div class="citizen citizen-5">🚶‍♀️</div>
+</div>
+<div class="map-hint">👆 Нажми на любое предприятие</div>
+</div>
+</section>
+<section class="dash">
+<div class="section-heading"><div><span class="eyebrow">УПРАВЛЕНИЕ</span><h2>Твой бизнес-центр</h2></div><button class="refresh-button" id="refresh" type="button">↻ Обновить</button></div>
+<div class="stat-grid"><div class="stat"><span>🏢 Открыто предприятий</span><strong id="business-count">—</strong></div><div class="stat"><span>🥚 Яиц на рынке</span><strong id="eggs-on-market">—</strong></div><div class="stat"><span>📦 Готовых товаров</span><strong id="products-count">—</strong></div></div>
+<div class="quick-actions"><button id="view-market" class="quick-action" type="button">🧺 <span>Закупить сырьё</span></button><button id="view-products" class="quick-action" type="button">🛍️ <span>Товары города</span></button><button id="view-orders" class="quick-action" type="button">📦 <span>Мои склады</span></button></div>
+</section>
+</main>
+<nav class="bottom-nav" aria-label="Навигация"><button class="nav-active" data-view="map">🏙️<small>Город</small></button><button data-view="market">🧺<small>Рынок</small></button><button data-view="products">🛍️<small>Товары</small></button><button data-view="warehouse">📦<small>Склад</small></button></nav>
+</div>
+<div class="overlay hidden" id="panel-overlay"><div class="panel-backdrop" id="panel-backdrop"></div><aside class="city-panel" role="dialog" aria-modal="true" aria-labelledby="panel-heading"><div class="panel-grip"></div><div class="panel-top"><div><span class="eyebrow">TREVIXO BUSINESS</span><h2 id="panel-heading">Здание</h2></div><button id="close-panel" class="close-panel" type="button" aria-label="Закрыть">✕</button></div><div id="panel-body"></div></aside></div>
+<div class="toast hidden" id="city-toast"></div>
+<div class="auth-surface" id="city-auth"><div class="auth-box"><div class="auth-art">🏙️</div><span class="eyebrow">НОВАЯ ЖИЗНЬ</span><h2>Твой город ждёт</h2><p id="auth-status">Подключаемся к твоему аккаунту фермы…</p><button class="main-button" type="button" id="telegram-login" hidden>Продолжить через Telegram</button><form id="auth-form"><input id="auth-name" autocomplete="username" placeholder="Ник фермы" required><input id="auth-password" type="password" autocomplete="current-password" placeholder="Пароль фермы" required><button type="submit" class="main-button">Войти в город</button></form><a href="/">Вернуться на ферму</a></div></div>
+</body></html>
