@@ -1045,6 +1045,7 @@ async function submitWithdrawalRequest() {
 function render() {
   if (typeof renderFields === 'function') renderFields();
   const p = state.me;
+  window.farmCityProducts?.renderStatus(state.nutrition);
   for(const node of document.querySelectorAll("[data-system-stock]")){
     const resource=node.dataset.systemStock;
     node.textContent=(["chickens","geese"].includes(resource)?"Птиц: ":"На складе: ")+number(p[resource]||0);
@@ -1404,6 +1405,12 @@ async function refresh() {
       refreshedAt=Date.now();
       render();
       hideStartup();
+      const marketItem=new URLSearchParams(location.search).get("market");
+      if(["chickens","geese","cows","sheep"].includes(marketItem)){
+        tab("shop");
+        history.replaceState(null,"",location.pathname+location.hash);
+        showShop(marketItem);
+      }
       window.FarmAds?.recover();
     } catch (error) {
       if(requestToken!==token)return;

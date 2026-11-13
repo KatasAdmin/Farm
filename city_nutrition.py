@@ -10,25 +10,38 @@ import sqlite3
 
 DECAY_PER_HOUR=5
 DECAY_PER_SECOND=DECAY_PER_HOUR/3600.0
-FOOD_RESTORE={"pancakes":100,"pie":100,"omelet":100,"cheese":100,"bread":100,
-              "breakfast_set":100,"dessert_box":100,"lunch_box":100}
-# Non-edible home goods can be used for city reputation, but cannot be eaten.
+FOOD_RESTORE = {
+    "bread": 20, "yogurt": 25, "pancakes": 30, "cheese": 35, "omelet": 40,
+    "pie": 50, "breakfast_set": 70, "dessert_box": 80, "lunch_box": 100,
+}
 
 def initialize(c):
     c.execute("""CREATE TABLE IF NOT EXISTS city_nutrition(
       player_id text PRIMARY KEY,
       fullness double precision NOT NULL CHECK(fullness>=0 AND fullness<=100),
       updated_at double precision NOT NULL)""")
+    c.execute("""ALTER TABLE city_nutrition ADD COLUMN IF NOT EXISTS
+      bonus_progress jsonb NOT NULL DEFAULT '{}'::jsonb""")
 
 def get(c,pid):
     try:
-        row=c.execute("SELECT fullness,updated_at FROM city_nutrition WHERE player_id=%s",
+        row=c.execute("SELECT fullness,updated_at,bonus_progress FROM city_nutrition WHERE player_id=%s",
                       (pid,)).fetchone()
     except (AttributeError, sqlite3.OperationalError):
         # Legacy unit-test fakes and older SQLite fixtures have no nutrition
         # table. The production PostgreSQL connection never uses this path.
         return None
-    return {"fullness":float(row["fullness"]),"updated_at":float(row["updated_at"])} if row else None
+    return ({"fullness": float(row["fullness"]), "updated_at": float(row["updated_at"]),
+             "bonus_progress": row["bonus_progress"]} if row else None)
+
+
+def save_progress(c, pid, previous, progress):
+    if progress == previous:
+        return
+    from psycopg.types.json import Jsonb
+    c.execute("UPDATE city_nutrition SET bonus_progress=%s WHERE player_id=%s",
+              (Jsonb(progress), pid))
+
 
 def fullness(food,at):
     if not food:return 0.0

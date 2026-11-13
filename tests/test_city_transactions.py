@@ -36,6 +36,8 @@ class CityTransactions(unittest.TestCase):
             c.execute('CREATE SCHEMA "'+self.schema+'"')
             c.execute('SET search_path TO "'+self.schema+'"')
             c.execute("""CREATE TABLE players(id text PRIMARY KEY,token text,name text,coins integer)""")
+            c.execute("CREATE TABLE economy(id integer PRIMARY KEY, treasury integer)")
+            c.execute("INSERT INTO economy VALUES(1,0)")
             c.execute("""CREATE TABLE market(id text PRIMARY KEY,seller text,item text,quantity integer,price integer)""")
             c.execute("""CREATE TABLE money_log(id text PRIMARY KEY,player_id text,kind text,delta integer,details text,created double precision)""")
             c.execute("""CREATE TABLE market_trade_audit(id text PRIMARY KEY,buyer_id text,seller_id text,item text,quantity integer,coins integer,created double precision)""")
@@ -115,7 +117,7 @@ class CityTransactions(unittest.TestCase):
         meal=self.action("omelet",1,request_id="4"*32)
         result=city_world.eat(meal,authorization="Bearer t-buyer")
         self.assertTrue(result["ok"])
-        self.assertEqual(result["nutrition"]["fullness"],100)
+        self.assertEqual(result["nutrition"]["fullness"],40)
         same=city_world.eat(meal,authorization="Bearer t-buyer")
         self.assertEqual(result,same)
         with self.connect() as c:
@@ -123,6 +125,77 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_requests WHERE id=%s",("4"*32,)).fetchone()["n"],1)
         with self.assertRaises(HTTPException):
             city_world.eat(self.action("pillow",1,request_id="5"*32),authorization="Bearer t-buyer")
+
+    def test_competing_buyers_farm_food_is_atomic_and_separate(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+
+        with self.connect() as c:
+            c.execute("INSERT INTO city_listings VALUES('food','seller','bread',1,10,0)")
+        barrier=Barrier(2)
+
+        def buy(player):
+            request=self.action("bread",request_id=uuid.uuid4().hex,expected_cost=10)
+            request.destination="farm"
+            barrier.wait(timeout=5)
+            try:
+                result=city_world.buy_product(request,authorization="Bearer t-"+player)
+                self.assertEqual(city_world.buy_product(request,authorization="Bearer t-"+player),result)
+                return player
+            except HTTPException as error:
+                self.assertEqual(error.status_code,409)
+                return None
+
+        with ThreadPoolExecutor(2) as pool:
+            winners=[player for player in pool.map(buy,("buyer","other")) if player]
+        self.assertEqual(len(winners),1)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT SUM(coins) AS n FROM players").fetchone()["n"],400)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_receipts").fetchone()["n"],1)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_products").fetchone()["n"],0)
+        winner=winners[0]
+        auth="Bearer t-"+winner
+        self.assertEqual(city_world.farm_goods(authorization=auth)["food"],{"bread":1})
+        meal=self.action("bread",request_id=uuid.uuid4().hex)
+        meal.destination="farm"
+        self.assertEqual(city_world.eat(meal,authorization=auth)["nutrition"]["fullness"],20)
+        self.assertEqual(city_world.farm_goods(authorization=auth)["food"],{})
+
+    def test_existing_city_food_moves_once_without_changing_balances(self):
+        auth="Bearer t-buyer"
+        with self.connect() as c:
+            c.execute("INSERT INTO city_products VALUES('buyer','bread',2)")
+            city_world.initialize(c)
+        self.assertEqual(city_world.farm_goods(authorization=auth)["city_food"],{"bread":2})
+        q=self.action("bread",request_id=uuid.uuid4().hex)
+        result=city_world.move_food(q,authorization=auth)
+        self.assertEqual(city_world.move_food(q,authorization=auth),result)
+        snapshot=city_world.farm_goods(authorization=auth)
+        self.assertEqual(snapshot["food"],{"bread":1})
+        self.assertEqual(snapshot["city_food"],{"bread":1})
+        self.assertEqual(city_world.state(authorization=auth,compact=True)["coins"],200)
+
+    def test_daily_order_rollover_rejects_stale_order_and_never_mints(self):
+        from unittest.mock import patch
+
+        auth="Bearer t-buyer"
+        now=86400*20000+86399
+        with patch.object(city_world.time,"time",return_value=now),self.connect() as c:
+            order=city_world.daily_orders(c,"buyer")[0]
+            c.execute("INSERT INTO city_products VALUES('buyer',%s,2)",(order["recipe"],))
+        request=self.action(order["id"],request_id=uuid.uuid4().hex)
+        request.order_day=order["day"]
+        with patch.object(city_world.time,"time",return_value=now+1):
+            with self.assertRaises(HTTPException) as error:
+                city_world.fulfill_order(request,authorization=auth)
+            self.assertEqual(error.exception.status_code,409)
+        with patch.object(city_world.time,"time",return_value=now):
+            result=city_world.fulfill_order(request,authorization=auth)
+            self.assertEqual(city_world.fulfill_order(request,authorization=auth),result)
+            self.assertEqual(result["reputation_earned"],order["reputation"])
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT SUM(coins) AS n FROM players").fetchone()["n"],400)
+            self.assertEqual(c.execute("SELECT quantity FROM city_products").fetchone()["quantity"],1)
 
     def test_city_eggs_use_same_price_proportional_allocation(self):
         with self.connect() as c:
@@ -166,6 +239,19 @@ class CityTransactions(unittest.TestCase):
         snapshot=city_world.state(authorization="Bearer t-buyer")
         self.assertEqual(snapshot["city_demand_today"]["eggs"],5)
         self.assertEqual(snapshot["farm_market_totals"]["eggs"],25)
+
+    def test_grain_uses_existing_system_supply_only_after_players(self):
+        auth="Bearer t-buyer"
+        quote=city_world.quote_ingredient(self.action("grain",12),authorization=auth)
+        self.assertEqual((quote["cost"],quote["system_quantity"]),(24,2))
+        q=self.action("grain",12,request_id=uuid.uuid4().hex,expected_cost=quote["cost"])
+        city_world.buy_ingredient(q,authorization=auth)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT coins FROM players WHERE id='seller'").fetchone()["coins"],20)
+            self.assertEqual(c.execute("SELECT treasury FROM economy").fetchone()["treasury"],4)
+            self.assertEqual(c.execute("SELECT quantity FROM city_stock WHERE item='grain'").fetchone()["quantity"],12)
+        with self.assertRaises(HTTPException):
+            city_world.quote_product(self.action("bread",1),authorization=auth)
 
     def test_buy_requires_unchanged_quote(self):
         q=self.action("eggs",3,request_id="b"*32,expected_cost=1)

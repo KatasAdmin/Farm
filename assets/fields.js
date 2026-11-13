@@ -12,9 +12,12 @@ function setFieldQuantity(value){
  const button=document.getElementById('fields-buy-plot');if(button){button.disabled=pending||q<1||state.me.coins<total;button.textContent='Купить';}
 }
 function marketCategory(category){
- if(!['animals','equipment','resources'].includes(category))return;
+ if(!['animals','equipment','resources','materials','food','products'].includes(category))return;
  document.querySelectorAll('[data-market-tab]').forEach(b=>{const active=b.dataset.marketTab===category;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});
  document.querySelectorAll('.market-card').forEach(card=>{card.hidden=!card.classList.contains(category);});
+ const goods=document.getElementById("farm-city-products");
+ if(goods)goods.hidden=true;
+ if(category==="food"||category==="products")window.farmCityProducts?.showMarket(category);
 }
 marketCategory('animals');
 function renderFields(){

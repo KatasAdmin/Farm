@@ -40,17 +40,33 @@ class NutritionTests(unittest.TestCase):
         self.assertEqual(simulate(dict(p,fed_hens=0,
              _city_food={"fullness":100,"updated_at":1.0}),21601.0)[1],0)
 
-    def test_production_uses_integrated_bonus_without_minting(self):
-        src=(ROOT/"production_v4.py").read_text("utf8")
-        self.assertIn('city_nutrition.bonus_seconds(food,cursor,step)',src)
-        self.assertIn("progress+rate*productive_elapsed",src)
-        self.assertIn("milk_progress+=fed_cows*productive_elapsed",src)
-        self.assertIn("wool_progress+=fed_sheep*productive_elapsed",src)
-        self.assertIn("feather_progress+=fed_geese*productive_elapsed",src)
-        main=(ROOT/"main.py").read_text("utf8")
-        self.assertIn('city_nutrition.get(c,p["id"])',main)
-        city=(ROOT/"city_world.py").read_text("utf8")
-        self.assertIn('p=_advance(c,p)',city)
-        self.assertIn('UPDATE city_products SET quantity=quantity-%s',city)
+    def test_meal_increases_yield_without_advancing_the_base_clock(self):
+        from production import CYCLE
+        from production_v4 import next_egg_delay, simulate
+        from test_production_safety import player
+
+        start=1.0
+        food={"fullness":100,"updated_at":start}
+        p=player(chickens=1,fed_hens=1,grain=20,storage_level=5)
+        fed=dict(p,_city_food=food)
+        self.assertEqual(next_egg_delay(fed,start),next_egg_delay(p,start))
+        self.assertEqual(simulate(fed,start+CYCLE-1)[1],0)
+        self.assertEqual(simulate(fed,start+2*CYCLE)[1],3)
+
+    def test_bonus_progress_survives_polling_and_is_not_retroactive(self):
+        from production import CYCLE
+        from production_v4 import simulate
+        from test_production_safety import player
+
+        food={"fullness":100,"updated_at":1.0+CYCLE/2}
+        p=player(chickens=4,fed_hens=4,grain=20,storage_level=5)
+        p["_city_food"]=food
+        direct=simulate(p,1.0+CYCLE)[0]
+        midpoint=simulate(p,1.0+0.75*CYCLE)[0]
+        midpoint["_city_food"]={**food,"bonus_progress":midpoint["_city_bonus_progress"]}
+        after=simulate(midpoint,1.0+CYCLE)[0]
+        self.assertEqual(after["eggs"],direct["eggs"])
+        self.assertEqual(direct["eggs"],5)
+        self.assertAlmostEqual(after["_city_bonus_progress"]["eggs"],direct["_city_bonus_progress"]["eggs"])
 
 if __name__=="__main__":unittest.main()

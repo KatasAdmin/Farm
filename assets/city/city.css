@@ -4,7 +4,6 @@
 .backdrop-glow{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 15% 20%,#14abd511,transparent 60%);z-index:0}
 #city-shell{position:relative;max-width:1120px;margin:auto;padding:0 18px 110px}
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px 0}.city-identity{display:flex;align-items:center;gap:11px}.city-logo{display:grid;place-items:center;width:52px;height:52px;border-radius:17px;font-size:30px;background:linear-gradient(145deg,#2787b8,#133c65);box-shadow:0 8px 25px #0004, inset 0 1px #fff5}.brand-kicker,.eyebrow{display:block;letter-spacing:2px;font-weight:800;color:#78cbef;font-size:10px}h1{font-size:20px;margin:3px 0 0;letter-spacing:.3px;font-weight:800}.city-beta{display:inline-block;vertical-align:middle;border-radius:5px;background:#2e5f75;color:#9cf7fa;font-size:9px;padding:4px 5px;letter-spacing:.5px}.top-counters{display:flex;gap:8px;align-items:center}.counter{border:1px solid #ffffff20;border-radius:13px;background:#102f4d;padding:10px 12px;display:flex;gap:7px;align-items:center;box-shadow:inset 0 1px #ffffff11}.counter strong{font-size:16px}.counter.rep{color:#ffe29c}.farm-return{border-radius:12px;border:1px solid #ffffff22;text-decoration:none;padding:10px 12px;background:#19466c;font-weight:800}
-.sky-banner{margin:6px 0 16px;display:flex;align-items:center;gap:13px;border:1px solid #ffffff2a;border-radius:20px;background:linear-gradient(105deg,#227ea5a8,#174569 70%);padding:13px 19px;box-shadow:0 15px 40px #00142c40}.sky-banner .weather{font-size:30px}.sky-banner strong{display:block;font-size:16px}.sky-banner small{display:block;color:#c0dce9;margin-top:3px}.banner-day{margin-left:auto;border:1px solid #b0d0eb56;padding:7px 10px;border-radius:20px;color:#b9e6f6;font-size:10px;font-weight:900;letter-spacing:1px}
 .world-frame{position:relative;border:5px solid #2a5470;border-radius:28px;overflow:hidden;box-shadow:0 25px 60px #03172e9c,0 0 0 1px #83c9ed24;background:#75bb79}.world{position:relative;aspect-ratio:1000/625;overflow:hidden;isolation:isolate;background:radial-gradient(circle at 55% 30%,#92d78b,#67b877 60%,#47985e);transform:translateZ(0)}
 .terrain{position:absolute;z-index:0;border-radius:24%;transform:rotate(23deg);filter:blur(2px)}.terrain-a{inset:1% 38% 49% 0%;background:#9fe5a055}.terrain-b{inset:50% 1% 1% 55%;background:#a7d48c88}.terrain-c{inset:0% 3% 60% 65%;background:#c5db8b55}
 .road{position:absolute;z-index:1;background:#6e8b98;box-shadow:inset 0 5px #9db2ae8a,inset 0 -5px #4a68707a}.road-x{height:13%;left:-5%;width:110%;transform:skewY(-12deg)}.road-top{top:28%}.road-middle{top:69%}.road-y{width:11%;height:130%;top:-12%;transform:skewX(21deg);background:linear-gradient(90deg,#6d8b98,#a1aeb1,#688594)}.road-left{left:26%}.road-right{right:24%}.crosswalk{position:absolute;z-index:2;width:8%;height:3%;background:repeating-linear-gradient(90deg,#f3eecc 0 9%,transparent 9% 19%);transform:skewY(-12deg);opacity:.85}.cross-1{top:33%;left:24%}.cross-2{top:73%;right:19%}
@@ -14,7 +13,6 @@
 .building{position:absolute;z-index:5;width:16%;height:24%;border:0;background:none;transform:translateZ(0);transition:filter .2s,scale .2s;filter:drop-shadow(10px 15px 3px #174c4780);padding:0}.building:hover,.building:focus-visible{z-index:8;scale:1.09;filter:drop-shadow(10px 15px 5px #1b5860a0);outline:none}.building .building-face{position:absolute;inset:27% 12% 3% 8%;border-radius:5px 8px 5px 5px;border:2px solid #ccac77;background:linear-gradient(125deg,#fce7b4 0%,#f8d998 70%,#c39762 71%,#af814d);box-shadow:inset 0 -8px #c79b68;transform:skewY(-5deg)}.building .roof{position:absolute;z-index:2;top:3%;left:4%;width:84%;height:37%;background:linear-gradient(155deg,#d75556 0%,#e77a59 55%,#9e343a 56%,#9e343a 100%);transform:skewY(-15deg) rotate(-2deg);border-radius:6px 8px 1px 3px;box-shadow:4px 4px #7d3e43}.building .shop-sign{position:absolute;top:17%;left:13%;font-size:clamp(14px,3.4vw,40px);filter:drop-shadow(2px 3px #0003)}.building .window{position:absolute;right:12%;top:25%;width:22%;height:32%;border:3px solid #eed49e;background:#67cad8;border-radius:4px;color:white}.building .door{position:absolute;bottom:2%;left:46%;width:16%;height:32%;background:#5c7893;border:2px solid #e6bf7e;border-radius:3px 3px 0 0}.building-label{position:absolute;z-index:4;bottom:-15%;left:50%;transform:translateX(-50%);white-space:nowrap;border-radius:8px;background:#123a4ce6;color:#fff;padding:5px 8px;font-size:clamp(8px,1.2vw,13px);font-weight:900;letter-spacing:.4px;box-shadow:0 3px 6px #0005}.bakery-building{left:13%;top:8%}.restaurant-building{left:59%;top:13%}.restaurant-building .roof{background:linear-gradient(155deg,#4872c9 0%,#86aeeb 55%,#304a91 56%,#304a91)}.dairy-building{left:31%;top:49%}.dairy-building .roof{background:linear-gradient(155deg,#38afb1 0%,#9de0d6 55%,#238a93 56%,#238a93)}.atelier-building{right:12%;top:54%}.atelier-building .roof{background:linear-gradient(155deg,#a96cc7 0%,#d3a9e2 55%,#8156a2 56%,#8156a2)}
 .car{font-size:clamp(12px,2.7vw,34px);z-index:3}.car-1{top:35%;left:4%;animation:drive 15s linear infinite}.car-2{top:76%;right:6%;animation:driveback 20s linear infinite}.citizen{font-size:clamp(9px,1.8vw,20px);animation:walk 7s ease-in-out infinite alternate}.citizen-1{left:38%;top:35%}.citizen-2{left:79%;top:33%;animation-delay:-2s}.citizen-3{left:57%;top:69%;animation-delay:-4s}.citizen-4{left:17%;top:65%;animation-delay:-1s}.citizen-5{left:52%;top:22%;animation-delay:-3s}
 @keyframes walk{to{transform:translate(45px,-12px)}}@keyframes drive{to{transform:translateX(850px)}}@keyframes driveback{to{transform:translateX(-850px)}}@keyframes tree-sway{to{transform:rotate(3deg)}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
-.map-hint{position:absolute;bottom:13px;left:50%;transform:translateX(-50%);z-index:12;background:#092b45e8;border:1px solid #ffffff31;border-radius:24px;padding:9px 15px;white-space:nowrap;font-size:12px;box-shadow:0 4px 14px #0005}
 .dash{margin-top:22px}.section-heading{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:13px}.section-heading h2{font-size:21px;margin:5px 0 0}.refresh-button{background:#193d60;border:1px solid #517993;border-radius:11px;color:#d9f3fc;font-weight:800;padding:9px 14px}
 .stat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.stat{background:linear-gradient(125deg,#113859,#0d2945);padding:16px;border:1px solid #6384a44b;border-radius:17px;box-shadow:inset 0 1px #ffffff12}.stat span{color:#a6c6d9;display:block;font-size:12px}.stat strong{font-size:28px;display:block;margin-top:7px}.quick-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:13px}.quick-action{border-radius:15px;padding:13px 8px;border:1px solid #5688a85c;background:#1b5273;color:white;font-weight:900;font-size:16px}.quick-action span{display:block;margin-top:5px;font-size:12px}
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;margin:auto;max-width:650px;z-index:20;display:flex;align-items:center;justify-content:space-around;border:1px solid #6d96b367;border-bottom:0;border-radius:18px 18px 0 0;background:#092841f5;padding:10px 5px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -9px 32px #031b35ab}.bottom-nav button{background:transparent;border:0;color:#accbe0;font-size:24px;display:grid;gap:4px;justify-items:center;padding:6px 15px;border-radius:14px}.bottom-nav button small{font-size:10px;font-weight:800}.bottom-nav button.nav-active{background:#225a7d;color:#c8f4ff}
@@ -29,19 +27,12 @@
 .city-promo-form input:focus{outline:2px solid #5dd9ff;outline-offset:2px}
 @media(max-width:480px){.city-promo-form{grid-template-columns:1fr}.bottom-nav button{padding:6px 9px}}
 
-/* City v2 – uncluttered mobile-first cards and edible food boosts. */
 .city-ad-status{margin:12px 0 3px;min-height:19px;color:#a8daf0;font-size:12px}
-.nutrition-stat{background:linear-gradient(125deg,#124d66,#176b74)}
-.nutrition-stat small{display:block;margin-top:4px;color:#c1f4e7;font-size:11px}
-.nutrition-city-card{padding:14px;border:1px solid #66c1b0;background:#164e59;border-radius:14px;display:flex;flex-wrap:wrap;gap:8px;line-height:1.5}
-.nutrition-city-card strong{color:#adf4c2}
-.nutrition-city-card span{font-size:12px;color:#c1e4e8}
 #panel-body .item-card{flex-wrap:wrap;align-items:center;padding:15px;gap:12px}
 #panel-body .item-card>div:first-child{flex:1 1 170px;min-width:0}
 #panel-body .item-card .item-actions{flex:1 1 210px;min-width:0;display:flex;flex-wrap:wrap;justify-content:flex-start;gap:8px}
 #panel-body .item-card .item-actions .btn{white-space:normal;max-width:100%;min-height:42px;flex:1 1 94px;padding:10px}
 #panel-body .item-card .number-input{flex:0 0 68px;min-width:0;height:42px}
-#panel-body .item-card .btn.food{background:linear-gradient(135deg,#2abf8f,#20846f)}
 #panel-body .item-card .item-actions .number-input[aria-label="Цена"]{width:72px;flex-basis:72px}
 @media(max-width:650px){
  .quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -51,4 +42,40 @@
  #panel-body .item-card .item-actions{display:flex;margin-top:11px}
  #panel-body .item-card .item-actions .btn{flex:1 1 42%;font-size:13px}
  #panel-body .item-card .item-actions .number-input{flex:0 0 66px}
+}
+
+#city-shell{padding-top:env(safe-area-inset-top);padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+.dash{margin-top:14px}
+.stat-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.stat{display:flex;flex-direction:column;align-items:flex-start;gap:3px;color:#eaf7ff;text-align:left;min-width:0;padding:10px 12px}
+.stat strong{font-size:20px;margin:0;line-height:1.15}
+.stat:active,.quick-action:active,.btn:active,.building:active{transform:scale(.97)}
+.quick-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.quick-action{min-height:42px;padding:8px 10px;font-size:13px}
+.quick-action span{display:inline;margin:0 0 0 3px;font-size:12px}
+.city-ad-status{min-height:0;margin:8px 0 0}
+[hidden]{display:none!important}
+.city-market-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.city-market-tabs .btn{white-space:normal;font-size:12px;min-height:40px}
+.city-market-tabs .btn[aria-pressed="true"]{background:#17658e;box-shadow:inset 0 0 0 1px #68c8f4}
+.city-link{display:inline-block;text-decoration:none}
+.city-panel{max-height:min(88dvh,890px);padding:12px 14px calc(10px + env(safe-area-inset-bottom))}
+.panel-grip{margin-bottom:8px}
+#panel-body{padding-bottom:10px;overscroll-behavior:contain}
+#panel-body .item-card{padding:10px 12px;gap:8px}
+#panel-body .item-card small{line-height:1.45;font-size:12px}
+#panel-body .item-card .item-actions .btn{flex:0 1 auto}
+#panel-body .item-card .item-actions:empty{display:none}
+#panel-body .empty{padding:12px;margin-bottom:8px}
+#panel-body > .btn{margin-bottom:9px}
+button:focus-visible,a:focus-visible{outline:2px solid #a5edff;outline-offset:2px}
+@media(max-width:650px){
+ .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .stat span{font-size:11px}
+ .bottom-nav button{flex:1;min-width:0;padding-inline:4px}
+ #panel-body .item-card{display:flex}
+ #panel-body .item-card .item-actions{margin-top:0}
+}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}
 }

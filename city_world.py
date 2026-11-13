@@ -1,9 +1,4 @@
-"""Business City MVP: isolated city inventory, genuine farm-market purchases.
-
-No raw resources can be transferred from a player's farm warehouse to their city
-business. All city ingredients must be bought from a DIFFERENT farmer's listing.
-No NPC money emissions or withdrawable city-product rewards.
-"""
+"""City production, inventory and market operations over the shared farm wallet."""
 from __future__ import annotations
 import time
 import uuid
@@ -13,14 +8,18 @@ import market_allocation
 import farm_wallet
 import ad_inventory
 import city_nutrition
+from production import GRAIN_PRICE
 
 router = APIRouter(prefix="/api/city", tags=["city"])
 INGREDIENTS = ("eggs", "grain", "milk", "feathers", "wool")
+MATERIALS = {"feathers", "wool"}
+ANIMALS = ("chickens","geese","cows","sheep")
 RECIPES = {
     "pancakes": {"name": "Блины", "business": "bakery", "needs": {"eggs": 4, "grain": 3, "milk": 1}, "output": 2, "seconds": 30},
     "pie": {"name": "Пирог", "business": "bakery", "needs": {"eggs": 8, "grain": 5}, "output": 1, "seconds": 45},
     "omelet": {"name": "Омлет", "business": "restaurant", "needs": {"eggs": 5, "milk": 1}, "output": 1, "seconds": 30},
     "cheese": {"name": "Сыр", "business": "dairy", "needs": {"milk": 5}, "output": 2, "seconds": 45},
+    "yogurt": {"name": "Йогурт", "business": "dairy", "needs": {"milk": 3}, "output": 2, "seconds": 35},
     "bread": {"name": "Хлеб", "business": "bakery", "needs": {"grain": 5}, "output": 2, "seconds": 30},
     "pillow": {"name": "Подушка", "business": "atelier", "needs": {"feathers": 4, "wool": 2}, "output": 1, "seconds": 60},
     "scarf": {"name": "Шарф", "business": "atelier", "needs": {"wool": 6}, "output": 1, "seconds": 60},
@@ -67,6 +66,14 @@ def initialize(c):
     c.execute("""CREATE TABLE IF NOT EXISTS city_products(
         player_id text NOT NULL, item text NOT NULL, quantity bigint NOT NULL DEFAULT 0
         CHECK(quantity>=0), PRIMARY KEY(player_id,item))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS farm_food(
+        player_id text NOT NULL, item text NOT NULL, quantity bigint NOT NULL
+        CHECK(quantity>=0), PRIMARY KEY(player_id,item))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS city_production_history(
+        id text PRIMARY KEY, player_id text NOT NULL, recipe text NOT NULL,
+        quantity integer NOT NULL CHECK(quantity>0),
+        started_at double precision NOT NULL, ready_at double precision NOT NULL)""")
+    c.execute("CREATE INDEX IF NOT EXISTS city_production_history_player ON city_production_history(player_id,started_at DESC)")
     c.execute("""CREATE TABLE IF NOT EXISTS city_jobs(
         id text PRIMARY KEY, player_id text NOT NULL, recipe text NOT NULL,
         quantity integer NOT NULL CHECK(quantity>0), ready_at double precision NOT NULL)""")
@@ -80,10 +87,13 @@ def initialize(c):
         id text PRIMARY KEY, buyer text NOT NULL, seller text NOT NULL,
         item text NOT NULL, quantity integer NOT NULL, coins integer NOT NULL,
         created double precision NOT NULL)""")
+    c.execute("CREATE INDEX IF NOT EXISTS city_receipts_buyer ON city_receipts(buyer)")
+    c.execute("CREATE INDEX IF NOT EXISTS city_receipts_seller ON city_receipts(seller)")
     c.execute("""CREATE TABLE IF NOT EXISTS city_raw_receipts(
         id text PRIMARY KEY, buyer text NOT NULL, seller text NOT NULL, item text NOT NULL,
         quantity integer NOT NULL CHECK(quantity>0), coins integer NOT NULL CHECK(coins>=0),
         created double precision NOT NULL)""")
+    c.execute("CREATE INDEX IF NOT EXISTS city_raw_receipts_buyer ON city_raw_receipts(buyer)")
     c.execute("CREATE INDEX IF NOT EXISTS city_raw_receipts_created_item ON city_raw_receipts(created,item)")
     c.execute("""CREATE TABLE IF NOT EXISTS city_requests(
         id text PRIMARY KEY, player_id text NOT NULL, action text NOT NULL,
@@ -95,9 +105,10 @@ def initialize(c):
     c.execute("""CREATE TABLE IF NOT EXISTS city_reputation(
         player_id text PRIMARY KEY, points bigint NOT NULL DEFAULT 0 CHECK(points>=0))""")
 
-def daily_orders(c,pid):
-    day=time.strftime("%Y-%m-%d",time.gmtime())
-    rotation=int(time.time()//86400)
+def daily_orders(c,pid,now=None):
+    now=time.time() if now is None else now
+    day=time.strftime("%Y-%m-%d",time.gmtime(now))
+    rotation=int(now//86400)
     lineup=(
         ("breakfast",("bread","pancakes","pie"),15),
         ("lunch",("omelet","cheese"),25),
@@ -109,7 +120,7 @@ def daily_orders(c,pid):
         "SELECT order_id FROM city_daily_orders WHERE player_id=%s AND day=%s",
         (pid,day)).fetchall()}
     return [{"id":key,"recipe":options[rotation%len(options)],
-        "quantity":1,"reputation":reward,"done":key in finished}
+        "quantity":1,"reputation":reward,"done":key in finished,"day":day}
         for key,options,reward in lineup]
 
 def _auth(c, authorization, write=False):
@@ -137,6 +148,8 @@ class Action(BaseModel):
     request_id: str = ""
     expected_cost: int = -1
     listing_id: str = ""
+    destination: str = "city"
+    order_day: str = ""
 
 def _request(c, q, pid, action):
     # Same transaction-level market lock as the farm. An identical retry key
@@ -144,27 +157,36 @@ def _request(c, q, pid, action):
     key=q.request_id
     if not isinstance(key,str) or len(key)!=32 or any(ch not in "0123456789abcdef" for ch in key):
         raise HTTPException(400,"Операция требует действительный ключ повтора")
-    existing=c.execute("SELECT * FROM city_requests WHERE id=%s FOR UPDATE",(key,)).fetchone()
-    if existing:
-        if (existing["player_id"],existing["action"],existing["item"],existing["quantity"])!=(pid,action,q.item,q.amount):
-            raise HTTPException(409,"Ключ операции уже использован")
-        return existing["result"]
-    c.execute("INSERT INTO city_requests VALUES(%s,%s,%s,%s,%s,NULL)",(key,pid,action,q.item,q.amount))
-    return None
+    created=c.execute("""INSERT INTO city_requests VALUES(%s,%s,%s,%s,%s,NULL)
+        ON CONFLICT(id) DO NOTHING RETURNING id""",(key,pid,action,q.item,q.amount)).fetchone()
+    if created:
+        return None
+    existing=c.execute("SELECT * FROM city_requests WHERE id=%s",(key,)).fetchone()
+    if (existing["player_id"],existing["action"],existing["item"],existing["quantity"])!=(pid,action,q.item,q.amount):
+        raise HTTPException(409,"Ключ операции уже использован")
+    return existing["result"]
 
 def _finish_request(c,q,result):
     from psycopg.types.json import Jsonb
     c.execute("UPDATE city_requests SET result=%s WHERE id=%s",(Jsonb(result),q.request_id))
 
+def _allocation(rows, item, amount, grain_fallback=False):
+    from_players=min(amount,sum(int(row["quantity"]) for row in rows))
+    system_quantity=amount-from_players
+    if system_quantity and not (grain_fallback and item=="grain"):
+        raise HTTPException(409,"На рынке недостаточно предложений")
+    chosen=market_allocation.allocate(rows,from_players) if from_players else []
+    cost=sum(row["price"]*quantity for row,quantity in chosen)+system_quantity*GRAIN_PRICE
+    return chosen,cost,system_quantity
+
+
 def _quote(c,table,item,pid,n):
     rows=c.execute("SELECT * FROM "+table+" WHERE item=%s AND seller<>%s AND quantity>0 ORDER BY price,id",
         (item,pid)).fetchall()
-    if sum(int(r["quantity"]) for r in rows)<n:
-        raise HTTPException(409,"На рынке недостаточно предложений")
-    chosen=market_allocation.allocate(rows,n)
-    return {"ok":True,"item":item,"quantity":n,
-        "cost":sum(r["price"]*qty for r,qty in chosen),
-        "sellers":len({r["seller"] for r,qty in chosen})}
+    chosen,cost,system_quantity=_allocation(rows,item,n,grain_fallback=table=="market")
+    return {"ok":True,"item":item,"quantity":n,"cost":cost,
+        "sellers":len({row["seller"] for row,_ in chosen}),"system_quantity":system_quantity}
+
 
 @router.post("/quote-ingredient")
 def quote_ingredient(q:Action,authorization:str=Header(default="")):
@@ -186,44 +208,50 @@ def _amount(n, maximum=10000):
     if type(n) is not int or n<1 or n>maximum:
         raise HTTPException(400,"Укажите корректное количество")
 
+def _product_catalog(c, pid, items=None):
+    rows=c.execute("""SELECT item,COUNT(DISTINCT seller)::int AS sellers,
+        SUM(quantity)::bigint AS quantity,MIN(price)::int AS min_price
+        FROM city_listings WHERE quantity>0 AND seller<>%s
+        AND (%s::text[] IS NULL OR item=ANY(%s::text[]))
+        GROUP BY item ORDER BY item""",(pid,items,items)).fetchall()
+    return {row["item"]:{"quantity":row["quantity"],"sellers":row["sellers"],
+                          "min_price":row["min_price"]} for row in rows}
+
+
+def _add_product(c, table, pid, item, quantity):
+    c.execute(f"""INSERT INTO {table}(player_id,item,quantity) VALUES(%s,%s,%s)
+        ON CONFLICT(player_id,item) DO UPDATE SET quantity={table}.quantity+EXCLUDED.quantity""",
+        (pid,item,quantity))
+
+
+@router.get("/farm-goods")
+def farm_goods(authorization: str=Header(default="")):
+    with _db() as c:
+        p=_auth(c,authorization)
+        return {"recipes":RECIPES,"food_restore":city_nutrition.FOOD_RESTORE,
+                "city_catalog":_product_catalog(c,p["id"]),
+                "food":_counts(c,"farm_food",p["id"]),
+                "city_food":{item:quantity for item,quantity in _counts(c,"city_products",p["id"]).items()
+                             if item in city_nutrition.FOOD_RESTORE},
+                "nutrition":city_nutrition.status(city_nutrition.get(c,p["id"]))}
+
+
 @router.get("/state")
-def state(authorization: str=Header(default="")):
+def state(authorization: str=Header(default=""), compact: bool=False):
     with _db() as c:
         p=_auth(c,authorization)
         _settle(c,p["id"])
-        businesses=[r["kind"] for r in c.execute(
-            "SELECT kind FROM city_businesses WHERE player_id=%s",(p["id"],)).fetchall()]
-        offers=c.execute("""SELECT l.id,l.item,l.price,l.quantity,p.name AS seller FROM market l
-            JOIN players p ON p.id=l.seller
-            WHERE l.quantity>0 AND l.seller<>%s AND l.item=ANY(%s)
-            ORDER BY l.item,l.price,l.id LIMIT 70""",(p["id"],list(INGREDIENTS))).fetchall()
+        business_levels={r["kind"]:r["level"] for r in c.execute(
+            "SELECT kind,level FROM city_businesses WHERE player_id=%s",(p["id"],)).fetchall()}
         raw_catalog_rows=c.execute("""SELECT item,COUNT(DISTINCT seller)::int AS sellers,
-            COALESCE(SUM(quantity),0)::bigint AS quantity,MIN(price)::int AS min_price
+            SUM(quantity)::bigint AS quantity,MIN(price)::int AS min_price
             FROM market WHERE quantity>0 AND seller<>%s AND item=ANY(%s)
-            GROUP BY item ORDER BY item""",(p["id"],list(INGREDIENTS))).fetchall()
-        raw_catalog={r["item"]:{"quantity":int(r["quantity"]),"sellers":int(r["sellers"]),
-                     "min_price":int(r["min_price"])} for r in raw_catalog_rows}
-        all_raw=c.execute("""SELECT item,COALESCE(SUM(quantity),0)::bigint AS n
-            FROM market WHERE quantity>0 AND item=ANY(%s) GROUP BY item""",
-            (list(INGREDIENTS),)).fetchall()
-        farm_market_totals={r["item"]:int(r["n"]) for r in all_raw}
-        today_start=time.time()-(time.time()%86400)
-        raw_daily=c.execute("""SELECT item,COALESCE(SUM(quantity),0)::bigint AS n
-            FROM city_raw_receipts WHERE created>=%s GROUP BY item""",(today_start,)).fetchall()
-        raw_purchased_today={r["item"]:int(r["n"]) for r in raw_daily}
-        city_daily=c.execute("""SELECT COUNT(*)::int AS transactions,
-            COALESCE(SUM(coins),0)::bigint AS coins
-            FROM city_receipts WHERE created>=%s""",(today_start,)).fetchone()
-        my_city_offers=c.execute("SELECT id,item,quantity,price FROM city_listings WHERE seller=%s AND quantity>0 ORDER BY created DESC",(p["id"],)).fetchall()
-        city_catalog_rows=c.execute("""SELECT item,COUNT(DISTINCT seller)::int AS sellers,
-            COALESCE(SUM(quantity),0)::bigint AS quantity,MIN(price)::int AS min_price
-            FROM city_listings WHERE quantity>0 AND seller<>%s
-            GROUP BY item ORDER BY item""",(p["id"],)).fetchall()
-        city_catalog={r["item"]:{"quantity":int(r["quantity"]),"sellers":int(r["sellers"]),
-                      "min_price":int(r["min_price"])} for r in city_catalog_rows}
-        city_offers=c.execute("""SELECT l.id,l.item,l.price,l.quantity,p.name AS seller
-            FROM city_listings l JOIN players p ON p.id=l.seller
-            WHERE l.quantity>0 AND l.seller<>%s ORDER BY l.item,l.price,l.id LIMIT 70""",(p["id"],)).fetchall()
+            GROUP BY item ORDER BY item""",(p["id"],list(INGREDIENTS+ANIMALS))).fetchall()
+        market_catalog={r["item"]:{"quantity":r["quantity"],"sellers":r["sellers"],
+                               "min_price":r["min_price"]} for r in raw_catalog_rows}
+        my_city_offers=c.execute("""SELECT id,item,quantity,price FROM city_listings
+            WHERE seller=%s AND quantity>0 ORDER BY created DESC""",(p["id"],)).fetchall()
+        city_catalog=_product_catalog(c,p["id"])
         jobs=c.execute("SELECT recipe,quantity,ready_at FROM city_jobs WHERE player_id=%s ORDER BY ready_at",(p["id"],)).fetchall()
         rep=c.execute("SELECT points FROM city_reputation WHERE player_id=%s",(p["id"],)).fetchone()
         # City accounting is a report of transfers between players, not a
@@ -241,21 +269,43 @@ def state(authorization: str=Header(default="")):
             "net":int(city_goods_sales)-int(city_ingredient_spend)-int(city_goods_purchases),
             "label":"Денежный поток города, не чистая прибыль",
         }
-        return {"name":p["name"],"coins":p["coins"],"businesses":businesses,
-            "raw_catalog":raw_catalog,"city_catalog":city_catalog,
-            "nutrition":city_nutrition.status(city_nutrition.get(c,p["id"])),
+        now=time.time()
+        snapshot={"system_grain_price":GRAIN_PRICE,"name":p["name"],"coins":p["coins"],"businesses":list(business_levels),
+            "business_levels":business_levels,
+            "raw_catalog":{item:offer for item,offer in market_catalog.items() if item in INGREDIENTS},
+            "animal_catalog":{item:offer for item,offer in market_catalog.items() if item in ANIMALS},
+            "city_catalog":city_catalog,
+            "food_items":list(city_nutrition.FOOD_RESTORE),"materials":sorted(MATERIALS),
             "wallet_mode":"shared_farm_city","cashflow":city_cashflow,
             "stock":_counts(c,"city_stock",p["id"]),
             "products":_counts(c,"city_products",p["id"]),
             "recipes":RECIPES,"business_catalog":BUSINESSES,
-            "farm_offers":offers,"city_offers":city_offers,
-            "farm_market_totals":farm_market_totals,
-            "city_demand_today":raw_purchased_today,
-            "finished_goods_sales_today":int(city_daily["transactions"]),
-            "finished_goods_turnover_today":int(city_daily["coins"]),
-            "my_city_offers":my_city_offers,"jobs":jobs,
-            "resident_orders":daily_orders(c,p["id"]),
+            "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
+            "resident_orders":daily_orders(c,p["id"],now),
             "reputation":int(rep["points"]) if rep else 0}
+        if compact:
+            return snapshot
+
+        # The previous client may still be open during a rolling deployment.
+        today_start=now-now%86400
+        snapshot.update(
+            nutrition=city_nutrition.status(city_nutrition.get(c,p["id"])),
+            farm_offers=c.execute("""SELECT l.id,l.item,l.price,l.quantity,p.name AS seller
+                FROM market l JOIN players p ON p.id=l.seller
+                WHERE l.quantity>0 AND l.seller<>%s AND l.item=ANY(%s)
+                ORDER BY l.item,l.price,l.id LIMIT 70""",(p["id"],list(INGREDIENTS))).fetchall(),
+            city_offers=c.execute("""SELECT l.id,l.item,l.price,l.quantity,p.name AS seller
+                FROM city_listings l JOIN players p ON p.id=l.seller
+                WHERE l.quantity>0 AND l.seller<>%s
+                ORDER BY l.item,l.price,l.id LIMIT 70""",(p["id"],)).fetchall(),
+            farm_market_totals={r["item"]:r["n"] for r in c.execute("""SELECT item,SUM(quantity) AS n
+                FROM market WHERE quantity>0 AND item=ANY(%s) GROUP BY item""",(list(INGREDIENTS),)).fetchall()},
+            city_demand_today={r["item"]:r["n"] for r in c.execute("""SELECT item,SUM(quantity) AS n
+                FROM city_raw_receipts WHERE created>=%s GROUP BY item""",(today_start,)).fetchall()})
+        city_daily=c.execute("""SELECT COUNT(*) AS n,COALESCE(SUM(coins),0) AS coins
+            FROM city_receipts WHERE created>=%s""",(today_start,)).fetchone()
+        snapshot.update(finished_goods_sales_today=city_daily["n"],finished_goods_turnover_today=city_daily["coins"])
+        return snapshot
 
 @router.post("/open")
 def open_business(q:Action, authorization: str=Header(default="")):
@@ -270,7 +320,7 @@ def open_business(q:Action, authorization: str=Header(default="")):
 
 @router.post("/buy-ingredient")
 def buy_ingredient(q:Action,authorization:str=Header(default="")):
-    """Buy only market listings belonging to other players, directly into city_stock."""
+    """Buy market ingredients directly into the city warehouse."""
     if q.item not in INGREDIENTS:raise HTTPException(400,"Этот ресурс нельзя закупать")
     _amount(q.amount,500)
     with _db() as c:
@@ -280,10 +330,7 @@ def buy_ingredient(q:Action,authorization:str=Header(default="")):
         if previous is not None:return previous
         rows=c.execute("""SELECT * FROM market WHERE item=%s AND seller<>%s
             AND quantity>0 ORDER BY price,id FOR UPDATE""",(q.item,p["id"])).fetchall()
-        if sum(int(row["quantity"]) for row in rows)<q.amount:
-            raise HTTPException(409,"Недостаточно предложений других фермеров")
-        chosen=market_allocation.allocate(rows,q.amount)
-        cost=sum(row["price"]*n for row,n in chosen)
+        chosen,cost,system_quantity=_allocation(rows,q.item,q.amount,grain_fallback=True)
         if q.expected_cost!=cost:raise HTTPException(409,"Цена изменилась. Обновите предложение")
         if cost>p["coins"]:raise HTTPException(400,"Недостаточно монет")
         for seller_id in sorted({row["seller"] for row,n in chosen}):
@@ -296,7 +343,12 @@ def buy_ingredient(q:Action,authorization:str=Header(default="")):
         # Use the existing farm-market provenance split. City products are
         # intentionally *not* eligible for earned-withdrawal credits in v1.
         sources=farm_wallet.balances(c,p)
-        shares=farm_wallet.split_market_sources([(r["id"],r["price"]*n) for r,n in chosen],sources,cost)
+        ad_budget=ad_inventory.balance(c,p)
+        receipts=[(row["id"],row["price"]*quantity) for row,quantity in chosen]
+        system_cost=system_quantity*GRAIN_PRICE
+        if system_cost:
+            receipts.append(("__system__",system_cost))
+        shares=farm_wallet.split_market_sources(receipts,sources,cost)
         c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(cost,p["id"]))
         for row,n in chosen:
             c.execute("UPDATE market SET quantity=quantity-%s WHERE id=%s",(n,row["id"]))
@@ -306,26 +358,31 @@ def buy_ingredient(q:Action,authorization:str=Header(default="")):
             if tagged:c.execute("UPDATE farm_ad_listings SET quantity=quantity-%s WHERE id=%s",(tagged,row["id"]))
             c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(receipt,row["seller"]))
             log_id=uuid.uuid4().hex
-            parts=ad_inventory.restricted_receipt(shares[row["id"]],tagged*row["price"])
+            paid_ad=min(ad_budget,receipt)
+            ad_budget-=paid_ad
+            restricted=max(paid_ad,tagged*row["price"])
+            parts=ad_inventory.restricted_receipt(shares[row["id"]],restricted)
             c.execute("INSERT INTO money_log VALUES(%s,%s,'market_sale',%s,%s,%s)",
                 (log_id,row["seller"],receipt,q.item+" x"+str(n),time.time()))
             c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,%s,%s)",
                 (log_id,parts["bonus"],parts["purchased"],parts["earned"]))
             seller=c.execute("SELECT * FROM players WHERE id=%s",(row["seller"],)).fetchone()
             if ad_inventory.active(seller):
-                ad_inventory.credit(c,log_id,tagged*row["price"])
+                ad_inventory.credit(c,log_id,restricted)
             trade_at=time.time()
             c.execute("""INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created)
                 VALUES(%s,%s,%s,%s,%s,%s,%s)""",
                 (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,trade_at))
             c.execute("""INSERT INTO city_raw_receipts VALUES(%s,%s,%s,%s,%s,%s,%s)""",
                 (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,trade_at))
+        if system_cost:
+            c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(system_cost,))
         c.execute("INSERT INTO money_log VALUES(%s,%s,'market_buy',%s,%s,%s)",
                   (uuid.uuid4().hex,p["id"],-cost,q.item+" x"+str(q.amount),time.time()))
         c.execute("""INSERT INTO city_stock(player_id,item,quantity) VALUES(%s,%s,%s)
             ON CONFLICT(player_id,item) DO UPDATE SET quantity=city_stock.quantity+EXCLUDED.quantity""",
             (p["id"],q.item,q.amount))
-        result={"ok":True,"spent":cost,"item":q.item,"quantity":q.amount}
+        result={"ok":True,"spent":cost,"item":q.item,"quantity":q.amount,"system_quantity":system_quantity}
         _finish_request(c,q,result)
     return result
 
@@ -339,6 +396,7 @@ def produce(q:Action,authorization:str=Header(default="")):
         if q.request_id:
             previous=_request(c,q,p["id"],"produce")
             if previous is not None:return previous
+        _settle(c,p["id"])
         opened=c.execute("SELECT 1 FROM city_businesses WHERE player_id=%s AND kind=%s",
                          (p["id"],recipe["business"])).fetchone()
         if not opened:raise HTTPException(403,"Сначала откройте предприятие")
@@ -352,9 +410,13 @@ def produce(q:Action,authorization:str=Header(default="")):
                 WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
                 (qty*q.amount,p["id"],item,qty*q.amount)).fetchone()
             if not changed:raise HTTPException(409,"Недостаточно готовых ингредиентов: "+RECIPES[item]["name"])
-        ready=time.time()+recipe["seconds"]*q.amount
+        started=time.time()
+        ready=started+recipe["seconds"]*q.amount
+        job_id=uuid.uuid4().hex
         c.execute("INSERT INTO city_jobs VALUES(%s,%s,%s,%s,%s)",
-                  (uuid.uuid4().hex,p["id"],q.item,q.amount,ready))
+                  (job_id,p["id"],q.item,q.amount,ready))
+        c.execute("INSERT INTO city_production_history VALUES(%s,%s,%s,%s,%s,%s)",
+                  (job_id,p["id"],q.item,q.amount*recipe["output"],started,ready))
         result={"ok":True,"ready_at":ready}
         if q.request_id:_finish_request(c,q,result)
     return result
@@ -388,30 +450,34 @@ def cancel_product(q:Action,authorization:str=Header(default="")):
     with _db() as c:
         c.execute("SELECT pg_advisory_xact_lock(1984533)")
         p=_auth(c,authorization,True)
+        if q.request_id:
+            previous=_request(c,q,p["id"],"cancel_product:"+q.listing_id)
+            if previous is not None:return previous
         row=c.execute("SELECT * FROM city_listings WHERE id=%s AND seller=%s FOR UPDATE",
             (q.listing_id,p["id"])).fetchone()
         if not row or row["quantity"]<=0:raise HTTPException(404,"Активный лот не найден")
         c.execute("UPDATE city_listings SET quantity=0 WHERE id=%s",(q.listing_id,))
-        c.execute("""INSERT INTO city_products(player_id,item,quantity) VALUES(%s,%s,%s)
-            ON CONFLICT(player_id,item) DO UPDATE SET quantity=city_products.quantity+EXCLUDED.quantity""",
-            (p["id"],row["item"],row["quantity"]))
-    return {"ok":True,"returned":row["quantity"]}
+        _add_product(c,"city_products",p["id"],row["item"],row["quantity"])
+        result={"ok":True,"returned":row["quantity"]}
+        if q.request_id:_finish_request(c,q,result)
+    return result
 
 @router.post("/buy-product")
 def buy_product(q:Action,authorization:str=Header(default="")):
     if q.item not in RECIPES:raise HTTPException(400,"Неизвестный товар")
+    if q.destination not in ("city","farm"):
+        raise HTTPException(400,"Неизвестный склад")
+    if q.destination=="farm" and q.item not in city_nutrition.FOOD_RESTORE:
+        raise HTTPException(400,"На склад фермы можно купить готовую еду")
     _amount(q.amount,500)
     with _db() as c:
         c.execute("SELECT pg_advisory_xact_lock(1984533)")
         p=_auth(c,authorization,True)
-        previous=_request(c,q,p["id"],"buy_product")
+        previous=_request(c,q,p["id"],"buy_farm_food" if q.destination=="farm" else "buy_product")
         if previous is not None:return previous
         rows=c.execute("""SELECT * FROM city_listings WHERE item=%s AND seller<>%s
             AND quantity>0 ORDER BY price,id FOR UPDATE""",(q.item,p["id"])).fetchall()
-        if sum(int(row["quantity"]) for row in rows)<q.amount:
-            raise HTTPException(409,"Недостаточно готовых товаров на рынке")
-        chosen=market_allocation.allocate(rows,q.amount)
-        cost=sum(row["price"]*n for row,n in chosen)
+        chosen,cost,_=_allocation(rows,q.item,q.amount)
         if q.expected_cost!=cost:raise HTTPException(409,"Цена изменилась. Обновите предложение")
         if p["coins"]<cost:raise HTTPException(409,"Недостаточно монет")
         for seller in sorted({row["seller"] for row,n in chosen}):
@@ -437,9 +503,7 @@ def buy_product(q:Action,authorization:str=Header(default="")):
                       (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,time.time()))
         c.execute("INSERT INTO money_log VALUES(%s,%s,'city_product_buy',%s,%s,%s)",
                   (uuid.uuid4().hex,p["id"],-cost,q.item+" x"+str(q.amount),time.time()))
-        c.execute("""INSERT INTO city_products(player_id,item,quantity) VALUES(%s,%s,%s)
-            ON CONFLICT(player_id,item) DO UPDATE SET quantity=city_products.quantity+EXCLUDED.quantity""",
-            (p["id"],q.item,q.amount))
+        _add_product(c,"farm_food" if q.destination=="farm" else "city_products",p["id"],q.item,q.amount)
         result={"ok":True,"spent":cost}
         _finish_request(c,q,result)
     return result
@@ -454,15 +518,17 @@ def fulfill_order(q:Action,authorization:str=Header(default="")):
             previous=_request(c,q,p["id"],"fulfill_order")
             if previous is not None:return previous
         _settle(c,p["id"])
-        order=next(x for x in daily_orders(c,p["id"]) if x["id"]==q.item)
+        now=time.time()
+        order=next(x for x in daily_orders(c,p["id"],now) if x["id"]==q.item)
+        if q.order_day and q.order_day!=order["day"]:
+            raise HTTPException(409,"Заказы обновились. Открой список заново")
         if order["done"]:raise HTTPException(409,"Сегодня этот заказ уже выполнен")
         changed=c.execute("""UPDATE city_products SET quantity=quantity-%s
             WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
             (order["quantity"],p["id"],order["recipe"],order["quantity"])).fetchone()
         if not changed:raise HTTPException(409,"Нужен товар: "+RECIPES[order["recipe"]]["name"])
-        day=time.strftime("%Y-%m-%d",time.gmtime())
         c.execute("INSERT INTO city_daily_orders VALUES(%s,%s,%s,%s)",
-            (p["id"],day,q.item,time.time()))
+            (p["id"],order["day"],q.item,now))
         c.execute("""INSERT INTO city_reputation(player_id,points) VALUES(%s,%s)
             ON CONFLICT(player_id) DO UPDATE SET points=city_reputation.points+EXCLUDED.points""",
             (p["id"],order["reputation"]))
@@ -470,23 +536,46 @@ def fulfill_order(q:Action,authorization:str=Header(default="")):
         if q.request_id:_finish_request(c,q,result)
     return result
 
+@router.post("/move-food")
+def move_food(q:Action,authorization:str=Header(default="")):
+    if q.item not in city_nutrition.FOOD_RESTORE:
+        raise HTTPException(400,"На ферму можно перенести только еду")
+    _amount(q.amount,500)
+    with _db() as c:
+        p=_auth(c,authorization,True)
+        previous=_request(c,q,p["id"],"move_food")
+        if previous is not None:return previous
+        updated=c.execute("""UPDATE city_products SET quantity=quantity-%s
+            WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
+            (q.amount,p["id"],q.item,q.amount)).fetchone()
+        if not updated:raise HTTPException(409,"Недостаточно еды на складе города")
+        _add_product(c,"farm_food",p["id"],q.item,q.amount)
+        result={"ok":True,"quantity":q.amount}
+        _finish_request(c,q,result)
+    return result
+
+
 @router.post("/eat")
 def eat(q:Action,authorization:str=Header(default="")):
     """Consume real city food. The bonus affects only future fed-animal
     production. Never create bonus coins or duplicate the consumed item."""
     if q.item not in city_nutrition.FOOD_RESTORE:
         raise HTTPException(400,"Этот товар нельзя съесть")
+    if q.destination not in ("city","farm"):
+        raise HTTPException(400,"Неизвестный склад")
     _amount(q.amount,20)
     if not q.request_id:raise HTTPException(400,"Нужен ключ операции")
     with _db() as c:
         c.execute("SELECT pg_advisory_xact_lock(1984533)")
         p=_auth(c,authorization,True)
-        previous=_request(c,q,p["id"],"eat")
+        previous=_request(c,q,p["id"],"eat_farm_food" if q.destination=="farm" else "eat")
         if previous is not None:return previous
         # Settle all production BEFORE eating; food never boosts past hours.
         p=_advance(c,p)
-        _settle(c,p["id"])
-        updated=c.execute("""UPDATE city_products SET quantity=quantity-%s
+        table="farm_food" if q.destination=="farm" else "city_products"
+        if table=="city_products":
+            _settle(c,p["id"])
+        updated=c.execute(f"""UPDATE {table} SET quantity=quantity-%s
             WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
             (q.amount,p["id"],q.item,q.amount)).fetchone()
         if not updated:raise HTTPException(409,"Недостаточно еды")

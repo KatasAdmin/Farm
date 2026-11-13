@@ -1,14 +1,15 @@
-/* City ads use the same verified AdsGram reward system as the Farm.
- * SDK completion is NOT payment evidence; only server-side AdsGram Reward URL
- * may credit the existing restricted +3-coin reward for purchases. */
-(()=>{
+(() => {
 "use strict";
-let attempted=false,busy=false,config=null;
-const $=id=>document.getElementById(id);
+const button=document.getElementById("city-watch-ad");
+const output=document.getElementById("city-ad-status");
 const signed=()=>window.Telegram?.WebApp?.initData||"";
 const token=()=>{try{return localStorage.getItem("farm_token")||""}catch{return ""}};
+let config,busy=false,offered=false,messageTimer;
 function report(text){
- const output=$("city-ad-status");if(output)output.textContent=text;
+ output.textContent=text;
+ output.hidden=false;
+ clearTimeout(messageTimer);
+ messageTimer=setTimeout(()=>{output.hidden=true},4200);
 }
 async function request(endpoint,body){
  const response=await fetch("/api/ads/adsgram/farm/"+endpoint,{
@@ -18,45 +19,42 @@ async function request(endpoint,body){
   body:body===undefined?undefined:JSON.stringify(body),cache:"no-store"
  });
  const result=await response.json();
- if(!response.ok)throw Error(result.detail||"Реклама сейчас недоступна");
+ if(!response.ok)throw Error("Реклама пока недоступна");
  return result;
 }
-async function status(){
- if(!signed()||!token())return null;
- config=await request("status");
- return config;
+async function maybeStart(){
+ if(offered||!signed()||!token())return;
+ offered=true;
+ try{
+  config=await request("status");
+  button.hidden=!config.enabled;
+ }catch{offered=false}
 }
 async function play(){
- if(busy || !signed() || !token())return;
+ if(busy||!config?.enabled)return;
  busy=true;
- let attempt=null;
+ button.disabled=true;
+ let attempt,completed=false;
  try{
-  const cfg=await status();
-  if(!cfg?.enabled){report("Реклама пока недоступна");return}
-  report("🎬 Открываем рекламный просмотр…");
-  const prepared=await request("prepare",{item:"coins"});
-  attempt=prepared.attempt_id;
-  if(!window.FarmAdsgramFallback?.show)throw Error("Рекламный сервис ещё загружается");
-  await window.FarmAdsgramFallback.show(cfg.adsgram_block_id);
-  report("✅ Просмотр завершён. Награда будет начислена после подтверждения рекламной сети.");
-  // We never promise an instant credit based on the SDK completion.
-  await status();
-  if(typeof window.cityReload==="function")await window.cityReload();
- }catch(error){
-  if(attempt)try{await request("cancel",{attempt_id:attempt})}catch(_){}
-  report(String(error.message||"Не удалось показать рекламу"));
- }finally{busy=false}
+  if(!window.FarmAdsgramFallback?.show)throw Error("Реклама пока недоступна");
+  attempt=(await request("prepare",{item:"coins"})).attempt_id;
+  await window.FarmAdsgramFallback.show(config.adsgram_block_id);
+  completed=true;
+  for(const delay of [0,800,1800]){
+   if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+   const status=await request("status");
+   if(status.history?.some(event=>event.ymid===attempt&&event.state==="credited")){
+    report("+3 монеты");
+    await window.cityReload?.();
+    return;
+   }
+  }
+  report("Награда ожидается");
+ }catch{
+  if(attempt&&!completed)try{await request("cancel",{attempt_id:attempt})}catch{}
+  report(completed?"Награда ожидается":"Реклама пока недоступна");
+ }finally{busy=false;button.disabled=false}
 }
-async function maybeStart(){
- if(attempted)return;
- attempted=true;
- // Only a verified, signed Telegram Mini App may see an automatic attempt.
- if(!signed()||!token())return;
- try{
-  const cfg=await status();
-  if(cfg?.enabled)await play();
- }catch(_){/* Never block city opening or give unverified coins. */}
-}
-$("city-watch-ad")?.addEventListener("click",()=>{attempted=true;play()});
-window.CityEntryAds={maybeStart,play,status};
+button.addEventListener("click",play);
+window.CityEntryAds={maybeStart};
 })();

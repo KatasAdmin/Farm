@@ -20,13 +20,13 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=111" defer></script>
+    <script src="/assets/game.js?v=112" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
     <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
-      <link rel="stylesheet" href="/assets/city/farm-products.css?v=2" />
+      <link rel="stylesheet" href="/assets/city/farm-products.css?v=3" />
   </head>
   <body>
     <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #80d6ff;border-radius:14px;background:#103c7c;color:white;font-family:Arial,sans-serif">
@@ -200,6 +200,10 @@
           </div>
         </div>
         <div class="farm-supplies"><button onclick="openResourceActions('grain')"><img loading="lazy" src="/assets/redesign/grain.webp" alt="">Зерно <strong data-value="grain">—</strong></button><button onclick="tab('storage')">Склад <strong><span data-building="storage_used">—</span> / <span data-building="storage_capacity">—</span></strong></button></div>
+        <button type="button" class="farm-food-summary" onclick="tab('production')">
+          <span>🍽️ Сытность фермера <strong data-farmer-fullness>—</strong></span>
+          <span>Бонус <strong data-farmer-bonus>—</strong> <span aria-hidden="true">›</span></span>
+        </button>
         <div class="farm-ads-strip"><button type="button" class="btn alt small" data-ad-free="coins" onclick="window.FarmAds?.watch('coins')">🎬 Смотреть рекламу · +3 монеты</button></div>
         <div class="card herd compact-herd">
           <div class="health-line">
@@ -275,35 +279,24 @@
         </details>
 
       </section>
-      <section id="production" class="panel unified-farm-panel" aria-label="Предприятия и продукция города">
-        <div class="scene-banner compact-trade-scene">
-          <img loading="lazy" src="/assets/illustrations/factory-icon-v2.webp" class="scene-image" alt="Предприятия"/>
-          <div class="scene-caption"><h1>Предприятия</h1><p>Общий рынок фермы и города</p></div>
-        </div>
+      <section id="production" class="panel unified-farm-panel" aria-label="Еда и бонусы">
         <div class="farm-city-header card">
-          <div class="farm-city-intro"><span class="farm-city-eyebrow">TREVIXO • ЕДИНАЯ ЭКОНОМИКА</span><h2>🏙️ Городская продукция</h2>
-          <p>Пекарни и рестораны покупают яйца, зерно и молоко на общем рынке. А ты можешь купить их блюда здесь — для заказов жителей и развития своих предприятий.</p></div>
-          <div class="farm-city-actions">
-            <a href="/city" class="farm-city-cta">🏭 Открыть свои предприятия</a>
-            <button type="button" id="farm-city-refresh" class="farm-city-cta farm-city-cta-alt">↻ Обновить товары</button>
+          <div class="farm-food-heading">
+            <h2>🍽️ Еда и бонусы</h2>
+            <a href="/city" class="farm-city-cta">🏙️ В город</a>
+          </div>
+          <div class="farm-food-status">
+            <span>Сытность <strong data-farmer-fullness>—</strong></span>
+            <span>К выпуску продукции <strong data-farmer-bonus>—</strong></span>
           </div>
         </div>
+        <div class="farm-city-section card">
+          <div class="farm-city-heading"><h3>Моя еда</h3></div>
+          <div id="farm-city-inventory" class="farm-city-grid"><p class="muted">Загрузка…</p></div>
+        </div>
         <div class="farm-city-section card" id="farm-city-catalog">
-          <div class="farm-city-heading"><h3>🛍️ Купить у других игроков</h3><small>Монеты переходят продавцам, товары — на твой городской склад</small></div>
-          <div id="farm-city-catalog-list" class="farm-city-grid"><p class="muted">Открой раздел для загрузки каталога.</p></div>
-        </div>
-        <div class="farm-city-section card">
-          <div class="farm-city-heading"><h3>🍽️ Моя еда и товары</h3><small>Покупки доступны и в городе, и на ферме</small></div>
-          <div id="farm-city-inventory" class="farm-city-grid"><p class="muted">Загружаем склад…</p></div>
-        </div>
-        <div class="farm-city-section card">
-          <div class="farm-city-heading"><h3>👥 Заказы жителей</h3><small>Сдай готовую продукцию и получи городскую репутацию для открытия бизнесов</small></div>
-          <div id="farm-city-orders" class="farm-city-grid"><p class="muted">Загружаем заказы…</p></div>
-        </div>
-        <div class="farm-city-hint card">
-          <strong>Для чего нужна еда?</strong>
-          <p>🍳 Омлеты, блины и пироги можно передавать жителям по ежедневным заказам либо использовать ради репутации города. 🧀 Сыр и 🍞 хлеб также нужны другим предприятиям для сложных рецептов. 🧶 Шерсть и 🪶 перья превращаются в товары для дома.</p>
-          <p>Жители не создают монеты: они начисляют только репутацию. Бизнес и ферма используют один монетный баланс, но разные склады.</p>
+          <div class="farm-city-heading"><h3>Купить еду</h3><button type="button" id="farm-city-refresh" class="farm-city-cta farm-city-cta-alt" aria-label="Обновить предложения">↻</button></div>
+          <div id="farm-city-catalog-list" class="farm-city-grid"><p class="muted">Загрузка…</p></div>
         </div>
       </section>
       <section id="coop" class="panel unified-farm-panel" aria-label="Животные">
@@ -403,22 +396,19 @@
           />
           <div class="scene-caption">
             <h1>Рынок</h1>
-            <p>Всё для твоей фермы</p>
+            <p>Ферма и город</p>
           </div>
         </div>
 
-        <div class="card" id="city-commerce" style="margin:12px 0;padding:16px;border:1px solid #59a3ce;border-radius:18px;background:linear-gradient(135deg,#10466b,#182c5e);color:#f6fcff">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><strong style="font-size:18px">🏙️ Товары города</strong><p style="margin:6px 0;font-size:13px;opacity:.86">Покупай еду, одежду и изделия у бизнесов других игроков.</p></div><a href="/city" style="color:white;text-decoration:none;white-space:nowrap;background:#2e8bbd;padding:10px;border-radius:12px;font-weight:800">В город</a></div>
-          <button type="button" id="farm-city-products-toggle" class="btn wide" style="margin-top:9px">🛍️ Посмотреть товары бизнесов</button>
-          <div id="farm-city-products" hidden style="margin-top:12px"></div>
-        </div>
         <div class="card shop-catalog">
           <h2 class="cardtitle">Товары</h2>
-          <p class="compact-trade-hint">Животные, корм и ресурсы твоего хозяйства.</p>
           <div class="market-categories" role="tablist" aria-label="Категории рынка">
             <button class="active" role="tab" aria-selected="true" data-market-tab="animals" onclick="marketCategory('animals')"><img loading="lazy" src="/assets/redesign/hen.webp" alt="">Животные</button>
             <button role="tab" aria-selected="false" data-market-tab="equipment" onclick="marketCategory('equipment')"><img loading="lazy" src="/assets/illustrations/equipment-gear-v3.webp" alt="">Оборудование</button>
-            <button role="tab" aria-selected="false" data-market-tab="resources" onclick="marketCategory('resources')"><img loading="lazy" src="/assets/redesign/grain.webp" alt="">Ресурсы</button>
+            <button role="tab" aria-selected="false" data-market-tab="resources" onclick="marketCategory('resources')"><img loading="lazy" src="/assets/redesign/grain.webp" alt="">Сырьё</button>
+            <button role="tab" aria-selected="false" data-market-tab="materials" onclick="marketCategory('materials')">🧶 Материалы</button>
+            <button role="tab" aria-selected="false" data-market-tab="food" onclick="marketCategory('food')">🍽️ Еда</button>
+            <button role="tab" aria-selected="false" data-market-tab="products" onclick="marketCategory('products')">📦 Готовая продукция</button>
           </div>
           <div class="market-product-grid">
           <div class="product catalog-row market-card resources" id="trade-eggs-row"><img loading="lazy" src="/assets/redesign/egg.webp" class="product-image" alt="Яйца"><div class="product-copy"><h3>Яйца</h3><small id="eggs-available">Доступно: — шт.</small><small>У других фермеров</small></div><strong class="price">1<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монета"></strong><div class="trade-dual-actions"><button id="eggs-buy-button" class="btn small" onclick="selectBuy('eggs')">Купить</button><button class="btn alt small" onclick="openSell('eggs')">Продать</button></div></div>
@@ -427,12 +417,13 @@
           <div class="product catalog-row market-card animals"><img loading="lazy" src="/assets/goose-v2.png" class="product-image" alt="Гусыня"><div class="product-copy"><h3>Гусыня</h3><small data-market-available="geese">У игроков: — шт.</small><small>Яйцо / 2 ч · открывается с ур. 3</small><small>2 зерна / 18 ч</small></div><strong class="price">160<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button id="goose-buy-button" data-unlock-buy="geese" class="btn small" onclick="showShop('geese')">Купить</button><button class="btn alt small" onclick="openSell('geese')">Продать</button></div></div>
           <div class="product catalog-row market-card animals"><span class="product-image" role="img" aria-label="Овца" style="display:grid;place-items:center;font-size:2.3rem">🐑</span><div class="product-copy"><h3>Овца</h3><small data-market-available="sheep">У игроков: — шт.</small><small>1 шерсть / сутки · открывается с ур. 4 · окупаемость ~30 дней</small><small>2 зерна / 18 ч · место в стаднике</small></div><strong class="price">200<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button data-unlock-buy="sheep" class="btn small" onclick="showShop('sheep')">Купить</button><button class="btn alt small" onclick="openSell('sheep')">Продать</button></div></div>
           <div class="product catalog-row market-card animals"><img loading="lazy" src="/assets/cow-v1.webp" class="product-image" alt="Корова"><div class="product-copy"><h3>Корова</h3><small data-market-available="cows">У игроков: — шт.</small><small>Молоко / 8 ч · открывается с ур. 5 · окупаемость ~20 дней</small><small>3 зерна / 18 ч · живёт в стаднике</small></div><strong class="price">500<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button data-unlock-buy="cows" class="btn small" onclick="showShop('cows')">Купить</button><button class="btn alt small" onclick="openSell('cows')">Продать</button></div></div>
-          <div class="product catalog-row market-card resources"><span class="product-image" role="img" aria-label="Шерсть" style="display:grid;place-items:center;font-size:2.3rem">🧶</span><div class="product-copy"><h3>Шерсть</h3><small data-market-available="wool">У игроков: — шт.</small><small>На складе: <b data-value="wool">0</b> шт.</small></div><strong class="price">12<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" onclick="selectBuy('wool')">Купить</button><button class="btn alt small" onclick="openSell('wool')">Продать</button></div></div>
+          <div class="product catalog-row market-card materials"><span class="product-image" role="img" aria-label="Шерсть" style="display:grid;place-items:center;font-size:2.3rem">🧶</span><div class="product-copy"><h3>Шерсть</h3><small data-market-available="wool">У игроков: — шт.</small><small>На складе: <b data-value="wool">0</b> шт.</small></div><strong class="price">12<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" onclick="selectBuy('wool')">Купить</button><button class="btn alt small" onclick="openSell('wool')">Продать</button></div></div>
           <div class="product catalog-row market-card resources"><img loading="lazy" src="/assets/milk-v1.webp" class="product-image" alt="Молоко"><div class="product-copy"><h3>Молоко</h3><small id="milk-available">Доступно: — шт.</small><small>У других фермеров · на складе: <b data-value="milk">0</b></small></div><strong class="price">11<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button id="milk-buy-button" class="btn small" onclick="selectBuy('milk')">Купить</button><button class="btn alt small" onclick="openSell('milk')">Продать</button></div></div>
-          <div class="product catalog-row market-card resources"><img loading="lazy" src="/assets/illustrations/feather-icon-v3.webp" class="product-image" alt="Перо"><div class="product-copy"><h3>Перо</h3><small data-market-available="feathers">У игроков: — шт.</small><small>На складе: <b data-value="feathers">0</b> шт.</small><small>Советуем сохранить для развития фермы</small></div><strong class="price">5<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" onclick="selectBuy('feathers')">Купить</button><button class="btn alt small" onclick="openSell('feathers')">Продать</button></div></div>
+          <div class="product catalog-row market-card materials"><img loading="lazy" src="/assets/illustrations/feather-icon-v3.webp" class="product-image" alt="Перо"><div class="product-copy"><h3>Перо</h3><small data-market-available="feathers">У игроков: — шт.</small><small>На складе: <b data-value="feathers">0</b> шт.</small><small>Советуем сохранить для развития фермы</small></div><strong class="price">5<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" onclick="selectBuy('feathers')">Купить</button><button class="btn alt small" onclick="openSell('feathers')">Продать</button></div></div>
           <div class="product catalog-row market-card equipment incubator-shop"><img loading="lazy" src="/assets/redesign/incubator.webp" class="product-image" alt="Инкубатор"><div class="product-copy"><h3>Инкубатор</h3><small data-incubator-summary>Выведение цыплят</small></div><strong class="price"><span data-incubator-price>Бесплатно</span><img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="incubator-shop-button" onclick="shopIncubatorAction()">Купить</button></div></div>
           <div class="product catalog-row market-card equipment fields-market-row"><img loading="lazy" class="product-image" src="/assets/illustrations/combine-icon-v2.webp" alt="Комбайн"><div class="product-copy"><h3>Комбайн</h3><small>Обслуживает до 5 полей</small></div><strong class="price">200<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="fields-buy-combine-market" onclick="buyFieldItem('combine')">Купить</button></div></div>
           </div>
+          <div id="farm-city-products" class="farm-city-grid" hidden></div>
           <details class="catalog-help"><summary>Корм и окупаемость животных</summary><div><p>Курица: 40 монет, яйцо каждые 6 часов, 1 зерно раз в 18 часов. Гусыня: 160 монет, яйцо каждые 2 часа, 2 зерна раз в 18 часов.</p><p>При постоянном корме и продаже всех яиц по 1 монете: курица окупается примерно за 30 дней, гусыня — за 24 дня. Перья в этот расчёт не входят.</p><p>Корова: 500 монет, молоко каждые 8 часов, 3 зерна каждые 18 часов. При продаже молока по 11 монет и зерне по 2 — около 25 монет чистыми в сутки и окупаемость около 20 дней. Продажа зависит от покупателей.</p><p>Гуси дают в среднем одно перо за 7 дней сытости на птицу. Можно копить для будущих производств или продавать системе по 5 монет. Для новых яиц, молока, перьев и шерсти нужно место на складе. Овца: 200 монет, шерсть / 24 ч, 2 зерна / 18 ч. При продаже шерсти по 12 монет окупаемость около 30 дней, фактически зависит от спроса.</p></div></details>
         </div>
         <details class="trade-extras"><summary>Набор фермера</summary>
@@ -995,9 +986,9 @@
       </div>
     </dialog>
   <dialog id="level-up-dialog" class="level-celebration" aria-labelledby="level-up-title"><div class="level-sparkles" aria-hidden="true">✦ ✧ ✦</div><p class="level-eyebrow">ТВОЯ ФЕРМА РАСТЁТ</p><h2 id="level-up-title">🎉 Новый уровень!</h2><div id="level-up-number" class="level-medal">2</div><p id="level-up-description"></p><button class="btn wide" onclick="document.getElementById('level-up-dialog').close()">Отлично! Продолжаем 🚀</button></dialog>
-<script src="/assets/fields.js?v=9" defer></script>
+<script src="/assets/fields.js?v=10" defer></script>
 <script src="/assets/adsgram-fallback.js?v=20261106-r38" defer></script>
 <script src="/assets/monetag-rewards.js?v=13" defer></script>
-<script src="/assets/city/farm-bridge.js?v=3" defer></script>
+<script src="/assets/city/farm-bridge.js?v=4" defer></script>
 </body>
 </html>
