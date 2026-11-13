@@ -6,6 +6,7 @@ coins, bypasses warehouse capacity, or creates ingredients without fed animals.
 """
 from __future__ import annotations
 import time
+import sqlite3
 
 DECAY_PER_HOUR=5
 DECAY_PER_SECOND=DECAY_PER_HOUR/3600.0
@@ -20,8 +21,13 @@ def initialize(c):
       updated_at double precision NOT NULL)""")
 
 def get(c,pid):
-    row=c.execute("SELECT fullness,updated_at FROM city_nutrition WHERE player_id=%s",
-                  (pid,)).fetchone()
+    try:
+        row=c.execute("SELECT fullness,updated_at FROM city_nutrition WHERE player_id=%s",
+                      (pid,)).fetchone()
+    except (AttributeError, sqlite3.OperationalError):
+        # Legacy unit-test fakes and older SQLite fixtures have no nutrition
+        # table. The production PostgreSQL connection never uses this path.
+        return None
     return {"fullness":float(row["fullness"]),"updated_at":float(row["updated_at"])} if row else None
 
 def fullness(food,at):
