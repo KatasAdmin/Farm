@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const root="/api/city";
 const names={eggs:"🥚 Яйца",grain:"🌾 Зерно",milk:"🥛 Молоко",feathers:"🪶 Перья",wool:"🧶 Шерсть"};
 const icons={pancakes:"🥞",pie:"🥧",omelet:"🍳",cheese:"🧀",bread:"🍞",pillow:"🛏️",scarf:"🧣",breakfast_set:"🍱",dessert_box:"🍰",home_set:"🎁",lunch_box:"🥡"};
-let token="",data=null,activeView="map",activeBusiness=null,working=false;
+let token="",data=null,activeView="map",activeBusiness=null,working=false,lastShoppingRecipe=null;
 const store={get(){try{return localStorage.getItem("farm_token")||""}catch{return ""}},set(x){try{localStorage.setItem("farm_token",x)}catch{}}};
 const number=n=>new Intl.NumberFormat("ru-RU").format(Number(n)||0);
 const esc=v=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -105,6 +105,7 @@ function refreshPanel(){
  if(activeView==="warehouse")return showWarehouse();
  if(activeView==="residents")return showResidents();
  if(activeView==="store")return showBusiness("store");
+ if(activeView==="shopping")return showShoppingList(lastShoppingRecipe);
 }
 function showBusiness(kind){
  activeBusiness=kind;
@@ -124,7 +125,7 @@ function showBusiness(kind){
    const productNeeds=Object.entries(v.needs_products||{}).map(([k,n])=>(icons[k]||"📦")+' '+esc(data.recipes[k]?.name||k)+' ×'+n+' (есть '+(data.products[k]||0)+')');
    const need=rawNeeds.concat(productNeeds).join(" · ");
    return row((icons[key]||"📦")+" "+esc(v.name),need+" · "+v.seconds+" сек. · результат ×"+v.output,
-    input("qty-craft-"+key)+ '<button class="btn" data-action="produce" data-item="'+key+'">Готовить</button>');
+    input("qty-craft-"+key)+ '<button class="btn" data-action="produce" data-item="'+key+'">Готовить</button><button class="btn ghost" data-action="shopping" data-item="'+key+'">🧺 Ингредиенты</button>');
   }).join("");
   body+='<h3 class="section-subtitle">Задания в работе</h3>';
   const jobs=data.jobs.filter(x=>data.recipes[x.recipe]?.business===kind);
@@ -133,6 +134,29 @@ function showBusiness(kind){
   body+='<p><button class="btn ghost" data-action="market">🧺 Закупить ингредиенты</button></p>';
  }
  openPanel(b.emoji+" "+b.name,body);
+}
+function showShoppingList(recipeId){
+ const recipe=data.recipes[recipeId];
+ if(!recipe)return;
+ activeBusiness=null;
+ activeView="shopping";
+ const items=[
+  ...Object.entries(recipe.needs||{}).map(([item,need])=>({item,need,stock:data.stock[item]||0,type:"raw"})),
+  ...Object.entries(recipe.needs_products||{}).map(([item,need])=>({item,need,stock:data.products[item]||0,type:"product"}))
+ ];
+ let html='<p class="panel-note">Рецепт: '+esc(recipe.name)+'. Здесь показано, чего не хватает для одной партии. Любое сырьё покупается у других фермеров, а полуфабрикаты — у других городских бизнесов. Свои склады фермы в расчёт не входят.</p>';
+ html+=items.map((entry,i)=>{
+  const missing=Math.max(0,entry.need-entry.stock);
+  const name=entry.type==="raw"?esc(names[entry.item]):(icons[entry.item]||"📦")+" "+esc(data.recipes[entry.item]?.name||entry.item);
+  const offers=(entry.type==="raw"?data.farm_offers:data.city_offers).filter(r=>r.item===entry.item);
+  const available=offers.reduce((sum,r)=>sum+r.quantity,0);
+  return row(name,"Нужно "+entry.need+" · На складе "+entry.stock+" · На рынке "+available,
+  !missing?'<span class="pill">✅ Достаточно</span>':
+  input("shopping-"+i,missing)+
+  '<button class="btn" data-action="'+entry.type+'" data-item="'+esc(entry.item)+'" data-amount-id="shopping-'+i+'" '+(available<missing?'disabled':'')+'>Купить</button>');
+ }).join("");
+ html+='<p><button class="btn ghost" data-action="business" data-item="'+recipe.business+'">← Вернуться в '+esc(data.business_catalog[recipe.business].name)+'</button></p>';
+ openPanel("🧺 Закупка для "+recipe.name,html);
 }
 function showMarket(){
  const offers=data.farm_offers.filter(x=>names[x.item]);
@@ -183,6 +207,8 @@ async function action(action,item,amountId,listingId){
  if(amountId&&amount===null)return;
  let path,body={item};
  if(action==="market")return view("market");
+ if(action==="shopping"){lastShoppingRecipe=item;return showShoppingList(item)}
+ if(action==="business"){return showBusiness(item)}
  if(action==="open")path="/open";
  else if(action==="produce"){path="/produce";body.amount=getAmount("qty-craft-"+item);if(!body.amount)return}
  else if(action==="raw"){path="/buy-ingredient";body.amount=amount}
