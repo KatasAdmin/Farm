@@ -3,7 +3,7 @@
 No DB writes; all sales and activity rates are hypothetical, not guaranteed.
 """
 from city_world import RECIPES, FARM_REFERENCE_PRICES, recipe_price_guides
-from city_nutrition import FOOD_RESTORE, DECAY_PER_HOUR
+from city_nutrition import FOOD_RESTORE, DECAY_PER_HOUR, MAX_FOOD_BONUS
 from fields import FIELD_PRICE, COMBINE_PRICE, rate
 
 def field_payback_days(plots, combines, sold_fraction=1):
@@ -25,7 +25,7 @@ def business_payback_days(recipe, investment, batches_per_day, sold_fraction=1):
 def food_break_even(item, price=None):
     """Required daily farm output value to repay one meal at zero fullness."""
     restore = FOOD_RESTORE[item]
-    boost_hours = (restore / DECAY_PER_HOUR) * (restore / 100) / 2
+    boost_hours = (restore / DECAY_PER_HOUR) * (restore / 100) / 2 * MAX_FOOD_BONUS
     if price is None:
         price = recipe_price_guides()[item]["suggested_unit_price"]
     return price * 24 / boost_hours
