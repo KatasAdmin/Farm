@@ -117,6 +117,35 @@ class CityTransactions(unittest.TestCase):
         self.assertTrue(city_world.claim_goal(claim, authorization=auth)["ok"])
         self.assertEqual(city_world.state(authorization=auth, compact=True)["progress"]["xp"], 5)
 
+    def test_season_reward_is_owned_once_and_can_be_equipped(self):
+        auth = "Bearer t-buyer"
+        now = city_world.time.time()
+        with self.connect() as c:
+            c.execute("UPDATE city_campaigns SET starts=%s,ends=%s", (now-3600, now+3600))
+            for index in range(5):
+                c.execute("INSERT INTO city_production_history VALUES(%s,%s,%s,%s,%s,%s)",
+                          (str(index), "buyer", "bread", 2, now-300, now-60))
+        scope = "city-development"
+        claim = city_world.GoalClaim(scope=scope, key="batches")
+        reward = city_world.GoalClaim(scope=scope, key="reward:founder")
+        with self.assertRaises(HTTPException):
+            city_world.claim_goal(reward, authorization=auth)
+        city_world.claim_goal(claim, authorization=auth)
+        city_world.claim_goal(claim, authorization=auth)
+        city_world.claim_goal(reward, authorization=auth)
+        city_world.claim_goal(reward, authorization=auth)
+        season = city_world.goals(authorization=auth)["campaigns"][0]
+        self.assertEqual(season["xp"], 50)
+        self.assertEqual(season["level"], 2)
+        with self.assertRaises(HTTPException):
+            city_world.save_preferences(city_world.CityPreferences(cosmetic="gold"), authorization=auth)
+        city_world.save_preferences(city_world.CityPreferences(cosmetic="founder"), authorization=auth)
+        snapshot = city_world.state(authorization=auth, compact=True)
+        self.assertEqual(snapshot["preferences"]["cosmetic"], "founder")
+        self.assertEqual(len(snapshot["cosmetics"]), 1)
+        self.assertEqual(snapshot["progress"]["xp"], 0)
+        self.assertEqual(snapshot["coins"], 200)
+
     def test_single_use_promo_uses_existing_nonwithdrawable_farm_ledger(self):
         import hashlib
         import main

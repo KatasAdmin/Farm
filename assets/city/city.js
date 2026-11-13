@@ -120,6 +120,7 @@ function view(tab){
  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("nav-active",x.dataset.view===tab));
  if(tab==="map")closePanel();
  else if(["season","events","daily"].includes(tab))showGoals(tab);
+ else if(tab==="ranking")showRanking("reputation");
  else refreshPanel();
 }
 function refreshPanel(){
@@ -329,6 +330,20 @@ function showAchievements(){
   '<span class="pill">'+(entry.done?"Получено":"+"+entry.xp+" XP")+'</span>')).join(""));
 }
 
+const rankingLabels={reputation:"Репутация",orders:"Заказы",production:"Производство",sales:"Продажи",level:"Уровень"};
+
+async function showRanking(category){
+ const tabs='<div class="city-market-tabs">'+Object.entries(rankingLabels).map(([key,label])=>
+  '<button class="btn ghost" aria-pressed="'+(category===key)+'" data-action="ranking" data-item="'+key+'">'+label+'</button>').join("")+'</div>';
+ openPanel("📈 Рейтинг города",tabs+'<p role="status">Загрузка…</p>');
+ try{
+  const entries=await api("/ranking?category="+category);
+  if(activeView!=="ranking"||!document.querySelector('[data-item="'+category+'"][aria-pressed="true"]'))return;
+  openPanel("📈 Рейтинг города",tabs+(entries.length?entries.map((entry,index)=>
+   row((index+1)+". "+esc(entry.name),number(entry.score),"")).join(""):'<p class="empty">В этой категории пока нет результатов</p>'));
+ }catch(error){if(activeView==="ranking")toast(error.message)}
+}
+
 function showSettings(){
  const settings=data.preferences||{effects:true,cosmetic:""};
  openPanel("⚙️ Настройки",'<form id="city-settings"><p><label><input id="city-effects" type="checkbox" '+
@@ -357,7 +372,7 @@ function showProfile(){
  let html='<div class="profile-hero"><div class="profile-avatar">👤</div><div><span>Профиль жителя</span><strong>'+esc(data.name)+'</strong><small>⭐ '+number(data.reputation)+' репутации</small></div></div><button class="profile-wallet-button" data-action="wallet">🪙 Общий кошелёк <strong>'+number(data.coins)+' монет ›</strong></button>';
  const progress=data.progress||{};
  html+='<div class="badge-line"><span class="pill">Ур. '+number(progress.level)+'</span><span class="pill">'+number(progress.xp)+' XP'+(progress.next_xp?" / "+number(progress.next_xp):"")+'</span><span class="pill">Заказов · '+number(progress.orders)+'</span></div>';
- const links={businesses:"🏙️ Мои бизнесы",warehouse:"📦 Склад",residents:"📋 Заказы жителей",market:"🛒 Магазин",achievements:"🏆 Достижения",settings:"⚙️ Настройки",help:"❔ Помощь"};
+ const links={businesses:"🏙️ Мои бизнесы",warehouse:"📦 Склад",residents:"📋 Заказы жителей",market:"🛒 Магазин",achievements:"🏆 Достижения",ranking:"📈 Рейтинг",settings:"⚙️ Настройки",help:"❔ Помощь"};
  html+='<div class="profile-links">'+Object.entries(links).map(([target,label])=>'<button class="btn ghost" data-action="navigate" data-item="'+target+'">'+label+'</button>').join("")+'</div>';
  const finance=data.cashflow||{};
  html+='<h3 class="section-subtitle">📊 Финансы городских бизнесов</h3>';
@@ -405,6 +420,7 @@ async function action(action,item,amountId,listingId){
   catch(error){toast(error.message)}finally{working=false}
   return;
  }
+ if(action==="ranking")return showRanking(item);
  if(action==="navigate")return view(item);
  if(action==="order-market"){
   marketCategory=data.food_items.includes(item)?"food":"products";

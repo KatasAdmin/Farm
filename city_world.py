@@ -282,6 +282,35 @@ def save_preferences(q: CityPreferences, authorization: str = Header(default="")
     return {"ok": True}
 
 
+RANKING_SOURCES = {
+    "reputation": ("city_reputation", "player_id", "MAX(points)", "TRUE"),
+    "orders": ("city_daily_orders", "player_id", "COUNT(*)", "TRUE"),
+    "production": ("city_production_history", "player_id", "SUM(quantity)",
+                   "ready_at<=EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)"),
+    "sales": ("city_receipts", "seller", "SUM(quantity)", "buyer<>seller"),
+    "level": ("city_progress_log", "player_id", "SUM(xp)", "xp>0"),
+}
+
+
+@router.get("/ranking")
+def ranking(category: str = "reputation", authorization: str = Header(default="")):
+    source = RANKING_SOURCES.get(category)
+    if not source:
+        raise HTTPException(400, "Неизвестный рейтинг")
+    table, owner, aggregate, condition = source
+    with _db() as c:
+        _auth(c, authorization)
+        rows = c.execute(f"""SELECT p.name, stats.score FROM (
+            SELECT {owner} AS player_id, {aggregate} AS score FROM {table}
+            WHERE {condition} GROUP BY {owner}
+            ) stats JOIN players p ON p.id=stats.player_id
+            WHERE stats.score>0 ORDER BY stats.score DESC,p.name,p.id LIMIT 50""").fetchall()
+    if category == "level":
+        for row in rows:
+            row["score"] = sum(row["score"] >= threshold for threshold in CITY_XP_THRESHOLDS)
+    return rows
+
+
 @router.get("/goals")
 def goals(authorization: str = Header(default="")):
     with _db() as c:
