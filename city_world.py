@@ -37,8 +37,8 @@ RECIPES = {
 BUSINESSES = {
     "bakery": {"name": "Пекарня", "emoji": "🥐", "open_cost": 0, "min_reputation": 0},
     "restaurant": {"name": "Ресторан", "emoji": "🍳", "open_cost": 0, "min_reputation": 20},
-    "dairy": {"name": "Молочная", "emoji": "🥛", "open_cost": 0, "min_reputation": 50},
-    "atelier": {"name": "Ателье", "emoji": "🧶", "open_cost": 0, "min_reputation": 100},
+    "dairy": {"name": "Молочная", "emoji": "🥛", "open_cost": 0, "feather_cost": 5, "min_reputation": 50},
+    "atelier": {"name": "Ателье", "emoji": "🧶", "open_cost": 0, "feather_cost": 12, "min_reputation": 100},
     "store": {"name": "Магазин", "emoji": "🛒", "open_cost": 0, "min_reputation": 160},
 }
 
@@ -197,26 +197,15 @@ def quote_ingredient(q:Action,authorization:str=Header(default="")):
         return _quote(c,"market",q.item,p["id"],q.amount)
 
 def _product_purchase(c, item, pid, amount, *, farm, lock=False):
+    """All offers, including the buyer's, trade on equal terms."""
     rows=c.execute("""SELECT * FROM city_listings WHERE item=%s AND quantity>0
-        AND (seller<>%s OR %s) ORDER BY price,created,id""" + (" FOR UPDATE" if lock else ""),
-        (item,pid,farm)).fetchall()
-    other=[row for row in rows if row["seller"]!=pid]
-    own=[row for row in rows if row["seller"]==pid]
+        ORDER BY price,created,id""" + (" FOR UPDATE" if lock else ""),
+        (item,)).fetchall()
     if sum(row["quantity"] for row in rows)<amount:
         raise HTTPException(409,"На рынке недостаточно предложений")
-    external_quantity=min(amount,sum(row["quantity"] for row in other))
-    own_quantity=amount-external_quantity
-    chosen=market_allocation.allocate(other,external_quantity) if external_quantity else []
-    own.sort(key=lambda row:(row["created"],row["id"]))
-    taken=[]
-    remaining=own_quantity
-    for row in own:
-        if not remaining:break
-        quantity=min(remaining,row["quantity"])
-        taken.append((row,quantity))
-        remaining-=quantity
+    chosen=market_allocation.allocate(rows,amount)
     cost=sum(row["price"]*quantity for row,quantity in chosen)
-    return chosen,taken,cost,own_quantity
+    return chosen,[],cost,0
 
 
 @router.post("/quote-product")
@@ -238,9 +227,9 @@ def _amount(n, maximum=10000):
 def _product_catalog(c, pid, items=None):
     rows=c.execute("""SELECT item,COUNT(DISTINCT seller)::int AS sellers,
         SUM(quantity)::bigint AS quantity,MIN(price)::int AS min_price
-        FROM city_listings WHERE quantity>0 AND seller<>%s
+        FROM city_listings WHERE quantity>0
         AND (%s::text[] IS NULL OR item=ANY(%s::text[]))
-        GROUP BY item ORDER BY item""",(pid,items,items)).fetchall()
+        GROUP BY item ORDER BY item""",(items,items)).fetchall()
     return {row["item"]:{"quantity":row["quantity"],"sellers":row["sellers"],
                           "min_price":row["min_price"]} for row in rows}
 
@@ -308,6 +297,7 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "food_items":list(city_nutrition.FOOD_RESTORE),"materials":sorted(MATERIALS),
             "wallet_mode":"shared_farm_city","cashflow":city_cashflow,
             "stock":_counts(c,"city_stock",p["id"]),
+            "farm_feathers":int(p.get("feathers",0)),
             "products":_counts(c,"city_products",p["id"]),
             "recipes":RECIPES,"business_catalog":BUSINESSES,
             "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
@@ -345,7 +335,17 @@ def open_business(q:Action, authorization: str=Header(default="")):
         reputation=c.execute("SELECT points FROM city_reputation WHERE player_id=%s",(p["id"],)).fetchone()
         if (int(reputation["points"]) if reputation else 0)<BUSINESSES[q.item]["min_reputation"]:
             raise HTTPException(403,"Нужно больше репутации для открытия бизнеса")
-        c.execute("INSERT INTO city_businesses VALUES(%s,%s,1,%s) ON CONFLICT DO NOTHING",(p["id"],q.item,time.time()))
+        if c.execute("SELECT 1 FROM city_businesses WHERE player_id=%s AND kind=%s",(p["id"],q.item)).fetchone():
+            return {"ok":True,"already_open":True}
+        required=int(BUSINESSES[q.item].get("feather_cost",0))
+        if required:
+            # The farm owns the feathers. Spend them automatically when opening,
+            # rather than creating a second transferable inventory.
+            paid=c.execute("""UPDATE players SET feathers=feathers-%s
+                WHERE id=%s AND feathers>=%s RETURNING feathers""",
+                (required,p["id"],required)).fetchone()
+            if not paid:raise HTTPException(409,f"Для открытия нужно {required} перьев на ферме")
+        c.execute("INSERT INTO city_businesses VALUES(%s,%s,1,%s)",(p["id"],q.item,time.time()))
     return {"ok":True}
 
 @router.post("/buy-ingredient")
@@ -519,8 +519,6 @@ def buy_product(q:Action,authorization:str=Header(default="")):
             if refund:raise HTTPException(409,"Продавец временно недоступен: проверка возврата Stars")
         if cost:
             c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(cost,p["id"]))
-        for row,n in taken:
-            c.execute("UPDATE city_listings SET quantity=quantity-%s WHERE id=%s",(n,row["id"]))
         for row,n in chosen:
             c.execute("UPDATE city_listings SET quantity=quantity-%s WHERE id=%s",(n,row["id"]))
             receipt=row["price"]*n
@@ -535,7 +533,7 @@ def buy_product(q:Action,authorization:str=Header(default="")):
                       (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,time.time()))
         if cost:
             c.execute("INSERT INTO money_log VALUES(%s,%s,'city_product_buy',%s,%s,%s)",
-                      (uuid.uuid4().hex,p["id"],-cost,q.item+" x"+str(q.amount-own_quantity),time.time()))
+                      (uuid.uuid4().hex,p["id"],-cost,q.item+" x"+str(q.amount),time.time()))
         _add_product(c,"farm_food" if q.destination=="farm" else "city_products",p["id"],q.item,q.amount)
         result={"ok":True,"spent":cost,"own_quantity":own_quantity}
         _finish_request(c,q,result)
