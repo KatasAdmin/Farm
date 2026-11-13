@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Управление городом · TREVIXO</title>
+<link rel="stylesheet" href="/assets/city/city.css?v=10">
+<script src="/assets/city/admin.js" defer></script>
+<main class="city-admin">
+ <h1>Управление городом</h1>
+ <form id="city-admin-auth">
+  <label>Ключ администратора <input id="city-admin-key" type="password" required autocomplete="off"></label>
+  <button class="btn">Открыть</button>
+ </form>
+ <p id="city-admin-status" role="status"></p>
+ <section id="city-admin-content" hidden>
+  <h2>Экономика города</h2><dl id="city-admin-stats"></dl>
+  <h2>Сезоны и события</h2>
+  <label>Редактировать <select id="city-admin-campaign"></select></label>
+  <form id="city-admin-form">
+   <label>Код <input name="id" pattern="[a-z0-9_-]{1,40}" required></label>
+   <label>Тип <select name="kind"><option value="event">Событие</option><option value="season">Сезон</option></select></label>
+   <label>Название <input name="name" maxlength="90" required></label>
+   <label>Описание <textarea name="description" maxlength="300"></textarea></label>
+   <label>Начало <input name="starts" type="datetime-local" step="0.001" required></label>
+   <label>Конец <input name="ends" type="datetime-local" step="0.001" required></label>
+   <label>Цель события <select name="metric">
+    <option value="pancakes">Производство блинов</option><option value="batches">Готовые партии</option>
+    <option value="orders">Заказы</option><option value="sales">Продажи</option>
+    <option value="raw">Покупка сырья</option><option value="upgrades">Улучшения</option>
+   </select></label>
+   <label>Количество <input name="goal" type="number" min="1" max="10000" value="10" required></label>
+   <label>XP события <input name="xp" type="number" min="0" max="100" value="25" required></label>
+   <label><input name="enabled" type="checkbox" checked> Включено</label>
+   <button class="btn">Сохранить</button>
+  </form>
+ </section>
+</main>
+</html>

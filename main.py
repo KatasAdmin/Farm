@@ -1903,6 +1903,40 @@ def require_farm_admin(authorization):
  if not expected or len(expected)<32 or not hmac.compare_digest(supplied,expected):
   raise HTTPException(403,"Административный доступ не настроен или запрещён")
 
+@app.get("/city/admin", response_class=HTMLResponse)
+def city_admin_page():
+ return HTMLResponse(open("city-admin.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
+
+
+@app.get("/api/admin/city/stats")
+def admin_city_stats(authorization: str = Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:
+  return c.execute("""SELECT
+   (SELECT COUNT(*) FROM city_businesses) AS businesses,
+   (SELECT COALESCE(SUM(quantity),0) FROM city_production_history
+      WHERE ready_at<=EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)) AS production,
+   (SELECT COALESCE(SUM(quantity),0) FROM city_receipts WHERE buyer<>seller) AS sales,
+   (SELECT COUNT(*) FROM city_daily_orders) AS orders,
+   (SELECT COUNT(*) FROM city_requests WHERE action IN ('eat','eat_farm_food')
+      AND result IS NOT NULL) AS meals""").fetchone()
+
+
+@app.get("/api/admin/city/campaigns")
+def admin_city_campaigns(authorization: str = Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:
+  return [row["definition"] for row in c.execute(
+   "SELECT definition FROM city_campaigns ORDER BY starts DESC").fetchall()]
+
+
+@app.post("/api/admin/city/campaigns")
+def admin_city_save_campaign(q: city_world.city_goals.Campaign, authorization: str = Header(default="")):
+ require_farm_admin(authorization)
+ with db() as c:
+  return city_world.city_goals.save(c, q)
+
+
 @app.get("/api/admin/withdrawals")
 def admin_withdrawals(authorization:str=Header(default="")):
  require_farm_admin(authorization)
@@ -1943,7 +1977,10 @@ def farm_exchange_quote(authorization:str=Header(default="")):
           "backed_available_kopeks":min(int(raw['cashable_kopeks']),
                int((Decimal(str(raw['coin_price_kopeks']))*
                     Decimal(player['coins'])).to_integral_value(rounding=ROUND_FLOOR))),
-          "coin_count":player['coins']}
+          "coin_count":player['coins'],
+          "total_coins":raw['total_coins'],
+          "capitalization_kopeks":raw['nominal_kopeks'],
+          "bonus_coins":farm_wallet.balances(c,player)["bonus"]}
 
 @app.get("/api/farm/card/config")
 def farm_card_config(authorization:str=Header(default="")):
