@@ -16,6 +16,7 @@ import ad_inventory
 import farm_ranking
 import release_grants
 import farm_wallet
+import city_world
 import farm_exchange
 import farm_capitalization
 import farm_card_web
@@ -213,6 +214,7 @@ async def lifespan(app):
   task_bot.initialize(c)
   logger.warning("farm_startup_bot_schema_ready")
   farm_wallet.initialize(c)
+  city_world.initialize(c)
   farm_capitalization.initialize(c)
   farm_exchange.initialize(c)
   if os.environ.get("FARM_STAGING", "").lower() not in ("1", "true", "yes"):
@@ -2180,3 +2182,12 @@ def tutorial_action(q:Request,authorization:str=Header(default="")):
    c.execute("UPDATE reward_emission SET total_minted=total_minted+%s WHERE id=1",(reward,))
    c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"tutorial",reward,"Обучение начинающего фермера",time.time()))
  return {"ok":True,"step":new_step,"awarded":reward}
+
+
+# Separate City Mini App. The farm and its existing endpoints remain unchanged.
+@app.get("/city",response_class=HTMLResponse)
+@app.get("/city/",response_class=HTMLResponse)
+def city_page():
+ return HTMLResponse(open("city.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
+
+app.include_router(city_world.setup(db,person,advance))
