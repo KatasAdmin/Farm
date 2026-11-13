@@ -9,6 +9,7 @@ import time
 import sqlite3
 
 DECAY_PER_HOUR=5
+MAX_FOOD_BONUS=0.5  # Full satiety grants at most +50% production.
 DECAY_PER_SECOND=DECAY_PER_HOUR/3600.0
 FOOD_RESTORE = {
     "bread": 20, "yogurt": 25, "pancakes": 30, "cheese": 35, "omelet": 40,
@@ -51,7 +52,7 @@ def status(food,at=None):
     now=time.time() if at is None else at
     level=fullness(food,now)
     return {"active":food is not None,"fullness":round(level,1),
-        "bonus_percent":round(level,1),"production_multiplier":round(1+level/100,4),
+        "bonus_percent":round(level*MAX_FOOD_BONUS,1),"production_multiplier":round(1+level*MAX_FOOD_BONUS/100,4),
         "decay_per_hour":DECAY_PER_HOUR,
         "next_empty_at":food["updated_at"]+food["fullness"]/DECAY_PER_SECOND if food else None}
 
@@ -69,7 +70,7 @@ def bonus_seconds(food,start,end):
     if right<=left:return 0.
     a=max(0.,f-DECAY_PER_SECOND*(left-base))
     b=max(0.,f-DECAY_PER_SECOND*(right-base))
-    return (right-left)*(a+b)/200.
+    return MAX_FOOD_BONUS*(right-left)*(a+b)/200.
 
 def eat(c,pid,item,qty,now=None):
     if item not in FOOD_RESTORE:raise ValueError("Item cannot be eaten")
