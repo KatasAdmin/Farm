@@ -9,30 +9,119 @@ import farm_wallet
 import ad_inventory
 import city_nutrition
 from production import GRAIN_PRICE
+from production_v4 import MILK_PRICE, WOOL_PRICE
+
+# Farm market prices are the only baseline; city products are priced from inputs.
+FARM_REFERENCE_PRICES = {"eggs": 1, "grain": GRAIN_PRICE, "milk": MILK_PRICE,
+                         "feathers": 5, "wool": WOOL_PRICE}
+
+def recipe_price_guides():
+    """Suggested prices, not enforced sale prices or guaranteed profits."""
+    guides = {}
+    for key, recipe in RECIPES.items():
+        raw = sum(FARM_REFERENCE_PRICES[item] * qty for item, qty in recipe["needs"].items())
+        # Nested products use their own suggested unit cost (no circular recipes).
+        nested = sum(guides[item]["suggested_unit_price"] * qty
+                     for item, qty in recipe.get("needs_products", {}).items())
+        cost = raw + nested
+        units = recipe["output"]
+        suggested = (cost * 125 + 100 * units - 1) // (100 * units)
+        guides[key] = {"batch_input_cost": cost, "batch_output": units,
+                       "suggested_unit_price": max(1, suggested),
+                       "batch_seconds": recipe["seconds"]}
+    return guides
+
+
+def business_investment_guides(batches_per_day=8, sell_through=0.8):
+    """Indicative 20-30 day investments, not charges or guaranteed returns.
+
+    Assumes each business concentrates on its first recipe. Players can freely
+    select other recipes and market prices; unsold inventory earns nothing.
+    """
+    if batches_per_day <= 0 or not 0 <= sell_through <= 1:
+        raise ValueError("Invalid business assumptions")
+    guides = recipe_price_guides()
+    result = {}
+    for kind in BUSINESSES:
+        recipe_key = next(key for key, spec in RECIPES.items()
+                          if spec["business"] == kind)
+        spec = RECIPES[recipe_key]
+        quote = guides[recipe_key]
+        margin = (quote["suggested_unit_price"] * spec["output"] * sell_through
+                  - quote["batch_input_cost"])
+        daily = max(0, margin * batches_per_day)
+        result[kind] = {
+            "reference_recipe": recipe_key,
+            "assumed_batches_per_day": batches_per_day,
+            "assumed_sell_through": sell_through,
+            "estimated_daily_profit": round(daily, 2),
+            "target_investment_20_days": round(daily * 20),
+            "target_investment_30_days": round(daily * 30),
+            "pricing_is_advisory": True,
+        }
+    return result
+
+
+def food_value_guides():
+    """Break-even farm output at zero fullness; avoids claiming universal ROI.
+
+    A meal's bonus is the integral of fullness over time. Multiple meals,
+    existing fullness and idle farms change the actual value.
+    """
+    prices = recipe_price_guides()
+    guides = {}
+    for item, restore in city_nutrition.FOOD_RESTORE.items():
+        # Fullness decays linearly at five percentage points per hour.
+        equivalent_extra_hours = (restore / city_nutrition.DECAY_PER_HOUR) * restore / 200 * city_nutrition.MAX_FOOD_BONUS
+        price = prices[item]["suggested_unit_price"]
+        guides[item] = {
+            "suggested_price": price,
+            "restore_fullness": restore,
+            "bonus_equivalent_hours_from_empty": round(equivalent_extra_hours, 3),
+            "break_even_farm_daily_output_coins": round(
+                24 * price / equivalent_extra_hours, 2),
+            "estimate_only": True,
+        }
+    return guides
+
+# Capacity is tied to paid business upgrades, not unlimited instant jobs.
+# The initial bakery remains free to avoid locking new players out.
+BUSINESS_UPGRADE_BASE = {"bakery": 120, "restaurant": 180, "dairy": 240,
+                         "atelier": 240, "store": 200}
+MAX_BUSINESS_LEVEL = 10
+
+def business_upgrade_cost(kind, current_level):
+    if kind not in BUSINESS_UPGRADE_BASE or not 1 <= current_level < MAX_BUSINESS_LEVEL:
+        raise ValueError("No upgrade available")
+    return BUSINESS_UPGRADE_BASE[kind] * current_level
+
+def business_batch_limit(level):
+    return min(20, max(1, 2 * level))
+
 
 router = APIRouter(prefix="/api/city", tags=["city"])
 INGREDIENTS = ("eggs", "grain", "milk", "feathers", "wool")
 MATERIALS = {"feathers", "wool"}
 ANIMALS = ("chickens","geese","cows","sheep")
 RECIPES = {
-    "pancakes": {"name": "Блины", "business": "bakery", "needs": {"eggs": 4, "grain": 3, "milk": 1}, "output": 2, "seconds": 30},
-    "pie": {"name": "Пирог", "business": "bakery", "needs": {"eggs": 8, "grain": 5}, "output": 1, "seconds": 45},
-    "omelet": {"name": "Омлет", "business": "restaurant", "needs": {"eggs": 5, "milk": 1}, "output": 1, "seconds": 30},
-    "cheese": {"name": "Сыр", "business": "dairy", "needs": {"milk": 5}, "output": 2, "seconds": 45},
-    "yogurt": {"name": "Йогурт", "business": "dairy", "needs": {"milk": 3}, "output": 2, "seconds": 35},
-    "bread": {"name": "Хлеб", "business": "bakery", "needs": {"grain": 5}, "output": 2, "seconds": 30},
-    "pillow": {"name": "Подушка", "business": "atelier", "needs": {"feathers": 4, "wool": 2}, "output": 1, "seconds": 60},
-    "scarf": {"name": "Шарф", "business": "atelier", "needs": {"wool": 6}, "output": 1, "seconds": 60},
+    "pancakes": {"name": "Блины", "business": "bakery", "needs": {"eggs": 4, "grain": 3, "milk": 1}, "output": 2, "seconds": 2400},
+    "pie": {"name": "Пирог", "business": "bakery", "needs": {"eggs": 8, "grain": 5}, "output": 1, "seconds": 2700},
+    "omelet": {"name": "Омлет", "business": "restaurant", "needs": {"eggs": 5, "milk": 1}, "output": 1, "seconds": 1800},
+    "cheese": {"name": "Сыр", "business": "dairy", "needs": {"milk": 5}, "output": 2, "seconds": 2700},
+    "yogurt": {"name": "Йогурт", "business": "dairy", "needs": {"milk": 3}, "output": 2, "seconds": 2100},
+    "bread": {"name": "Хлеб", "business": "bakery", "needs": {"grain": 5}, "output": 2, "seconds": 1800},
+    "pillow": {"name": "Подушка", "business": "atelier", "needs": {"feathers": 4, "wool": 2}, "output": 1, "seconds": 3600},
+    "scarf": {"name": "Шарф", "business": "atelier", "needs": {"wool": 6}, "output": 1, "seconds": 3600},
     # Second-stage recipes give other businesses a reason to buy goods made
     # by bakers, dairies and textile workshops rather than only raw resources.
     "breakfast_set": {"name": "Фирменный завтрак", "business": "restaurant",
-        "needs": {"eggs": 2}, "needs_products": {"bread": 1, "cheese": 1}, "output": 1, "seconds": 75},
+        "needs": {"eggs": 2}, "needs_products": {"bread": 1, "cheese": 1}, "output": 1, "seconds": 4500},
     "dessert_box": {"name": "Десертный набор", "business": "restaurant",
-        "needs": {"milk": 2}, "needs_products": {"pancakes": 2, "pie": 1}, "output": 1, "seconds": 90},
+        "needs": {"milk": 2}, "needs_products": {"pancakes": 2, "pie": 1}, "output": 1, "seconds": 5400},
     "home_set": {"name": "Домашний уют", "business": "store",
-        "needs": {}, "needs_products": {"pillow": 1, "scarf": 1}, "output": 1, "seconds": 100},
+        "needs": {}, "needs_products": {"pillow": 1, "scarf": 1}, "output": 1, "seconds": 6000},
     "lunch_box": {"name": "Обед с собой", "business": "store",
-        "needs": {}, "needs_products": {"omelet": 1, "bread": 1}, "output": 1, "seconds": 70},
+        "needs": {}, "needs_products": {"omelet": 1, "bread": 1}, "output": 1, "seconds": 4200},
 }
 BUSINESSES = {
     "bakery": {"name": "Пекарня", "emoji": "🥐", "open_cost": 0, "min_reputation": 0},
@@ -291,6 +380,10 @@ def state(authorization: str=Header(default=""), compact: bool=False):
         now=time.time()
         snapshot={"system_grain_price":GRAIN_PRICE,"name":p["name"],"coins":p["coins"],"businesses":list(business_levels),
             "business_levels":business_levels,
+            "business_upgrade_prices":{kind:business_upgrade_cost(kind,level)
+                for kind,level in business_levels.items() if level<MAX_BUSINESS_LEVEL},
+            "business_batch_limits":{kind:business_batch_limit(level)
+                for kind,level in business_levels.items()},
             "raw_catalog":{item:offer for item,offer in market_catalog.items() if item in INGREDIENTS},
             "animal_catalog":{item:offer for item,offer in market_catalog.items() if item in ANIMALS},
             "city_catalog":city_catalog,
@@ -299,7 +392,11 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "stock":_counts(c,"city_stock",p["id"]),
             "farm_feathers":int(p.get("feathers",0)),
             "products":_counts(c,"city_products",p["id"]),
-            "recipes":RECIPES,"business_catalog":BUSINESSES,
+            "recipes":RECIPES,"price_guides":recipe_price_guides(),
+            "farm_reference_prices":FARM_REFERENCE_PRICES,
+            "business_investment_guides":business_investment_guides(),
+            "food_value_guides":food_value_guides(),
+            "business_catalog":BUSINESSES,
             "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
             "resident_orders":daily_orders(c,p["id"],now),
             "reputation":int(rep["points"]) if rep else 0}
@@ -347,6 +444,32 @@ def open_business(q:Action, authorization: str=Header(default="")):
             if not paid:raise HTTPException(409,f"Для открытия нужно {required} перьев на ферме")
         c.execute("INSERT INTO city_businesses VALUES(%s,%s,1,%s)",(p["id"],q.item,time.time()))
     return {"ok":True}
+
+@router.post("/upgrade-business")
+def upgrade_business(q:Action, authorization:str=Header(default="")):
+    if q.item not in BUSINESSES:
+        raise HTTPException(400,"Неизвестное предприятие")
+    with _db() as c:
+        p=_auth(c,authorization,True)
+        c.execute("SELECT pg_advisory_xact_lock(1984533)")
+        previous=_request(c,q,p["id"],"upgrade_business")
+        if previous is not None:return previous
+        row=c.execute("SELECT level FROM city_businesses WHERE player_id=%s AND kind=%s FOR UPDATE",
+                      (p["id"],q.item)).fetchone()
+        if not row:raise HTTPException(403,"Сначала откройте предприятие")
+        level=int(row["level"])
+        if level>=MAX_BUSINESS_LEVEL:raise HTTPException(409,"Достигнут максимальный уровень")
+        cost=business_upgrade_cost(q.item,level)
+        paid=c.execute("UPDATE players SET coins=coins-%s WHERE id=%s AND coins>=%s RETURNING coins",
+                       (cost,p["id"],cost)).fetchone()
+        if not paid:raise HTTPException(400,"Недостаточно монет")
+        c.execute("UPDATE city_businesses SET level=level+1 WHERE player_id=%s AND kind=%s",
+                  (p["id"],q.item))
+        c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
+        result={"ok":True,"level":level+1,"spent":cost,
+                "max_batch":business_batch_limit(level+1)}
+        _finish_request(c,q,result)
+    return result
 
 @router.post("/buy-ingredient")
 def buy_ingredient(q:Action,authorization:str=Header(default="")):
@@ -423,13 +546,27 @@ def produce(q:Action,authorization:str=Header(default="")):
     _amount(q.amount,20)
     with _db() as c:
         p=_auth(c,authorization,True)
+        c.execute("SELECT pg_advisory_xact_lock(1984533)")
         if q.request_id:
             previous=_request(c,q,p["id"],"produce")
             if previous is not None:return previous
         _settle(c,p["id"])
-        opened=c.execute("SELECT 1 FROM city_businesses WHERE player_id=%s AND kind=%s",
+        opened=c.execute("SELECT level FROM city_businesses WHERE player_id=%s AND kind=%s",
                          (p["id"],recipe["business"])).fetchone()
         if not opened:raise HTTPException(403,"Сначала откройте предприятие")
+        if q.amount>business_batch_limit(int(opened["level"])):
+            raise HTTPException(409,"Увеличьте уровень предприятия для такой партии")
+        # Concurrent production capacity, not merely a per-request batch cap.
+        # A single enterprise cannot bypass its level by submitting many jobs.
+        now=time.time()
+        pending=c.execute("""SELECT COALESCE(SUM(j.quantity),0) AS units
+            FROM city_jobs j WHERE j.player_id=%s AND j.ready_at>%s
+            AND j.recipe=ANY(%s)""",
+            (p["id"],now,[key for key,spec in RECIPES.items()
+                           if spec["business"]==recipe["business"]])).fetchone()
+        occupied=int(pending["units"]) if pending else 0
+        if occupied+q.amount>business_batch_limit(int(opened["level"])):
+            raise HTTPException(409,"Все производственные мощности заняты. Дождитесь завершения или улучшите предприятие")
         for item,qty in recipe["needs"].items():
             changed=c.execute("""UPDATE city_stock SET quantity=quantity-%s
                 WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
