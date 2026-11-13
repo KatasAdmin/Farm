@@ -20,6 +20,11 @@ async function api(path,body){
   const json=await response.json();
   if(!response.ok){const err=Error(json.detail||"Сервер отклонил запрос");err.status=response.status;throw err}
   return json;
+ }catch(error){
+  if(body!==undefined&&(error?.name==="AbortError"||error instanceof TypeError)){
+   throw Error("Соединение прервалось. Результат действия неизвестен — проверь склад и баланс перед повтором.");
+  }
+  throw error;
  }finally{clearTimeout(timeout)}
 }
 async function entry(){
@@ -188,15 +193,15 @@ async function action(action,item,amountId,listingId){
  else if(action==="fulfill"){path="/fulfill-order"}
  else return;
  working=true;
+ if(["raw","product","produce","list","consume","fulfill"].includes(action)){
+  body.request_id=(globalThis.crypto?.randomUUID?.()||(Date.now().toString(16)+Math.floor(Math.random()*1e15).toString(16)).padEnd(32,"a")).replaceAll("-","").slice(0,32);
+ }
  if(action==="raw"||action==="product"){
   try{
    const quote=await api(action==="raw"?"/quote-ingredient":"/quote-product",{item,amount:body.amount});
    body.expected_cost=quote.cost;
    if(!confirm("Покупка "+body.amount+" шт. за "+number(quote.cost)+" монет у "+quote.sellers+" продавцов. Подтвердить?")){working=false;return}
   }catch(e){toast(e.message);working=false;return}
- }
- if(action==="raw"||action==="product"){
-  body.request_id=(globalThis.crypto?.randomUUID?.()||(Date.now().toString(16)+Math.floor(Math.random()*1e15).toString(16)).padEnd(32,"a")).replaceAll("-","").slice(0,32);
  }
  try{const result=await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар выставлен в городе":action==="open"?"Предприятие открыто!":"Готово!");
  await load();
