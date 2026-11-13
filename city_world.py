@@ -64,8 +64,27 @@ def initialize(c):
     c.execute("""CREATE TABLE IF NOT EXISTS city_requests(
         id text PRIMARY KEY, player_id text NOT NULL, action text NOT NULL,
         item text NOT NULL, quantity integer NOT NULL, result jsonb)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS city_daily_orders(
+        player_id text NOT NULL, day text NOT NULL, order_id text NOT NULL,
+        completed_at double precision NOT NULL,
+        PRIMARY KEY(player_id,day,order_id))""")
     c.execute("""CREATE TABLE IF NOT EXISTS city_reputation(
         player_id text PRIMARY KEY, points bigint NOT NULL DEFAULT 0 CHECK(points>=0))""")
+
+def daily_orders(c,pid):
+    day=time.strftime("%Y-%m-%d",time.gmtime())
+    rotation=int(time.time()//86400)
+    lineup=(
+        ("breakfast",("bread","pancakes","pie"),15),
+        ("lunch",("omelet","cheese"),25),
+        ("comfort",("pillow","scarf"),35),
+    )
+    finished={r["order_id"] for r in c.execute(
+        "SELECT order_id FROM city_daily_orders WHERE player_id=%s AND day=%s",
+        (pid,day)).fetchall()}
+    return [{"id":key,"recipe":options[rotation%len(options)],
+        "quantity":1,"reputation":reward,"done":key in finished}
+        for key,options,reward in lineup]
 
 def _auth(c, authorization, write=False):
     return _person(c, authorization, write)
@@ -164,6 +183,7 @@ def state(authorization: str=Header(default="")):
             "recipes":RECIPES,"business_catalog":BUSINESSES,
             "farm_offers":offers,"city_offers":city_offers,
             "my_city_offers":my_city_offers,"jobs":jobs,
+            "resident_orders":daily_orders(c,p["id"]),
             "reputation":int(rep["points"]) if rep else 0}
 
 @router.post("/open")
@@ -328,6 +348,27 @@ def buy_product(q:Action,authorization:str=Header(default="")):
         result={"ok":True,"spent":cost}
         _finish_request(c,q,result)
     return result
+
+@router.post("/fulfill-order")
+def fulfill_order(q:Action,authorization:str=Header(default="")):
+    if q.item not in ("breakfast","lunch","comfort"):
+        raise HTTPException(400,"Неизвестный заказ")
+    with _db() as c:
+        p=_auth(c,authorization,True)
+        _settle(c,p["id"])
+        order=next(x for x in daily_orders(c,p["id"]) if x["id"]==q.item)
+        if order["done"]:raise HTTPException(409,"Сегодня этот заказ уже выполнен")
+        changed=c.execute("""UPDATE city_products SET quantity=quantity-%s
+            WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
+            (order["quantity"],p["id"],order["recipe"],order["quantity"])).fetchone()
+        if not changed:raise HTTPException(409,"Нужен товар: "+RECIPES[order["recipe"]]["name"])
+        day=time.strftime("%Y-%m-%d",time.gmtime())
+        c.execute("INSERT INTO city_daily_orders VALUES(%s,%s,%s,%s)",
+            (p["id"],day,q.item,time.time()))
+        c.execute("""INSERT INTO city_reputation(player_id,points) VALUES(%s,%s)
+            ON CONFLICT(player_id) DO UPDATE SET points=city_reputation.points+EXCLUDED.points""",
+            (p["id"],order["reputation"]))
+    return {"ok":True,"reputation_earned":order["reputation"]}
 
 @router.post("/consume")
 def consume(q:Action,authorization:str=Header(default="")):
