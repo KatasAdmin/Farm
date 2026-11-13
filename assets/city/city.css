@@ -158,3 +158,32 @@ body{background:radial-gradient(ellipse at 80% -8%,rgba(109,79,143,.50),transpar
 .auth-surface{background:radial-gradient(circle at 50% 30%,#4e4560,#171a2b)}
 .auth-box{background:linear-gradient(155deg,#39334e,#1e303e);border-color:#b1b7a457}
 @media(prefers-reduced-motion:reduce){.wallet-trigger{transition:none}}
+
+/* City palette and independent map controls. */
+:root{--ink:#fff3ff;--muted:#c9b7dd;--gold:#ffcf74;background:#141023}
+body{background:radial-gradient(ellipse at 50% 0,#482458 0,#22152e 40%,#100e1c 86%)}
+.world-frame{border-color:#654179;box-shadow:0 14px 38px #0a0715,0 0 12px #b277f155}
+.topbar .counter,.stat,.quick-action,.bottom-nav,.city-panel,#panel-body .item-card{
+ color:var(--ink);border-color:#9a70b575;background:linear-gradient(140deg,#39234b,#22182f)
+}
+.bottom-nav button.nav-active,.city-market-tabs .btn[aria-pressed=true],#panel-body .btn:not(.ghost):not(.gold){
+ background:linear-gradient(145deg,#197858,#084733);color:#f0fffa
+}
+.profile-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+.profile-links button,.map-warehouse{min-height:44px}
+.store-building{left:37%;top:7%}
+.store-building .roof{background:linear-gradient(155deg,#63a57b 55%,#285642 56%)}
+.map-warehouse{position:absolute;z-index:5;bottom:4%;left:48%;border:1px solid #ffd48c;
+ border-radius:10px;background:#261b39;color:#ffe2a7;padding:5px 9px}
+.building[data-level]::after{content:attr(data-level);position:absolute;top:100%;left:50%;transform:translateX(-50%);
+ z-index:2;white-space:nowrap;font-size:11px;border-radius:7px;padding:2px 5px;background:#22182f;color:#fff}
+.building.upgraded .window{background:#ffcd74;box-shadow:0 0 9px #ffdc81}
+.city-tutorial{display:grid;gap:10px;padding-left:22px;line-height:1.5}
+.tree,.car,.citizen{animation:none}
+@media(max-width:480px){
+ .topbar{flex-wrap:wrap;gap:7px}
+ .top-counters{justify-content:space-between;flex:1 1 100%;gap:4px}
+ .top-counters .counter{min-height:44px}
+ .world{aspect-ratio:1.28}
+ .map-warehouse{left:50%;bottom:2%;font-size:11px}
+}

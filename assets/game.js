@@ -1407,11 +1407,13 @@ async function refresh() {
       hideStartup();
       const entryParams=new URLSearchParams(location.search);
       const marketItem=entryParams.get("market");
-      if(entryParams.get("food")==="1"){
+      if(entryParams.get("wallet")==="1" || entryParams.get("food")==="1"){
+        const target=entryParams.get("wallet")==="1"?"wallet":"production";
+        entryParams.delete("wallet");
         entryParams.delete("food");
         const search=entryParams.toString();
         history.replaceState(null,"",location.pathname+(search?"?"+search:"")+location.hash);
-        tab("production");
+        tab(target);
       }else if(["chickens","geese","cows","sheep"].includes(marketItem)){
         tab("shop");
         history.replaceState(null,"",location.pathname+location.hash);

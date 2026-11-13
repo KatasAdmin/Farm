@@ -194,6 +194,90 @@ def initialize(c):
     c.execute("""CREATE TABLE IF NOT EXISTS city_reputation(
         player_id text PRIMARY KEY, points bigint NOT NULL DEFAULT 0 CHECK(points>=0))""")
 
+    c.execute("""CREATE TABLE IF NOT EXISTS city_progress_log(
+        player_id text NOT NULL, source text NOT NULL, kind text NOT NULL,
+        created double precision NOT NULL, xp integer NOT NULL CHECK(xp>=0),
+        reputation integer NOT NULL DEFAULT 0 CHECK(reputation>=0),
+        read boolean NOT NULL DEFAULT false, PRIMARY KEY(player_id,source))""")
+    c.execute("""CREATE INDEX IF NOT EXISTS city_progress_recent
+        ON city_progress_log(player_id,created DESC)""")
+
+
+CITY_XP_THRESHOLDS = (0, 50, 150, 300, 550, 900, 1400, 2100, 3000, 4200,
+                      5800, 8000, 10500, 13500, 17000)
+
+
+def _progress_event(c, pid, source, kind, now, xp, reputation=0):
+    c.execute("""INSERT INTO city_progress_log(player_id,source,kind,created,xp,reputation)
+        VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(player_id,source) DO NOTHING""",
+        (pid, source, kind, now, xp, reputation))
+
+
+def _progress_summary(c, pid):
+    stats = c.execute("""SELECT COALESCE(SUM(xp),0) AS xp,
+        COUNT(*) FILTER (WHERE NOT read) AS unread
+        FROM city_progress_log WHERE player_id=%s""", (pid,)).fetchone()
+    orders = c.execute("SELECT COUNT(*) AS n FROM city_daily_orders WHERE player_id=%s",
+                       (pid,)).fetchone()["n"]
+    xp = int(stats["xp"])
+    level = sum(xp >= threshold for threshold in CITY_XP_THRESHOLDS)
+    return {"xp": xp, "level": level, "level_xp": CITY_XP_THRESHOLDS[level-1],
+            "next_xp": CITY_XP_THRESHOLDS[level] if level < len(CITY_XP_THRESHOLDS) else None,
+            "orders": orders, "unread": stats["unread"]}
+
+
+ACHIEVEMENTS = (
+    ("entrepreneur", "Первый предприниматель", "Открыть предприятие", 1, 20),
+    ("baker", "Пекарь", "Произвести хлеб", 100, 40),
+    ("merchant", "Торговец", "Продать готовые товары другим игрокам", 100, 40),
+    ("resident", "Любимец жителей", "Выполнить заказы жителей", 50, 60),
+    ("industrialist", "Промышленник", "Улучшить предприятие до уровня", 5, 60),
+    ("tycoon", "Магнат города", "Открыть предприятия", len(BUSINESSES), 100),
+)
+
+
+def _achievements(c, pid, now):
+    counts = c.execute("""SELECT
+        (SELECT COUNT(*) FROM city_businesses WHERE player_id=%(pid)s) AS businesses,
+        (SELECT COALESCE(MAX(level),0) FROM city_businesses WHERE player_id=%(pid)s) AS business_level,
+        (SELECT COALESCE(SUM(quantity),0) FROM city_production_history
+            WHERE player_id=%(pid)s AND recipe='bread' AND ready_at<=%(now)s) AS bread,
+        (SELECT COALESCE(SUM(quantity),0) FROM city_receipts
+            WHERE seller=%(pid)s AND buyer<>seller) AS sales,
+        (SELECT COUNT(*) FROM city_daily_orders WHERE player_id=%(pid)s) AS orders
+        """, {"pid": pid, "now": now}).fetchone()
+    values = (counts["businesses"], counts["bread"], counts["sales"], counts["orders"],
+              counts["business_level"], counts["businesses"])
+    achieved = []
+    for (key, name, description, goal, xp), value in zip(ACHIEVEMENTS, values):
+        done = value >= goal
+        if done:
+            _progress_event(c, pid, "achievement:" + key, "achievement", now, xp)
+        achieved.append({"name": name, "description": description, "goal": goal,
+                         "value": value, "xp": xp, "done": done})
+    return achieved
+
+
+@router.get("/progress-log")
+def progress_log(authorization: str = Header(default="")):
+    with _db() as c:
+        pid = _auth(c, authorization)["id"]
+        return c.execute("""SELECT source,kind,created,xp,reputation,read
+            FROM city_progress_log WHERE player_id=%s
+            ORDER BY created DESC,source LIMIT 100""", (pid,)).fetchall()
+
+
+@router.post("/read-progress-log")
+def read_progress_log(sources: list[str], authorization: str = Header(default="")):
+    if len(sources) > 100 or any(len(source) > 160 for source in sources):
+        raise HTTPException(400, "Слишком много уведомлений")
+    with _db() as c:
+        pid = _auth(c, authorization)["id"]
+        c.execute("""UPDATE city_progress_log SET read=true
+            WHERE player_id=%s AND source=ANY(%s) AND NOT read""", (pid, sources))
+    return {"ok": True}
+
+
 def daily_orders(c,pid,now=None):
     now=time.time() if now is None else now
     day=time.strftime("%Y-%m-%d",time.gmtime(now))
@@ -220,13 +304,17 @@ def _counts(c, table, pid):
         "SELECT item,quantity FROM "+table+" WHERE player_id=%s AND quantity>0", (pid,)).fetchall()}
 
 def _settle(c, pid):
-    jobs=c.execute("SELECT * FROM city_jobs WHERE player_id=%s AND ready_at<=%s FOR UPDATE",(pid,time.time())).fetchall()
+    jobs=c.execute("SELECT * FROM city_jobs WHERE player_id=%s AND ready_at<=%s ORDER BY ready_at,id FOR UPDATE",(pid,time.time())).fetchall()
     for job in jobs:
         recipe=RECIPES[job["recipe"]]
         c.execute("""INSERT INTO city_products(player_id,item,quantity) VALUES(%s,%s,%s)
             ON CONFLICT(player_id,item) DO UPDATE
             SET quantity=city_products.quantity+EXCLUDED.quantity""",
             (pid,job["recipe"],job["quantity"]*recipe["output"]))
+        ready = job["ready_at"]
+        _progress_event(c, pid, "production-day:" + str(int(ready // 86400)),
+                        "production_xp", ready, 5)
+        _progress_event(c, pid, "production:" + job["id"], "production", ready, 0)
         c.execute("DELETE FROM city_jobs WHERE id=%s",(job["id"],))
     return len(jobs)
 
@@ -400,6 +488,8 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
             "resident_orders":daily_orders(c,p["id"],now),
             "reputation":int(rep["points"]) if rep else 0}
+        snapshot["achievements"] = _achievements(c, p["id"], now)
+        snapshot["progress"] = _progress_summary(c, p["id"])
         if compact:
             return snapshot
 
@@ -460,12 +550,17 @@ def upgrade_business(q:Action, authorization:str=Header(default="")):
         level=int(row["level"])
         if level>=MAX_BUSINESS_LEVEL:raise HTTPException(409,"Достигнут максимальный уровень")
         cost=business_upgrade_cost(q.item,level)
+        if q.expected_cost != -1 and q.expected_cost != cost:
+            raise HTTPException(409,"Стоимость улучшения изменилась. Откройте предприятие заново")
         paid=c.execute("UPDATE players SET coins=coins-%s WHERE id=%s AND coins>=%s RETURNING coins",
                        (cost,p["id"],cost)).fetchone()
         if not paid:raise HTTPException(400,"Недостаточно монет")
         c.execute("UPDATE city_businesses SET level=level+1 WHERE player_id=%s AND kind=%s",
                   (p["id"],q.item))
         c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(cost,))
+        now = time.time()
+        _progress_event(c, p["id"], "upgrade-day:" + str(int(now // 86400)),
+                        "upgrade", now, 15)
         result={"ok":True,"level":level+1,"spent":cost,
                 "max_batch":business_batch_limit(level+1)}
         _finish_request(c,q,result)
@@ -666,8 +761,12 @@ def buy_product(q:Action,authorization:str=Header(default="")):
             c.execute("INSERT INTO money_log VALUES(%s,%s,'city_product_sale',%s,%s,%s)",
                       (log_id,row["seller"],receipt,q.item+" x"+str(n),time.time()))
             c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,0)",(log_id,receipt))
+            receipt_id = uuid.uuid4().hex
+            sold_at = time.time()
             c.execute("INSERT INTO city_receipts VALUES(%s,%s,%s,%s,%s,%s,%s)",
-                      (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,time.time()))
+                      (receipt_id,p["id"],row["seller"],q.item,n,receipt,sold_at))
+            if row["seller"] != p["id"]:
+                _progress_event(c, row["seller"], "sale:" + receipt_id, "sale", sold_at, 0)
         if cost:
             c.execute("INSERT INTO money_log VALUES(%s,%s,'city_product_buy',%s,%s,%s)",
                       (uuid.uuid4().hex,p["id"],-cost,q.item+" x"+str(q.amount),time.time()))
@@ -700,6 +799,8 @@ def fulfill_order(q:Action,authorization:str=Header(default="")):
         c.execute("""INSERT INTO city_reputation(player_id,points) VALUES(%s,%s)
             ON CONFLICT(player_id) DO UPDATE SET points=city_reputation.points+EXCLUDED.points""",
             (p["id"],order["reputation"]))
+        _progress_event(c, p["id"], "order:" + order["day"] + ":" + q.item,
+                        "order", now, 10, order["reputation"])
         result={"ok":True,"reputation_earned":order["reputation"]}
         if q.request_id:_finish_request(c,q,result)
     return result

@@ -71,6 +71,35 @@ class CityTransactions(unittest.TestCase):
         return city_world.Action(item=item,amount=amount,price=price,
             request_id=request_id,expected_cost=expected_cost,listing_id=listing_id)
 
+    def test_city_progress_is_awarded_once_for_orders_upgrades_and_completed_jobs(self):
+        auth = "Bearer t-buyer"
+        city_world.open_business(self.action("bakery"), authorization=auth)
+        upgrade = self.action("bakery", request_id=uuid.uuid4().hex)
+        self.assertEqual(city_world.upgrade_business(upgrade, authorization=auth),
+                         city_world.upgrade_business(upgrade, authorization=auth))
+        with self.connect() as c:
+            order = city_world.daily_orders(c, "buyer")[0]
+            city_world._add_product(c, "city_products", "buyer", order["recipe"], 1)
+            for _ in range(2):
+                c.execute("INSERT INTO city_jobs VALUES(%s,%s,%s,%s,%s)",
+                          (uuid.uuid4().hex, "buyer", "bread", 1, city_world.time.time() - 10))
+        order_action = self.action(order["id"], request_id=uuid.uuid4().hex)
+        self.assertEqual(city_world.fulfill_order(order_action, authorization=auth),
+                         city_world.fulfill_order(order_action, authorization=auth))
+        snapshot = city_world.state(authorization=auth, compact=True)
+        self.assertEqual(snapshot["progress"]["xp"], 50)
+        self.assertEqual(snapshot["progress"]["level"], 2)
+        self.assertEqual(snapshot["progress"]["orders"], 1)
+        self.assertEqual(snapshot["reputation"], order["reputation"])
+        self.assertEqual(snapshot["products"]["bread"], 4)
+        events = city_world.progress_log(authorization=auth)
+        self.assertEqual(sum(event["kind"] == "production" for event in events), 2)
+        self.assertEqual(sum(event["kind"] == "production_xp" for event in events), 1)
+        city_world.read_progress_log([event["source"] for event in events], authorization=auth)
+        progress = city_world.state(authorization=auth, compact=True)["progress"]
+        self.assertEqual(progress["unread"], 0)
+        self.assertEqual(progress["xp"], 50)
+
     def test_single_use_promo_uses_existing_nonwithdrawable_farm_ledger(self):
         import hashlib
         import main

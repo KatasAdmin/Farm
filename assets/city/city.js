@@ -73,11 +73,17 @@ function paint(){
  receivedAt=performance.now();
  $("coins").textContent=number(data.coins);
  $("reputation").textContent=number(data.reputation);
- $("business-count").textContent=data.businesses.filter(kind=>kind!=="store").length+" открыто";
+ $("unread").textContent=number(data.progress?.unread);
+ $("business-count").textContent=data.businesses.length+" открыто";
  $("products-count").textContent=number(Object.values(data.products).reduce((a,b)=>a+b,0));
  $("jobs-count").textContent=data.jobs.length;
  $("orders-count").textContent=data.resident_orders.filter(order=>!order.done).length;
- document.querySelectorAll(".building").forEach(x=>x.classList.toggle("unlocked",data.businesses.includes(x.dataset.business)));
+ document.querySelectorAll(".building").forEach(x=>{
+  const level=data.business_levels[x.dataset.business];
+  x.classList.toggle("unlocked",Boolean(level));
+  x.classList.toggle("upgraded",level>1);
+  x.dataset.level=level?"Ур. "+level:"🔒";
+ });
  if(!$("panel-overlay").classList.contains("hidden"))refreshPanel();
  clearTimeout(jobTimer);
  if(data.jobs.length)jobTimer=setTimeout(()=>{if(!working&&document.visibilityState==="visible")load().catch(()=>{})},Math.max(1000,secondsLeft(data.jobs[0])*1000+300));
@@ -120,6 +126,8 @@ function refreshPanel(){
  if(activeView==="profile")return showProfile();
  if(activeView==="wallet")return showWallet();
  if(activeView==="residents")return showResidents();
+ if(activeView==="achievements")return showAchievements();
+ if(activeView==="help")return showHelp();
  if(activeView==="store")return showBusiness("store");
  if(activeView==="shopping")return showShoppingList(lastShoppingRecipe);
 }
@@ -159,19 +167,25 @@ function showBusiness(kind){
   body='<div class="empty">'+(ready?'✨ Условия выполнены — предприятие готово к открытию':'🔒 Нужно '+required+' ⭐ репутации'+(feathers?' и '+feathers+' 🪶 на ферме':'')+'. Сейчас '+data.reputation+' ⭐ и '+(data.farm_feathers||0)+' 🪶')+'</div>'+
    '<button class="btn gold" data-action="open" data-item="'+kind+'" '+(ready?'':'disabled')+'>🏙️ Открыть предприятие</button>'+(feathers?'<p class="city-help">🪶 Перья автоматически спишутся с фермы при открытии.</p>':'');
  }else{
-  body='<div class="badge-line"><span class="pill">Уровень '+level+'</span><span class="pill">Рецепты · '+recipes.length+'</span></div>';
+  const price=data.business_upgrade_prices[kind];
+  const capacity=data.business_batch_limits[kind];
+  if(price!==undefined)body+=row("Улучшение до уровня "+(level+1),
+   "Вместимость: "+capacity+" → "+Math.min(20,2*(level+1))+" партий · "+number(price)+" 🪙",
+   '<button class="btn gold" data-action="upgrade" data-item="'+kind+'">Улучшить</button>');
+  body+='<div class="badge-line"><span class="pill">Уровень '+level+'</span><span class="pill">Рецепты · '+recipes.length+'</span></div>';
  }
  body+=recipes.map(([item,recipe])=>{
   const needs=[
    ...Object.entries(recipe.needs).map(([key,n])=>[names[key],n,data.stock[key]||0]),
    ...Object.entries(recipe.needs_products||{}).map(([key,n])=>[data.recipes[key].name,n,data.products[key]||0])
   ];
-  const max=Math.min(20,...needs.map(([,n,stock])=>Math.floor(stock/n)));
+  const max=Math.min(data.business_batch_limits[kind]||1,...needs.map(([,n,stock])=>Math.floor(stock/n)));
   const details=needs.map(([name,n,stock])=>esc(name)+' <b>'+stock+'/'+n+'</b>').join(" · ");
   const actions=level?(max?input("qty-craft-"+item,1,max)+'<button class="btn" data-action="produce" data-item="'+item+'">Произвести</button>':'')+
     '<button class="btn ghost" data-action="shopping" data-item="'+item+'">'+(max?'Сырьё':'Закупить')+'</button>':'';
   return row((icons[item]||"📦")+" "+esc(recipe.name),
-   details+'<br>Партия '+recipe.output+' шт. · '+recipe.seconds+' сек.',actions);
+   details+'<br>Партия '+recipe.output+' шт. · '+formatTime(recipe.seconds)
+   +'<br>Оценка сырья: '+number(data.price_guides[item]?.batch_input_cost)+' 🪙 за партию · Рекомендация: '+number(data.price_guides[item]?.suggested_unit_price)+' 🪙/шт.' ,actions);
  }).join("");
  if(level){
   const jobs=data.jobs.filter(job=>data.recipes[job.recipe]?.business===kind);
@@ -235,18 +249,62 @@ function showResidents(){
   return row((icons[order.recipe]||"📦")+" "+esc(data.recipes[order.recipe].name),
    'Нужно '+order.quantity+' · Есть '+owned+' · +'+order.reputation+' ⭐',
    order.done?'<span class="pill">Выполнен</span>':
-   '<button class="btn gold" data-action="fulfill" data-item="'+esc(order.id)+'" '+(owned<order.quantity?'disabled':'')+'>'+(owned<order.quantity?'Не хватает товара':'Сдать')+'</button>');
+   owned<order.quantity?'<button class="btn ghost" data-action="order-market" data-item="'+esc(order.recipe)+'">Купить недостающее</button>':
+   '<button class="btn gold" data-action="fulfill" data-item="'+esc(order.id)+'">Выполнить</button>');
  }).join("");
  openPanel("👥 Заказы жителей",html);
 }
 function showWallet(){
  activeBusiness=null;
- const html='<div class="wallet-hero"><img src="/assets/redesign/coin.webp" alt="" class="wallet-hero-coin"><span>Единый баланс TREVIXO</span><strong>'+number(data.coins)+' <small>монет</small></strong><p>Монеты общие для фермы и города. Покупки и продажи сразу отражаются в одном кошельке.</p></div><div class="wallet-info"><span>🏙️ Город</span><span>🌾 Ферма</span><span>🪙 Один баланс</span></div><a class="btn gold wallet-farm-link" href="/">🌾 Перейти в кошелёк фермы</a><p class="city-help">На ферме нажми на баланс монет вверху экрана — откроются капитализация, пополнение и другие операции.</p>';
+ const html='<div class="wallet-hero"><img src="/assets/redesign/coin.webp" alt="" class="wallet-hero-coin"><span>Единый баланс TREVIXO</span><strong>'+number(data.coins)+' <small>монет</small></strong><p>Монеты общие для фермы и города. Покупки и продажи сразу отражаются в одном кошельке.</p></div><div class="wallet-info"><span>🏙️ Город</span><span>🌾 Ферма</span><span>🪙 Один баланс</span></div><a class="btn gold wallet-farm-link" href="/?wallet=1">🌾 Перейти в кошелёк фермы</a>';
  openPanel("🪙 Мой кошелёк",html);
 }
+const progressNames={production:"Производство завершено",production_xp:"Первая партия дня",
+ upgrade:"Улучшение предприятия",order:"Заказ жителя выполнен",achievement:"Достижение открыто",sale:"Товар продан"};
+
+async function showProgressLog(reputationOnly){
+ view(reputationOnly?"reputation":"notifications");
+ const current=activeView;
+ const title=reputationOnly?"⭐ Репутация":"🔔 Уведомления";
+ openPanel(title,'<p class="city-help" role="status">Загрузка…</p>');
+ try{
+  const events=await api("/progress-log");
+  if(activeView!==current)return;
+  const visible=reputationOnly?events.filter(event=>event.reputation>0):events;
+  const businesses=reputationOnly?Object.entries(data.business_catalog).map(([key,business])=>
+   row(esc(business.name),data.business_levels[key]?"Открыто":
+    business.min_reputation+" ⭐"+(business.feather_cost?" · "+business.feather_cost+" 🪶":""),"")).join(""):"";
+  openPanel(title,businesses+(visible.length?visible.map(event=>
+   row(esc(progressNames[event.kind]||event.kind),
+    new Date(event.created*1000).toLocaleString("ru-RU")+(event.xp?" · +"+event.xp+" XP":"")+
+     (event.reputation?" · +"+event.reputation+" ⭐":""),"")).join(""):
+   '<p class="empty">История пока пуста</p>'));
+  const unread=visible.filter(event=>!event.read);
+  if(!reputationOnly&&unread.length){
+   await api("/read-progress-log",unread.map(event=>event.source));
+   $("unread").textContent=number(Math.max(0,(data.progress?.unread||0)-unread.length));
+  }
+ }catch(error){if(activeView===current)openPanel(title,'<p class="empty">'+esc(error.message)+'</p>')}
+}
+
+function showAchievements(){
+ const entries=data.achievements||[];
+ openPanel("🏆 Достижения",entries.map(entry=>row(esc(entry.name),
+  esc(entry.description)+" · "+number(Math.min(entry.value,entry.goal))+" / "+number(entry.goal),
+  '<span class="pill">'+(entry.done?"Получено":"+"+entry.xp+" XP")+'</span>')).join(""));
+}
+
+function showHelp(){
+ openPanel("❔ Первые шаги",'<ol class="city-tutorial"><li><button class="btn ghost" data-action="navigate" data-item="businesses">Открой пекарню</button></li><li><button class="btn ghost" data-action="navigate" data-item="market">Купи сырьё</button></li><li>Выбери рецепт на предприятии, запусти партию и дождись её завершения.</li><li><button class="btn ghost" data-action="navigate" data-item="warehouse">Выставь готовый товар со склада</button></li><li><button class="btn ghost" data-action="navigate" data-item="residents">Выполни заказ жителя</button></li><li>Заказы дают репутацию для открытия предприятий. XP повышает уровень города.</li></ol>');
+}
+
 function showProfile(){
  activeBusiness=null;
  let html='<div class="profile-hero"><div class="profile-avatar">👤</div><div><span>Профиль жителя</span><strong>'+esc(data.name)+'</strong><small>⭐ '+number(data.reputation)+' репутации</small></div></div><button class="profile-wallet-button" data-action="wallet">🪙 Общий кошелёк <strong>'+number(data.coins)+' монет ›</strong></button>';
+ const progress=data.progress||{};
+ html+='<div class="badge-line"><span class="pill">Ур. '+number(progress.level)+'</span><span class="pill">'+number(progress.xp)+' XP'+(progress.next_xp?" / "+number(progress.next_xp):"")+'</span><span class="pill">Заказов · '+number(progress.orders)+'</span></div>';
+ const links={businesses:"🏙️ Мои бизнесы",warehouse:"📦 Склад",residents:"📋 Заказы жителей",market:"🛒 Магазин",achievements:"🏆 Достижения",help:"❔ Помощь"};
+ html+='<div class="profile-links">'+Object.entries(links).map(([target,label])=>'<button class="btn ghost" data-action="navigate" data-item="'+target+'">'+label+'</button>').join("")+'</div>';
  const finance=data.cashflow||{};
  html+='<h3 class="section-subtitle">📊 Финансы городских бизнесов</h3>';
  html+='<div class="mini-grid"><div class="mini-box"><small>📦 Закупки сырья</small><strong>'+number(finance.ingredient_spend||0)+' 🪙</strong></div><div class="mini-box"><small>🛍️ Покупки товаров</small><strong>'+number(finance.goods_purchases||0)+' 🪙</strong></div><div class="mini-box"><small>💰 Продажи товаров</small><strong>'+number(finance.goods_sales||0)+' 🪙</strong></div><div class="mini-box"><small>📈 Денежный поток</small><strong>'+number(finance.net||0)+' 🪙</strong></div></div>';
@@ -287,12 +345,24 @@ async function action(action,item,amountId,listingId){
  const amount=amountId?getAmount(amountId):null;
  if(amountId&&amount===null)return;
  let path,body={item};
+ if(action==="navigate")return view(item);
+ if(action==="order-market"){
+  marketCategory=data.food_items.includes(item)?"food":"products";
+  view("market");
+  $("qty-market-"+item)?.focus();
+  return;
+ }
  if(action==="wallet")return view("wallet");
  if(action==="category"){marketCategory=item;return showMarket()}
  if(action==="market")return view("market");
  if(action==="shopping"){lastShoppingRecipe=item;return showShoppingList(item)}
  if(action==="business"){return showBusiness(item)}
- if(action==="open")path="/open";
+ if(action==="upgrade"){
+  const price=data.business_upgrade_prices[item],level=data.business_levels[item];
+  if(price===undefined||!confirm("Улучшить до уровня "+(level+1)+" за "+number(price)+" монет?"))return;
+  path="/upgrade-business";body.expected_cost=price;
+ }
+ else if(action==="open")path="/open";
  else if(action==="produce"){path="/produce";body.amount=getAmount("qty-craft-"+item);if(!body.amount)return}
  else if(action==="raw"){path="/buy-ingredient";body.amount=amount}
  else if(action==="product"){path="/buy-product";body.amount=amount}
@@ -301,7 +371,7 @@ async function action(action,item,amountId,listingId){
  else if(action==="fulfill"){path="/fulfill-order";body.order_day=data.resident_orders.find(order=>order.id===item)?.day}
  else return;
  working=true;
- if(["raw","product","produce","list","cancel","fulfill"].includes(action)){
+ if(["raw","product","produce","list","cancel","fulfill","upgrade"].includes(action)){
   body.request_id=(globalThis.crypto?.randomUUID?.()||(Date.now().toString(16)+Math.floor(Math.random()*1e15).toString(16)).padEnd(32,"a")).replaceAll("-","").slice(0,32);
  }
  if(action==="raw"||action==="product"){
@@ -318,6 +388,9 @@ async function action(action,item,amountId,listingId){
 }
 document.querySelectorAll(".building").forEach(x=>x.addEventListener("click",()=>{if(data){activeView="business";showBusiness(x.dataset.business)}}));
 document.querySelectorAll(".bottom-nav button").forEach(x=>x.addEventListener("click",()=>view(x.dataset.view)));
+$("map-warehouse").addEventListener("click",()=>view("warehouse"));
+$("view-reputation").addEventListener("click",()=>showProgressLog(true));
+$("view-notifications").addEventListener("click",()=>showProgressLog(false));
 $("view-businesses").addEventListener("click",()=>view("businesses"));
 $("view-orders").addEventListener("click",()=>view("warehouse"));
 $("view-jobs").addEventListener("click",()=>view("jobs"));
