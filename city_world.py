@@ -72,6 +72,11 @@ def initialize(c):
         id text PRIMARY KEY, buyer text NOT NULL, seller text NOT NULL,
         item text NOT NULL, quantity integer NOT NULL, coins integer NOT NULL,
         created double precision NOT NULL)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS city_raw_receipts(
+        id text PRIMARY KEY, buyer text NOT NULL, seller text NOT NULL, item text NOT NULL,
+        quantity integer NOT NULL CHECK(quantity>0), coins integer NOT NULL CHECK(coins>=0),
+        created double precision NOT NULL)""")
+    c.execute("CREATE INDEX IF NOT EXISTS city_raw_receipts_created_item ON city_raw_receipts(created,item)")
     c.execute("""CREATE TABLE IF NOT EXISTS city_requests(
         id text PRIMARY KEY, player_id text NOT NULL, action text NOT NULL,
         item text NOT NULL, quantity integer NOT NULL, result jsonb)""")
@@ -189,6 +194,17 @@ def state(authorization: str=Header(default="")):
             JOIN players p ON p.id=l.seller
             WHERE l.quantity>0 AND l.seller<>%s AND l.item=ANY(%s)
             ORDER BY l.item,l.price,l.id LIMIT 70""",(p["id"],list(INGREDIENTS))).fetchall()
+        all_raw=c.execute("""SELECT item,COALESCE(SUM(quantity),0)::bigint AS n
+            FROM market WHERE quantity>0 AND item=ANY(%s) GROUP BY item""",
+            (list(INGREDIENTS),)).fetchall()
+        farm_market_totals={r["item"]:int(r["n"]) for r in all_raw}
+        today_start=time.time()-(time.time()%86400)
+        raw_daily=c.execute("""SELECT item,COALESCE(SUM(quantity),0)::bigint AS n
+            FROM city_raw_receipts WHERE created>=%s GROUP BY item""",(today_start,)).fetchall()
+        raw_purchased_today={r["item"]:int(r["n"]) for r in raw_daily}
+        city_daily=c.execute("""SELECT COUNT(*)::int AS transactions,
+            COALESCE(SUM(coins),0)::bigint AS coins
+            FROM city_receipts WHERE created>=%s""",(today_start,)).fetchone()
         my_city_offers=c.execute("SELECT id,item,quantity,price FROM city_listings WHERE seller=%s AND quantity>0 ORDER BY created DESC",(p["id"],)).fetchall()
         city_offers=c.execute("""SELECT l.id,l.item,l.price,l.quantity,p.name AS seller
             FROM city_listings l JOIN players p ON p.id=l.seller
@@ -200,6 +216,10 @@ def state(authorization: str=Header(default="")):
             "products":_counts(c,"city_products",p["id"]),
             "recipes":RECIPES,"business_catalog":BUSINESSES,
             "farm_offers":offers,"city_offers":city_offers,
+            "farm_market_totals":farm_market_totals,
+            "city_demand_today":raw_purchased_today,
+            "finished_goods_sales_today":int(city_daily["transactions"]),
+            "finished_goods_turnover_today":int(city_daily["coins"]),
             "my_city_offers":my_city_offers,"jobs":jobs,
             "resident_orders":daily_orders(c,p["id"]),
             "reputation":int(rep["points"]) if rep else 0}
@@ -261,9 +281,12 @@ def buy_ingredient(q:Action,authorization:str=Header(default="")):
             seller=c.execute("SELECT * FROM players WHERE id=%s",(row["seller"],)).fetchone()
             if ad_inventory.active(seller):
                 ad_inventory.credit(c,log_id,tagged*row["price"])
+            trade_at=time.time()
             c.execute("""INSERT INTO market_trade_audit(id,buyer_id,seller_id,item,quantity,coins,created)
                 VALUES(%s,%s,%s,%s,%s,%s,%s)""",
-                (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,time.time()))
+                (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,trade_at))
+            c.execute("""INSERT INTO city_raw_receipts VALUES(%s,%s,%s,%s,%s,%s,%s)""",
+                (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,trade_at))
         c.execute("INSERT INTO money_log VALUES(%s,%s,'market_buy',%s,%s,%s)",
                   (uuid.uuid4().hex,p["id"],-cost,q.item+" x"+str(q.amount),time.time()))
         c.execute("""INSERT INTO city_stock(player_id,item,quantity) VALUES(%s,%s,%s)
