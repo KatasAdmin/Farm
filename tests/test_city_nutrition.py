@@ -42,7 +42,7 @@ class NutritionTests(unittest.TestCase):
 
     def test_production_uses_integrated_bonus_without_minting(self):
         src=(ROOT/"production_v4.py").read_text("utf8")
-        self.assertIn('city_nutrition.bonus_seconds(p.get("_city_food"),cursor,step)',src)
+        self.assertIn('city_nutrition.bonus_seconds(food,cursor,step)',src)
         self.assertIn("progress+rate*productive_elapsed",src)
         self.assertIn("milk_progress+=fed_cows*productive_elapsed",src)
         self.assertIn("wool_progress+=fed_sheep*productive_elapsed",src)
