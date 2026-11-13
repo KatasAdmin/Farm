@@ -138,10 +138,8 @@ function showShoppingList(recipeId){
  html+=items.map((entry,i)=>{
   const missing=Math.max(0,entry.need-entry.stock);
   const name=entry.type==="raw"?esc(names[entry.item]):(icons[entry.item]||"📦")+" "+esc(data.recipes[entry.item]?.name||entry.item);
-  const offers=(entry.type==="raw"?data.farm_offers:data.city_offers).filter(r=>r.item===entry.item);
-  const available=entry.type==="raw"
-    ?(data.farm_market_totals?.[entry.item]??offers.reduce((sum,r)=>sum+r.quantity,0))
-    :offers.reduce((sum,r)=>sum+r.quantity,0);
+  const catalog=entry.type==="raw"?data.raw_catalog:data.city_catalog;
+  const available=catalog?.[entry.item]?.quantity||0;
   return row(name,"Нужно "+entry.need+" · На складе "+entry.stock+" · На рынке "+available,
   !missing?'<span class="pill">✅ Достаточно</span>':
   input("shopping-"+i,missing)+
@@ -151,20 +149,21 @@ function showShoppingList(recipeId){
  openPanel("🧺 Закупка для "+recipe.name,html);
 }
 function showMarket(){
- const offers=data.farm_offers.filter(x=>names[x.item]);
- let s='<p class="panel-note">Здесь настоящий рынок фермы, а не магазин с бесконечными товарами. Продавец получает монеты. Свои объявления для закупки скрыты.</p>';
- s+='<div class="badge-line">'+Object.entries(names).map(([key,name])=>'<span class="pill">'+name+': '+number(data.farm_market_totals?.[key]??offers.filter(r=>r.item===key).reduce((n,r)=>n+r.quantity,0))+'</span>').join("")+'</div>';
- s+=offers.length?offers.map(x=>row(esc(names[x.item]),'Фермер: '+esc(x.seller)+' · '+x.quantity+' шт. · '+x.price+' мон./шт.',
-  input('qty-raw-'+x.id)+ '<button class="btn" data-action="raw" data-item="'+esc(x.item)+'" data-amount-id="qty-raw-'+x.id+'">Купить</button>')).join(""):'<div class="empty">На общем рынке пока нет сырья от других игроков. Фермеры могут выставить яйца через игру «Ферма».</div>';
- openPanel("🧺 Сырьевой рынок",s);
+ const groups=data.raw_catalog||{};
+ let s='<p class="panel-note">🧺 Один товар — одна покупка. Количество автоматически распределяется между продавцами по правилам рынка фермы, в том числе пропорционально между лотами одинаковой цены.</p>';
+ const listed=Object.entries(groups).filter(([item,o])=>names[item]&&o.quantity>0);
+ s+=listed.length?listed.map(([item,o])=>row(esc(names[item]),
+  'На рынке '+number(o.quantity)+' шт. · От '+number(o.min_price)+' 🪙 · Продавцов: '+o.sellers,
+  input('qty-raw-'+item)+'<button class="btn" data-action="raw" data-item="'+item+'" data-amount-id="qty-raw-'+item+'">Купить</button>')).join(""):'<div class="empty">На рынке нет сырья от других игроков. Фермеры могут выставить яйца через ферму.</div>';
+ openPanel("🧺 Общий рынок фермы",s);
 }
 function showProducts(){
- let s='<p class="panel-note">Готовые блюда и изделия продают реальные бизнесы игроков. Оплата списывается с того же монетного счёта, что используется в ферме. Монеты за продукцию в первой версии не становятся автоматически выводимыми.</p>';
- const offers=data.city_offers.filter(x=>data.recipes[x.item]);
- s+=offers.length?offers.map(x=>row((icons[x.item]||"📦")+" "+esc(data.recipes[x.item].name),
-   esc(x.seller)+' · '+x.quantity+' шт. · '+x.price+' мон./шт.',
-   input("qty-product-"+x.id)+'<button class="btn" data-action="product" data-item="'+esc(x.item)+'" data-amount-id="qty-product-'+x.id+'">Купить</button>')).join(""):'<div class="empty">Готовых товаров пока нет. Открой производство и первым выставь свой товар!</div>';
- openPanel("🛍️ Товары города",s);
+ let s='<p class="panel-note">🛍️ Один товар — одна карточка. Внутри покупки система сама распределяет монеты между продавцами, а еда появляется на городском складе.</p>';
+ const listed=Object.entries(data.city_catalog||{}).filter(([item,o])=>data.recipes[item]&&o.quantity>0);
+ s+=listed.length?listed.map(([item,o])=>row((icons[item]||"📦")+" "+esc(data.recipes[item].name),
+  'На рынке '+number(o.quantity)+' шт. · От '+number(o.min_price)+' 🪙 · Продавцов: '+o.sellers,
+  input('qty-product-'+item)+'<button class="btn" data-action="product" data-item="'+item+'" data-amount-id="qty-product-'+item+'">Купить</button>')).join(""):'<div class="empty">Городских товаров пока нет. Открой производство и выставь первый товар!</div>';
+ openPanel("🛍️ Рынок городских товаров",s);
 }
 function showResidents(){
  let s='<p class="panel-note">Каждый день жители города размещают три заказа на готовые товары. Купи их у других игроков или изготовь сам. За выполнение начисляется репутация — монеты из казны не создаются.</p>';
@@ -195,10 +194,17 @@ function showWarehouse(){
  let s='<p class="panel-note">Склад бизнеса отделён от фермерского склада. Он пополняется только закупками на общем рынке. Готовые товары можно продавать или использовать для развития репутации.</p>';
  s+='<h3 class="section-subtitle">Ингредиенты бизнеса</h3><div class="mini-grid">';
  s+=Object.entries(names).map(([key,name])=>'<div class="mini-box"><small>'+name+'</small><strong>'+number(data.stock[key]||0)+'</strong></div>').join("")+'</div>';
+ s+='<h3 class="section-subtitle">🍽️ Питание фермера</h3>';
+ const nutrition=data.nutrition||{};
+ s+='<div class="nutrition-city-card">🍲 <strong>Сытость: '+(nutrition.fullness||0)+'%</strong><span>Бонус к производству фермы: +'+(nutrition.bonus_percent||0)+'% · Снижается на 5% в час. База всегда 100%.</span></div>';
  s+='<h3 class="section-subtitle">Произведённые товары</h3>';
  const products=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key]);
  s+=products.length?products.map(([key,n])=>row((icons[key]||"📦")+" "+esc(data.recipes[key].name),
-   'На складе: '+n+' шт.',input("qty-list-"+key)+'<input class="number-input" aria-label="Цена" id="price-'+key+'" type="number" min="1" value="10"><button class="btn gold" data-action="list" data-item="'+key+'">Продать</button><button class="btn ghost" data-action="consume" data-item="'+key+'">Использовать</button>')).join(""):'<div class="empty">Пока нет готовой продукции. Закупи ингредиенты и начни производство.</div>';
+   'На складе: '+n+' шт.',input("qty-list-"+key)+
+   '<input class="number-input" aria-label="Цена" id="price-'+key+'" type="number" min="1" value="10">'+
+   '<button class="btn gold" data-action="list" data-item="'+key+'">Продать</button>'+
+   (["pancakes","pie","omelet","cheese","bread","breakfast_set","dessert_box","lunch_box"].includes(key)?'<button class="btn food" data-action="eat" data-item="'+key+'">🍽️ Съесть</button>':'')+
+   '<button class="btn ghost" data-action="consume" data-item="'+key+'">⭐ Репутация</button>')).join(""):'<div class="empty">Пока нет готовой продукции. Закупи ингредиенты и начни производство.</div>';
  s+='<h3 class="section-subtitle">Мои объявления</h3>';
  s+=(data.my_city_offers||[]).length?data.my_city_offers.map(x=>
   row((icons[x.item]||"📦")+" "+esc(data.recipes[x.item]?.name||x.item),
@@ -234,11 +240,12 @@ async function action(action,item,amountId,listingId){
  else if(action==="product"){path="/buy-product";body.amount=amount}
  else if(action==="list"){path="/list-product";body.amount=getAmount("qty-list-"+item);body.price=Number($("price-"+item)?.value);if(!body.amount||!Number.isSafeInteger(body.price)||body.price<1){toast("Укажи количество и цену");return}}
  else if(action==="consume"){path="/consume";body.amount=getAmount("qty-list-"+item);if(!body.amount)return}
+ else if(action==="eat"){path="/eat";body.amount=getAmount("qty-list-"+item);if(!body.amount||body.amount>20){toast("Можно съесть от 1 до 20 блюд");return}}
  else if(action==="cancel"){path="/cancel-product";body.listing_id=listingId}
  else if(action==="fulfill"){path="/fulfill-order"}
  else return;
  working=true;
- if(["raw","product","produce","list","consume","fulfill"].includes(action)){
+ if(["raw","product","produce","list","consume","eat","fulfill"].includes(action)){
   body.request_id=(globalThis.crypto?.randomUUID?.()||(Date.now().toString(16)+Math.floor(Math.random()*1e15).toString(16)).padEnd(32,"a")).replaceAll("-","").slice(0,32);
  }
  if(action==="raw"||action==="product"){
@@ -248,7 +255,7 @@ async function action(action,item,amountId,listingId){
    if(!confirm("Покупка "+body.amount+" шт. за "+number(quote.cost)+" монет у "+quote.sellers+" продавцов. Подтвердить?")){working=false;return}
   }catch(e){toast(e.message);working=false;return}
  }
- try{const result=await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар выставлен в городе":action==="open"?"Предприятие открыто!":"Готово!");
+ try{const result=await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар выставлен в городе":action==="eat"?"🍽️ Ты поел! Производительность фермы выросла.":action==="open"?"Предприятие открыто!":"Готово!");
  await load();
  }catch(e){toast(e.message)}
  finally{working=false}
