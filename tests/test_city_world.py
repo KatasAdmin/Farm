@@ -43,6 +43,21 @@ class CityWorldSafety(unittest.TestCase):
         self.assertNotIn('FARM-8892DB409F313BE04DFC0FB',city)
         self.assertIn('getItem("farm_token")',js)
 
+    def test_production_city_has_only_real_account_entry(self):
+        html=(ROOT/"city.html").read_text("utf8")
+        js=(ROOT/"assets/city/city.js").read_text("utf8")
+        backend=(ROOT/"city_world.py").read_text("utf8")
+        farm=(ROOT/"index.html").read_text("utf8")
+        bot=(ROOT/"task_bot.py").read_text("utf8")
+        self.assertNotIn('demo-enter',html)
+        self.assertNotIn('enterDemo',js)
+        self.assertNotIn('demo:true',js)
+        self.assertNotIn('@router.get("/catalog")',backend)
+        self.assertIn('href="/city"',farm)
+        self.assertIn('Предприятия',farm)
+        self.assertIn("farm_url().rstrip('/') + '/city'",bot)
+        self.assertIn("'web_app': {'url': farm_url()}",bot)
+
     def test_city_page_isolated(self):
         html=(ROOT/"city.html").read_text("utf8")
         js=(ROOT/"assets/city/city.js").read_text("utf8")
