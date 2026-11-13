@@ -375,3 +375,22 @@ body{background:radial-gradient(ellipse at 52% 7%,#39234d 0%,#17152a 48%,#100e1b
 .season-switch{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .bottom-nav i img,.profile-menu i img{width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 0 4px #e5b3fa65)}
 .city-low-effects .bottom-nav button,.city-low-effects .stat,.city-low-effects #panel-body .btn{box-shadow:none}
+
+/* Map hit areas share the artwork's native 3:2 coordinate space. */
+.world-frame{background:#191325}
+.district-tools{position:relative;inset:auto;gap:10%;padding:8px 10px 4px}
+.world{aspect-ratio:3/2}
+.district-art{object-fit:contain;mask-image:linear-gradient(#000 95%,transparent)}
+.district-target{padding:0;text-decoration:none;min-height:44px}
+.farm-target{left:7%;top:8%;width:24%;height:27%}
+.bakery-target{left:53%;top:4%;width:20%;height:27%}
+.restaurant-target{left:72%;top:28%;width:24%;height:25%}
+.dairy-target{left:4%;top:48%;width:26%;height:25%}
+.atelier-target{left:72%;top:55%;width:25%;height:29%}
+.store-target{left:30%;top:21%;width:15%;height:20%}
+.warehouse-target{left:34%;top:63%;width:25%;height:26%}
+.map-shortcuts{top:auto;bottom:3%;left:2%;display:flex;gap:4px}
+@media(max-width:400px){
+ .district-target strong{font-size:clamp(8px,2.5vw,11px);padding:3px 4px}
+ .map-shortcuts button{min-width:40px;min-height:40px}
+}
