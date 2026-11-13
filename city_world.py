@@ -23,12 +23,23 @@ RECIPES = {
     "bread": {"name": "Хлеб", "business": "bakery", "needs": {"grain": 5}, "output": 2, "seconds": 30},
     "pillow": {"name": "Подушка", "business": "atelier", "needs": {"feathers": 4, "wool": 2}, "output": 1, "seconds": 60},
     "scarf": {"name": "Шарф", "business": "atelier", "needs": {"wool": 6}, "output": 1, "seconds": 60},
+    # Second-stage recipes give other businesses a reason to buy goods made
+    # by bakers, dairies and textile workshops rather than only raw resources.
+    "breakfast_set": {"name": "Фирменный завтрак", "business": "restaurant",
+        "needs": {"eggs": 2}, "needs_products": {"bread": 1, "cheese": 1}, "output": 1, "seconds": 75},
+    "dessert_box": {"name": "Десертный набор", "business": "restaurant",
+        "needs": {"milk": 2}, "needs_products": {"pancakes": 2, "pie": 1}, "output": 1, "seconds": 90},
+    "home_set": {"name": "Домашний уют", "business": "store",
+        "needs": {}, "needs_products": {"pillow": 1, "scarf": 1}, "output": 1, "seconds": 100},
+    "lunch_box": {"name": "Обед с собой", "business": "store",
+        "needs": {}, "needs_products": {"omelet": 1, "bread": 1}, "output": 1, "seconds": 70},
 }
 BUSINESSES = {
     "bakery": {"name": "Пекарня", "emoji": "🥐", "open_cost": 0, "min_reputation": 0},
     "restaurant": {"name": "Ресторан", "emoji": "🍳", "open_cost": 0, "min_reputation": 20},
     "dairy": {"name": "Молочная", "emoji": "🥛", "open_cost": 0, "min_reputation": 50},
     "atelier": {"name": "Ателье", "emoji": "🧶", "open_cost": 0, "min_reputation": 100},
+    "store": {"name": "Магазин", "emoji": "🛒", "open_cost": 0, "min_reputation": 160},
 }
 
 _db = _person = _advance = None
@@ -78,6 +89,8 @@ def daily_orders(c,pid):
         ("breakfast",("bread","pancakes","pie"),15),
         ("lunch",("omelet","cheese"),25),
         ("comfort",("pillow","scarf"),35),
+        ("dinner",("breakfast_set","dessert_box","lunch_box"),45),
+        ("home",("home_set","pillow","scarf"),55),
     )
     finished={r["order_id"] for r in c.execute(
         "SELECT order_id FROM city_daily_orders WHERE player_id=%s AND day=%s",
@@ -275,6 +288,11 @@ def produce(q:Action,authorization:str=Header(default="")):
                 WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
                 (qty*q.amount,p["id"],item,qty*q.amount)).fetchone()
             if not changed:raise HTTPException(409,"Недостаточно сырья: "+item)
+        for item,qty in recipe.get("needs_products",{}).items():
+            changed=c.execute("""UPDATE city_products SET quantity=quantity-%s
+                WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
+                (qty*q.amount,p["id"],item,qty*q.amount)).fetchone()
+            if not changed:raise HTTPException(409,"Недостаточно готовых ингредиентов: "+RECIPES[item]["name"])
         ready=time.time()+recipe["seconds"]*q.amount
         c.execute("INSERT INTO city_jobs VALUES(%s,%s,%s,%s,%s)",
                   (uuid.uuid4().hex,p["id"],q.item,q.amount,ready))
@@ -356,7 +374,7 @@ def buy_product(q:Action,authorization:str=Header(default="")):
 
 @router.post("/fulfill-order")
 def fulfill_order(q:Action,authorization:str=Header(default="")):
-    if q.item not in ("breakfast","lunch","comfort"):
+    if q.item not in ("breakfast","lunch","comfort","dinner","home"):
         raise HTTPException(400,"Неизвестный заказ")
     with _db() as c:
         p=_auth(c,authorization,True)
