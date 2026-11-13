@@ -180,7 +180,7 @@ async function action(action,item,amountId,listingId){
   }catch(e){toast(e.message);working=false;return}
  }
  if(action==="raw"||action==="product"){
-  body.request_id=(globalThis.crypto?.randomUUID?.()||(["a",Date.now().toString(16),Math.floor(Math.random()*1e9).toString(16)].join(""))).replaceAll("-","").slice(0,32);
+  body.request_id=(globalThis.crypto?.randomUUID?.()||(Date.now().toString(16)+Math.floor(Math.random()*1e15).toString(16)).padEnd(32,"a")).replaceAll("-","").slice(0,32);
  }
  try{const result=await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар выставлен в городе":action==="open"?"Предприятие открыто!":"Готово!");
  await load();
