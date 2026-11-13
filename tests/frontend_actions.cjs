@@ -60,7 +60,7 @@ for(const item of ['grain','chickens','geese','cows','sheep']){
 }
 // Collapsed feeding panel retains the warning on its summary; level is the profile level.
 reset();run('state.top=[{name:"Katas",farmer_level:8}];state.my_rank=167;state.farm.effective_grain_shortage=2;render()');
-assert.match(d.getElementById('leaders').textContent,/Ур. 8/);assert.doesNotMatch(d.getElementById('leaders').textContent,/очков/);
+assert.match(d.getElementById('leaders').textContent,/Уровень 8/);assert.doesNotMatch(d.getElementById('leaders').textContent,/очков/);
 assert.equal(d.getElementById('my-rank').textContent,'Ваше место: 167');
 const feedDetails=d.getElementById('feed-details');assert.equal(feedDetails.open,false);
 assert.equal(d.getElementById('feed-alert').hidden,false);assert.equal(d.getElementById('warning').hidden,false);
