@@ -59,11 +59,19 @@ def simulate(p, now):
   while until>cursor:
    # Keep each resource event boundary exact even at maximum 2x food boost.
    # Half a natural interval cannot cross more than one event per resource.
-   step=min(until,cursor+max(1e-6,(FEATHER_INTERVAL-feather_progress)/fed_geese/2)) if fed_geese else until
-   if fed_cows:step=min(step,cursor+max(1e-6,(MILK_INTERVAL-milk_progress)/fed_cows/2))
-   if fed_sheep:step=min(step,cursor+max(1e-6,(WOOL_INTERVAL-wool_progress)/fed_sheep/2))
+   food=p.get("_city_food")
+   if food and city_nutrition.fullness(food,cursor)>0:
+    # Only the boosted path needs smaller time segments. Preserve original
+    # event scheduling exactly for non-eating players (legacy safety).
+    step=min(until,cursor+max(1e-6,(FEATHER_INTERVAL-feather_progress)/fed_geese/2)) if fed_geese else until
+    if fed_cows:step=min(step,cursor+max(1e-6,(MILK_INTERVAL-milk_progress)/fed_cows/2))
+    if fed_sheep:step=min(step,cursor+max(1e-6,(WOOL_INTERVAL-wool_progress)/fed_sheep/2))
+   else:
+    step=min(until,cursor+(FEATHER_INTERVAL-feather_progress)/fed_geese) if fed_geese else until
+    if fed_cows:step=min(step,cursor+(MILK_INTERVAL-milk_progress)/fed_cows)
+    if fed_sheep:step=min(step,cursor+(WOOL_INTERVAL-wool_progress)/fed_sheep)
    elapsed=max(0,step-cursor)
-   productive_elapsed=elapsed+city_nutrition.bonus_seconds(p.get("_city_food"),cursor,step)
+   productive_elapsed=elapsed+city_nutrition.bonus_seconds(food,cursor,step)
    before_progress=progress
    rate=fed/CYCLE+fed_geese/GOOSE_CYCLE
    total=progress+rate*productive_elapsed
