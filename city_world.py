@@ -451,6 +451,7 @@ def upgrade_business(q:Action, authorization:str=Header(default="")):
         raise HTTPException(400,"Неизвестное предприятие")
     with _db() as c:
         p=_auth(c,authorization,True)
+        c.execute("SELECT pg_advisory_xact_lock(1984533)")
         row=c.execute("SELECT level FROM city_businesses WHERE player_id=%s AND kind=%s FOR UPDATE",
                       (p["id"],q.item)).fetchone()
         if not row:raise HTTPException(403,"Сначала откройте предприятие")
