@@ -122,3 +122,39 @@ button:focus-visible,a:focus-visible{outline:2px solid #a5edff;outline-offset:2p
 .sale-fields label{display:flex;flex:1 1 120px;flex-direction:column;gap:6px;font-size:12px;color:#b9d1e8;font-weight:700}
 .sale-fields input{width:100%;max-width:100%;min-height:43px}
 @media(max-width:370px){.wallet-hero>strong{font-size:30px}.profile-wallet-button{flex-direction:column;align-items:flex-start}}
+
+/* City Premium visual identity: deep midnight plum, forest-teal and warm gold.
+   Shared with the farm: bright controls, readable cards and a clear hierarchy. */
+:root{--ink:#fff5e9;--muted:#c4c5d0;--cyan:#7de1c4;--gold:#ffcf79;--glass:rgba(30,28,48,.94);background:#171727;color:var(--ink)}
+body{background:radial-gradient(ellipse at 80% -8%,rgba(109,79,143,.50),transparent 47%),radial-gradient(ellipse at 2% 30%,rgba(25,107,96,.32),transparent 56%),linear-gradient(170deg,#28243f 0%,#171b2b 45%,#121d29 100%);background-attachment:fixed}
+.backdrop-glow{background:radial-gradient(ellipse at 12% 8%,rgba(251,188,110,.09),transparent 45%),radial-gradient(ellipse at 90% 60%,rgba(79,190,155,.07),transparent 55%)}
+.brand-kicker,.eyebrow{color:#a5e8cb}
+.city-logo{background:linear-gradient(145deg,#8e628f,#326e68);box-shadow:0 8px 25px #0005,inset 0 1px #ffffff55}
+.counter{background:linear-gradient(130deg,#302d49,#243b48);border-color:#ffe1ac35}
+.farm-return{background:#294a48;border-color:#a6e4b347}
+.world-frame{border-color:#4c776b;box-shadow:0 25px 60px #060d199c,0 0 0 1px #f4d49d24}
+.stat{background:linear-gradient(125deg,#34304a,#1f3442);border-color:#d3c0ab38}
+.stat span{color:#c8c6d4}
+.quick-action{background:linear-gradient(125deg,#315c58,#274750);border-color:#99dec45c}
+.bottom-nav{background:linear-gradient(150deg,rgba(39,35,57,.98),rgba(24,40,48,.98));border-color:#a7b9ac55;box-shadow:0 -10px 36px #0b101b99}
+.bottom-nav button{color:#d4cbd6}
+.bottom-nav button.nav-active{background:linear-gradient(135deg,#427d73,#357b83);color:#fff;box-shadow:inset 0 1px #ffffff40,0 5px 15px #0003}
+.panel-backdrop{background:#090b19b8}
+.city-panel{background:radial-gradient(ellipse at 95% 0%,rgba(83,127,105,.20),transparent 55%),linear-gradient(155deg,#34304c 0%,#222a3c 53%,#172637 100%);border-color:#9aa69a85;box-shadow:0 -20px 70px #070b19a8}
+.panel-grip{background:#b3ada9}
+.close-panel{background:#ffffff16;color:#fff}
+.item-card{background:linear-gradient(125deg,#38344e,#273c48);border-color:#a9b9b050}
+.item-card small,.mini-box small{color:#d1d0d9}
+.mini-box{background:linear-gradient(145deg,#38344b,#2a414c);border-color:#a9b9b050}
+.empty{background:#ffffff0a;border-color:#b4b0a15e;color:#d6d3dc}
+.pill{border-color:#b5bca775;color:#f4e4c9;background:#ffffff0a}
+.number-input{background:#171e30;border-color:#b3a9b17a;color:#fff}
+.btn.gold,.main-button{background:linear-gradient(135deg,#ffcb7a,#e79b47);color:#282030;font-weight:800;box-shadow:0 4px 12px #0d0a1a33}
+.btn.ghost{background:#435268;color:#f3f1f8}
+.wallet-hero{background:radial-gradient(circle at 50% 0%,rgba(255,203,117,.25),transparent 65%),linear-gradient(145deg,#43344b,#223f46)}
+.profile-hero{background:linear-gradient(135deg,#51405b,#294a4b)}
+.profile-avatar{background:linear-gradient(140deg,#9c759a,#417b73)}
+.profile-wallet-button{background:linear-gradient(120deg,rgba(255,183,66,.20),rgba(42,70,66,.88))}
+.auth-surface{background:radial-gradient(circle at 50% 30%,#4e4560,#171a2b)}
+.auth-box{background:linear-gradient(155deg,#39334e,#1e303e);border-color:#b1b7a457}
+@media(prefers-reduced-motion:reduce){.wallet-trigger{transition:none}}
