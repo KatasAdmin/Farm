@@ -20,3 +20,7 @@
 .farm-city-blank{grid-column:1/-1;margin:0;padding:8px;font-size:13px;color:inherit}
 #farm-city-products{color:#eafaff}
 @media(max-width:360px){.farm-city-grid{grid-template-columns:1fr}}
+.farm-food-summary{justify-content:flex-start;gap:8px 12px}
+.farm-food-buy{border:1px solid #4f9bd3;border-radius:9px;background:linear-gradient(125deg,#137cb2,#2054ab);padding:8px 12px;min-height:42px;color:#fff;font-size:14px;font-weight:800}
+.farm-food-metrics{display:flex;gap:5px 12px;flex-wrap:wrap}
+.farm-city-market-heading{grid-column:1/-1;margin:5px 0 0;font-size:15px;color:#eafaff}

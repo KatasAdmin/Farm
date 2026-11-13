@@ -20,13 +20,13 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=112" defer></script>
+    <script src="/assets/game.js?v=113" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
     <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
-      <link rel="stylesheet" href="/assets/city/farm-products.css?v=3" />
+      <link rel="stylesheet" href="/assets/city/farm-products.css?v=4" />
   </head>
   <body>
     <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #80d6ff;border-radius:14px;background:#103c7c;color:white;font-family:Arial,sans-serif">
@@ -163,6 +163,13 @@
           <button type="button" class="farm-tile farm-tile-fields" onclick="tab('fields')"><img loading="lazy" src="/assets/illustrations/field-icon-v2.webp" alt=""><strong>Поля</strong></button>
           <button type="button" class="farm-tile farm-tile-enterprise" onclick="tab('production')" aria-label="Открыть производство и городские товары"><img loading="lazy" src="/assets/illustrations/factory-icon-v2.webp" alt=""><strong>Предприятия</strong></button>
         </div>
+        <div class="farm-food-summary">
+          <button type="button" class="farm-food-buy" onclick="tab('production')">🍽️ Купить еду</button>
+          <div class="farm-food-metrics">
+            <span>Сытность <strong data-farmer-fullness>—</strong></span>
+            <span>К выпуску <strong data-farmer-bonus>—</strong></span>
+          </div>
+        </div>
         <details class="card launch-guide" id="launch-guide" hidden>
  <summary>🌱 Как начать играть? · подсказка для новичка</summary>
  <div class="launch-guide-body">
@@ -200,10 +207,6 @@
           </div>
         </div>
         <div class="farm-supplies"><button onclick="openResourceActions('grain')"><img loading="lazy" src="/assets/redesign/grain.webp" alt="">Зерно <strong data-value="grain">—</strong></button><button onclick="tab('storage')">Склад <strong><span data-building="storage_used">—</span> / <span data-building="storage_capacity">—</span></strong></button></div>
-        <button type="button" class="farm-food-summary" onclick="tab('production')">
-          <span>🍽️ Сытность фермера <strong data-farmer-fullness>—</strong></span>
-          <span>Бонус <strong data-farmer-bonus>—</strong> <span aria-hidden="true">›</span></span>
-        </button>
         <div class="farm-ads-strip"><button type="button" class="btn alt small" data-ad-free="coins" onclick="window.FarmAds?.watch('coins')">🎬 Смотреть рекламу · +3 монеты</button></div>
         <div class="card herd compact-herd">
           <div class="health-line">
@@ -290,13 +293,17 @@
             <span>К выпуску продукции <strong data-farmer-bonus>—</strong></span>
           </div>
         </div>
+        <div class="farm-city-section card" id="farm-city-catalog">
+          <div class="farm-city-heading"><h3>Купить еду</h3><button type="button" id="farm-city-refresh" class="farm-city-cta farm-city-cta-alt" aria-label="Обновить предложения">↻</button></div>
+          <div id="farm-city-catalog-list" class="farm-city-grid"><p class="muted">Загрузка…</p></div>
+        </div>
         <div class="farm-city-section card">
           <div class="farm-city-heading"><h3>Моя еда</h3></div>
           <div id="farm-city-inventory" class="farm-city-grid"><p class="muted">Загрузка…</p></div>
         </div>
-        <div class="farm-city-section card" id="farm-city-catalog">
-          <div class="farm-city-heading"><h3>Купить еду</h3><button type="button" id="farm-city-refresh" class="farm-city-cta farm-city-cta-alt" aria-label="Обновить предложения">↻</button></div>
-          <div id="farm-city-catalog-list" class="farm-city-grid"><p class="muted">Загрузка…</p></div>
+        <div class="farm-city-section card" id="farm-city-own" hidden>
+          <div class="farm-city-heading"><h3>Мои лоты</h3></div>
+          <div id="farm-city-own-list" class="farm-city-grid"></div>
         </div>
       </section>
       <section id="coop" class="panel unified-farm-panel" aria-label="Животные">
@@ -404,10 +411,10 @@
           <h2 class="cardtitle">Товары</h2>
           <div class="market-categories" role="tablist" aria-label="Категории рынка">
             <button class="active" role="tab" aria-selected="true" data-market-tab="animals" onclick="marketCategory('animals')"><img loading="lazy" src="/assets/redesign/hen.webp" alt="">Животные</button>
+            <button role="tab" aria-selected="false" data-market-tab="food" onclick="marketCategory('food')">🍽️ Еда</button>
             <button role="tab" aria-selected="false" data-market-tab="equipment" onclick="marketCategory('equipment')"><img loading="lazy" src="/assets/illustrations/equipment-gear-v3.webp" alt="">Оборудование</button>
             <button role="tab" aria-selected="false" data-market-tab="resources" onclick="marketCategory('resources')"><img loading="lazy" src="/assets/redesign/grain.webp" alt="">Сырьё</button>
             <button role="tab" aria-selected="false" data-market-tab="materials" onclick="marketCategory('materials')">🧶 Материалы</button>
-            <button role="tab" aria-selected="false" data-market-tab="food" onclick="marketCategory('food')">🍽️ Еда</button>
             <button role="tab" aria-selected="false" data-market-tab="products" onclick="marketCategory('products')">📦 Готовая продукция</button>
           </div>
           <div class="market-product-grid">
@@ -989,6 +996,6 @@
 <script src="/assets/fields.js?v=10" defer></script>
 <script src="/assets/adsgram-fallback.js?v=20261106-r38" defer></script>
 <script src="/assets/monetag-rewards.js?v=13" defer></script>
-<script src="/assets/city/farm-bridge.js?v=4" defer></script>
+<script src="/assets/city/farm-bridge.js?v=5" defer></script>
 </body>
 </html>

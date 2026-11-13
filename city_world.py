@@ -228,7 +228,10 @@ def _add_product(c, table, pid, item, quantity):
 def farm_goods(authorization: str=Header(default="")):
     with _db() as c:
         p=_auth(c,authorization)
+        own_offers=c.execute("""SELECT id,item,quantity,price FROM city_listings
+            WHERE seller=%s AND quantity>0 ORDER BY created DESC,id""",(p["id"],)).fetchall()
         return {"recipes":RECIPES,"food_restore":city_nutrition.FOOD_RESTORE,
+                "my_offers":own_offers,
                 "city_catalog":_product_catalog(c,p["id"]),
                 "food":_counts(c,"farm_food",p["id"]),
                 "city_food":{item:quantity for item,quantity in _counts(c,"city_products",p["id"]).items()

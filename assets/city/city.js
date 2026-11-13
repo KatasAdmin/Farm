@@ -139,9 +139,11 @@ function saleRow(item,quantity){
 }
 function showBusinessDirectory(){
  const entries=Object.entries(data.business_catalog).filter(([kind])=>kind!=="store");
- openPanel("🏢 Предприятия",entries.map(([kind,b])=>row(b.emoji+" "+esc(b.name),
-  data.business_levels[kind]?"Уровень "+data.business_levels[kind]:b.min_reputation+" ⭐ для открытия",
-  '<button class="btn" data-action="business" data-item="'+kind+'">Открыть карточку</button>')).join(""));
+ openPanel("🏢 Предприятия",entries.map(([kind,b])=>
+  '<button type="button" class="item-card business-entry" data-action="business" data-item="'+kind+'">'+
+  '<span><strong>'+b.emoji+' '+esc(b.name)+'</strong><small>'+
+  (data.business_levels[kind]?"Уровень "+data.business_levels[kind]:b.min_reputation+" ⭐ для открытия")+
+  '</small></span><span class="business-chevron" aria-hidden="true">›</span></button>').join(""));
 }
 function showBusiness(kind){
  if(!data?.business_catalog[kind])return;
@@ -215,6 +217,7 @@ function showMarket(){
   }).join("");
   return openPanel("🧺 Рынок",html);
  }
+ if(marketCategory==="food")html+='<a class="btn ghost city-link city-food-link" href="/?food=1">🍽️ Купить еду на ферму →</a>';
  const raw=["raw","materials"].includes(marketCategory);
  const catalog=raw?{...data.raw_catalog,grain:data.raw_catalog.grain||{quantity:0,min_price:data.system_grain_price}}:data.city_catalog;
  const listed=Object.entries(catalog).filter(([item,offer])=>(offer.quantity>0||(raw&&item==="grain"))&&(raw?
@@ -253,7 +256,7 @@ function showWarehouse(){
  s+='<h3 class="section-subtitle">Готовая продукция</h3>';
  const products=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key]);
  s+=products.length?products.map(([key,n])=>saleRow(key,n)).join(""):'<div class="empty">Склад пока пуст</div>';
- s+='<h3 class="section-subtitle">Мои объявления</h3>';
+ s+='<h3 class="section-subtitle">Мои лоты</h3>';
  s+=(data.my_city_offers||[]).length?data.my_city_offers.map(x=>
   row((icons[x.item]||"📦")+" "+esc(data.recipes[x.item]?.name||x.item),
   x.quantity+" шт. · "+x.price+" мон./шт.",
@@ -302,7 +305,7 @@ async function action(action,item,amountId,listingId){
    if(!confirm("Купить "+body.amount+" шт. за "+number(quote.cost)+" монет?")){working=false;return}
   }catch(e){toast(e.message);working=false;return}
  }
- try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар выставлен в городе":action==="open"?"Предприятие открыто!":"Готово!");
+ try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар на рынке · смотри в «Мои лоты»":action==="open"?"Предприятие открыто!":"Готово!");
  await load();
  }catch(e){toast(e.message)}
  finally{working=false}

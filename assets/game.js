@@ -1405,8 +1405,14 @@ async function refresh() {
       refreshedAt=Date.now();
       render();
       hideStartup();
-      const marketItem=new URLSearchParams(location.search).get("market");
-      if(["chickens","geese","cows","sheep"].includes(marketItem)){
+      const entryParams=new URLSearchParams(location.search);
+      const marketItem=entryParams.get("market");
+      if(entryParams.get("food")==="1"){
+        entryParams.delete("food");
+        const search=entryParams.toString();
+        history.replaceState(null,"",location.pathname+(search?"?"+search:"")+location.hash);
+        tab("production");
+      }else if(["chickens","geese","cows","sheep"].includes(marketItem)){
         tab("shop");
         history.replaceState(null,"",location.pathname+location.hash);
         showShop(marketItem);

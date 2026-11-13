@@ -161,6 +161,26 @@ class CityTransactions(unittest.TestCase):
         self.assertEqual(city_world.eat(meal,authorization=auth)["nutrition"]["fullness"],20)
         self.assertEqual(city_world.farm_goods(authorization=auth)["food"],{})
 
+    def test_pancakes_listing_visible_on_farm_to_owner_and_buyer(self):
+        seller="Bearer t-seller"
+        buyer="Bearer t-buyer"
+        with self.connect() as c:
+            c.execute("INSERT INTO city_products VALUES('seller','pancakes',2)")
+        listed=city_world.list_product(self.action("pancakes",2,price=5),authorization=seller)
+        listing_id=listed["listing_id"]
+        own=city_world.farm_goods(authorization=seller)
+        self.assertEqual(own["my_offers"],[{"id":listing_id,"item":"pancakes","quantity":2,"price":5}])
+        self.assertNotIn("pancakes",own["city_catalog"])
+        self.assertEqual(city_world.farm_goods(authorization=buyer)["city_catalog"]["pancakes"]["quantity"],2)
+
+        request=self.action("pancakes",1,request_id=uuid.uuid4().hex,expected_cost=5)
+        request.destination="farm"
+        city_world.buy_product(request,authorization=buyer)
+        self.assertEqual(city_world.farm_goods(authorization=buyer)["food"],{"pancakes":1})
+        city_world.cancel_product(self.action(listing_id=listing_id),authorization=seller)
+        self.assertEqual(city_world.farm_goods(authorization=seller)["my_offers"],[])
+        self.assertEqual(city_world.farm_goods(authorization=seller)["city_food"],{"pancakes":1})
+
     def test_existing_city_food_moves_once_without_changing_balances(self):
         auth="Bearer t-buyer"
         with self.connect() as c:

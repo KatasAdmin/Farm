@@ -79,3 +79,6 @@ button:focus-visible,a:focus-visible{outline:2px solid #a5edff;outline-offset:2p
 @media(prefers-reduced-motion:reduce){
  *,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}
 }
+#panel-body .business-entry{width:100%;display:flex;flex-wrap:nowrap;justify-content:space-between;text-align:left;color:var(--ink);min-height:58px}
+.business-chevron{font-size:23px;color:#92d8f8}
+.city-food-link{margin:0 0 10px}
