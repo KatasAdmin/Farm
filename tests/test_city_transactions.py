@@ -113,6 +113,55 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(farm_wallet.available(c,seller),0)
             self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='bread'").fetchone()["quantity"],1)
 
+    def test_secondary_recipe_requires_real_city_products(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO city_reputation VALUES('buyer',30)")
+            c.execute("INSERT INTO city_products VALUES('seller','bread',2),('seller','cheese',2)")
+        city_world.open_business(self.action("restaurant"),authorization="Bearer t-buyer")
+        with self.assertRaises(HTTPException):
+            city_world.produce(self.action("breakfast_set"),authorization="Bearer t-buyer")
+        # Seller's two products are available on the City market. No free
+        # transfer from the buyer's farm warehouse is possible.
+        city_world.list_product(self.action("bread",amount=1,price=5),authorization="Bearer t-seller")
+        city_world.list_product(self.action("cheese",amount=1,price=7),authorization="Bearer t-seller")
+        for item,cost,key in (("bread",5,"b"),("cheese",7,"c")):
+            city_world.buy_product(self.action(item,1,request_id=key*32,expected_cost=cost),
+                                   authorization="Bearer t-buyer")
+        city_world.buy_ingredient(self.action("eggs",2,request_id="d"*32,expected_cost=2),
+                                  authorization="Bearer t-buyer")
+        city_world.produce(self.action("breakfast_set"),authorization="Bearer t-buyer")
+        with self.connect() as c:
+            for item in ("bread","cheese"):
+                self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item=%s",(item,)).fetchone()["quantity"],0)
+            self.assertEqual(c.execute("SELECT quantity FROM city_stock WHERE player_id='buyer' AND item='eggs'").fetchone()["quantity"],0)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_jobs WHERE player_id='buyer' AND recipe='breakfast_set'").fetchone()["n"],1)
+
+    def test_secondary_recipe_shortage_rolls_back_all_ingredients(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO city_reputation VALUES('buyer',30)")
+            c.execute("INSERT INTO city_stock VALUES('buyer','eggs',2)")
+            c.execute("INSERT INTO city_products VALUES('buyer','bread',1)")
+        city_world.open_business(self.action("restaurant"),authorization="Bearer t-buyer")
+        with self.assertRaises(HTTPException):
+            city_world.produce(self.action("breakfast_set"),authorization="Bearer t-buyer")
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT quantity FROM city_stock WHERE player_id='buyer' AND item='eggs'").fetchone()["quantity"],2)
+            self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='bread'").fetchone()["quantity"],1)
+
+    def test_refund_pending_seller_blocks_city_product_purchase(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO city_products VALUES('seller','bread',1)")
+        city_world.list_product(self.action("bread",1,7),authorization="Bearer t-seller")
+        with self.connect() as c:
+            c.execute("INSERT INTO star_orders VALUES('order-1','seller')")
+            c.execute("INSERT INTO stars_refund_intents VALUES('order-1','needs_review')")
+        with self.assertRaises(HTTPException) as err:
+            city_world.buy_product(self.action("bread",1,request_id="e"*32,expected_cost=7),
+                                   authorization="Bearer t-buyer")
+        self.assertEqual(err.exception.status_code,409)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200)
+
     def test_city_daily_orders_do_not_pay_coins(self):
         with self.connect() as c:
             o=city_world.daily_orders(c,"buyer")[0]
