@@ -297,7 +297,7 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "food_items":list(city_nutrition.FOOD_RESTORE),"materials":sorted(MATERIALS),
             "wallet_mode":"shared_farm_city","cashflow":city_cashflow,
             "stock":_counts(c,"city_stock",p["id"]),
-            "farm_feathers":int(p["feathers"]),
+            "farm_feathers":int(p.get("feathers",0)),
             "products":_counts(c,"city_products",p["id"]),
             "recipes":RECIPES,"business_catalog":BUSINESSES,
             "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
