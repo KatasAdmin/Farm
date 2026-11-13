@@ -6,7 +6,8 @@ from city_world import (
     food_value_guides,
 )
 from city_economy_audit import field_payback_days, business_payback_days, food_break_even
-from city_30_day_model import run
+from importlib import import_module
+run = import_module('city_30_day_model').run
 
 
 class CityEconomyTests(unittest.TestCase):
