@@ -280,6 +280,9 @@ def produce(q:Action,authorization:str=Header(default="")):
     _amount(q.amount,20)
     with _db() as c:
         p=_auth(c,authorization,True)
+        if q.request_id:
+            previous=_request(c,q,p["id"],"produce")
+            if previous is not None:return previous
         opened=c.execute("SELECT 1 FROM city_businesses WHERE player_id=%s AND kind=%s",
                          (p["id"],recipe["business"])).fetchone()
         if not opened:raise HTTPException(403,"Сначала откройте предприятие")
@@ -296,7 +299,9 @@ def produce(q:Action,authorization:str=Header(default="")):
         ready=time.time()+recipe["seconds"]*q.amount
         c.execute("INSERT INTO city_jobs VALUES(%s,%s,%s,%s,%s)",
                   (uuid.uuid4().hex,p["id"],q.item,q.amount,ready))
-    return {"ok":True,"ready_at":ready}
+        result={"ok":True,"ready_at":ready}
+        if q.request_id:_finish_request(c,q,result)
+    return result
 
 @router.post("/list-product")
 def list_product(q:Action,authorization:str=Header(default="")):
@@ -306,13 +311,19 @@ def list_product(q:Action,authorization:str=Header(default="")):
     with _db() as c:
         p=_auth(c,authorization,True)
         _settle(c,p["id"])
+        if q.request_id:
+            previous=_request(c,q,p["id"],"list_product:"+str(q.price))
+            if previous is not None:return previous
         updated=c.execute("""UPDATE city_products SET quantity=quantity-%s
             WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
             (q.amount,p["id"],q.item,q.amount)).fetchone()
         if not updated:raise HTTPException(409,"Недостаточно продукции")
+        listing_id=uuid.uuid4().hex
         c.execute("INSERT INTO city_listings VALUES(%s,%s,%s,%s,%s,%s)",
-                  (uuid.uuid4().hex,p["id"],q.item,q.amount,q.price,time.time()))
-    return {"ok":True}
+                  (listing_id,p["id"],q.item,q.amount,q.price,time.time()))
+        result={"ok":True,"listing_id":listing_id}
+        if q.request_id:_finish_request(c,q,result)
+    return result
 
 @router.post("/cancel-product")
 def cancel_product(q:Action,authorization:str=Header(default="")):
@@ -383,6 +394,9 @@ def fulfill_order(q:Action,authorization:str=Header(default="")):
         raise HTTPException(400,"Неизвестный заказ")
     with _db() as c:
         p=_auth(c,authorization,True)
+        if q.request_id:
+            previous=_request(c,q,p["id"],"fulfill_order")
+            if previous is not None:return previous
         _settle(c,p["id"])
         order=next(x for x in daily_orders(c,p["id"]) if x["id"]==q.item)
         if order["done"]:raise HTTPException(409,"Сегодня этот заказ уже выполнен")
@@ -396,7 +410,9 @@ def fulfill_order(q:Action,authorization:str=Header(default="")):
         c.execute("""INSERT INTO city_reputation(player_id,points) VALUES(%s,%s)
             ON CONFLICT(player_id) DO UPDATE SET points=city_reputation.points+EXCLUDED.points""",
             (p["id"],order["reputation"]))
-    return {"ok":True,"reputation_earned":order["reputation"]}
+        result={"ok":True,"reputation_earned":order["reputation"]}
+        if q.request_id:_finish_request(c,q,result)
+    return result
 
 @router.post("/consume")
 def consume(q:Action,authorization:str=Header(default="")):
@@ -405,6 +421,9 @@ def consume(q:Action,authorization:str=Header(default="")):
     _amount(q.amount,100)
     with _db() as c:
         p=_auth(c,authorization,True)
+        if q.request_id:
+            previous=_request(c,q,p["id"],"consume")
+            if previous is not None:return previous
         _settle(c,p["id"])
         row=c.execute("""UPDATE city_products SET quantity=quantity-%s
             WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
@@ -413,4 +432,6 @@ def consume(q:Action,authorization:str=Header(default="")):
         c.execute("""INSERT INTO city_reputation(player_id,points) VALUES(%s,%s)
             ON CONFLICT(player_id) DO UPDATE SET points=city_reputation.points+EXCLUDED.points""",
             (p["id"],q.amount*5))
-    return {"ok":True,"reputation_earned":q.amount*5}
+        result={"ok":True,"reputation_earned":q.amount*5}
+        if q.request_id:_finish_request(c,q,result)
+    return result
