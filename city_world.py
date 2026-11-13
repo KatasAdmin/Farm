@@ -72,7 +72,7 @@ def food_value_guides():
     guides = {}
     for item, restore in city_nutrition.FOOD_RESTORE.items():
         # Fullness decays linearly at five percentage points per hour.
-        equivalent_extra_hours = (restore / city_nutrition.DECAY_PER_HOUR) * restore / 200
+        equivalent_extra_hours = (restore / city_nutrition.DECAY_PER_HOUR) * restore / 200 * city_nutrition.MAX_FOOD_BONUS
         price = prices[item]["suggested_unit_price"]
         guides[item] = {
             "suggested_price": price,
