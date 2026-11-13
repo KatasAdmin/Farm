@@ -118,6 +118,7 @@ function refreshPanel(){
  if(activeView==="businesses")return showBusinessDirectory();
  if(activeView==="warehouse")return showWarehouse();
  if(activeView==="profile")return showProfile();
+ if(activeView==="wallet")return showWallet();
  if(activeView==="residents")return showResidents();
  if(activeView==="store")return showBusiness("store");
  if(activeView==="shopping")return showShoppingList(lastShoppingRecipe);
@@ -134,7 +135,7 @@ function formatTime(seconds){
 function saleRow(item,quantity){
  const recipe=data.recipes[item];
  return row((icons[item]||"📦")+" "+esc(recipe.name),number(quantity)+" шт. на складе",
-  input("qty-list-"+item)+'<input class="number-input" aria-label="Цена за штуку" id="price-'+item+'" type="number" min="1" max="100000" value="10">'+
+  '<div class="sale-fields"><label>Количество'+input("qty-list-"+item)+'</label><label>Цена за штуку<input class="number-input" aria-label="Цена за штуку" id="price-'+item+'" type="number" min="1" max="100000" value="10"></label></div>'+
   '<button class="btn gold" data-action="list" data-item="'+item+'">Продать</button>');
 }
 function showBusinessDirectory(){
@@ -238,9 +239,14 @@ function showResidents(){
  }).join("");
  openPanel("👥 Заказы жителей",html);
 }
+function showWallet(){
+ activeBusiness=null;
+ const html='<div class="wallet-hero"><img src="/assets/redesign/coin.webp" alt="" class="wallet-hero-coin"><span>Единый баланс TREVIXO</span><strong>'+number(data.coins)+' <small>монет</small></strong><p>Монеты общие для фермы и города. Покупки и продажи сразу отражаются в одном кошельке.</p></div><div class="wallet-info"><span>🏙️ Город</span><span>🌾 Ферма</span><span>🪙 Один баланс</span></div><a class="btn gold wallet-farm-link" href="/">🌾 Перейти в кошелёк фермы</a><p class="city-help">На ферме нажми на баланс монет вверху экрана — откроются капитализация, пополнение и другие операции.</p>';
+ openPanel("🪙 Мой кошелёк",html);
+}
 function showProfile(){
  activeBusiness=null;
- let html='<div class="badge-line"><span class="pill">👤 '+esc(data.name)+'</span><span class="pill">⭐ '+number(data.reputation)+'</span></div>';
+ let html='<div class="profile-hero"><div class="profile-avatar">👤</div><div><span>Профиль жителя</span><strong>'+esc(data.name)+'</strong><small>⭐ '+number(data.reputation)+' репутации</small></div></div><button class="profile-wallet-button" data-action="wallet">🪙 Общий кошелёк <strong>'+number(data.coins)+' монет ›</strong></button>';
  const finance=data.cashflow||{};
  html+='<h3 class="section-subtitle">📊 Финансы городских бизнесов</h3>';
  html+='<div class="mini-grid"><div class="mini-box"><small>📦 Закупки сырья</small><strong>'+number(finance.ingredient_spend||0)+' 🪙</strong></div><div class="mini-box"><small>🛍️ Покупки товаров</small><strong>'+number(finance.goods_purchases||0)+' 🪙</strong></div><div class="mini-box"><small>💰 Продажи товаров</small><strong>'+number(finance.goods_sales||0)+' 🪙</strong></div><div class="mini-box"><small>📈 Денежный поток</small><strong>'+number(finance.net||0)+' 🪙</strong></div></div>';
@@ -281,6 +287,7 @@ async function action(action,item,amountId,listingId){
  const amount=amountId?getAmount(amountId):null;
  if(amountId&&amount===null)return;
  let path,body={item};
+ if(action==="wallet")return view("wallet");
  if(action==="category"){marketCategory=item;return showMarket()}
  if(action==="market")return view("market");
  if(action==="shopping"){lastShoppingRecipe=item;return showShoppingList(item)}
@@ -316,6 +323,7 @@ $("view-orders").addEventListener("click",()=>view("warehouse"));
 $("view-jobs").addEventListener("click",()=>view("jobs"));
 $("view-residents").addEventListener("click",()=>view("residents"));
 $("view-store").addEventListener("click",()=>view("store"));
+$("open-city-wallet").addEventListener("click",()=>view("wallet"));
 $("close-panel").addEventListener("click",closePanel);
 $("panel-backdrop").addEventListener("click",closePanel);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closePanel()});
