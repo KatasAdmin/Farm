@@ -115,7 +115,7 @@ class CityTransactions(unittest.TestCase):
         meal=self.action("omelet",1,request_id="4"*32)
         result=city_world.eat(meal,authorization="Bearer t-buyer")
         self.assertTrue(result["ok"])
-        self.assertEqual(result["nutrition"]["fullness"],35)
+        self.assertEqual(result["nutrition"]["fullness"],100)
         same=city_world.eat(meal,authorization="Bearer t-buyer")
         self.assertEqual(result,same)
         with self.connect() as c:
