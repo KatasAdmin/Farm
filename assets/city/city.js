@@ -45,20 +45,6 @@ function showLogin(){
  $("telegram-login").hidden=!tgData();
  $("auth-status").textContent="Войди через аккаунт своей фермы";
 }
-async function enterDemo(){
- try{
-  const catalog=await api("/catalog");
-  data={name:"Гость • демоверсия",coins:0,reputation:0,
-   businesses:Object.keys(catalog.business_catalog),stock:{},products:{},
-   farm_market_totals:{},city_demand_today:{},
-   cashflow:{ingredient_spend:0,goods_purchases:0,goods_sales:0,net:0},wallet_mode:"shared_farm_city",
-   recipes:catalog.recipes,business_catalog:catalog.business_catalog,
-   farm_offers:[],city_offers:[],my_city_offers:[],jobs:[],resident_orders:[],demo:true};
-  $("city-auth").classList.add("hidden");
-  paint();
-  toast("Деморежим: для настоящей торговли войди в аккаунт фермы.");
- }catch(e){$("auth-status").textContent=e.message}
-}
 async function loginTelegram(){
  if(!tgData()){toast("Открой игру через Telegram");return}
  $("auth-status").textContent="Проверяем Telegram…";
@@ -192,7 +178,6 @@ function showResidents(){
 }
 function showProfile(){
  activeBusiness=null;
- const demo=Boolean(data.demo);
  let html='<p class="panel-note">Один аккаунт для фермы и города. Монеты на общем балансе, промокоды одноразовые и бонусные монеты не выводятся.</p>';
  html+='<div class="mini-grid"><div class="mini-box"><small>👤 Игрок</small><strong style="font-size:16px">'+esc(data.name)+'</strong></div><div class="mini-box"><small>🪙 Общий баланс</small><strong>'+number(data.coins)+'</strong></div><div class="mini-box"><small>⭐ Репутация города</small><strong>'+number(data.reputation)+'</strong></div><div class="mini-box"><small>🏢 Предприятия</small><strong>'+number(data.businesses.length)+'</strong></div></div>';
  const finance=data.cashflow||{};
@@ -202,8 +187,7 @@ function showProfile(){
  html+='<div class="empty">🔗 Ферма и город используют один баланс. <strong>+1 000 по промокоду</strong> отображается в обеих играх, но начисляется только один раз. Склады и производственные ресурсы остаются раздельными.</div>';
  html+='<h3 class="section-subtitle">🎁 Активировать промокод</h3>';
  html+='<p class="panel-note">Введи код от TREVIXO или фермы. Награда поступит на тот же аккаунт. Один код можно использовать только один раз.</p>';
- html+='<form id="city-promo-form" class="city-promo-form"><input id="city-promo-input" aria-label="Промокод" autocomplete="off" spellcheck="false" maxlength="64" placeholder="FARM-…" '+(demo?'disabled':'')+' required><button class="btn gold" type="submit" '+(demo?'disabled':'')+'>Получить награду</button></form>';
- if(demo)html+='<p class="panel-note">Для активации выйди из гостевого просмотра и войди в аккаунт.</p>';
+ html+='<form id="city-promo-form" class="city-promo-form"><input id="city-promo-input" aria-label="Промокод" autocomplete="off" spellcheck="false" maxlength="64" placeholder="FARM-…" required><button class="btn gold" type="submit">Получить награду</button></form>';
  html+='<p><a href="/" class="btn ghost" style="display:inline-block;text-decoration:none">🌾 Вернуться на ферму</a></p>';
  openPanel("👤 Мой профиль",html);
 }
@@ -225,7 +209,7 @@ function showWarehouse(){
 }
 async function redeemPromo(event){
  event.preventDefault();
- if(working||data?.demo){toast("Для промокода нужен аккаунт фермы");return}
+ if(working)return
  const code=$("city-promo-input")?.value.trim().toUpperCase();
  if(!code){toast("Введи промокод");return}
  working=true;
@@ -237,7 +221,6 @@ async function redeemPromo(event){
  finally{working=false}
 }
 async function action(action,item,amountId,listingId){
- if(data?.demo){toast("Это демонстрация. Войди через свою ферму, чтобы торговать.");showLogin();return}
  if(working)return;
  const amount=amountId?getAmount(amountId):null;
  if(amountId&&amount===null)return;
@@ -278,7 +261,6 @@ $("view-orders").addEventListener("click",()=>view("warehouse"));
 $("view-residents").addEventListener("click",()=>view("residents"));
 $("view-store").addEventListener("click",()=>{activeView="store";showBusiness("store")});
 $("refresh").addEventListener("click",async()=>{
- if(data?.demo){toast("Демоверсия — данные не обновляются");return}
  try{await load();toast("Данные обновлены")}catch(e){toast(e.message)}
 });
 $("close-panel").addEventListener("click",closePanel);
@@ -293,7 +275,6 @@ $("panel-body").addEventListener("click",e=>{
 });
 $("auth-form").addEventListener("submit",loginPassword);
 $("telegram-login").addEventListener("click",loginTelegram);
-$("demo-enter").addEventListener("click",enterDemo);
 window.addEventListener("telegram-sdk-ready",()=>{if(!data&&!token)loginTelegram()});
-setInterval(()=>{if(data&&!data.demo&&document.visibilityState==="visible")load().catch(()=>{})},30000);
+setInterval(()=>{if(data&&document.visibilityState==="visible")load().catch(()=>{})},30000);
 entry();
