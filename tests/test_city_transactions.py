@@ -43,6 +43,10 @@ class CityTransactions(unittest.TestCase):
             c.execute("""CREATE TABLE stars_refund_intents(order_id text PRIMARY KEY,status text)""")
             farm_wallet.initialize_sources(c)
             ad_inventory.initialize(c)
+            c.execute("""CREATE TABLE promo_codes(code_hash text PRIMARY KEY, amount integer,
+                redeemed_by text,redeemed_at double precision)""")
+            c.execute("""CREATE TABLE reward_emission(id integer PRIMARY KEY,total_minted integer)""")
+            c.execute("INSERT INTO reward_emission VALUES(1,0)")
             city_world.initialize(c)
             c.execute("""INSERT INTO players(id,token,name,coins)
                 VALUES ('buyer','t-buyer','Покупатель',200),
@@ -64,6 +68,28 @@ class CityTransactions(unittest.TestCase):
     def action(self,item="",amount=1,price=1,request_id="",expected_cost=-1,listing_id=""):
         return city_world.Action(item=item,amount=amount,price=price,
             request_id=request_id,expected_cost=expected_cost,listing_id=listing_id)
+
+    def test_single_use_promo_uses_existing_nonwithdrawable_farm_ledger(self):
+        import hashlib
+        import main
+        from unittest.mock import patch
+        test_code="FARM-"+"A"*23
+        digest=hashlib.sha256(test_code.encode()).hexdigest()
+        with self.connect() as c:
+            c.execute("INSERT INTO promo_codes(code_hash,amount) VALUES(%s,1000)",(digest,))
+        with patch.object(main,"db",self.connect),patch.object(main,"person",city_world._person):
+            result=main.redeem_promo(main.Request(code=test_code),
+                authorization="Bearer t-buyer")
+            self.assertEqual(result["awarded"],1000)
+            with self.assertRaises(HTTPException) as err:
+                main.redeem_promo(main.Request(code=test_code),
+                    authorization="Bearer t-buyer")
+            self.assertEqual(err.exception.status_code,409)
+        with self.connect() as c:
+            buyer=c.execute("SELECT * FROM players WHERE id='buyer'").fetchone()
+            self.assertEqual(buyer["coins"],1200)
+            self.assertEqual(farm_wallet.available(c,buyer),0)
+            self.assertEqual(c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"],1000)
 
     def test_ingredient_trade_excludes_self_and_is_idempotent(self):
         q=self.action("eggs",5,request_id="a"*32,expected_cost=5)
