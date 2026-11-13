@@ -550,6 +550,17 @@ def produce(q:Action,authorization:str=Header(default="")):
         if not opened:raise HTTPException(403,"Сначала откройте предприятие")
         if q.amount>business_batch_limit(int(opened["level"])):
             raise HTTPException(409,"Увеличьте уровень предприятия для такой партии")
+        # Concurrent production capacity, not merely a per-request batch cap.
+        # A single enterprise cannot bypass its level by submitting many jobs.
+        now=time.time()
+        pending=c.execute("""SELECT COALESCE(SUM(j.quantity),0) AS units
+            FROM city_jobs j WHERE j.player_id=%s AND j.ready_at>%s
+            AND j.recipe=ANY(%s)""",
+            (p["id"],now,[key for key,spec in RECIPES.items()
+                           if spec["business"]==recipe["business"]])).fetchone()
+        occupied=int(pending["units"]) if pending else 0
+        if occupied+q.amount>business_batch_limit(int(opened["level"])):
+            raise HTTPException(409,"Все производственные мощности заняты. Дождитесь завершения или улучшите предприятие")
         for item,qty in recipe["needs"].items():
             changed=c.execute("""UPDATE city_stock SET quantity=quantity-%s
                 WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
