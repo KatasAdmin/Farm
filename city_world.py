@@ -51,6 +51,7 @@ def setup(db, person, advance):
     return router
 
 def initialize(c):
+    city_nutrition.initialize(c)
     # One-time 1000-coin launch promo. Only the SHA-256 digest is persisted.
     # Redemption is handled by the existing farm promo endpoint and is
     # non-withdrawable by virtue of its promo_reward provenance.
