@@ -9,8 +9,8 @@ import time
 
 DECAY_PER_HOUR=5
 DECAY_PER_SECOND=DECAY_PER_HOUR/3600.0
-FOOD_RESTORE={"pancakes":35,"pie":45,"omelet":35,"cheese":25,"bread":20,
-              "breakfast_set":75,"dessert_box":65,"lunch_box":70}
+FOOD_RESTORE={"pancakes":100,"pie":100,"omelet":100,"cheese":100,"bread":100,
+              "breakfast_set":100,"dessert_box":100,"lunch_box":100}
 # Non-edible home goods can be used for city reputation, but cannot be eaten.
 
 def initialize(c):
