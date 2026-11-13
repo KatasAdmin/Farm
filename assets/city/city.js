@@ -154,9 +154,9 @@ function showBusiness(kind){
  if(!level){
   const required=b.min_reputation;
   const feathers=b.feather_cost||0;
-  const ready=data.reputation>=required&&(data.stock.feathers||0)>=feathers;
-  body='<div class="empty">'+(ready?'✨ Условия выполнены — предприятие готово к открытию':'🔒 Нужно '+required+' ⭐ репутации'+(feathers?' и '+feathers+' 🪶 на складе':'')+'. Сейчас '+data.reputation+' ⭐ и '+(data.stock.feathers||0)+' 🪶')+'</div>'+
-   '<button class="btn gold" data-action="open" data-item="'+kind+'" '+(ready?'':'disabled')+'>🏙️ Открыть предприятие</button>'+(feathers?'<p class="city-help">🪶 Перья можно перенести со склада фермы через городской склад.</p>':'');
+  const ready=data.reputation>=required&&(data.farm_feathers||0)>=feathers;
+  body='<div class="empty">'+(ready?'✨ Условия выполнены — предприятие готово к открытию':'🔒 Нужно '+required+' ⭐ репутации'+(feathers?' и '+feathers+' 🪶 на ферме':'')+'. Сейчас '+data.reputation+' ⭐ и '+(data.farm_feathers||0)+' 🪶')+'</div>'+
+   '<button class="btn gold" data-action="open" data-item="'+kind+'" '+(ready?'':'disabled')+'>🏙️ Открыть предприятие</button>'+(feathers?'<p class="city-help">🪶 Перья автоматически спишутся с фермы при открытии.</p>':'');
  }else{
   body='<div class="badge-line"><span class="pill">Уровень '+level+'</span><span class="pill">Рецепты · '+recipes.length+'</span></div>';
  }
@@ -252,7 +252,6 @@ function showProfile(){
 function showWarehouse(){
  let s='<h3 class="section-subtitle">Сырьё</h3><div class="mini-grid">';
  s+=Object.entries(names).map(([key,name])=>'<div class="mini-box"><small>'+name+'</small><strong>'+number(data.stock[key]||0)+'</strong></div>').join("")+'</div>';
- s+='<div class="city-transfer"><div><strong>🪶 Перья с фермы</strong><small>На ферме: '+number(data.farm_feathers||0)+' · в городе: '+number(data.stock.feathers||0)+'<span>Для открытия молочной и ателье</span></small></div><div class="item-actions"><input class="number-input" id="qty-transfer-feathers" aria-label="Перенести перья" type="number" min="1" max="500" value="1"><button class="btn gold" data-action="transfer" data-item="feathers" data-amount-id="qty-transfer-feathers" '+(!data.farm_feathers?'disabled':'')+'>Перенести</button></div></div>';
  s+='<h3 class="section-subtitle">Готовая продукция</h3>';
  const products=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key]);
  s+=products.length?products.map(([key,n])=>saleRow(key,n)).join(""):'<div class="empty">Склад пока пуст</div>';
@@ -287,7 +286,6 @@ async function action(action,item,amountId,listingId){
  if(action==="shopping"){lastShoppingRecipe=item;return showShoppingList(item)}
  if(action==="business"){return showBusiness(item)}
  if(action==="open")path="/open";
- else if(action==="transfer"){path="/transfer-feathers";body.item="feathers";body.amount=amount}
  else if(action==="produce"){path="/produce";body.amount=getAmount("qty-craft-"+item);if(!body.amount)return}
  else if(action==="raw"){path="/buy-ingredient";body.amount=amount}
  else if(action==="product"){path="/buy-product";body.amount=amount}
@@ -296,7 +294,7 @@ async function action(action,item,amountId,listingId){
  else if(action==="fulfill"){path="/fulfill-order";body.order_day=data.resident_orders.find(order=>order.id===item)?.day}
  else return;
  working=true;
- if(["raw","product","produce","list","cancel","fulfill","transfer"].includes(action)){
+ if(["raw","product","produce","list","cancel","fulfill"].includes(action)){
   body.request_id=(globalThis.crypto?.randomUUID?.()||(Date.now().toString(16)+Math.floor(Math.random()*1e15).toString(16)).padEnd(32,"a")).replaceAll("-","").slice(0,32);
  }
  if(action==="raw"||action==="product"){
@@ -306,7 +304,7 @@ async function action(action,item,amountId,listingId){
    if(!confirm("Купить "+body.amount+" шт. за "+number(quote.cost)+" монет?")){working=false;return}
   }catch(e){toast(e.message);working=false;return}
  }
- try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар на рынке · смотри в «Мои лоты»":action==="open"?"Предприятие открыто!":action==="transfer"?"🪶 Перья перенесены в город!":"Готово!");
+ try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар на рынке · смотри в «Мои лоты»":action==="open"?"Предприятие открыто!":"Готово!");
  await load();
  }catch(e){toast(e.message)}
  finally{working=false}
