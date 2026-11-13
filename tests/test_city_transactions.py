@@ -162,6 +162,33 @@ class CityTransactions(unittest.TestCase):
         with self.connect() as c:
             self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200)
 
+    def test_production_retry_does_not_consume_ingredients_twice(self):
+        city_world.open_business(self.action("bakery"),authorization="Bearer t-buyer")
+        with self.connect() as c:
+            for item,n in (("eggs",8),("grain",10)):
+                c.execute("INSERT INTO city_stock VALUES('buyer',%s,%s)",(item,n))
+        q=self.action("pie",1,request_id="1"*32)
+        first=city_world.produce(q,authorization="Bearer t-buyer")
+        self.assertEqual(city_world.produce(q,authorization="Bearer t-buyer"),first)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_jobs WHERE player_id='buyer'").fetchone()["n"],1)
+            self.assertEqual(c.execute("SELECT quantity FROM city_stock WHERE item='eggs' AND player_id='buyer'").fetchone()["quantity"],0)
+
+    def test_listing_retry_and_consumption_retry_do_not_double_spend(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO city_products VALUES('buyer','bread',4)")
+        listing=self.action("bread",2,price=3,request_id="2"*32)
+        first=city_world.list_product(listing,authorization="Bearer t-buyer")
+        self.assertEqual(city_world.list_product(listing,authorization="Bearer t-buyer"),first)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_listings WHERE seller='buyer'").fetchone()["n"],1)
+        consume=self.action("bread",1,request_id="3"*32)
+        result=city_world.consume(consume,authorization="Bearer t-buyer")
+        self.assertEqual(city_world.consume(consume,authorization="Bearer t-buyer"),result)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT points FROM city_reputation WHERE player_id='buyer'").fetchone()["points"],5)
+            self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='bread'").fetchone()["quantity"],1)
+
     def test_city_daily_orders_do_not_pay_coins(self):
         with self.connect() as c:
             o=city_world.daily_orders(c,"buyer")[0]
