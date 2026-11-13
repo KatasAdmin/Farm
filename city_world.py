@@ -160,6 +160,11 @@ def _amount(n, maximum=10000):
     if type(n) is not int or n<1 or n>maximum:
         raise HTTPException(400,"Укажите корректное количество")
 
+@router.get("/catalog")
+def public_catalog():
+    # Safe static catalog for a read-only demonstration of the City.
+    return {"recipes":RECIPES,"business_catalog":BUSINESSES,"demo":True}
+
 @router.get("/state")
 def state(authorization: str=Header(default="")):
     with _db() as c:
