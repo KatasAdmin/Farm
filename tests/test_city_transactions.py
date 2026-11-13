@@ -136,6 +136,20 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],194)
         self.assertEqual(city_world.buy_ingredient(q,authorization="Bearer t-buyer"),result)
 
+    def test_same_price_eggs_are_proportionally_bought_from_all_sellers(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO market VALUES('small-egg-sale','other','eggs',2,1)")
+        quote=city_world.quote_ingredient(self.action("eggs",6),authorization="Bearer t-buyer")
+        self.assertEqual(quote["cost"],6)
+        self.assertEqual(quote["sellers"],2)
+        city_world.buy_ingredient(self.action("eggs",6,request_id="8"*32,expected_cost=6),
+                                  authorization="Bearer t-buyer")
+        with self.connect() as c:
+            amounts={r["seller_id"]:r["quantity"] for r in c.execute(
+                "SELECT seller_id,quantity FROM market_trade_audit WHERE buyer_id='buyer' AND item='eggs'").fetchall()}
+            self.assertEqual(amounts,{"seller":5,"other":1})
+            self.assertEqual(c.execute("SELECT quantity FROM market WHERE id='own-egg-sale'").fetchone()["quantity"],20)
+
     def test_ingredient_trade_excludes_self_and_is_idempotent(self):
         q=self.action("eggs",5,request_id="a"*32,expected_cost=5)
         result=city_world.buy_ingredient(q,authorization="Bearer t-buyer")
