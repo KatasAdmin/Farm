@@ -91,6 +91,24 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(farm_wallet.available(c,buyer),0)
             self.assertEqual(c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"],1000)
 
+    def test_shared_wallet_single_balance_and_city_cashflow(self):
+        # The same players.coins column is the wallet across both games.
+        original=city_world.state(authorization="Bearer t-buyer")
+        self.assertEqual(original["coins"],200)
+        self.assertEqual(original["wallet_mode"],"shared_farm_city")
+        city_world.buy_ingredient(self.action("eggs",2,request_id="7"*32,expected_cost=2),
+                                  authorization="Bearer t-buyer")
+        after=city_world.state(authorization="Bearer t-buyer")
+        self.assertEqual(after["coins"],198)
+        self.assertEqual(after["cashflow"]["ingredient_spend"],2)
+        self.assertEqual(after["cashflow"]["goods_purchases"],0)
+        self.assertEqual(after["cashflow"]["goods_sales"],0)
+        self.assertEqual(after["cashflow"]["net"],-2)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],198)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM money_log WHERE player_id='buyer' AND kind='market_buy'").fetchone()["n"],1)
+        self.assertEqual(city_world.state(authorization="Bearer t-buyer")["coins"],198)
+
     def test_ingredient_trade_excludes_self_and_is_idempotent(self):
         q=self.action("eggs",5,request_id="a"*32,expected_cost=5)
         result=city_world.buy_ingredient(q,authorization="Bearer t-buyer")
