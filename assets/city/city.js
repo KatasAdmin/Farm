@@ -73,7 +73,7 @@ function paint(){
  receivedAt=performance.now();
  $("coins").textContent=number(data.coins);
  $("reputation").textContent=number(data.reputation);
- $("business-count").textContent=data.businesses.filter(kind=>kind!=="store").length+" / 4";
+ $("business-count").textContent=data.businesses.filter(kind=>kind!=="store").length+" открыто";
  $("products-count").textContent=number(Object.values(data.products).reduce((a,b)=>a+b,0));
  $("jobs-count").textContent=data.jobs.length;
  $("orders-count").textContent=data.resident_orders.filter(order=>!order.done).length;
@@ -139,10 +139,10 @@ function saleRow(item,quantity){
 }
 function showBusinessDirectory(){
  const entries=Object.entries(data.business_catalog).filter(([kind])=>kind!=="store");
- openPanel("🏢 Предприятия",entries.map(([kind,b])=>
+ openPanel("🏙️ Мои предприятия",'<p class="city-help">Выбирай здание, выпускай товары и развивай город. Новые предприятия открываются за репутацию ⭐</p>'+entries.map(([kind,b])=>
   '<button type="button" class="item-card business-entry" data-action="business" data-item="'+kind+'">'+
   '<span><strong>'+b.emoji+' '+esc(b.name)+'</strong><small>'+
-  (data.business_levels[kind]?"Уровень "+data.business_levels[kind]:b.min_reputation+" ⭐ для открытия")+
+  (data.business_levels[kind]?"🟢 Работает · уровень "+data.business_levels[kind]:"🔒 Откроется при "+b.min_reputation+" ⭐")+
   '</small></span><span class="business-chevron" aria-hidden="true">›</span></button>').join(""));
 }
 function showBusiness(kind){
@@ -154,7 +154,7 @@ function showBusiness(kind){
  if(!level){
   const required=b.min_reputation;
   const ready=data.reputation>=required;
-  body='<div class="empty">'+(ready?'Можно открыть бесплатно':'🔒 Репутация '+data.reputation+' / '+required)+'</div>'+
+  body='<div class="empty">'+(ready?'✨ Условия выполнены — предприятие готово к открытию':'🔒 Для открытия нужно '+required+' ⭐ репутации. Сейчас '+data.reputation+' ⭐')+'</div>'+
    '<button class="btn gold" data-action="open" data-item="'+kind+'" '+(ready?'':'disabled')+'>Открыть предприятие</button>';
  }else{
   body='<div class="badge-line"><span class="pill">Уровень '+level+'</span><span class="pill">Рецепты · '+recipes.length+'</span></div>';
@@ -219,13 +219,11 @@ function showMarket(){
  }
  if(marketCategory==="food")html+='<a class="btn ghost city-link city-food-link" href="/?food=1">🍽️ Купить еду на ферму →</a>';
  const raw=["raw","materials"].includes(marketCategory);
- const catalog=raw?{...data.raw_catalog,grain:data.raw_catalog.grain||{quantity:0,min_price:data.system_grain_price}}:data.city_catalog;
- const listed=Object.entries(catalog).filter(([item,offer])=>(offer.quantity>0||(raw&&item==="grain"))&&(raw?
-  data.materials.includes(item)===(marketCategory==="materials"):
-  data.food_items.includes(item)===(marketCategory==="food")));
+ const catalog=raw?Object.fromEntries((marketCategory==='materials'?['feathers','wool']:['eggs','grain','milk']).map(item=>[item,data.raw_catalog[item]||{quantity:0,min_price:item==='grain'?data.system_grain_price:0}])):data.city_catalog;
+ const listed=Object.entries(catalog).filter(([item,offer])=>raw||offer.quantity>0&&data.food_items.includes(item)===(marketCategory==="food"));
  html+=listed.length?listed.map(([item,offer])=>row(raw?esc(names[item]):(icons[item]||"📦")+" "+esc(data.recipes[item].name),
-   number(offer.quantity)+' шт. у игроков · от '+number(offer.min_price)+' 🪙'+(raw&&item==="grain"?' · запас системы':''),
-   input("qty-market-"+item,1,raw&&item==="grain"?500:Math.min(offer.quantity,500))+'<button class="btn" data-action="'+(raw?"raw":"product")+'" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Купить</button>')).join(""):
+   (offer.quantity?number(offer.quantity)+' шт. на рынке · от '+number(offer.min_price)+' 🪙':item==='grain'?'🌾 Доступно зерно системы':'Нет предложений — появится, когда игроки выставят товар'),
+   input("qty-market-"+item,1,raw&&item==="grain"?500:Math.min(offer.quantity,500))+'<button class="btn" data-action="'+(raw?"raw":"product")+'" data-item="'+item+'" data-amount-id="qty-market-'+item+'" '+(!offer.quantity&&item!=='grain'?'disabled':'')+'>Купить</button>')).join(""):
    '<div class="empty">Пока нет предложений</div>';
  openPanel("🧺 Рынок",html);
 }
