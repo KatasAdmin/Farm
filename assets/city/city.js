@@ -86,6 +86,7 @@ function refreshPanel(){
  if(activeView==="market")return showMarket();
  if(activeView==="products")return showProducts();
  if(activeView==="warehouse")return showWarehouse();
+ if(activeView==="residents")return showResidents();
 }
 function showBusiness(kind){
  activeBusiness=kind;
@@ -129,6 +130,16 @@ function showProducts(){
    input("qty-product-"+x.id)+'<button class="btn" data-action="product" data-item="'+esc(x.item)+'" data-amount-id="qty-product-'+x.id+'">Купить</button>')).join(""):'<div class="empty">Готовых товаров пока нет. Открой производство и первым выставь свой товар!</div>';
  openPanel("🛍️ Товары города",s);
 }
+function showResidents(){
+ let s='<p class="panel-note">Каждый день жители города размещают три заказа на готовые товары. Купи их у других игроков или изготовь сам. За выполнение начисляется репутация — монеты из казны не создаются.</p>';
+ const orders=data.resident_orders||[];
+ s+=orders.map(o=>row((icons[o.recipe]||"📦")+" "+esc(data.recipes[o.recipe]?.name||o.recipe),
+  'Заказ жителя · +'+o.reputation+' репутации · '+o.quantity+' шт.',
+  o.done?'<span class="pill">✅ Выполнено</span>':
+  '<button class="btn gold" data-action="fulfill" data-item="'+esc(o.id)+'">Отдать</button>')).join("");
+ s+='<p class="panel-note">Новые заявки появляются ежедневно в 00:00 UTC. Количество заказов ограничено.</p>';
+ openPanel("👥 Заказы жителей",s);
+}
 function showWarehouse(){
  let s='<p class="panel-note">Склад бизнеса отделён от фермерского склада. Он пополняется только закупками на общем рынке. Готовые товары можно продавать или использовать для развития репутации.</p>';
  s+='<h3 class="section-subtitle">Ингредиенты бизнеса</h3><div class="mini-grid">';
@@ -158,6 +169,7 @@ async function action(action,item,amountId,listingId){
  else if(action==="list"){path="/list-product";body.amount=getAmount("qty-list-"+item);body.price=Number($("price-"+item)?.value);if(!body.amount||!Number.isSafeInteger(body.price)||body.price<1){toast("Укажи количество и цену");return}}
  else if(action==="consume"){path="/consume";body.amount=getAmount("qty-list-"+item);if(!body.amount)return}
  else if(action==="cancel"){path="/cancel-product";body.listing_id=listingId}
+ else if(action==="fulfill"){path="/fulfill-order"}
  else return;
  working=true;
  if(action==="raw"||action==="product"){
@@ -170,7 +182,7 @@ async function action(action,item,amountId,listingId){
  if(action==="raw"||action==="product"){
   body.request_id=(globalThis.crypto?.randomUUID?.()||(["a",Date.now().toString(16),Math.floor(Math.random()*1e9).toString(16)].join(""))).replaceAll("-","").slice(0,32);
  }
- try{const result=await api(path,body);toast(action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар выставлен в городе":action==="open"?"Предприятие открыто!":"Готово!");
+ try{const result=await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар выставлен в городе":action==="open"?"Предприятие открыто!":"Готово!");
  await load();
  }catch(e){toast(e.message)}
  finally{working=false}
@@ -180,6 +192,7 @@ document.querySelectorAll(".bottom-nav button").forEach(x=>x.addEventListener("c
 $("view-market").addEventListener("click",()=>view("market"));
 $("view-products").addEventListener("click",()=>view("products"));
 $("view-orders").addEventListener("click",()=>view("warehouse"));
+$("view-residents").addEventListener("click",()=>view("residents"));
 $("refresh").addEventListener("click",async()=>{try{await load();toast("Данные обновлены")}catch(e){toast(e.message)}});
 $("close-panel").addEventListener("click",closePanel);
 $("panel-backdrop").addEventListener("click",closePanel);
