@@ -217,7 +217,23 @@ def state(authorization: str=Header(default="")):
             WHERE l.quantity>0 AND l.seller<>%s ORDER BY l.item,l.price,l.id LIMIT 70""",(p["id"],)).fetchall()
         jobs=c.execute("SELECT recipe,quantity,ready_at FROM city_jobs WHERE player_id=%s ORDER BY ready_at",(p["id"],)).fetchall()
         rep=c.execute("SELECT points FROM city_reputation WHERE player_id=%s",(p["id"],)).fetchone()
+        # City accounting is a report of transfers between players, not a
+        # second balance. A purchase in either game changes players.coins once.
+        city_ingredient_spend=c.execute("""SELECT COALESCE(SUM(coins),0)::bigint AS coins
+            FROM city_raw_receipts WHERE buyer=%s""",(p["id"],)).fetchone()["coins"]
+        city_goods_purchases=c.execute("""SELECT COALESCE(SUM(coins),0)::bigint AS coins
+            FROM city_receipts WHERE buyer=%s""",(p["id"],)).fetchone()["coins"]
+        city_goods_sales=c.execute("""SELECT COALESCE(SUM(coins),0)::bigint AS coins
+            FROM city_receipts WHERE seller=%s""",(p["id"],)).fetchone()["coins"]
+        city_cashflow={
+            "ingredient_spend":int(city_ingredient_spend),
+            "goods_purchases":int(city_goods_purchases),
+            "goods_sales":int(city_goods_sales),
+            "net":int(city_goods_sales)-int(city_ingredient_spend)-int(city_goods_purchases),
+            "label":"Денежный поток города, не чистая прибыль",
+        }
         return {"name":p["name"],"coins":p["coins"],"businesses":businesses,
+            "wallet_mode":"shared_farm_city","cashflow":city_cashflow,
             "stock":_counts(c,"city_stock",p["id"]),
             "products":_counts(c,"city_products",p["id"]),
             "recipes":RECIPES,"business_catalog":BUSINESSES,
