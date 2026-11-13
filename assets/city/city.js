@@ -36,7 +36,7 @@ async function entry(){
     const login=await api("/api/telegram/login",{telegram_data:tgData()});
     token=login.token;store.set(token);data=await api("/state");
   }
-  if(data){$("city-auth").classList.add("hidden");paint();return}
+  if(data){$("city-auth").classList.add("hidden");paint();window.CityEntryAds?.maybeStart?.();return}
   showLogin();
  }catch(e){showLogin();$("auth-status").textContent="Не удалось подключиться: "+e.message}
 }
@@ -48,18 +48,22 @@ function showLogin(){
 async function loginTelegram(){
  if(!tgData()){toast("Открой игру через Telegram");return}
  $("auth-status").textContent="Проверяем Telegram…";
- try{const x=await api("/api/telegram/login",{telegram_data:tgData()});token=x.token;store.set(token);data=await api("/state");$("city-auth").classList.add("hidden");paint()}
+ try{const x=await api("/api/telegram/login",{telegram_data:tgData()});token=x.token;store.set(token);data=await api("/state");$("city-auth").classList.add("hidden");paint();window.CityEntryAds?.maybeStart?.()}
  catch(e){$("auth-status").textContent=e.message}
 }
 async function loginPassword(ev){
  ev.preventDefault();
  $("auth-status").textContent="Проверяем данные…";
  try{const x=await api("/api/login",{name:$("auth-name").value.trim(),password:$("auth-password").value});
- token=x.token;store.set(token);data=await api("/state");$("city-auth").classList.add("hidden");paint()}
+ token=x.token;store.set(token);data=await api("/state");$("city-auth").classList.add("hidden");paint();window.CityEntryAds?.maybeStart?.()}
  catch(e){$("auth-status").textContent=e.message}
 }
 async function load(){data=await api("/state");paint()}
+window.cityReload=load;
 function paint(){
+ const food=data.nutrition||{};
+ $("city-fullness").textContent=(food.fullness||0)+"%";
+ $("city-boost").textContent="Бонус +"+(food.bonus_percent||0)+"% к производству";
  $("coins").textContent=number(data.coins);
  $("reputation").textContent=number(data.reputation);
  $("greeting").textContent="Привет, "+data.name+"! Выбирай свой бизнес";
