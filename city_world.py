@@ -339,31 +339,14 @@ def open_business(q:Action, authorization: str=Header(default="")):
             return {"ok":True,"already_open":True}
         required=int(BUSINESSES[q.item].get("feather_cost",0))
         if required:
-            paid=c.execute("""UPDATE city_stock SET quantity=quantity-%s
-                WHERE player_id=%s AND item='feathers' AND quantity>=%s RETURNING quantity""",
+            # The farm owns the feathers. Spend them automatically when opening,
+            # rather than creating a second transferable inventory.
+            paid=c.execute("""UPDATE players SET feathers=feathers-%s
+                WHERE id=%s AND feathers>=%s RETURNING feathers""",
                 (required,p["id"],required)).fetchone()
-            if not paid:raise HTTPException(409,f"Для открытия нужно {required} перьев на городском складе")
+            if not paid:raise HTTPException(409,f"Для открытия нужно {required} перьев на ферме")
         c.execute("INSERT INTO city_businesses VALUES(%s,%s,1,%s)",(p["id"],q.item,time.time()))
     return {"ok":True}
-
-@router.post("/transfer-feathers")
-def transfer_feathers(q:Action,authorization:str=Header(default="")):
-    """Move feathers from farm to city without minting coins."""
-    if q.item!="feathers":raise HTTPException(400,"Переносить можно только перья")
-    _amount(q.amount,500)
-    with _db() as c:
-        c.execute("SELECT pg_advisory_xact_lock(1984533)")
-        p=_auth(c,authorization,True)
-        previous=_request(c,q,p["id"],"transfer_feathers")
-        if previous is not None:return previous
-        moved=c.execute("""UPDATE players SET feathers=feathers-%s
-            WHERE id=%s AND feathers>=%s RETURNING feathers""",
-            (q.amount,p["id"],q.amount)).fetchone()
-        if not moved:raise HTTPException(409,"На ферме недостаточно перьев")
-        _add_product(c,"city_stock",p["id"],"feathers",q.amount)
-        result={"ok":True,"moved":q.amount}
-        _finish_request(c,q,result)
-    return result
 
 @router.post("/buy-ingredient")
 def buy_ingredient(q:Action,authorization:str=Header(default="")):
