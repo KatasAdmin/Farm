@@ -105,6 +105,7 @@ function refreshPanel(){
  if(activeView==="market")return showMarket();
  if(activeView==="products")return showProducts();
  if(activeView==="warehouse")return showWarehouse();
+ if(activeView==="profile")return showProfile();
  if(activeView==="residents")return showResidents();
  if(activeView==="store")return showBusiness("store");
  if(activeView==="shopping")return showShoppingList(lastShoppingRecipe);
@@ -188,6 +189,18 @@ function showResidents(){
  s+='<p class="panel-note">Новые заявки появляются ежедневно в 00:00 UTC. Количество заказов ограничено.</p>';
  openPanel("👥 Заказы жителей",s);
 }
+function showProfile(){
+ activeBusiness=null;
+ const demo=Boolean(data.demo);
+ let html='<p class="panel-note">Один аккаунт для фермы и города. Монеты на общем балансе, промокоды одноразовые и бонусные монеты не выводятся.</p>';
+ html+='<div class="mini-grid"><div class="mini-box"><small>👤 Игрок</small><strong style="font-size:16px">'+esc(data.name)+'</strong></div><div class="mini-box"><small>🪙 Общий баланс</small><strong>'+number(data.coins)+'</strong></div><div class="mini-box"><small>⭐ Репутация города</small><strong>'+number(data.reputation)+'</strong></div><div class="mini-box"><small>🏢 Предприятия</small><strong>'+number(data.businesses.length)+'</strong></div></div>';
+ html+='<h3 class="section-subtitle">🎁 Активировать промокод</h3>';
+ html+='<p class="panel-note">Введи код от TREVIXO или фермы. Награда поступит на тот же аккаунт. Один код можно использовать только один раз.</p>';
+ html+='<form id="city-promo-form" class="city-promo-form"><input id="city-promo-input" aria-label="Промокод" autocomplete="off" spellcheck="false" maxlength="64" placeholder="FARM-…" '+(demo?'disabled':'')+' required><button class="btn gold" type="submit" '+(demo?'disabled':'')+'>Получить награду</button></form>';
+ if(demo)html+='<p class="panel-note">Для активации выйди из гостевого просмотра и войди в аккаунт.</p>';
+ html+='<p><a href="/" class="btn ghost" style="display:inline-block;text-decoration:none">🌾 Вернуться на ферму</a></p>';
+ openPanel("👤 Мой профиль",html);
+}
 function showWarehouse(){
  let s='<p class="panel-note">Склад бизнеса отделён от фермерского склада. Он пополняется только закупками на общем рынке. Готовые товары можно продавать или использовать для развития репутации.</p>';
  s+='<h3 class="section-subtitle">Ингредиенты бизнеса</h3><div class="mini-grid">';
@@ -203,6 +216,19 @@ function showWarehouse(){
   '<button class="btn ghost" data-action="cancel" data-listing-id="'+esc(x.id)+'">Снять</button>'
  )).join(""):'<div class="empty">Активных предложений пока нет</div>';
  openPanel("📦 Склад бизнеса",s);
+}
+async function redeemPromo(event){
+ event.preventDefault();
+ if(working||data?.demo){toast("Для промокода нужен аккаунт фермы");return}
+ const code=$("city-promo-input")?.value.trim().toUpperCase();
+ if(!code){toast("Введи промокод");return}
+ working=true;
+ try{
+   const result=await api("/api/promo/redeem",{code});
+   toast("🎁 Промокод принят! +"+number(result.awarded)+" монет");
+   await load();
+ }catch(error){toast(error.message||"Не удалось активировать промокод")}
+ finally{working=false}
 }
 async function action(action,item,amountId,listingId){
  if(data?.demo){toast("Это демонстрация. Войди через свою ферму, чтобы торговать.");showLogin();return}
@@ -252,6 +278,9 @@ $("refresh").addEventListener("click",async()=>{
 $("close-panel").addEventListener("click",closePanel);
 $("panel-backdrop").addEventListener("click",closePanel);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closePanel()});
+$("panel-body").addEventListener("submit",e=>{
+ if(e.target.id==="city-promo-form")redeemPromo(e);
+});
 $("panel-body").addEventListener("click",e=>{
  const button=e.target.closest("button[data-action]");if(!button)return;
  action(button.dataset.action,button.dataset.item,button.dataset.amountId,button.dataset.listingId)
