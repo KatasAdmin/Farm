@@ -109,6 +109,47 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM money_log WHERE player_id='buyer' AND kind='market_buy'").fetchone()["n"],1)
         self.assertEqual(city_world.state(authorization="Bearer t-buyer")["coins"],198)
 
+    def test_city_eat_is_single_use_and_increases_farmer_fullness(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO city_products VALUES('buyer','omelet',2)")
+        meal=self.action("omelet",1,request_id="4"*32)
+        result=city_world.eat(meal,authorization="Bearer t-buyer")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["nutrition"]["fullness"],100)
+        same=city_world.eat(meal,authorization="Bearer t-buyer")
+        self.assertEqual(result,same)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='omelet'").fetchone()["quantity"],1)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_requests WHERE id=%s",("4"*32,)).fetchone()["n"],1)
+        with self.assertRaises(HTTPException):
+            city_world.eat(self.action("pillow",1,request_id="5"*32),authorization="Bearer t-buyer")
+
+    def test_city_eggs_use_same_price_proportional_allocation(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO market VALUES('egg-second','other','eggs',10,1)")
+        q=self.action("eggs",6,request_id="6"*32,expected_cost=6)
+        result=city_world.buy_ingredient(q,authorization="Bearer t-buyer")
+        self.assertEqual(result["quantity"],6)
+        with self.connect() as c:
+            rows=c.execute("SELECT seller,quantity FROM city_raw_receipts WHERE buyer='buyer' AND item='eggs' ORDER BY seller").fetchall()
+            self.assertEqual({r["seller"]:r["quantity"] for r in rows},{"seller":3,"other":3})
+            self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],194)
+        self.assertEqual(city_world.buy_ingredient(q,authorization="Bearer t-buyer"),result)
+
+    def test_same_price_eggs_are_proportionally_bought_from_all_sellers(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO market VALUES('small-egg-sale','other','eggs',2,1)")
+        quote=city_world.quote_ingredient(self.action("eggs",6),authorization="Bearer t-buyer")
+        self.assertEqual(quote["cost"],6)
+        self.assertEqual(quote["sellers"],2)
+        city_world.buy_ingredient(self.action("eggs",6,request_id="8"*32,expected_cost=6),
+                                  authorization="Bearer t-buyer")
+        with self.connect() as c:
+            amounts={r["seller_id"]:r["quantity"] for r in c.execute(
+                "SELECT seller_id,quantity FROM market_trade_audit WHERE buyer_id='buyer' AND item='eggs'").fetchall()}
+            self.assertEqual(amounts,{"seller":5,"other":1})
+            self.assertEqual(c.execute("SELECT quantity FROM market WHERE id='own-egg-sale'").fetchone()["quantity"],20)
+
     def test_ingredient_trade_excludes_self_and_is_idempotent(self):
         q=self.action("eggs",5,request_id="a"*32,expected_cost=5)
         result=city_world.buy_ingredient(q,authorization="Bearer t-buyer")
@@ -236,6 +277,19 @@ class CityTransactions(unittest.TestCase):
         with self.connect() as c:
             self.assertEqual(c.execute("SELECT points FROM city_reputation WHERE player_id='buyer'").fetchone()["points"],5)
             self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='bread'").fetchone()["quantity"],1)
+
+    def test_city_meal_grants_no_coins_and_never_eats_twice(self):
+        with self.connect() as c:
+            c.execute("INSERT INTO city_products VALUES('buyer','omelet',2)")
+        q=self.action("omelet",1,request_id="9"*32)
+        first=city_world.eat(q,authorization="Bearer t-buyer")
+        again=city_world.eat(q,authorization="Bearer t-buyer")
+        self.assertEqual(first,again)
+        self.assertGreater(first["nutrition"]["fullness"],0)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200)
+            self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='omelet'").fetchone()["quantity"],1)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_requests WHERE player_id='buyer' AND action='eat'").fetchone()["n"],1)
 
     def test_city_daily_orders_do_not_pay_coins(self):
         with self.connect() as c:

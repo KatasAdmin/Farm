@@ -28,3 +28,27 @@
 .city-promo-form input{width:100%;min-width:0;border:1px solid #7195b4;border-radius:12px;background:#081f38;color:white;padding:12px 13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}
 .city-promo-form input:focus{outline:2px solid #5dd9ff;outline-offset:2px}
 @media(max-width:480px){.city-promo-form{grid-template-columns:1fr}.bottom-nav button{padding:6px 9px}}
+
+/* City v2 – uncluttered mobile-first cards and edible food boosts. */
+.city-ad-status{margin:12px 0 3px;min-height:19px;color:#a8daf0;font-size:12px}
+.nutrition-stat{background:linear-gradient(125deg,#124d66,#176b74)}
+.nutrition-stat small{display:block;margin-top:4px;color:#c1f4e7;font-size:11px}
+.nutrition-city-card{padding:14px;border:1px solid #66c1b0;background:#164e59;border-radius:14px;display:flex;flex-wrap:wrap;gap:8px;line-height:1.5}
+.nutrition-city-card strong{color:#adf4c2}
+.nutrition-city-card span{font-size:12px;color:#c1e4e8}
+#panel-body .item-card{flex-wrap:wrap;align-items:center;padding:15px;gap:12px}
+#panel-body .item-card>div:first-child{flex:1 1 170px;min-width:0}
+#panel-body .item-card .item-actions{flex:1 1 210px;min-width:0;display:flex;flex-wrap:wrap;justify-content:flex-start;gap:8px}
+#panel-body .item-card .item-actions .btn{white-space:normal;max-width:100%;min-height:42px;flex:1 1 94px;padding:10px}
+#panel-body .item-card .number-input{flex:0 0 68px;min-width:0;height:42px}
+#panel-body .item-card .btn.food{background:linear-gradient(135deg,#2abf8f,#20846f)}
+#panel-body .item-card .item-actions .number-input[aria-label="Цена"]{width:72px;flex-basis:72px}
+@media(max-width:650px){
+ .quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .quick-action{min-height:74px}
+ .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #panel-body .item-card{display:block}
+ #panel-body .item-card .item-actions{display:flex;margin-top:11px}
+ #panel-body .item-card .item-actions .btn{flex:1 1 42%;font-size:13px}
+ #panel-body .item-card .item-actions .number-input{flex:0 0 66px}
+}

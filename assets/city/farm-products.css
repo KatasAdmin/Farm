@@ -36,3 +36,21 @@
  .farm-city-heading h3{font-size:16px}
  .farm-city-product{padding:12px}
 }
+
+/* Higher-specificity Farm overrides: no unreadable dark labels on blue panels. */
+#production .farm-city-header,#production .farm-city-section,#production .farm-city-hint{
+  background:linear-gradient(145deg,#145d99,#0b3675)!important;
+  color:#effaff!important;border:1px solid #81c8ee!important;box-shadow:0 8px 24px #063b6840}
+#production .farm-city-header h2,#production .farm-city-section h3,#production .farm-city-hint strong{color:#fff!important;text-shadow:0 1px 3px #002a53}
+#production .farm-city-header p,#production .farm-city-hint p,#production .farm-city-heading small{color:#d9efff!important}
+#production .farm-city-eyebrow{color:#95e1ff!important}
+#production .farm-city-product{background:linear-gradient(140deg,#f8fdff,#e1f4ff)!important;color:#163d64!important}
+#production .farm-city-product strong{color:#123c68!important}
+#production .farm-city-product small,#production .farm-city-product .farm-city-description{color:#476783!important}
+#production .farm-city-product .farm-city-meta{color:#15577d!important}
+.farm-food-status{padding:14px;border-radius:15px;background:linear-gradient(110deg,#d9fff1,#c4f3e8);border:1px solid #8fdac9;color:#155f52!important;margin:0 0 12px;line-height:1.5;grid-column:1/-1;font-size:13px}
+.farm-food-status strong{font-weight:900;color:#075744!important}
+.farm-food-status span{display:block;margin-top:5px;font-size:12px;color:#246c63}
+.farm-city-trade-row{flex-wrap:wrap}
+.farm-city-trade-row .farm-city-use{background:linear-gradient(120deg,#20aa8b,#18826e)}
+@media(max-width:520px){.farm-food-status{font-size:12px}}

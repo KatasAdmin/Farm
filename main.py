@@ -17,6 +17,7 @@ import farm_ranking
 import release_grants
 import farm_wallet
 import city_world
+import city_nutrition
 import farm_exchange
 import farm_capitalization
 import farm_card_web
@@ -215,6 +216,7 @@ async def lifespan(app):
   logger.warning("farm_startup_bot_schema_ready")
   farm_wallet.initialize(c)
   city_world.initialize(c)
+  city_nutrition.initialize(c)
   farm_capitalization.initialize(c)
   farm_exchange.initialize(c)
   if os.environ.get("FARM_STAGING", "").lower() not in ("1", "true", "yes"):
@@ -540,6 +542,10 @@ def advance(c,p,now=None):
  p=fields.harvest(c,p,now)
  if p.get("production_model",3)>=4:
   if ad_inventory.active(p):p={**p,"_ad_credit_balance":ad_inventory.balance(c,p)}
+  # One shared food status for Farm+City; never confused with animal satiety.
+  # Food cannot affect earlier production because the bonus integral starts
+  # at the meal timestamp and main.city consume advances before eating.
+  p={**p,"_city_food":city_nutrition.get(c,p["id"])}
   result,produced,refills=simulate_v4(p,now)
   for refill in refills:
    c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(GRAIN_PRICE*refill,))
@@ -567,6 +573,7 @@ def advance(c,p,now=None):
   if "sheep" in result:keys+=("sheep","fed_sheep","wool","wool_progress")
   c.execute("UPDATE players SET "+",".join(k+"=%s" for k in keys)+" WHERE id=%s",tuple(result[k] for k in keys)+(p["id"],))
   result.pop("_ad_credit_balance",None)
+  result.pop("_city_food",None)  # Never mutate the public or persisted player schema.
   ad_inventory.save(c,result)
   return update_incubation(c,result,now)
  start=p["last_tick"] if p["last_tick"] is not None else now

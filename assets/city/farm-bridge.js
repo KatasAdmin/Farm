@@ -61,31 +61,29 @@
   '<div class="farm-city-trade-row">'+actions+'</div></article>';
  };
  function renderShop(target){
-  const offers=(info.city_offers||[]).filter(o=>info.recipes[o.item]);
-  if(!offers.length){
-   target.innerHTML='<div class="farm-city-blank">🏪 Другие игроки ещё не выставили продукцию. Как только пекарни и рестораны приготовят товары, они появятся здесь.</div>';
+  const groups=Object.entries(info.city_catalog||{}).filter(([item,r])=>info.recipes[item]&&r.quantity>0);
+  if(!groups.length){
+   target.innerHTML='<div class="farm-city-blank">🏪 Другие игроки ещё не выставили продукцию. Как только появятся товары, они будут здесь.</div>';
    return;
   }
-  const groups={};
-  for(const offer of offers)(groups[offer.item] ||= []).push(offer);
-  target.innerHTML='<div class="farm-city-grid">'+Object.entries(groups).map(([item,list])=>{
-   list.sort((a,b)=>a.price-b.price);
-   const available=list.reduce((n,o)=>n+o.quantity,0);
-   return card(item,{
-    meta:"От "+fmt(list[0].price)+" 🪙 за шт. · "+fmt(available)+" шт. в продаже",
+  target.innerHTML='<div class="farm-city-grid">'+groups.map(([item,r])=>card(item,{
+    meta:"От "+fmt(r.min_price)+" 🪙 за шт. · "+fmt(r.quantity)+" шт. · Продавцов: "+r.sellers,
     description:benefits[item],
     actions:'<input type="number" min="1" max="500" value="1" aria-label="Количество '+esc(item)+'" data-city-qty="'+esc(item)+'">'+
     '<button type="button" data-city-buy="'+esc(item)+'">Купить</button>'
-   });
-  }).join("")+'</div>';
+   })).join("")+'</div>';
  }
  function renderInventory(){
   const mine=Object.entries(info.products||{}).filter(([k,n])=>n>0&&info.recipes[k]);
-  inventory.innerHTML=mine.length?mine.map(([item,n])=>card(item,{
+  const food=info.nutrition||{};
+  const header='<div class="farm-food-status">🍽️ <strong>Сытость фермера: '+fmt(food.fullness||0)+'%</strong> · Бонус к яйцам, молоку, шерсти и перьям: <strong>+'+fmt(food.bonus_percent||0)+'%</strong><span>После еды сытость постепенно уменьшается на 5% в час. При нуле ферма работает с обычной скоростью.</span></div>';
+  inventory.innerHTML=header+(mine.length?mine.map(([item,n])=>card(item,{
    meta:"На твоём городском складе: "+fmt(n)+" шт.",
    description:benefits[item],
-   actions:'<button type="button" class="farm-city-use" data-city-use="'+esc(item)+'">Использовать · +5 ⭐</button>'
-  })).join(""):'<div class="farm-city-blank">🍽️ Пока нет готовой еды. Купи блюда выше — они сразу появятся здесь и на складе города.</div>';
+   actions:(["pancakes","pie","omelet","cheese","bread","breakfast_set","dessert_box","lunch_box"].includes(item)?
+     '<button type="button" class="farm-city-use" data-city-eat="'+esc(item)+'">🍽️ Съесть</button>':'')+
+     '<button type="button" data-city-use="'+esc(item)+'">⭐ +5 репутации</button>'
+  })).join(""):'<div class="farm-city-blank">🍽️ Пока нет готовой еды. Купи блюда выше — они сразу появятся здесь и на складе города.</div>');
  }
  function renderOrders(){
   const pending=info.resident_orders||[];
@@ -132,6 +130,10 @@
     if(!confirm("Купить "+quantity+" шт. за "+fmt(quote.cost)+" монет у "+quote.sellers+" продавцов?"))return;
     await call("buy-product",{item,amount:quantity,expected_cost:quote.cost,request_id:operationId()});
     message("🛍️ Покупка совершена. Товар на складе города.");
+   }else if(kind==="eat"){
+    if(!confirm("Съесть 1 блюдо? Сытость увеличится, ускоряя производство фермы."))return;
+    await call("eat",{item,amount:1,request_id:operationId()});
+    message("🍽️ Сытость повышена! Бонус к производству фермы включён.");
    }else if(kind==="use"){
     if(!confirm("Использовать 1 шт. и получить +5 репутации города?"))return;
     await call("consume",{item,amount:1,request_id:operationId()});
@@ -153,6 +155,7 @@
   if(!target)return;
   if(target.dataset.cityBuy)return execute("buy",target.dataset.cityBuy,target);
   if(target.dataset.cityUse)return execute("use",target.dataset.cityUse,target);
+  if(target.dataset.cityEat)return execute("eat",target.dataset.cityEat,target);
   if(target.dataset.cityOrder)return execute("order",target.dataset.cityOrder,target);
  }
  catalog.addEventListener("click",click);
