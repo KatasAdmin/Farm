@@ -77,6 +77,10 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(c.execute("SELECT quantity FROM market WHERE id='own-egg-sale'").fetchone()["quantity"],20)
             self.assertEqual(c.execute("SELECT quantity FROM city_stock WHERE player_id='buyer' AND item='eggs'").fetchone()["quantity"],5)
             self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM market_trade_audit").fetchone()["n"],1)
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_raw_receipts").fetchone()["n"],1)
+        snapshot=city_world.state(authorization="Bearer t-buyer")
+        self.assertEqual(snapshot["city_demand_today"]["eggs"],5)
+        self.assertEqual(snapshot["farm_market_totals"]["eggs"],25)
 
     def test_buy_requires_unchanged_quote(self):
         q=self.action("eggs",3,request_id="b"*32,expected_cost=1)
