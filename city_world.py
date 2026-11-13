@@ -25,10 +25,10 @@ RECIPES = {
     "scarf": {"name": "Шарф", "business": "atelier", "needs": {"wool": 6}, "output": 1, "seconds": 60},
 }
 BUSINESSES = {
-    "bakery": {"name": "Пекарня", "emoji": "🥐", "open_cost": 0},
-    "restaurant": {"name": "Ресторан", "emoji": "🍳", "open_cost": 0},
-    "dairy": {"name": "Молочная", "emoji": "🥛", "open_cost": 0},
-    "atelier": {"name": "Ателье", "emoji": "🧶", "open_cost": 0},
+    "bakery": {"name": "Пекарня", "emoji": "🥐", "open_cost": 0, "min_reputation": 0},
+    "restaurant": {"name": "Ресторан", "emoji": "🍳", "open_cost": 0, "min_reputation": 20},
+    "dairy": {"name": "Молочная", "emoji": "🥛", "open_cost": 0, "min_reputation": 50},
+    "atelier": {"name": "Ателье", "emoji": "🧶", "open_cost": 0, "min_reputation": 100},
 }
 
 _db = _person = _advance = None
@@ -90,6 +90,8 @@ class Action(BaseModel):
     amount: int = 1
     price: int = 1
     request_id: str = ""
+    expected_cost: int = -1
+    listing_id: str = ""
 
 def _request(c, q, pid, action):
     # Same transaction-level market lock as the farm. An identical retry key
@@ -109,6 +111,32 @@ def _finish_request(c,q,result):
     from psycopg.types.json import Jsonb
     c.execute("UPDATE city_requests SET result=%s WHERE id=%s",(Jsonb(result),q.request_id))
 
+def _quote(c,table,item,pid,n):
+    rows=c.execute("SELECT * FROM "+table+" WHERE item=%s AND seller<>%s AND quantity>0 ORDER BY price,id",
+        (item,pid)).fetchall()
+    if sum(int(r["quantity"]) for r in rows)<n:
+        raise HTTPException(409,"На рынке недостаточно предложений")
+    chosen=market_allocation.allocate(rows,n)
+    return {"ok":True,"item":item,"quantity":n,
+        "cost":sum(r["price"]*qty for r,qty in chosen),
+        "sellers":len({r["seller"] for r,qty in chosen})}
+
+@router.post("/quote-ingredient")
+def quote_ingredient(q:Action,authorization:str=Header(default="")):
+    if q.item not in INGREDIENTS:raise HTTPException(400,"Неизвестный ингредиент")
+    _amount(q.amount,500)
+    with _db() as c:
+        p=_auth(c,authorization)
+        return _quote(c,"market",q.item,p["id"],q.amount)
+
+@router.post("/quote-product")
+def quote_product(q:Action,authorization:str=Header(default="")):
+    if q.item not in RECIPES:raise HTTPException(400,"Неизвестный товар")
+    _amount(q.amount,500)
+    with _db() as c:
+        p=_auth(c,authorization)
+        return _quote(c,"city_listings",q.item,p["id"],q.amount)
+
 def _amount(n, maximum=10000):
     if type(n) is not int or n<1 or n>maximum:
         raise HTTPException(400,"Укажите корректное количество")
@@ -124,6 +152,7 @@ def state(authorization: str=Header(default="")):
             JOIN players p ON p.id=l.seller
             WHERE l.quantity>0 AND l.seller<>%s AND l.item=ANY(%s)
             ORDER BY l.item,l.price,l.id LIMIT 70""",(p["id"],list(INGREDIENTS))).fetchall()
+        my_city_offers=c.execute("SELECT id,item,quantity,price FROM city_listings WHERE seller=%s AND quantity>0 ORDER BY created DESC",(p["id"],)).fetchall()
         city_offers=c.execute("""SELECT l.id,l.item,l.price,l.quantity,p.name AS seller
             FROM city_listings l JOIN players p ON p.id=l.seller
             WHERE l.quantity>0 ORDER BY l.item,l.price,l.id LIMIT 70""").fetchall()
@@ -133,7 +162,8 @@ def state(authorization: str=Header(default="")):
             "stock":_counts(c,"city_stock",p["id"]),
             "products":_counts(c,"city_products",p["id"]),
             "recipes":RECIPES,"business_catalog":BUSINESSES,
-            "farm_offers":offers,"city_offers":city_offers,"jobs":jobs,
+            "farm_offers":offers,"city_offers":city_offers,
+            "my_city_offers":my_city_offers,"jobs":jobs,
             "reputation":int(rep["points"]) if rep else 0}
 
 @router.post("/open")
@@ -141,6 +171,9 @@ def open_business(q:Action, authorization: str=Header(default="")):
     if q.item not in BUSINESSES:raise HTTPException(400,"Неизвестное предприятие")
     with _db() as c:
         p=_auth(c,authorization,True)
+        reputation=c.execute("SELECT points FROM city_reputation WHERE player_id=%s",(p["id"],)).fetchone()
+        if (int(reputation["points"]) if reputation else 0)<BUSINESSES[q.item]["min_reputation"]:
+            raise HTTPException(403,"Нужно больше репутации для открытия бизнеса")
         c.execute("INSERT INTO city_businesses VALUES(%s,%s,1,%s) ON CONFLICT DO NOTHING",(p["id"],q.item,time.time()))
     return {"ok":True}
 
@@ -160,6 +193,7 @@ def buy_ingredient(q:Action,authorization:str=Header(default="")):
             raise HTTPException(409,"Недостаточно предложений других фермеров")
         chosen=market_allocation.allocate(rows,q.amount)
         cost=sum(row["price"]*n for row,n in chosen)
+        if q.expected_cost!=cost:raise HTTPException(409,"Цена изменилась. Обновите предложение")
         if cost>p["coins"]:raise HTTPException(400,"Недостаточно монет")
         for seller_id in sorted({row["seller"] for row,n in chosen}):
             if not c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(seller_id,)).fetchone():
@@ -237,6 +271,22 @@ def list_product(q:Action,authorization:str=Header(default="")):
                   (uuid.uuid4().hex,p["id"],q.item,q.amount,q.price,time.time()))
     return {"ok":True}
 
+@router.post("/cancel-product")
+def cancel_product(q:Action,authorization:str=Header(default="")):
+    if len(q.listing_id)!=32 or any(ch not in "0123456789abcdef" for ch in q.listing_id):
+        raise HTTPException(400,"Неверное объявление")
+    with _db() as c:
+        c.execute("SELECT pg_advisory_xact_lock(1984533)")
+        p=_auth(c,authorization,True)
+        row=c.execute("SELECT * FROM city_listings WHERE id=%s AND seller=%s FOR UPDATE",
+            (q.listing_id,p["id"])).fetchone()
+        if not row or row["quantity"]<=0:raise HTTPException(404,"Активный лот не найден")
+        c.execute("UPDATE city_listings SET quantity=0 WHERE id=%s",(q.listing_id,))
+        c.execute("""INSERT INTO city_products(player_id,item,quantity) VALUES(%s,%s,%s)
+            ON CONFLICT(player_id,item) DO UPDATE SET quantity=city_products.quantity+EXCLUDED.quantity""",
+            (p["id"],row["item"],row["quantity"]))
+    return {"ok":True,"returned":row["quantity"]}
+
 @router.post("/buy-product")
 def buy_product(q:Action,authorization:str=Header(default="")):
     if q.item not in RECIPES:raise HTTPException(400,"Неизвестный товар")
@@ -252,6 +302,7 @@ def buy_product(q:Action,authorization:str=Header(default="")):
             raise HTTPException(409,"Недостаточно готовых товаров на рынке")
         chosen=market_allocation.allocate(rows,q.amount)
         cost=sum(row["price"]*n for row,n in chosen)
+        if q.expected_cost!=cost:raise HTTPException(409,"Цена изменилась. Обновите предложение")
         if p["coins"]<cost:raise HTTPException(409,"Недостаточно монет")
         for seller in sorted({row["seller"] for row,n in chosen}):
             if not c.execute("SELECT id FROM players WHERE id=%s FOR UPDATE",(seller,)).fetchone():
