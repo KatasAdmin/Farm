@@ -740,7 +740,12 @@ def route(c, uid, text, action, message, api, admin):
     if text == '🚀 Заработать' or action == 'earn':
         return bot_ui.earn(c, uid)
     if text == '🎮 Игры' or action == 'games':
-        return say(uid, tr('🎮 Игры\nОткрой свою ферму:', html_mode=False, section='task_bot', limit=3000), [[{'text': tr('🌾 Ферма', html_mode=False, section='task_bot', limit=3000), 'web_app': {'url': farm_url()}}]])
+        return say(uid, tr('🎮 Игры\nВыбери, куда отправиться:', html_mode=False, section='task_bot', limit=3000), [
+            [{'text': tr('🌾 Ферма', html_mode=False, section='task_bot', limit=3000),
+              'web_app': {'url': farm_url()}}],
+            [{'text': tr('🏙️ Город · Предприятия', html_mode=False, section='task_bot', limit=3000),
+              'web_app': {'url': farm_url().rstrip('/') + '/city'}}]
+        ])
     if text in ('👤 Мой кабинет', '/start wallet') or action == 'cabinet':
         return cabinet(c, uid)
     if text == '📣 Продвижение' or action == 'promotion':

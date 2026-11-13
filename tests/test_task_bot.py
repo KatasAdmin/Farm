@@ -240,8 +240,11 @@ class TaskBotTests(unittest.TestCase):
         reply = self.send(3, '/start')
         self.assertEqual([[button['text'] for button in row] for row in reply['reply_markup']['keyboard']], bot.MENU)
         reply = self.send(3, '🎮 Игры')
-        self.assertEqual(len(reply['reply_markup']['inline_keyboard']), 1)
+        self.assertEqual(len(reply['reply_markup']['inline_keyboard']), 2)
         self.assertIn('🌾 Ферма', str(reply))
+        self.assertIn('🏙️ Город · Предприятия', str(reply))
+        urls=[row[0]['web_app']['url'] for row in reply['reply_markup']['inline_keyboard']]
+        self.assertEqual(urls[1],urls[0].rstrip('/')+'/city')
     def test_money_exact_and_invalid(self):
         self.assertEqual(bot.amount('0,50'), 50)
         self.assertEqual(bot.amount('12.34'), 1234)
