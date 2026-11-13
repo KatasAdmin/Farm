@@ -9,6 +9,28 @@ import farm_wallet
 import ad_inventory
 import city_nutrition
 from production import GRAIN_PRICE
+from production_v4 import MILK_PRICE, WOOL_PRICE
+
+# Farm market prices are the only baseline; city products are priced from inputs.
+FARM_REFERENCE_PRICES = {"eggs": 1, "grain": GRAIN_PRICE, "milk": MILK_PRICE,
+                         "feathers": 5, "wool": WOOL_PRICE}
+
+def recipe_price_guides():
+    """Suggested prices, not enforced sale prices or guaranteed profits."""
+    guides = {}
+    for key, recipe in RECIPES.items():
+        raw = sum(FARM_REFERENCE_PRICES[item] * qty for item, qty in recipe["needs"].items())
+        # Nested products use their own suggested unit cost (no circular recipes).
+        nested = sum(guides[item]["suggested_unit_price"] * qty
+                     for item, qty in recipe.get("needs_products", {}).items())
+        cost = raw + nested
+        units = recipe["output"]
+        suggested = (cost * 125 + 100 * units - 1) // (100 * units)
+        guides[key] = {"batch_input_cost": cost, "batch_output": units,
+                       "suggested_unit_price": max(1, suggested),
+                       "batch_seconds": recipe["seconds"]}
+    return guides
+
 
 router = APIRouter(prefix="/api/city", tags=["city"])
 INGREDIENTS = ("eggs", "grain", "milk", "feathers", "wool")
@@ -18,21 +40,21 @@ RECIPES = {
     "pancakes": {"name": "Блины", "business": "bakery", "needs": {"eggs": 4, "grain": 3, "milk": 1}, "output": 2, "seconds": 2400},
     "pie": {"name": "Пирог", "business": "bakery", "needs": {"eggs": 8, "grain": 5}, "output": 1, "seconds": 2700},
     "omelet": {"name": "Омлет", "business": "restaurant", "needs": {"eggs": 5, "milk": 1}, "output": 1, "seconds": 1800},
-    "cheese": {"name": "Сыр", "business": "dairy", "needs": {"milk": 5}, "output": 2, "seconds": 45},
-    "yogurt": {"name": "Йогурт", "business": "dairy", "needs": {"milk": 3}, "output": 2, "seconds": 35},
+    "cheese": {"name": "Сыр", "business": "dairy", "needs": {"milk": 5}, "output": 2, "seconds": 2700},
+    "yogurt": {"name": "Йогурт", "business": "dairy", "needs": {"milk": 3}, "output": 2, "seconds": 2100},
     "bread": {"name": "Хлеб", "business": "bakery", "needs": {"grain": 5}, "output": 2, "seconds": 1800},
-    "pillow": {"name": "Подушка", "business": "atelier", "needs": {"feathers": 4, "wool": 2}, "output": 1, "seconds": 60},
-    "scarf": {"name": "Шарф", "business": "atelier", "needs": {"wool": 6}, "output": 1, "seconds": 60},
+    "pillow": {"name": "Подушка", "business": "atelier", "needs": {"feathers": 4, "wool": 2}, "output": 1, "seconds": 3600},
+    "scarf": {"name": "Шарф", "business": "atelier", "needs": {"wool": 6}, "output": 1, "seconds": 3600},
     # Second-stage recipes give other businesses a reason to buy goods made
     # by bakers, dairies and textile workshops rather than only raw resources.
     "breakfast_set": {"name": "Фирменный завтрак", "business": "restaurant",
-        "needs": {"eggs": 2}, "needs_products": {"bread": 1, "cheese": 1}, "output": 1, "seconds": 75},
+        "needs": {"eggs": 2}, "needs_products": {"bread": 1, "cheese": 1}, "output": 1, "seconds": 4500},
     "dessert_box": {"name": "Десертный набор", "business": "restaurant",
-        "needs": {"milk": 2}, "needs_products": {"pancakes": 2, "pie": 1}, "output": 1, "seconds": 90},
+        "needs": {"milk": 2}, "needs_products": {"pancakes": 2, "pie": 1}, "output": 1, "seconds": 5400},
     "home_set": {"name": "Домашний уют", "business": "store",
-        "needs": {}, "needs_products": {"pillow": 1, "scarf": 1}, "output": 1, "seconds": 100},
+        "needs": {}, "needs_products": {"pillow": 1, "scarf": 1}, "output": 1, "seconds": 6000},
     "lunch_box": {"name": "Обед с собой", "business": "store",
-        "needs": {}, "needs_products": {"omelet": 1, "bread": 1}, "output": 1, "seconds": 70},
+        "needs": {}, "needs_products": {"omelet": 1, "bread": 1}, "output": 1, "seconds": 4200},
 }
 BUSINESSES = {
     "bakery": {"name": "Пекарня", "emoji": "🥐", "open_cost": 0, "min_reputation": 0},
@@ -299,7 +321,8 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "stock":_counts(c,"city_stock",p["id"]),
             "farm_feathers":int(p.get("feathers",0)),
             "products":_counts(c,"city_products",p["id"]),
-            "recipes":RECIPES,"business_catalog":BUSINESSES,
+            "recipes":RECIPES,"price_guides":recipe_price_guides(),
+            "farm_reference_prices":FARM_REFERENCE_PRICES,"business_catalog":BUSINESSES,
             "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
             "resident_orders":daily_orders(c,p["id"],now),
             "reputation":int(rep["points"]) if rep else 0}
