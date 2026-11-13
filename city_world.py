@@ -62,6 +62,29 @@ def business_investment_guides(batches_per_day=8, sell_through=0.8):
     return result
 
 
+def food_value_guides():
+    """Break-even farm output at zero fullness; avoids claiming universal ROI.
+
+    A meal's bonus is the integral of fullness over time. Multiple meals,
+    existing fullness and idle farms change the actual value.
+    """
+    prices = recipe_price_guides()
+    guides = {}
+    for item, restore in city_nutrition.FOOD_RESTORE.items():
+        # Fullness decays linearly at five percentage points per hour.
+        equivalent_extra_hours = (restore / city_nutrition.DECAY_PER_HOUR) * restore / 200
+        price = prices[item]["suggested_unit_price"]
+        guides[item] = {
+            "suggested_price": price,
+            "restore_fullness": restore,
+            "bonus_equivalent_hours_from_empty": round(equivalent_extra_hours, 3),
+            "break_even_farm_daily_output_coins": round(
+                24 * price / equivalent_extra_hours, 2),
+            "estimate_only": True,
+        }
+    return guides
+
+
 router = APIRouter(prefix="/api/city", tags=["city"])
 INGREDIENTS = ("eggs", "grain", "milk", "feathers", "wool")
 MATERIALS = {"feathers", "wool"}
@@ -354,6 +377,7 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "recipes":RECIPES,"price_guides":recipe_price_guides(),
             "farm_reference_prices":FARM_REFERENCE_PRICES,
             "business_investment_guides":business_investment_guides(),
+            "food_value_guides":food_value_guides(),
             "business_catalog":BUSINESSES,
             "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
             "resident_orders":daily_orders(c,p["id"],now),
