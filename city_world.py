@@ -197,26 +197,15 @@ def quote_ingredient(q:Action,authorization:str=Header(default="")):
         return _quote(c,"market",q.item,p["id"],q.amount)
 
 def _product_purchase(c, item, pid, amount, *, farm, lock=False):
+    """All offers, including the buyer's, trade on equal terms."""
     rows=c.execute("""SELECT * FROM city_listings WHERE item=%s AND quantity>0
-        AND (seller<>%s OR %s) ORDER BY price,created,id""" + (" FOR UPDATE" if lock else ""),
-        (item,pid,farm)).fetchall()
-    other=[row for row in rows if row["seller"]!=pid]
-    own=[row for row in rows if row["seller"]==pid]
+        ORDER BY price,created,id""" + (" FOR UPDATE" if lock else ""),
+        (item,)).fetchall()
     if sum(row["quantity"] for row in rows)<amount:
         raise HTTPException(409,"На рынке недостаточно предложений")
-    external_quantity=min(amount,sum(row["quantity"] for row in other))
-    own_quantity=amount-external_quantity
-    chosen=market_allocation.allocate(other,external_quantity) if external_quantity else []
-    own.sort(key=lambda row:(row["created"],row["id"]))
-    taken=[]
-    remaining=own_quantity
-    for row in own:
-        if not remaining:break
-        quantity=min(remaining,row["quantity"])
-        taken.append((row,quantity))
-        remaining-=quantity
+    chosen=market_allocation.allocate(rows,amount)
     cost=sum(row["price"]*quantity for row,quantity in chosen)
-    return chosen,taken,cost,own_quantity
+    return chosen,[],cost,0
 
 
 @router.post("/quote-product")
@@ -238,9 +227,9 @@ def _amount(n, maximum=10000):
 def _product_catalog(c, pid, items=None):
     rows=c.execute("""SELECT item,COUNT(DISTINCT seller)::int AS sellers,
         SUM(quantity)::bigint AS quantity,MIN(price)::int AS min_price
-        FROM city_listings WHERE quantity>0 AND seller<>%s
+        FROM city_listings WHERE quantity>0
         AND (%s::text[] IS NULL OR item=ANY(%s::text[]))
-        GROUP BY item ORDER BY item""",(pid,items,items)).fetchall()
+        GROUP BY item ORDER BY item""",(items,items)).fetchall()
     return {row["item"]:{"quantity":row["quantity"],"sellers":row["sellers"],
                           "min_price":row["min_price"]} for row in rows}
 
@@ -519,8 +508,6 @@ def buy_product(q:Action,authorization:str=Header(default="")):
             if refund:raise HTTPException(409,"Продавец временно недоступен: проверка возврата Stars")
         if cost:
             c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(cost,p["id"]))
-        for row,n in taken:
-            c.execute("UPDATE city_listings SET quantity=quantity-%s WHERE id=%s",(n,row["id"]))
         for row,n in chosen:
             c.execute("UPDATE city_listings SET quantity=quantity-%s WHERE id=%s",(n,row["id"]))
             receipt=row["price"]*n
@@ -535,7 +522,7 @@ def buy_product(q:Action,authorization:str=Header(default="")):
                       (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,time.time()))
         if cost:
             c.execute("INSERT INTO money_log VALUES(%s,%s,'city_product_buy',%s,%s,%s)",
-                      (uuid.uuid4().hex,p["id"],-cost,q.item+" x"+str(q.amount-own_quantity),time.time()))
+                      (uuid.uuid4().hex,p["id"],-cost,q.item+" x"+str(q.amount),time.time()))
         _add_product(c,"farm_food" if q.destination=="farm" else "city_products",p["id"],q.item,q.amount)
         result={"ok":True,"spent":cost,"own_quantity":own_quantity}
         _finish_request(c,q,result)
