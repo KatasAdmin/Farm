@@ -81,11 +81,15 @@
  }
  function renderInventory(){
   const mine=Object.entries(info.products||{}).filter(([k,n])=>n>0&&info.recipes[k]);
-  inventory.innerHTML=mine.length?mine.map(([item,n])=>card(item,{
+  const food=info.nutrition||{};
+  const header='<div class="farm-food-status">🍽️ <strong>Сытость фермера: '+fmt(food.fullness||0)+'%</strong> · Бонус к яйцам, молоку, шерсти и перьям: <strong>+'+fmt(food.bonus_percent||0)+'%</strong><span>После еды сытость постепенно уменьшается на 5% в час. При нуле ферма работает с обычной скоростью.</span></div>';
+  inventory.innerHTML=header+(mine.length?mine.map(([item,n])=>card(item,{
    meta:"На твоём городском складе: "+fmt(n)+" шт.",
    description:benefits[item],
-   actions:'<button type="button" class="farm-city-use" data-city-use="'+esc(item)+'">Использовать · +5 ⭐</button>'
-  })).join(""):'<div class="farm-city-blank">🍽️ Пока нет готовой еды. Купи блюда выше — они сразу появятся здесь и на складе города.</div>';
+   actions:(["pancakes","pie","omelet","cheese","bread","breakfast_set","dessert_box","lunch_box"].includes(item)?
+     '<button type="button" class="farm-city-use" data-city-eat="'+esc(item)+'">🍽️ Съесть</button>':'')+
+     '<button type="button" data-city-use="'+esc(item)+'">⭐ +5 репутации</button>'
+  })).join(""):'<div class="farm-city-blank">🍽️ Пока нет готовой еды. Купи блюда выше — они сразу появятся здесь и на складе города.</div>');
  }
  function renderOrders(){
   const pending=info.resident_orders||[];
@@ -132,6 +136,10 @@
     if(!confirm("Купить "+quantity+" шт. за "+fmt(quote.cost)+" монет у "+quote.sellers+" продавцов?"))return;
     await call("buy-product",{item,amount:quantity,expected_cost:quote.cost,request_id:operationId()});
     message("🛍️ Покупка совершена. Товар на складе города.");
+   }else if(kind==="eat"){
+    if(!confirm("Съесть 1 блюдо? Сытость увеличится, ускоряя производство фермы."))return;
+    await call("eat",{item,amount:1,request_id:operationId()});
+    message("🍽️ Сытость повышена! Бонус к производству фермы включён.");
    }else if(kind==="use"){
     if(!confirm("Использовать 1 шт. и получить +5 репутации города?"))return;
     await call("consume",{item,amount:1,request_id:operationId()});
@@ -153,6 +161,7 @@
   if(!target)return;
   if(target.dataset.cityBuy)return execute("buy",target.dataset.cityBuy,target);
   if(target.dataset.cityUse)return execute("use",target.dataset.cityUse,target);
+  if(target.dataset.cityEat)return execute("eat",target.dataset.cityEat,target);
   if(target.dataset.cityOrder)return execute("order",target.dataset.cityOrder,target);
  }
  catalog.addEventListener("click",click);
