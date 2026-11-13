@@ -22,3 +22,9 @@
 @media(max-width:650px){#city-shell{padding:0 9px 103px}.topbar{padding:12px 0}.city-logo{width:40px;height:40px;font-size:22px;border-radius:12px}h1{font-size:15px}.counter{padding:8px;font-size:12px}.counter strong{font-size:12px}.farm-return{padding:8px}.farm-return span{display:none}.rep{display:none!important}.sky-banner{border-radius:14px;padding:11px}.sky-banner strong{font-size:13px}.banner-day{font-size:8px;padding:5px}.world-frame{border-width:3px;border-radius:17px}.building{width:20%;height:29%}.bakery-building{left:10%;top:9%}.restaurant-building{left:58%;top:10%}.dairy-building{left:28%;top:51%}.atelier-building{right:10%;top:54%}.map-hint{font-size:10px;padding:6px 11px;bottom:7px}.stat{padding:10px}.stat span{font-size:10px}.stat strong{font-size:21px}.quick-action span{font-size:10px}.section-heading h2{font-size:17px}.item-card{padding:10px}.item-card strong{font-size:13px}.item-card small{font-size:10px}}
 
 @media(max-width:650px){.quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* City profile: compact, accessible promo redemption without altering farm forms. */
+.city-promo-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;margin:12px 0 20px}
+.city-promo-form input{width:100%;min-width:0;border:1px solid #7195b4;border-radius:12px;background:#081f38;color:white;padding:12px 13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}
+.city-promo-form input:focus{outline:2px solid #5dd9ff;outline-offset:2px}
+@media(max-width:480px){.city-promo-form{grid-template-columns:1fr}.bottom-nav button{padding:6px 9px}}
