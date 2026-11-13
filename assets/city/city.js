@@ -91,7 +91,11 @@ function showBusiness(kind){
  activeBusiness=kind;
  const b=data.business_catalog[kind],opened=data.businesses.includes(kind);
  let body='<p class="panel-note">Предприятие закупает сырьё только через общий рынок фермы. Даже собственные яйца нельзя использовать без покупки из чужого лота.</p>';
- if(!opened){body+='<div class="empty">🔒 Предприятие ещё не открыто. Первый уровень в тестовой версии бесплатный.</div><p><button class="btn gold" data-action="open" data-item="'+kind+'">✨ Открыть '+esc(b.name)+'</button></p>';}
+ if(!opened){
+ const required=b.min_reputation||0;
+ const ready=(data.reputation||0)>=required;
+ body+='<div class="empty">🔒 Для открытия нужно '+required+' репутации. У тебя '+data.reputation+'. Жители начисляют её за использование готовых товаров.</div><p><button class="btn gold" data-action="open" data-item="'+kind+'" '+(ready?'':'disabled')+'>✨ Открыть '+esc(b.name)+'</button></p>';
+}
  else{
   body+='<div class="badge-line"><span class="pill">✅ Работает</span><span class="pill">Общий рынок фермы</span></div>';
   let recipes=Object.entries(data.recipes).filter(([k,v])=>v.business===kind);
@@ -133,9 +137,15 @@ function showWarehouse(){
  const products=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key]);
  s+=products.length?products.map(([key,n])=>row((icons[key]||"📦")+" "+esc(data.recipes[key].name),
    'На складе: '+n+' шт.',input("qty-list-"+key)+'<input class="number-input" aria-label="Цена" id="price-'+key+'" type="number" min="1" value="10"><button class="btn gold" data-action="list" data-item="'+key+'">Продать</button><button class="btn ghost" data-action="consume" data-item="'+key+'">Использовать</button>')).join(""):'<div class="empty">Пока нет готовой продукции. Закупи ингредиенты и начни производство.</div>';
+ s+='<h3 class="section-subtitle">Мои объявления</h3>';
+ s+=(data.my_city_offers||[]).length?data.my_city_offers.map(x=>
+  row((icons[x.item]||"📦")+" "+esc(data.recipes[x.item]?.name||x.item),
+  x.quantity+" шт. · "+x.price+" мон./шт.",
+  '<button class="btn ghost" data-action="cancel" data-listing-id="'+esc(x.id)+'">Снять</button>'
+ )).join(""):'<div class="empty">Активных предложений пока нет</div>';
  openPanel("📦 Склад бизнеса",s);
 }
-async function action(action,item,amountId){
+async function action(action,item,amountId,listingId){
  if(working)return;
  const amount=amountId?getAmount(amountId):null;
  if(amountId&&amount===null)return;
@@ -147,8 +157,16 @@ async function action(action,item,amountId){
  else if(action==="product"){path="/buy-product";body.amount=amount}
  else if(action==="list"){path="/list-product";body.amount=getAmount("qty-list-"+item);body.price=Number($("price-"+item)?.value);if(!body.amount||!Number.isSafeInteger(body.price)||body.price<1){toast("Укажи количество и цену");return}}
  else if(action==="consume"){path="/consume";body.amount=getAmount("qty-list-"+item);if(!body.amount)return}
+ else if(action==="cancel"){path="/cancel-product";body.listing_id=listingId}
  else return;
  working=true;
+ if(action==="raw"||action==="product"){
+  try{
+   const quote=await api(action==="raw"?"/quote-ingredient":"/quote-product",{item,amount:body.amount});
+   body.expected_cost=quote.cost;
+   if(!confirm("Покупка "+body.amount+" шт. за "+number(quote.cost)+" монет у "+quote.sellers+" продавцов. Подтвердить?")){working=false;return}
+  }catch(e){toast(e.message);working=false;return}
+ }
  if(action==="raw"||action==="product"){
   body.request_id=(globalThis.crypto?.randomUUID?.()||(["a",Date.now().toString(16),Math.floor(Math.random()*1e9).toString(16)].join(""))).replaceAll("-","").slice(0,32);
  }
@@ -168,7 +186,7 @@ $("panel-backdrop").addEventListener("click",closePanel);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closePanel()});
 $("panel-body").addEventListener("click",e=>{
  const button=e.target.closest("button[data-action]");if(!button)return;
- action(button.dataset.action,button.dataset.item,button.dataset.amountId)
+ action(button.dataset.action,button.dataset.item,button.dataset.amountId,button.dataset.listingId)
 });
 $("auth-form").addEventListener("submit",loginPassword);
 $("telegram-login").addEventListener("click",loginTelegram);
