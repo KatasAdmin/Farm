@@ -1,6 +1,6 @@
 """Deterministic proportional allocation among same-price listings.
 
-No floating point; largest remainders are resolved by stable listing ID.
+No floating point; ties favor smaller lots, then older lots when timestamps are available.
 The caller must hold the market transaction lock.
 """
 
@@ -21,7 +21,7 @@ def allocate(rows, quantity):
         weights = [(row, target * int(row["quantity"]) // available,
                     target * int(row["quantity"]) % available) for row in group]
         extras = target - sum(base for _, base, _ in weights)
-        weights.sort(key=lambda entry: (-entry[2], int(entry[0]["quantity"]), entry[0]["id"]))
+        weights.sort(key=lambda entry: (-entry[2], int(entry[0]["quantity"]), entry[0].get("created",0), entry[0]["id"]))
         for row, base, _ in weights:
             amount = base + int(extras > 0)
             if extras:

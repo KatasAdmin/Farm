@@ -196,13 +196,40 @@ def quote_ingredient(q:Action,authorization:str=Header(default="")):
         p=_auth(c,authorization)
         return _quote(c,"market",q.item,p["id"],q.amount)
 
+def _product_purchase(c, item, pid, amount, *, farm, lock=False):
+    rows=c.execute("""SELECT * FROM city_listings WHERE item=%s AND quantity>0
+        AND (seller<>%s OR %s) ORDER BY price,created,id""" + (" FOR UPDATE" if lock else ""),
+        (item,pid,farm)).fetchall()
+    other=[row for row in rows if row["seller"]!=pid]
+    own=[row for row in rows if row["seller"]==pid]
+    if sum(row["quantity"] for row in rows)<amount:
+        raise HTTPException(409,"На рынке недостаточно предложений")
+    external_quantity=min(amount,sum(row["quantity"] for row in other))
+    own_quantity=amount-external_quantity
+    chosen=market_allocation.allocate(other,external_quantity) if external_quantity else []
+    own.sort(key=lambda row:(row["created"],row["id"]))
+    taken=[]
+    remaining=own_quantity
+    for row in own:
+        if not remaining:break
+        quantity=min(remaining,row["quantity"])
+        taken.append((row,quantity))
+        remaining-=quantity
+    cost=sum(row["price"]*quantity for row,quantity in chosen)
+    return chosen,taken,cost,own_quantity
+
+
 @router.post("/quote-product")
 def quote_product(q:Action,authorization:str=Header(default="")):
     if q.item not in RECIPES:raise HTTPException(400,"Неизвестный товар")
     _amount(q.amount,500)
     with _db() as c:
         p=_auth(c,authorization)
-        return _quote(c,"city_listings",q.item,p["id"],q.amount)
+        chosen,_,cost,own_quantity=_product_purchase(c,q.item,p["id"],q.amount,
+            farm=q.destination=="farm" and q.item in city_nutrition.FOOD_RESTORE)
+        return {"ok":True,"item":q.item,"quantity":q.amount,"cost":cost,
+            "sellers":len({row["seller"] for row,_ in chosen}),"system_quantity":0,
+            "own_quantity":own_quantity}
 
 def _amount(n, maximum=10000):
     if type(n) is not int or n<1 or n>maximum:
@@ -478,9 +505,8 @@ def buy_product(q:Action,authorization:str=Header(default="")):
         p=_auth(c,authorization,True)
         previous=_request(c,q,p["id"],"buy_farm_food" if q.destination=="farm" else "buy_product")
         if previous is not None:return previous
-        rows=c.execute("""SELECT * FROM city_listings WHERE item=%s AND seller<>%s
-            AND quantity>0 ORDER BY price,id FOR UPDATE""",(q.item,p["id"])).fetchall()
-        chosen,cost,_=_allocation(rows,q.item,q.amount)
+        chosen,taken,cost,own_quantity=_product_purchase(c,q.item,p["id"],q.amount,
+            farm=q.destination=="farm",lock=True)
         if q.expected_cost!=cost:raise HTTPException(409,"Цена изменилась. Обновите предложение")
         if p["coins"]<cost:raise HTTPException(409,"Недостаточно монет")
         for seller in sorted({row["seller"] for row,n in chosen}):
@@ -491,7 +517,10 @@ def buy_product(q:Action,authorization:str=Header(default="")):
                 WHERE o.player_id=%s AND i.status IN ('calling','needs_review') LIMIT 1""",
                 (seller,)).fetchone()
             if refund:raise HTTPException(409,"Продавец временно недоступен: проверка возврата Stars")
-        c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(cost,p["id"]))
+        if cost:
+            c.execute("UPDATE players SET coins=coins-%s WHERE id=%s",(cost,p["id"]))
+        for row,n in taken:
+            c.execute("UPDATE city_listings SET quantity=quantity-%s WHERE id=%s",(n,row["id"]))
         for row,n in chosen:
             c.execute("UPDATE city_listings SET quantity=quantity-%s WHERE id=%s",(n,row["id"]))
             receipt=row["price"]*n
@@ -504,10 +533,11 @@ def buy_product(q:Action,authorization:str=Header(default="")):
             c.execute("INSERT INTO farm_money_sources VALUES(%s,%s,0,0)",(log_id,receipt))
             c.execute("INSERT INTO city_receipts VALUES(%s,%s,%s,%s,%s,%s,%s)",
                       (uuid.uuid4().hex,p["id"],row["seller"],q.item,n,receipt,time.time()))
-        c.execute("INSERT INTO money_log VALUES(%s,%s,'city_product_buy',%s,%s,%s)",
-                  (uuid.uuid4().hex,p["id"],-cost,q.item+" x"+str(q.amount),time.time()))
+        if cost:
+            c.execute("INSERT INTO money_log VALUES(%s,%s,'city_product_buy',%s,%s,%s)",
+                      (uuid.uuid4().hex,p["id"],-cost,q.item+" x"+str(q.amount-own_quantity),time.time()))
         _add_product(c,"farm_food" if q.destination=="farm" else "city_products",p["id"],q.item,q.amount)
-        result={"ok":True,"spent":cost}
+        result={"ok":True,"spent":cost,"own_quantity":own_quantity}
         _finish_request(c,q,result)
     return result
 

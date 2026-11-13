@@ -181,6 +181,37 @@ class CityTransactions(unittest.TestCase):
         self.assertEqual(city_world.farm_goods(authorization=seller)["my_offers"],[])
         self.assertEqual(city_world.farm_goods(authorization=seller)["city_food"],{"pancakes":1})
 
+    def test_farm_market_uses_other_sellers_before_own_food(self):
+        buyer="Bearer t-buyer"
+        with self.connect() as c:
+            c.execute("""INSERT INTO city_listings VALUES
+                ('own-new','buyer','pancakes',2,1,30),
+                ('own-old','buyer','pancakes',2,3,10),
+                ('external-new','other','pancakes',1,5,20),
+                ('external-old','seller','pancakes',1,5,10)""")
+
+        def buy(amount,cost,own):
+            request=self.action("pancakes",amount,request_id=uuid.uuid4().hex,expected_cost=cost)
+            request.destination="farm"
+            quote=city_world.quote_product(request,authorization=buyer)
+            self.assertEqual((quote["cost"],quote["own_quantity"]),(cost,own))
+            result=city_world.buy_product(request,authorization=buyer)
+            self.assertEqual((result["spent"],result["own_quantity"]),(cost,own))
+            self.assertEqual(city_world.buy_product(request,authorization=buyer),result)
+
+        buy(1,5,0)
+        with self.connect() as c:
+            self.assertEqual(c.execute("SELECT seller FROM city_receipts").fetchone()["seller"],"seller")
+        buy(2,5,1)
+        buy(1,0,1)
+        self.assertEqual(city_world.farm_goods(authorization=buyer)["food"],{"pancakes":4})
+        with self.connect() as c:
+            balances=c.execute("SELECT coins FROM players ORDER BY id").fetchall()
+            self.assertEqual([row["coins"] for row in balances],[190,205,5])
+            self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM city_receipts").fetchone()["n"],2)
+            self.assertEqual(c.execute("SELECT quantity FROM city_listings WHERE id='own-old'").fetchone()["quantity"],0)
+            self.assertEqual(c.execute("SELECT quantity FROM city_listings WHERE id='own-new'").fetchone()["quantity"],2)
+
     def test_existing_city_food_moves_once_without_changing_balances(self):
         auth="Bearer t-buyer"
         with self.connect() as c:

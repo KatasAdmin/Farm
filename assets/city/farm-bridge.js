@@ -47,14 +47,26 @@
  }
  function shop(target,category){
   const food=category==="food";
-  const offers=Object.entries(info.city_catalog).filter(([item,r])=>
-   r.quantity>0&&info.recipes[item]&&Boolean(info.food_restore[item])===food);
   const listings=ownOffers(category);
-  const available=offers.length?offers.map(([item,offer])=>card(item,
-   fmt(offer.quantity)+' шт. · от '+fmt(offer.min_price)+' 🪙'+(food?' · +'+info.food_restore[item]+' п. п.':''),
-   '<input type="number" min="1" max="'+Math.min(500,offer.quantity)+'" value="1" aria-label="Количество">'+
-   '<button type="button" data-city-buy="'+item+'" data-destination="'+(food?'farm':'city')+'">Купить</button>'
-  )).join(""):'<p class="farm-city-blank">Пока нет предложений от других игроков</p>';
+  const offers=new Map(Object.entries(info.city_catalog).filter(([item,offer])=>
+   offer.quantity>0&&info.recipes[item]&&Boolean(info.food_restore[item])===food)
+   .map(([item,offer])=>[item,{...offer,own:0}]));
+  if(food){
+   for(const listing of listings){
+    const offer=offers.get(listing.item)||{quantity:0,own:0};
+    offer.own+=listing.quantity;
+    offers.set(listing.item,offer);
+   }
+  }
+  const available=offers.size?Array.from(offers,([item,offer])=>{
+   const details=[];
+   if(offer.quantity)details.push(fmt(offer.quantity)+' шт. · от '+fmt(offer.min_price)+' 🪙');
+   if(offer.own)details.push('Свои: '+fmt(offer.own)+' шт. · 0 🪙');
+   if(food)details.push('+'+info.food_restore[item]+' п. п.');
+   return card(item,details.join(' · '),
+    '<input type="number" min="1" max="'+Math.min(500,offer.quantity+offer.own)+'" value="1" aria-label="Количество">'+
+    '<button type="button" data-city-buy="'+item+'" data-destination="'+(food?'farm':'city')+'">Купить</button>');
+  }).join(""):'<p class="farm-city-blank">Пока нет предложений</p>';
   target.innerHTML=available+(target===market&&listings.length?
    '<h3 class="farm-city-market-heading">Мои лоты</h3>'+listings.map(listingCard).join(""):"");
  }
@@ -121,8 +133,12 @@
    const body={item,amount,destination:source.dataset.destination||"farm",
     request_id:Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,"0")).join("")};
    if(buying){
-    const quote=await call("quote-product",{item,amount});
-    if(!confirm("Купить "+amount+" шт. за "+fmt(quote.cost)+" монет?"))return;
+    const quote=await call("quote-product",{item,amount,destination:body.destination});
+    const message=quote.own_quantity===amount
+     ?"Забрать на ферму "+amount+" шт. из своих лотов за 0 монет?"
+     :"Купить "+(amount-(quote.own_quantity||0))+" шт. за "+fmt(quote.cost)+" монет?"+
+      (quote.own_quantity?" Ещё "+quote.own_quantity+" шт. поступит из своих лотов за 0 монет.":"");
+    if(!confirm(message))return;
     body.expected_cost=quote.cost;
    }
    if(listing)body.listing_id=listing;
