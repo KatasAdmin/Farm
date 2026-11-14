@@ -1,5 +1,6 @@
 """Time-limited city goals over the existing production and trade records."""
 import time
+import simple_economy
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -86,6 +87,14 @@ def save(c, campaign):
 
 
 def _metric(c, pid, metric, start, end):
+    if simple_economy.enabled() and metric in ("raw", "sales"):
+        kind, operator = ("buy", "= ANY") if metric == "raw" else ("sell", "<> ALL")
+        excluded = list(simple_economy.RAW_BUY)
+        if metric == "sales":
+            excluded += list(simple_economy.ANIMAL_BUY)
+        return c.execute(f"""SELECT COALESCE(SUM(quantity),0) AS n FROM simple_system_trades
+            WHERE player_id=%s AND kind=%s AND created>=%s AND created<%s
+            AND item {operator}(%s)""",(pid,kind,start,end,excluded)).fetchone()["n"]
     table, player, date, value, extra = METRICS[metric]
     return c.execute(f"""SELECT COALESCE({value},0) AS n FROM {table}
         WHERE {player}=%s AND {date}>=%s AND {date}<%s {extra}""",
@@ -100,6 +109,8 @@ def _state(c, pid, scope, start, end, now, specs, enabled=True):
     goals = []
     for key, label, goal, xp in specs:
         value = _metric(c, pid, key, start, min(now, end))
+        if key == "raw" and simple_economy.enabled():
+            label = "Купить сырьё на рынке"
         goals.append({"key": key, "name": label, "goal": goal, "value": value,
                       "xp": xp, "claimed": key in claims, "available": active and value >= goal})
     return {"id": scope, "active": active, "starts": start, "ends": end,

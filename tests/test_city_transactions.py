@@ -399,6 +399,46 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(db.execute("SELECT COUNT(*) AS n FROM city_listings WHERE quantity>0").fetchone()["n"],0)
             self.assertEqual(db.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200)
 
+    def test_system_trades_count_for_city_goals(self):
+        import simple_economy
+        import city_goals
+        from unittest.mock import patch
+        with self.connect() as db:
+            simple_economy.initialize(db)
+            for item,kind,n in (("grain","buy",3),("bread","sell",2),("eggs","sell",9)):
+                db.execute("INSERT INTO simple_system_trades VALUES(%s,'buyer',%s,%s,%s,1,10)",
+                           (item,item,kind,n))
+            with patch.object(simple_economy,"enabled",return_value=True):
+                self.assertEqual(city_goals._metric(db,"buyer","raw",0,20),3)
+                self.assertEqual(city_goals._metric(db,"buyer","sales",0,20),2)
+
+    def test_city_status_thresholds_and_opening_order_are_enforced(self):
+        import simple_economy
+        from unittest.mock import patch
+        auth="Bearer t-buyer"
+        def points(n):
+            with self.connect() as db:
+                db.execute("""INSERT INTO city_reputation VALUES('buyer',%s)
+                    ON CONFLICT(player_id) DO UPDATE SET points=EXCLUDED.points""",(n,))
+        with self.connect() as db:
+            simple_economy.initialize(db)
+            db.execute("UPDATE players SET coins=1000 WHERE id='buyer'")
+        with patch.object(simple_economy,"enabled",return_value=True):
+            points(200)
+            with self.assertRaises(HTTPException):
+                city_world.open_business(self.action("restaurant"),authorization=auth)
+            for kind,threshold in city_world.CITY_OPEN_STATUS.items():
+                points(threshold-1)
+                with self.assertRaises(HTTPException) as failure:
+                    city_world.open_business(self.action(kind),authorization=auth)
+                self.assertEqual(failure.exception.status_code,403)
+                points(threshold)
+                self.assertEqual(city_world.open_business(self.action(kind),authorization=auth)["spent"],
+                                 simple_economy.BUSINESS_COST[kind])
+                self.assertTrue(city_world.open_business(self.action(kind),authorization=auth)["already_open"])
+        with self.connect() as db:
+            self.assertEqual(db.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],100)
+
     def test_shared_warehouse_migrates_once_and_city_consumes_farm_stock(self):
         import simple_economy
         from unittest.mock import patch

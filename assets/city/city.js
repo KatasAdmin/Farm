@@ -208,6 +208,7 @@ function refreshPanel(){
  if(activeView==="residents")return showResidents();
  if(activeView==="achievements")return showAchievements();
  if(activeView==="nutrition")return showNutrition();
+ if(activeView==="status")return showCityStatus();
  if(activeView==="settings")return showSettings();
  if(activeView==="promo")return openPanel("Промокод",promoForm);
  if(activeView==="help")return showHelp();
@@ -239,12 +240,15 @@ function businessArt(kind,name,level){
  return '<div class="business-art"><img src="/assets/city/building-'+kind+'.webp" alt=""><div><strong>'+esc(name)+'</strong><small>'+
   (level?"Работает · уровень "+number(level):"Закрыто")+'</small></div></div>';
 }
+function citySectionArt(title,description,art){
+ return '<header class="city-section-art" data-art="'+art+'"><h3>'+title+'</h3><p>'+description+'</p></header>';
+}
 function showBusinessDirectory(){
  const entries=Object.entries(data.business_catalog);
- openPanel("Мои предприятия",'<div class="business-gallery">'+entries.map(([kind,b])=>
+ openPanel("Мои предприятия",citySectionArt("Предприятия","Развивай город от пекарни до ателье.","district")+'<div class="business-gallery">'+entries.map(([kind,b])=>
   '<button type="button" class="business-tile" data-action="business" data-item="'+kind+'">'+
   businessArt(kind,b.name,data.business_levels[kind])+
-  '<span>'+ (data.business_levels[kind]?"Войти ›":data.simple_economy?number(b.open_cost)+" 🪙":number(b.min_reputation)+" репутации"+(b.feather_cost?" · "+b.feather_cost+" перьев":""))+
+  '<span>'+ (data.business_levels[kind]?"Войти ›":data.simple_economy?(data.reputation<b.min_reputation?"🔒 "+number(b.min_reputation)+" статуса":number(b.open_cost)+" 🪙"):number(b.min_reputation)+" репутации"+(b.feather_cost?" · "+b.feather_cost+" перьев":""))+
   '</span></button>').join("")+'</div>');
 }
 function showBusiness(kind){
@@ -256,6 +260,17 @@ function showBusiness(kind){
  const recipes=Object.entries(data.recipes).filter(([,recipe])=>recipe.business===kind);
  let body="";
  if(!level && data.simple_economy){
+  const requirement=b.min_reputation||0;
+  const predecessor=b.requires_business;
+  const missing=Math.max(0,requirement-data.reputation);
+  const prerequisite=predecessor&&!data.business_levels[predecessor];
+  if(missing||prerequisite){
+   const locked='<section class="city-lock"><h3>Предприятие недоступно</h3>'+
+    (requirement?'<p>Доступно с '+number(requirement)+' городского статуса</p><progress aria-label="Городской статус" max="'+requirement+'" value="'+Math.min(data.reputation,requirement)+'"></progress><p>Ваш статус: '+number(data.reputation)+' / '+number(requirement)+' · Осталось: '+number(missing)+'</p>':'')+
+    (prerequisite?'<p>Сначала открой: '+esc(data.business_catalog[predecessor].name)+'</p>':'')+
+    '<button class="p3-button" data-action="navigate" data-item="status">Как повысить статус</button></section>';
+   return openPanel(b.name,businessArt(kind,b.name,level)+locked);
+  }
   const cost=b.open_cost;
   body='<div class="empty">🏢 Открытие '+esc(b.name)+' стоит '+number(cost)+' 🪙. Плата однократная; после открытия бизнес твой навсегда.</div>'+
    '<button class="btn gold" data-action="open" data-item="'+kind+'" '+(data.coins<cost?'disabled':'')+'>Открыть · '+number(cost)+' 🪙</button>';
@@ -347,7 +362,7 @@ function simpleMarket(){
     (owned?'<button class="btn gold" data-action="sell-market-product" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Продать</button>':''));
   }).join("");
  }
- openPanel("🏪 Магазин",html);
+ openPanel("Рынок",citySectionArt("Рынок","Покупай и продавай по фиксированным ценам.","market")+html);
 }
 function simpleWarehouse(){
  const tabs={raw:"Сырьё",products:"Продукция"};
@@ -373,7 +388,7 @@ function simpleWarehouse(){
     '<button class="btn gold" data-action="list" data-item="'+item+'">Продать</button>');
   }).join(""):'<div class="empty">Пока нет готовой продукции</div>';
  }
- openPanel("📦 Общий склад",html);
+ openPanel("Общий склад",citySectionArt("Склад","Ресурсы фермы и города в одном месте.","warehouse")+html);
 }
 function showShoppingList(recipeId){
  if(data?.simple_economy)return simpleShoppingList(recipeId);
@@ -585,7 +600,7 @@ async function showGoals(tab){
   if(tab==="events"){
    const featured=periods.find(period=>period.active);
    periods=periods.filter(period=>eventSection==="history"?period.ends<=now:period.active&&period!==featured);
-   html='<div class="event-intro">Временные активности и особые задания</div>'+
+   html=citySectionArt("События","Временные активности и особые задания.","festival")+
     '<div class="event-feature"><img src="/assets/city/event-gift.webp" alt=""><div><small>'+(featured?"Главное событие":"Афиша города")+'</small><strong>'+
     (featured?esc(featured.name):"Скоро новые события")+'</strong>'+
     (featured?'<button class="btn" data-action="featured-event">Участвовать ›</button>':"")+'</div></div>'+
@@ -666,26 +681,33 @@ function showHelp(){
 
 const promoForm='<div class="p3-scene-art p3-painted-promo"><form id="city-promo-form" class="city-promo-form"><input id="city-promo-input" aria-label="Промокод" autocomplete="off" spellcheck="false" maxlength="64" placeholder="FARM-…" required><button class="p3-button p3-gold" type="submit">Получить награду</button></form></div>';
 
+function showCityStatus(){
+ const next=Object.values(data.business_catalog).filter(b=>b.min_reputation>data.reputation).sort((a,b)=>a.min_reputation-b.min_reputation)[0];
+ openPanel("Городской статус",'<section class="city-lock"><h3>'+number(data.reputation)+' статуса</h3>'+
+  (next?'<p>Следующий порог: '+esc(next.name)+' · '+number(next.min_reputation)+'</p>':'')+
+  '<p>Выполняй заказы жителей: за каждый заказ начисляется статус, а список обновляется ежедневно. Товары для первых заказов можно купить на рынке.</p>'+
+  '<button class="p3-button" data-action="navigate" data-item="residents">Заказы жителей</button></section>');
+}
 function showProfile(){
  const avatar='<button type="button" class="profile-avatar avatar-picker" data-action="avatar-picker" aria-label="Сменить фото профиля"><img id="city-profile-photo" src="'+esc(avatarSource())+'" alt=""></button>';
  const progress=data.progress||{};
  const stats=[
-  [5,"Репутация",number(data.reputation),"reputation"],
+  [5,"Городской статус",number(data.reputation),"status"],
   [1,"Бизнесы",number(data.businesses.length),"businesses"],
   [2,"Выполнено заказов",number(progress.orders),"residents"],
-  [6,"Рейтинг города","# 112","ranking"]
+  [6,"Рейтинг города","","ranking"]
  ];
  const links=[["businesses","🏪","Мои бизнесы"],["warehouse","📦","Склад"],
-  ["residents","📋","Заказы жителей"],["market","🧺","Магазин"],
+  ["residents","📋","Заказы жителей"],["market","🧺","Рынок"],
   ["promo","🎁","Промокод"],["achievements","🏆","Достижения"],["settings","⚙️","Настройки"],["help","❔","Помощь"]];
  const card=(target,icon,label,value="",index=null)=>'<button class="stat" data-action="navigate" data-item="'+target+'"><i aria-hidden="true"><img src="/assets/city/profile-icon-'+(index===null?icon:index)+'.webp" alt=""></i><span>'+label+'</span>'+(value?'<strong>'+value+'</strong>':"")+'</button>';
- const hero='<div class="profile-hero"><button type="button" class="profile-edit" data-action="avatar-picker" aria-label="Сменить фото профиля">✎</button>'+avatar+'<div><strong>'+esc(data.name)+'</strong><span>Горожанин · Ур. '+number(progress.level)+'</span>'+
+ const hero='<div class="profile-hero"><span class="profile-edit-mark" aria-hidden="true">✎</span>'+avatar+'<div class="profile-live"><strong>'+esc(data.name)+'</strong><span>Горожанин · Ур. '+number(progress.level)+'</span>'+
   '<progress aria-label="Опыт аккаунта" max="'+Math.max(1,(progress.next_xp||0)-(progress.level_xp||0))+'" value="'+Math.max(0,(progress.xp||0)-(progress.level_xp||0))+'"></progress><small>'+number(progress.xp)+(progress.next_xp?" / "+number(progress.next_xp):"")+' XP</small></div></div>';
  const wallet='<div class="profile-balance"><img src="/assets/city/ref-wallet.webp" alt=""><span>Баланс<strong>'+number(data.coins)+'</strong></span><button class="btn" data-action="wallet">Кошелёк ›</button></div>';
- openPanel("Кабинет",hero+'<div class="profile-stats">'+stats.map(([icon,label,value,target])=>card(target,icon,label,value)).join("")+'</div>'+
+ openPanel("Кабинет",'<section class="city-profile-art">'+hero+'<div class="profile-stats">'+stats.map(([icon,label,value,target])=>card(target,icon,label,value)).join("")+'</div>'+
   wallet+'<div class="profile-menu">'+links.map(([target,icon,label],index)=>card(target,icon,label,"",index)).join("")+'</div>'+
   '<div class="profile-links"><a class="btn city-link" href="/?profile=1">⚙️ Настройки игрового аккаунта</a></div>'+
-  '<button class="season-banner" data-action="navigate" data-item="season"><img class="banner-treasure" src="/assets/city/ref-chest.webp" alt=""><span>Сезон города<small>Выполняй задания, получай награды<br>и развивай свой город!</small></span><b>К сезону ›</b></button>');
+  '<button class="season-banner" data-action="navigate" data-item="season"><img class="banner-treasure" src="/assets/city/ref-chest.webp" alt=""><span>Сезон города<small>Выполняй задания, получай награды<br>и развивай свой город!</small></span><b>К сезону ›</b></button></section>');
 }
 function showWarehouse(){
  if(data?.simple_economy)return simpleWarehouse();

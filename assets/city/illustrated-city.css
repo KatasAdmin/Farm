@@ -1,0 +1,19 @@
+.city-section-art{--art:url("/assets/city/scenes/district.webp");position:relative;display:grid;align-content:end;min-height:clamp(105px,32vw,178px);padding:14px;margin:0 0 10px;border-radius:16px;overflow:hidden;color:#fff1db;background:linear-gradient(90deg,#1d0d34c9,transparent),var(--art) center/cover no-repeat,#26133c}
+.city-section-art h3{margin:0;font:700 clamp(22px,7vw,36px)/1.05 Georgia,serif;text-shadow:0 2px 6px #130721}
+.city-section-art p{margin:5px 0 0;font-size:13px;max-width:55ch}
+.city-section-art[data-art="market"]{--art:url("/assets/city/scenes/market.webp")}
+.city-section-art[data-art="warehouse"]{--art:url("/assets/city/scenes/warehouse.webp")}
+.city-section-art[data-art="festival"]{--art:url("/assets/city/scenes/festival.webp")}
+.city-profile-art .profile-hero strong,.city-profile-art .profile-hero small{overflow-wrap:anywhere}
+.city-lock{display:grid;justify-items:stretch;gap:8px;background:url("/assets/city/premium3/card.webp") center/100% 100% no-repeat,#281641;padding:18px 14px;text-align:center;border-radius:18px}
+.city-lock h3,.city-lock p{margin:0}
+.city-lock progress{width:90%;justify-self:center;accent-color:#b64cff}
+.city-lock .p3-button{margin-top:5px}
+#city-page .city-profile-art .profile-hero{display:block;position:relative;box-sizing:border-box;aspect-ratio:840/624;min-height:0;margin:0 0 10px;padding:0;border:0;border-radius:12px;background:url("/assets/city/scenes/profile.webp") center/100% 100% no-repeat,#201030}
+#city-page .city-profile-art .profile-hero .avatar-picker{position:absolute;inset:38% auto auto 9%;width:27.5%;height:auto;aspect-ratio:1;border-radius:50%;padding:0;overflow:hidden;background:#32184d;border:0}
+#city-page .city-profile-art .profile-hero .avatar-picker img{width:100%;height:100%;object-fit:cover}
+.city-profile-art .profile-edit-mark{position:absolute;top:69%;left:32%;color:#fff5d9;pointer-events:none}
+.city-profile-art .profile-live{position:absolute;inset:49% 8% auto 43%;display:grid;gap:4px;min-width:0}
+.city-profile-art .profile-live strong{font-size:clamp(12px,4.1vw,22px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.city-profile-art .profile-live progress{width:100%}
+.city-profile-art .profile-live span,.city-profile-art .profile-live small{font-size:clamp(9px,2.8vw,13px)}

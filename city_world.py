@@ -133,6 +133,14 @@ BUSINESSES = {
     "store": {"name": "Магазин", "emoji": "🛒", "open_cost": 0, "min_reputation": 160},
 }
 
+CITY_OPEN_STATUS = {"bakery":50,"restaurant":100,"dairy":150,"atelier":200}
+CITY_OPEN_PREDECESSOR = {"restaurant":"bakery","dairy":"restaurant","atelier":"dairy"}
+
+def city_status(c,pid):
+    row=c.execute("SELECT points FROM city_reputation WHERE player_id=%s",(pid,)).fetchone()
+    return int(row["points"]) if row else 0
+
+
 _db = _person = _advance = _account_progress = None
 
 def setup(db, person, advance, account_progress=None):
@@ -630,7 +638,8 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "farm_reference_prices":FARM_REFERENCE_PRICES,
             "business_investment_guides":business_investment_guides(),
             "food_value_guides":food_value_guides(),
-            "business_catalog":({kind:{**info,"min_reputation":0,"feather_cost":0,
+            "business_catalog":({kind:{**info,"min_reputation":CITY_OPEN_STATUS.get(kind,0),"feather_cost":0,
+                         "requires_business":CITY_OPEN_PREDECESSOR.get(kind),
                          "open_cost":simple_economy.BUSINESS_COST[kind]}
                          for kind,info in BUSINESSES.items()}
                          if simple_economy.enabled() else BUSINESSES),
@@ -688,6 +697,14 @@ def open_business(q:Action, authorization: str=Header(default="")):
             existing=c.execute("SELECT 1 FROM city_businesses WHERE player_id=%s AND kind=%s",
                                (p["id"],q.item)).fetchone()
             if existing:return {"ok":True,"already_open":True}
+            required=CITY_OPEN_STATUS.get(q.item,0)
+            if required and city_status(c,p["id"])<required:
+                raise HTTPException(403,f"Нужно {required} городского статуса")
+            predecessor=CITY_OPEN_PREDECESSOR.get(q.item)
+            if predecessor and not c.execute(
+                "SELECT 1 FROM city_businesses WHERE player_id=%s AND kind=%s",
+                (p["id"],predecessor)).fetchone():
+                raise HTTPException(403,"Сначала откройте предприятие: "+BUSINESSES[predecessor]["name"])
             cost=simple_economy.BUSINESS_COST[q.item]
             if q.expected_cost not in (-1,cost):
                 raise HTTPException(409,"Цена открытия изменилась")
