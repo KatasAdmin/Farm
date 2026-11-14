@@ -33,3 +33,10 @@
 .business-art.business-painted>div{position:absolute;inset:72% auto auto 3%;width:24%;text-align:center;line-height:1.05;color:#301c26}
 #panel-body .business-art.business-painted strong{font-size:clamp(9px,2.85vw,16px)}
 .business-art.business-painted small{color:#51303b;font-size:clamp(7px,2vw,11px);margin-top:2px}
+.city-account-forms,.city-account-forms form,.city-account-forms label{display:grid;gap:8px}
+.city-account-forms form{padding:12px;border-radius:14px;background:#321c48}
+.city-account-forms input{box-sizing:border-box;width:100%;min-height:44px;font-size:16px}
+.p3-reward-track article,.p3-reward-track header{padding:13px 5px;align-content:start;background:#321446;border:1px solid #ac72c8}
+.p3-premium-track article,.p3-premium-track header{border-color:#dba65e}
+.p3-reward-track article small{margin-top:4px}
+.p3-reward-track .p3-icon{mix-blend-mode:normal}

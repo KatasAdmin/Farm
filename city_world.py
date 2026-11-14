@@ -644,6 +644,7 @@ def state(authorization: str=Header(default=""), compact: bool=False):
                          for kind,info in BUSINESSES.items()}
                          if simple_economy.enabled() else BUSINESSES),
             "simple_economy":simple_economy.enabled(),
+            "account":{"has_password":bool(p.get("password_hash")),"telegram_linked":bool(p.get("telegram_id"))},
             "farm_stock":{k:int(p.get(k,0)) for k in INGREDIENTS},
             "farm_food":({item:quantity for item,quantity in _counts(c,"city_products",p["id"]).items()
                            if item in city_nutrition.FOOD_RESTORE} if simple_economy.enabled()

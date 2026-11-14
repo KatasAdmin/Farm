@@ -212,6 +212,7 @@ function refreshPanel(){
  if(activeView==="nutrition")return showNutrition();
  if(activeView==="status")return showCityStatus();
  if(activeView==="settings")return showSettings();
+ if(activeView==="account")return showAccount();
  if(activeView==="promo")return openPanel("Промокод",promoForm);
  if(activeView==="help")return showHelp();
  if(activeView==="store")return showBundles();
@@ -611,7 +612,7 @@ function illustratedSeason(period){
  '<article>'+illustratedIcon(index?"trophy":"frame","tab-icon-1")+'<b>'+number(goal.goal)+' XP</b><strong>'+esc(goal.name)+'</strong><small>'+rewardStatus(goal)+'</small>'+
  (goal.available&&!goal.claimed?'<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Забрать</button>':'')+'</article>').join("")+
  (period.pass_owned?'<p class="pass-state">Пропуск активен</p>':period.pass_stars?'<button class="p3-button p3-gold pass-state" data-action="season-pass" data-item="'+esc(period.id)+'">Купить пропуск · '+number(period.pass_stars)+' ⭐</button>':'')+
- '</div><div class="p3-reward-track"><header>'+illustratedIcon("gift","event-gift")+'<strong>Бесплатно</strong></header>'+period.rewards.map(goal=>
+ '</div><div class="p3-reward-track"><header>'+illustratedIcon("season-gift","event-gift")+'<strong>Бесплатно</strong></header>'+period.rewards.map(goal=>
  '<article><b>'+number(goal.goal)+' XP</b>'+illustratedIcon(rewardArt(goal.key),"event-gift")+'<strong>'+esc(goal.name)+'</strong><small>'+rewardStatus(goal)+'</small>'+
  (goal.available&&!goal.claimed?'<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Забрать</button>':'')+
  '</article>').join("")+'</div></div>';
@@ -712,6 +713,47 @@ async function showRanking(category){
  }catch(error){if(activeView==="ranking")toast(error.message)}
 }
 
+function showAccount(){
+ const current=data.account||{};
+ openPanel("Настройки игрового аккаунта",'<div class="city-account-forms">'+
+  '<form id="city-name-form"><label>Ник<input name="name" minlength="2" maxlength="22" autocomplete="nickname" value="'+esc(data.name)+'" required></label><button class="p3-button">Сохранить ник</button></form>'+
+  '<form id="city-password-form">'+(current.has_password?'<label>Текущий пароль<input name="current_password" type="password" autocomplete="current-password" required></label>':'')+
+  '<label>Новый пароль<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><button class="p3-button">Сохранить пароль</button></form>'+
+  (current.telegram_linked?'<p>Telegram привязан ✓</p>':'<button class="p3-button" data-action="link-account">Привязать Telegram</button>')+
+  '<button class="p3-button" data-action="avatar-picker">Сменить фото</button></div>');
+}
+async function saveAccount(event){
+ event.preventDefault();
+ if(working)return;
+ const form=event.target;
+ const changingName=form.id==="city-name-form";
+ working=true;
+ try{
+  const values=Object.fromEntries(new FormData(form));
+  await api(changingName?"/api/nickname/set":"/api/password/set",changingName?{name:values.name.trim()}:values);
+  form.reset();
+  await load();
+  toast(changingName?"Ник изменён":"Пароль сохранён");
+ }catch(error){toast(error.message)}finally{working=false}
+}
+async function linkCityAccount(){
+ working=true;
+ try{
+  const signed=tgData();
+  if(signed){
+   await api("/api/telegram/link",{telegram_data:signed});
+   await load();
+   toast("Telegram привязан");
+  }else{
+   const result=await api("/api/telegram/link/start",{});
+   if(result.linked){await load();return}
+   if(window.Telegram?.WebApp?.openTelegramLink)window.Telegram.WebApp.openTelegramLink(result.url);
+   else location.assign(result.url);
+   toast("Подтверди привязку в боте командой Start");
+  }
+ }catch(error){toast(error.message)}finally{working=false}
+}
+
 function showSettings(){
  const settings=data.preferences||{effects:true,cosmetic:""};
  openPanel("⚙️ Настройки",'<form id="city-settings"><p><label><input id="city-effects" type="checkbox" '+
@@ -762,7 +804,7 @@ function showProfile(){
  const wallet='<div class="profile-balance"><img src="/assets/city/ref-wallet.webp" alt=""><span>Баланс<strong>'+number(data.coins)+'</strong></span><button class="btn" data-action="wallet">Кошелёк ›</button></div>';
  openPanel("Кабинет",'<section class="city-profile-art">'+hero+'<div class="profile-stats">'+stats.map(([icon,label,value,target])=>card(target,icon,label,value)).join("")+'</div>'+
   wallet+'<div class="profile-menu">'+links.map(([target,icon,label],index)=>card(target,icon,label,"",index)).join("")+'</div>'+
-  '<div class="profile-links"><a class="btn city-link" href="/?profile=1">⚙️ Настройки игрового аккаунта</a></div>'+
+  '<div class="profile-links"><button class="p3-button" data-action="navigate" data-item="account">Настройки игрового аккаунта</button></div>'+
   '<button class="season-banner" data-action="navigate" data-item="season"><img class="banner-treasure" src="/assets/city/ref-chest.webp" alt=""><span>Сезон города<small>Выполняй задания, получай награды<br>и развивай свой город!</small></span><b>К сезону ›</b></button></section>');
 }
 function showWarehouse(){
@@ -828,6 +870,7 @@ async function action(action,item,amountId,listingId){
   catch(error){toast(error.message)}finally{working=false}
   return;
  }
+ if(action==="link-account")return linkCityAccount();
  if(action==="avatar-picker"){$("city-avatar-file").click();return}
  if(action==="featured-event"){document.querySelector(".event-entry")?.scrollIntoView({block:"start"});return}
  if(action==="event-section"){eventSection=item;return showGoals("events")}
@@ -928,6 +971,7 @@ $("close-panel").addEventListener("click",closePanel);
 $("panel-backdrop").addEventListener("click",closePanel);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closePanel()});
 $("panel-body").addEventListener("submit",e=>{
+ if(["city-name-form","city-password-form"].includes(e.target.id))saveAccount(e);
  if(e.target.id==="city-promo-form")redeemPromo(e);
  if(e.target.id==="city-settings")saveSettings(e);
 });
