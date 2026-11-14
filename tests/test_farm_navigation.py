@@ -34,6 +34,24 @@ class FarmNavigationTests(unittest.TestCase):
         bottom = page.split('<nav id="nav"', 1)[1].split("</nav>", 1)[0]
         self.assertIn("tab('shop')", bottom)
         self.assertIn("tab('tasks')", bottom)
+        self.assertEqual(bottom.count('class="nav-button"'), 3)
+        self.assertNotIn('data-tab="wallet"', bottom)
+        self.assertNotIn('data-tab="profile"', bottom)
+        # City links still resolve the hidden account/finance screens.
+        app = (HTML.parent / "assets" / "game.js").read_text(encoding="utf-8")
+        city = (HTML.parent / "assets" / "city" / "city.js").read_text(encoding="utf-8")
+        self.assertIn('entryParams.get("profile")==="1"', app)
+        self.assertIn('href="/?profile=1"', city)
+        self.assertIn('href="/?wallet=1"', city)
+
+    def test_food_dashboard_is_module_specific(self):
+        page = HTML.read_text(encoding="utf-8")
+        food = page.split('<section id="production"', 1)[1].split("</section>", 1)[0]
+        self.assertIn('class="farm-city-header farm-food-dashboard card"', food)
+        self.assertIn('class="farm-food-progress"', food)
+        self.assertIn('data-farmer-fullness', food)
+        self.assertIn('data-farmer-bonus', food)
+        self.assertIn("Выбрать еду", food)
 
     def test_market_categories_keep_real_equipment_and_trade_controls(self):
         page = HTML.read_text(encoding="utf-8")
