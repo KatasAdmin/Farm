@@ -191,6 +191,7 @@ function view(tab){
  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("nav-active",x.dataset.view===tab));
  if(tab==="map")closePanel();
  else if(["season","events","daily"].includes(tab))showGoals(tab);
+ else if(tab==="bonus")showBonus();
  else if(tab==="ranking")showRanking("reputation");
  else if(tab==="wallet")showWallet(true);
  else refreshPanel();
@@ -503,12 +504,22 @@ async function showProgressLog(reputationOnly){
 
 const goalTitles={season:"Сезон",events:"События",daily:"Ежедневные задания"};
 
-let homeSeasonRequested=false;
+let homeGoalsRequest;
+function loadGoals(){
+ if(!homeGoalsRequest)homeGoalsRequest=api("/goals").then(snapshot=>{
+  const ready=snapshot.daily.goals.some(goal=>goal.available&&!goal.claimed);
+  $("city-task-alert").hidden=!ready;
+  return snapshot;
+ }).finally(()=>{homeGoalsRequest=null});
+ return homeGoalsRequest;
+}
+function showBonus(){
+ openPanel("Бонусы",'<div class="campaign-hero city-scene"><strong>Награды города</strong><p>Забери доступные награды сезона или введи промокод.</p></div>'+
+  '<div class="bonus-actions"><button class="btn" data-action="navigate" data-item="season">Награды сезона</button><button class="btn" data-action="navigate" data-item="promo">Ввести промокод</button></div>');
+}
 async function loadHomeSeason(){
- if(homeSeasonRequested)return;
- homeSeasonRequested=true;
  try{
-  const {campaigns}=await api("/goals");
+  const {campaigns}=await loadGoals();
   const season=campaigns.find(period=>period.kind==="season"&&period.active);
   if(!season){$("district-pass-progress").hidden=true;return;}
   const milestones=season.rewards||[];
@@ -516,7 +527,7 @@ async function loadHomeSeason(){
   const meter=$("district-pass-progress");
   meter.innerHTML='<progress aria-label="Сезонный опыт" max="'+target+'" value="'+season.xp+'"></progress><small>'+number(season.xp)+' / '+number(target)+' XP</small>';
   meter.hidden=false;
- }catch{homeSeasonRequested=false}
+ }catch{}
 }
 
 async function showGoals(tab){
@@ -524,7 +535,7 @@ async function showGoals(tab){
  if(!title)return;
  openPanel(title,'<p class="city-help" role="status">Загрузка…</p>');
  try{
-  const snapshot=await api("/goals");
+  const snapshot=await loadGoals();
   if(activeView!==tab)return;
   const now=Date.now()/1000;
   let periods=tab==="daily"?[snapshot.daily]:snapshot.campaigns.filter(period=>
@@ -557,7 +568,7 @@ async function showGoals(tab){
     return '<article class="event-entry"><img src="/assets/city/event-'+art+'.webp" alt=""><div><strong>'+esc(period.name)+'</strong><small>'+
      (period.active?"До конца: "+date:"Завершено")+'</small>'+(period.description?'<p>'+esc(period.description)+'</p>':"")+'</div><div class="event-goals">'+goals+'</div></article>';
    }
-   if(!period.rewards)return heading+goals;
+   if(!period.rewards)return heading+'<div class="city-goal-list">'+goals+'</div>';
    const premiumRewards=Array.isArray(period.premium)?period.premium:[];
    const premiumCards=Array.from({length:5},(_,index)=>premiumRewards[index]?
     '<article><img src="/assets/city/'+(index?"profile-icon-5":"tab-icon-1")+'.webp" alt=""><strong>'+esc(premiumRewards[index])+'</strong><small>Закрыто</small></article>':
@@ -701,7 +712,7 @@ async function action(action,item,amountId,listingId){
  let path,body={item};
  if(action==="claim-goal"){
   working=true;
-  try{await api("/claim-goal",{scope:listingId,key:item});homeSeasonRequested=false;await load();await showGoals(activeView)}
+  try{await api("/claim-goal",{scope:listingId,key:item});await load();await showGoals(activeView)}
   catch(error){toast(error.message)}finally{working=false}
   return;
  }

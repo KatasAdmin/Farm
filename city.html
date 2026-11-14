@@ -4,8 +4,9 @@
 <meta name="theme-color" content="#28243f"><title>НОВАЯ ЖИЗНЬ — ГОРОД</title>
 <link rel="stylesheet" href="/assets/city/city.css?v=20">
 <link rel="stylesheet" href="/assets/city/premium.css?v=2">
+<link rel="stylesheet" href="/assets/city/twilight.css?v=1">
 <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-<script src="/assets/city/city.js?v=28" defer></script>
+<script src="/assets/city/city.js?v=29" defer></script>
 <script src="/assets/adsgram-fallback.js?v=20261106-r38" defer></script>
 <script src="/assets/city/city-ads.js?v=2" defer></script>
 </head>
@@ -15,6 +16,7 @@
 <header class="topbar">
 <div class="city-identity"><div class="city-logo"><img src="/assets/city/original-brand.webp" alt=""></div><div><h1>TREVIXO <em>City</em></h1><span class="brand-kicker">Новая жизнь · город</span></div></div>
 <div class="top-counters">
+ <button class="quick-action" id="district-profile"><span id="district-avatar" class="district-avatar" aria-hidden="true"><img src="/assets/city/tab-icon-0.webp" alt=""></span><span><strong id="district-name">Кабинет</strong><small id="district-level"></small><progress id="district-xp" max="1" value="0" aria-label="Опыт аккаунта"></progress></span></button>
  <button type="button" class="counter wallet-trigger" id="open-city-wallet" aria-label="Кошелёк"><img src="/assets/redesign/coin.webp" alt=""><strong id="coins">—</strong><b aria-hidden="true">+</b></button>
  <button type="button" class="counter rep" id="view-reputation" aria-label="Репутация"><img src="/assets/city/profile-icon-5.webp" alt=""><strong id="reputation">—</strong><b aria-hidden="true">+</b></button>
  <button type="button" class="counter grain-counter" id="view-grain-market" aria-label="Зерно на складе"><img src="/assets/city/resource-1.webp" alt=""><strong id="grain-count">—</strong><b aria-hidden="true">+</b></button>
@@ -24,11 +26,11 @@
 <main><div id="city-home">
 <section class="map-section" aria-label="Карта города"><div class="world-frame">
 <div class="district-tools">
- <button class="quick-action" id="district-profile"><span id="district-avatar" class="district-avatar" aria-hidden="true"><img src="/assets/city/tab-icon-0.webp" alt=""></span><span><strong id="district-name">Кабинет</strong><small id="district-level"></small><progress id="district-xp" max="1" value="0" aria-label="Опыт аккаунта"></progress></span></button>
+
  <button class="quick-action district-pass" id="district-pass"><i aria-hidden="true"><img src="/assets/city/tab-icon-1.webp" alt=""></i><span class="pass-caption">Городской пропуск<span class="pass-meter" id="district-pass-progress" hidden></span></span><b aria-hidden="true">›</b></button>
 </div>
 <div class="world" id="world" aria-label="Интерактивный город">
-<div class="map-shortcuts"><button data-city-screen="season"><img src="/assets/city/menu-4.webp" alt=""><small>Бонус</small><i class="shortcut-alert" aria-hidden="true">!</i></button><button data-city-screen="daily"><img src="/assets/city/menu-2.webp" alt=""><small>Задания</small></button><button data-city-screen="ranking"><img src="/assets/city/menu-5.webp" alt=""><small>Рейтинг</small></button></div><img class="district-art" src="/assets/city/city-skyline.webp" alt="" width="1100" height="880" fetchpriority="high">
+<img class="district-art" src="/assets/city/twilight-map.webp" alt="" width="800" height="1421" fetchpriority="high">
 <a class="district-target farm-target" href="/"><strong>Ферма</strong></a>
 <button class="district-target bakery-target" data-business="bakery"><strong>Пекарня</strong><small></small></button>
 <button class="district-target restaurant-target" data-business="restaurant"><strong>Ресторан</strong><small></small></button>
@@ -36,6 +38,7 @@
 <button class="district-target atelier-target" data-business="atelier"><strong>Ателье</strong><small></small></button>
 <button class="district-target store-target" data-business="store"><strong>Магазин</strong><small></small></button>
 <button class="district-target warehouse-target" id="map-warehouse"><strong>Склад</strong></button>
+<div class="map-shortcuts"><button data-city-screen="daily"><img src="/assets/city/menu-2.webp" alt=""><small>Задания</small><i id="city-task-alert" class="shortcut-alert" aria-label="Доступна награда" hidden>!</i></button><button data-city-screen="bonus"><img src="/assets/city/event-gift.webp" alt=""><small>Бонус</small></button></div>
 </div>
 </div>
 </section>
