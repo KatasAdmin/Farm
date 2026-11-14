@@ -328,7 +328,7 @@ function simpleMarket(){
   html+=keys.map(item=>{
    const price=data.system_prices.raw_buy[item],payout=data.system_prices.raw_sell[item];
    const owned=data.stock?.[item]||0;
-   return row(names[item],`Купить: '+price+' 🪙 · Продать: '+payout+' 🪙 · В городе: '+owned,
+   return row(names[item],'Купить: '+price+' 🪙 · Продать: '+payout+' 🪙 · В городе: '+owned,
      input("qty-market-"+item,1,500)+
      '<button class="btn" data-action="raw" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Купить</button>'+
      (owned?'<button class="btn gold" data-action="sell-raw" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Продать сразу</button>':''));
