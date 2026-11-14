@@ -1783,8 +1783,11 @@ def sell(q:Request,authorization:str=Header(default="")):
   with db() as c:
    c.execute("SELECT pg_advisory_xact_lock(1984533)")
    p=advance(c,person(c,authorization,True))
+   simple_economy.amount(q.amount)
+   if q.item not in simple_economy.ALL_FARM:raise HTTPException(400,"Неизвестный товар")
+   if p.get(q.item,0)<q.amount:raise HTTPException(409,"Недостаточно товара")
    if q.item in simple_economy.RAW_BUY:
-    ad_inventory.take(c,p,q.item,min(q.amount,int(p.get(q.item,0))))
+    ad_inventory.take(c,p,q.item,q.amount)
    return simple_economy.farm_trade(c,p,q.item,q.amount,"sell")
  check(q.amount);check(q.price)
  if q.item not in ("grain","eggs","milk","feathers","wool","chickens","geese","cows","sheep"):raise HTTPException(400,"Товар не найден")
