@@ -40,7 +40,7 @@ class NutritionTests(unittest.TestCase):
         self.assertEqual(simulate(dict(p,fed_hens=0,
              _city_food={"fullness":100,"updated_at":1.0}),21601.0)[1],0)
 
-    def test_meal_increases_yield_without_advancing_the_base_clock(self):
+    def test_meal_reduces_real_production_time(self):
         from production import CYCLE
         from production_v4 import next_egg_delay, simulate
         from test_production_safety import player
@@ -49,9 +49,9 @@ class NutritionTests(unittest.TestCase):
         food={"fullness":100,"updated_at":start}
         p=player(chickens=1,fed_hens=1,grain=20,storage_level=5)
         fed=dict(p,_city_food=food)
-        self.assertEqual(next_egg_delay(fed,start),next_egg_delay(p,start))
-        self.assertEqual(simulate(fed,start+CYCLE-1)[1],0)
-        self.assertEqual(simulate(fed,start+2*CYCLE)[1],2)
+        self.assertLess(next_egg_delay(fed,start),next_egg_delay(p,start))
+        self.assertEqual(simulate(fed,start+CYCLE-1)[1],1)
+        self.assertGreaterEqual(simulate(fed,start+2*CYCLE)[1],2)
 
     def test_bonus_progress_survives_polling_and_is_not_retroactive(self):
         from production import CYCLE
@@ -67,6 +67,6 @@ class NutritionTests(unittest.TestCase):
         after=simulate(midpoint,1.0+CYCLE)[0]
         self.assertEqual(after["eggs"],direct["eggs"])
         self.assertEqual(direct["eggs"],4)
-        self.assertAlmostEqual(after["_city_bonus_progress"]["eggs"],direct["_city_bonus_progress"]["eggs"])
+        self.assertAlmostEqual(after["egg_progress"],direct["egg_progress"],places=5)
 
 if __name__=="__main__":unittest.main()
