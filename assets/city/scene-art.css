@@ -1,0 +1,42 @@
+/* One illustration and its controls share the same scrolling box. */
+.p3-scene-art{position:relative;isolation:isolate;width:100%;aspect-ratio:var(--scene-ratio,1);container-type:inline-size;background:var(--scene-art) center/100% 100% no-repeat,#241035}
+.p3-scene-art :is(h2,h3,p){margin:0}
+.p3-scene-art button:focus-visible{outline:2px solid #fff0bc;outline-offset:-3px}
+.p3-scene-art button:active{background:#ffffff26!important}
+#city-shell #world .district-target::before{content:"";position:absolute;inset:var(--building-reach,-7dvh -4vw -1dvh);cursor:pointer}
+#city-shell #world :is(.dairy-target,.atelier-target,.warehouse-target){--building-reach:-7dvh -3vw -1dvh}
+.p3-painted-actions{position:absolute;inset:var(--actions-top) 8% var(--actions-bottom);display:grid;grid-template-rows:repeat(2,minmax(0,1fr));gap:var(--actions-gap,6%)}
+.p3-scene-art .p3-button,.p3-scene-art .p3-arrow{background:transparent;box-shadow:none;color:#fff8e9;border:0}
+.p3-scene-art .p3-gold{color:#321600}
+.p3-scene-art .p3-button span{font-size:clamp(12px,5cqw,25px)}
+.p3-painted-bonus{--scene-art:url("/assets/city/scenes/bonus.webp");--scene-ratio:600/655;--actions-top:46.6%;--actions-bottom:17%;--actions-gap:10%}
+.p3-painted-bonus .p3-painted-actions{inset-inline:5%}
+.p3-painted-bonus .p3-button{padding-left:34%;justify-content:flex-start}
+.p3-painted-bonus .scene-copy{position:absolute;left:7%;top:8%;width:49%;text-shadow:0 2px 5px #1c092a,0 0 12px #160b33;color:#fff1df}
+.p3-scene-art h3{font:700 clamp(15px,6cqw,32px)/1.08 Georgia,serif;color:#ffdfa1}
+.scene-copy p{margin-top:5px;font-size:clamp(10px,3.8cqw,17px)}
+.p3-painted-promo{--scene-art:url("/assets/city/scenes/promo.webp");--scene-ratio:598/655}
+#panel-body .p3-painted-promo .city-promo-form{position:absolute;inset:42% 9% 28%;margin:0;display:grid;grid-template-rows:37% 46%;align-content:space-between;gap:0}
+#panel-body .p3-painted-promo #city-promo-input{background:transparent;min-height:0;height:100%;color:white;padding:0 4%;border:0;box-shadow:none}
+#panel-body .p3-painted-promo .p3-gold{height:100%;min-height:0;font-size:clamp(15px,5cqw,26px)}
+.p3-painted-daily{--scene-art:url("/assets/city/scenes/daily.webp");--scene-ratio:598/655}
+.p3-painted-daily .scene-copy{position:absolute;inset:8% 43% auto 13%}
+.p3-painted-daily .p3-time{margin-top:8%}
+.p3-painted-daily .p3-goals{position:absolute;inset:31.3% 6% 12.2%;display:grid;grid-template-rows:repeat(4,minmax(0,1fr));gap:3%}
+.p3-painted-daily .p3-goal{padding:0 2% 0 27%;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto;background:none;gap:3px}
+.p3-painted-daily .p3-goal div{border:none;padding:0}
+.p3-painted-daily .p3-goal strong{font-size:clamp(10px,3.65cqw,16px)}
+.p3-painted-daily .p3-goal small{font-size:clamp(10px,3.2cqw,15px);margin-top:2px}
+.p3-painted-daily .p3-arrow,.p3-painted-daily .p3-button{min-height:0;height:100%}
+.p3-painted-daily .p3-button{color:#ffe1a2}
+.p3-painted-season{--scene-art:url("/assets/city/scenes/season.webp");--scene-ratio:600/474;margin-bottom:6px}
+.p3-painted-season .scene-title,.p3-painted-season .scene-name,.p3-painted-season .p3-time,.p3-painted-season .scene-reward,.p3-painted-season .p3-meter,.p3-painted-season .p3-season-tabs{position:absolute;margin:0}
+.p3-painted-season .scene-title{inset:13% 0 auto;text-align:center;font:700 clamp(20px,7cqw,37px)/1 Georgia,serif;color:#ffe0a0;text-shadow:0 2px 5px #170b30}
+.p3-painted-season .scene-name{inset:23% 18% auto;text-align:center;font-size:clamp(14px,5.3cqw,27px)}
+.p3-painted-season .p3-time{inset:35.5% 27% auto;text-align:center;font-size:clamp(9px,3cqw,15px);background:none;border:0;padding:0 0 0 12%;min-height:0;white-space:nowrap}
+.p3-painted-season .scene-reward{inset:48% 43% auto 10%;color:#fff0dd;font-size:clamp(9px,3.2cqw,16px)}
+.p3-painted-season .scene-reward h3{margin-top:4%;font-size:clamp(13px,4.8cqw,25px)}
+.p3-painted-season .p3-meter{inset:76% 10% auto;font-size:clamp(8px,2.9cqw,14px)}
+.p3-painted-season .p3-meter progress{height:6px}
+.p3-painted-season .p3-season-tabs{inset:83% 4% 2%;gap:3%}
+.p3-painted-season .p3-button{height:100%;min-height:0;padding:0 1% 0 35%;font-size:clamp(10px,3.6cqw,17px)}

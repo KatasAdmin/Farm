@@ -516,20 +516,19 @@ function loadGoals(){
 }
 const premiumArt="/assets/city/premium3/";
 const illustratedIcon=(name, fallback)=>'<img class="p3-icon" src="'+premiumArt+name+'.webp" alt="" onerror="this.onerror=null;this.src=\'/assets/city/'+fallback+'.webp\'">';
-const illustratedButton=(label,icon,action,item,active)=>'<button class="p3-button" data-action="'+action+'" data-item="'+item+'"'+(active===undefined?'':' aria-pressed="'+active+'"')+'>'+illustratedIcon(icon,"event-gift")+'<span>'+label+'</span></button>';
+const paintedButton=(label,action,item,active)=>'<button class="p3-button" data-action="'+action+'" data-item="'+item+'"'+(active===undefined?'':' aria-pressed="'+active+'"')+'>'+label+'</button>';
 function showBonus(){
- openPanel("Бонусы",'<section class="p3-bonus"><div class="p3-banner p3-rotunda"><h3>Награды города</h3><p>Забери доступные награды сезона или введи промокод.</p></div><div class="bonus-actions">'+
- illustratedButton("Награды сезона","gift","navigate","season")+
- illustratedButton("Ввести промокод","scroll","navigate","promo")+'</div></section>');
+ openPanel("Бонусы",'<section class="p3-scene-art p3-painted-bonus"><div class="scene-copy"><h3>Награды города</h3><p>Забери награды сезона или введи промокод.</p></div><div class="p3-painted-actions">'+
+ paintedButton("Награды сезона","navigate","season")+paintedButton("Ввести промокод","navigate","promo")+'</div></section>');
 }
 const goalDestinations={batches:["factory","businesses"],raw:["supplies","market"],sales:["stall","warehouse"],orders:["resident","residents"],upgrades:["factory","businesses"]};
-function illustratedGoal(goal,period){
+function illustratedGoal(goal,period,painted=false){
  const [art,destination]=goalDestinations[goal.key]||["scroll",null];
  const ready=goal.available&&!goal.claimed;
  const next=goal.claimed?'<span class="p3-claimed">Получено</span>':ready?
  '<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Получить</button>':
  destination&&period.active?'<button class="p3-arrow" aria-label="Перейти к заданию: '+esc(goal.name)+'" data-action="navigate" data-item="'+destination+'">›</button>':'';
- return '<article class="p3-goal">'+illustratedIcon(art,"menu-2")+'<div><strong>'+esc(goal.name)+'</strong><small>'+number(Math.min(goal.value,goal.goal))+" / "+number(goal.goal)+" · +"+number(goal.xp)+' XP</small></div>'+next+'</article>';
+ return '<article class="p3-goal">'+(painted?"":illustratedIcon(art,"menu-2"))+'<div><strong>'+esc(goal.name)+'</strong><small>'+number(Math.min(goal.value,goal.goal))+" / "+number(goal.goal)+" · +"+number(goal.xp)+' XP</small></div>'+next+'</article>';
 }
 function periodTimer(period,prefix){
  if(!period.active)return '<span class="p3-time">'+(period.ends<=Date.now()/1000?"Завершено":"Скоро")+'</span>';
@@ -542,7 +541,7 @@ function periodTime(end,prefix){
 }
 function illustratedSeason(period){
  const onRewards=seasonSection==="rewards";
- const tabs='<div class="p3-season-tabs">'+illustratedButton("Награды сезона","gift","season-section","rewards",onRewards)+illustratedButton("Задания сезона","scroll","season-section","tasks",!onRewards)+'</div>';
+ const tabs='<div class="p3-season-tabs">'+paintedButton("Награды сезона","season-section","rewards",onRewards)+paintedButton("Задания сезона","season-section","tasks",!onRewards)+'</div>';
  const feature=period.rewards.at(-1);
  const rewardArt=key=>key==="reward:gold"?"frame":key==="reward:violet"?"violet-frame":"trophy";
  const next=period.rewards.find(goal=>goal.goal>period.xp)?.goal||feature?.goal||1;
@@ -553,10 +552,10 @@ function illustratedSeason(period){
  '<article><b>'+number(goal.goal)+' XP</b>'+illustratedIcon(rewardArt(goal.key),"event-gift")+'<strong>'+esc(goal.name)+'</strong><small>'+rewardStatus(goal)+'</small>'+
  (goal.available&&!goal.claimed?'<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Забрать</button>':'')+
  '</article>').join("")+'</div></div>';
- return '<section class="p3-season"><header class="p3-season-lead"><h2>Сезон</h2><h3>'+esc(period.name)+'</h3>'+periodTimer(period,"До конца сезона: ")+'</header>'+
- (feature?'<div class="p3-banner p3-main-reward"><div><small>Главная награда сезона</small><h3>'+esc(feature.name)+'</h3></div>'+illustratedIcon(rewardArt(feature.key),"event-gift")+'</div>':'')+
+ return '<section class="p3-season"><div class="p3-scene-art p3-painted-season"><h2 class="scene-title">Сезон</h2><h3 class="scene-name">'+esc(period.name)+'</h3>'+periodTimer(period,"До конца: ")+
+ (feature?'<div class="scene-reward"><small>Главная награда сезона</small><h3>'+esc(feature.name)+'</h3></div>':"")+
  '<div class="p3-meter"><b>Ур. '+number(period.level)+'</b><progress aria-label="Опыт сезона" value="'+Number(period.xp)+'" max="'+Number(next)+'"></progress><span>'+number(period.xp)+' / '+number(next)+' XP</span></div>'+tabs+
- (onRewards?rewards:'<div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period)).join("")+'</div>')+'</section>';
+ '</div>'+(onRewards?rewards:'<div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period)).join("")+'</div>')+'</section>';
 }
 async function loadHomeSeason(){
  try{
@@ -595,6 +594,8 @@ async function showGoals(tab){
   }
   if(tab==="daily"){
    const period=snapshot.daily;
+   const painted=period.goals.length===4&&period.goals.every((goal,index)=>goal.key===["batches","raw","sales","orders"][index]);
+   if(painted)return openPanel(title,'<div class="p3-scene-art p3-painted-daily"><div class="scene-copy"><h3>Цели дня</h3>'+periodTimer(period,"До ")+'</div><div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period,true)).join("")+'</div></div>');
    return openPanel(title,'<div class="p3-banner p3-daily"><h3>Цели дня</h3>'+periodTimer(period,"До ")+'</div><div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period)).join("")+'</div>');
   }
   if(tab==="season"){
@@ -663,7 +664,7 @@ function showHelp(){
  openPanel("❔ Первые шаги",'<ol class="city-tutorial"><li><button class="btn ghost" data-action="navigate" data-item="businesses">Открой пекарню</button></li><li><button class="btn ghost" data-action="navigate" data-item="market">Купи сырьё</button></li><li>Выбери рецепт на предприятии, запусти партию и дождись её завершения.</li><li><button class="btn ghost" data-action="navigate" data-item="warehouse">Выставь готовый товар со склада</button></li><li><button class="btn ghost" data-action="navigate" data-item="residents">Выполни заказ жителя</button></li><li>Заказы дают репутацию для открытия предприятий. XP повышает уровень города.</li></ol>');
 }
 
-const promoForm='<form id="city-promo-form" class="city-promo-form"><input id="city-promo-input" aria-label="Промокод" autocomplete="off" spellcheck="false" maxlength="64" placeholder="FARM-…" required><button class="p3-button p3-gold" type="submit">Получить награду</button></form>';
+const promoForm='<div class="p3-scene-art p3-painted-promo"><form id="city-promo-form" class="city-promo-form"><input id="city-promo-input" aria-label="Промокод" autocomplete="off" spellcheck="false" maxlength="64" placeholder="FARM-…" required><button class="p3-button p3-gold" type="submit">Получить награду</button></form></div>';
 
 function showProfile(){
  const avatar='<button type="button" class="profile-avatar avatar-picker" data-action="avatar-picker" aria-label="Сменить фото профиля"><img id="city-profile-photo" src="'+esc(avatarSource())+'" alt=""></button>';
