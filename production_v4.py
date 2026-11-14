@@ -211,7 +211,13 @@ def next_egg_delay(p,now):
  if rate:
   started=min(now,p.get("egg_at") or now)
   candidate=max(0,started+(1-(p.get("egg_progress") or 0))/rate-now)
-  if now+candidate<=feed_at and simulate(p,now+candidate)[1]>0:return candidate
+  if now+candidate<=feed_at and simulate(p,now+candidate)[1]>0:
+   low=0;high=math.ceil(candidate)
+   while low<high:
+    mid=(low+high)//2
+    if simulate(p,now+mid)[1]>0:high=mid
+    else:low=mid+1
+   return low
  high=math.ceil(max(0,feed_at-now)+2*FEED_EVERY*CYCLE+CYCLE)
  if simulate(p,now+high)[1]<=0:return None
  low=0
@@ -226,7 +232,13 @@ def next_milk_delay(p,now):
  fed=min(p.get("cows",0),p.get("fed_cows",0))
  if fed:
   candidate=max(0,(MILK_INTERVAL-p.get("milk_progress",0))/fed)
-  if simulate(p,now+candidate)[0].get("milk",0)>p.get("milk",0):return candidate
+  if simulate(p,now+candidate)[0].get("milk",0)>p.get("milk",0):
+   low=0;high=math.ceil(candidate)
+   while low<high:
+    mid=(low+high)//2
+    if simulate(p,now+mid)[0].get("milk",0)>p.get("milk",0):high=mid
+    else:low=mid+1
+   return low
  feed_at=p["last_tick"]+(FEED_EVERY-p["feed_phase"])*CYCLE
  high=math.ceil(max(0,feed_at-now)+4*FEED_EVERY*CYCLE+MILK_INTERVAL)
  if simulate(p,now+high)[0].get("milk",0)<=p.get("milk",0):return None
@@ -245,7 +257,12 @@ def next_feather_delay(p, now):
  if fed:
   candidate=max(0,(FEATHER_INTERVAL-p.get("feather_progress",0))/fed)
   if simulate(p,now+candidate)[0].get("feathers",0)>p.get("feathers",0):
-   return candidate
+   low=0;high=math.ceil(candidate)
+   while low<high:
+    mid=(low+high)//2
+    if simulate(p,now+mid)[0].get("feathers",0)>p.get("feathers",0):high=mid
+    else:low=mid+1
+   return low
  feed_at=p["last_tick"]+(FEED_EVERY-p["feed_phase"])*CYCLE
  high=math.ceil(max(0,feed_at-now)+2*FEATHER_INTERVAL+FEED_EVERY*CYCLE)
  if simulate(p,now+high)[0].get("feathers",0)<=p.get("feathers",0):
