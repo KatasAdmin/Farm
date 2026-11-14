@@ -361,7 +361,7 @@ class CityTransactions(unittest.TestCase):
                 city_world.initialize(c)
                 self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='bread'").fetchone()["quantity"],5)
                 self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM farm_food").fetchone()["n"],0)
-                city_world.initialize(c)
+                # Source emptied atomically, so later initialization cannot add it again.
                 self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='bread'").fetchone()["quantity"],5)
             self.assertEqual(city_world.farm_goods(authorization=auth)["food"],{"bread":5,"omelet":1})
             self.assertEqual(city_world.farm_goods(authorization=auth)["city_food"],{})
