@@ -459,6 +459,29 @@ class CityTransactions(unittest.TestCase):
                 self.assertEqual(city_world.account_xp(db,"buyer"),20)
                 self.assertEqual(db.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200)
 
+    def test_story_production_excludes_purchases_and_pending_batches(self):
+        import time
+        import simple_economy
+        from unittest.mock import patch
+        auth="Bearer t-buyer"
+        goal=city_world.GoalClaim(scope="story",key="produce:bakery")
+        with patch.object(simple_economy,"enabled",return_value=True):
+            with self.connect() as db:
+                db.execute("INSERT INTO city_businesses VALUES('buyer','bakery',1,0)")
+                db.execute("INSERT INTO city_products VALUES('buyer','bread',99)")
+                db.execute("INSERT INTO city_production_history VALUES('bread-1','buyer','bread',10,0,%s)",
+                           (time.time()+3600,))
+            with self.assertRaises(HTTPException) as error:
+                city_world.claim_goal(goal,authorization=auth)
+            self.assertEqual(error.exception.status_code,409)
+            with self.connect() as db:
+                db.execute("UPDATE city_production_history SET ready_at=0")
+            for _ in range(2):
+                city_world.claim_goal(goal,authorization=auth)
+            with self.connect() as db:
+                self.assertEqual(city_world.city_status(db,"buyer"),15)
+                self.assertEqual(city_world.account_xp(db,"buyer"),30)
+
     def test_city_status_thresholds_and_opening_order_are_enforced(self):
         import simple_economy
         from unittest.mock import patch

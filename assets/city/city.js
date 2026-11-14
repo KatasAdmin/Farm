@@ -586,6 +586,7 @@ function illustratedGoal(goal,period,painted=false){
  const ready=goal.available&&!goal.claimed;
  const next=goal.claimed?'<span class="p3-claimed">Получено</span>':ready?
  '<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Получить</button>':
+ goal.business&&period.active?'<button class="p3-arrow" aria-label="Открыть предприятие" data-action="business" data-item="'+esc(goal.business)+'">›</button>':
  destination&&period.active?'<button class="p3-arrow" aria-label="Перейти к заданию: '+esc(goal.name)+'" data-action="navigate" data-item="'+destination+'">›</button>':'';
  return '<article class="p3-goal">'+(painted?"":illustratedIcon(art,"menu-2"))+'<div><strong>'+esc(goal.name)+'</strong><small>'+number(Math.min(goal.value,goal.goal))+" / "+number(goal.goal)+" · +"+number(goal.xp)+' XP'+(goal.status?' · +'+number(goal.status)+' статуса':'')+'</small></div>'+next+'</article>';
 }
@@ -657,7 +658,7 @@ async function showGoals(tab){
   if(tab==="story"){
    const period=snapshot.story;
    if(!period)return openPanel(title,'<p class="empty">Развитие города недоступно</p>');
-   return openPanel(title,citySectionArt("Развитие города","Открой предприятия и забери городской статус.","district")+
+   return openPanel(title,citySectionArt("Развитие города","Открывай предприятия, выпускай товары и получай городской статус.","district")+
     '<div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period)).join("")+'</div>');
   }
   if(tab==="daily"){

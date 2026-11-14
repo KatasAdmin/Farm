@@ -119,16 +119,36 @@ def _state(c, pid, scope, start, end, now, specs, enabled=True):
             "xp": sum(claims.values()), "goals": goals, "claims": claims}
 
 
-def story_state(c,pid):
+STORY_PRODUCTION = {
+    "bakery": ("bread", "Испечь 10 единиц хлеба", 10),
+    "restaurant": ("omelet", "Приготовить 5 омлетов", 5),
+    "dairy": ("cheese", "Произвести 6 единиц сыра", 6),
+    "atelier": ("scarf", "Сшить 3 шарфа", 3),
+}
+
+
+def story_state(c,pid,now):
     opened={row["kind"] for row in c.execute(
         "SELECT kind FROM city_businesses WHERE player_id=%s",(pid,)).fetchall()}
     claims={row["goal"] for row in c.execute(
         "SELECT goal FROM city_goal_claims WHERE player_id=%s AND scope='story'",(pid,)).fetchall()}
+    quantities={row["recipe"]:row["total"] for row in c.execute(
+        """SELECT recipe,SUM(quantity)::bigint AS total FROM city_production_history
+        WHERE player_id=%s AND ready_at<=%s AND recipe=ANY(%s) GROUP BY recipe""",
+        (pid,now,[spec[0] for spec in STORY_PRODUCTION.values()])).fetchall()}
     goals=[]
     for kind,name in (("bakery","Открыть пекарню"),("restaurant","Открыть ресторан"),
                       ("dairy","Открыть молочную"),("atelier","Открыть ателье")):
         goals.append({"key":kind,"name":name,"goal":1,"value":int(kind in opened),
                       "available":kind in opened,"claimed":kind in claims,"xp":20,"status":10})
+        if kind not in opened:
+            continue
+        recipe,label,target=STORY_PRODUCTION[kind]
+        key="produce:"+kind
+        value=quantities.get(recipe,0)
+        goals.append({"key":key,"name":label,"goal":target,"value":value,
+                      "available":value>=target,"claimed":key in claims,
+                      "xp":30,"status":15,"business":kind})
     return {"id":"story","active":True,"goals":goals}
 
 
@@ -157,7 +177,7 @@ def state(c, pid, now):
                 for key, label, threshold in REWARDS]
         campaigns.append(result)
     return {"daily": daily, "campaigns": campaigns,
-            **({"story":story_state(c,pid)} if simple_economy.enabled() else {})}
+            **({"story":story_state(c,pid,now)} if simple_economy.enabled() else {})}
 
 
 def cosmetics(c, pid):
@@ -170,7 +190,7 @@ def cosmetics(c, pid):
 
 def claim(c, pid, scope, key, now, progress_event):
     if scope=="story" and simple_economy.enabled():
-        period=story_state(c,pid)
+        period=story_state(c,pid,now)
     else:
         snapshot=state(c,pid,now)
         period=next((p for p in [snapshot["daily"],*snapshot["campaigns"]] if p["id"]==scope),None)
