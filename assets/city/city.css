@@ -583,3 +583,13 @@ body{background:radial-gradient(ellipse at 50% 10%,#3f2554,#19162a 47%,#0f1020 8
  padding:12px 4px 14px;margin:0 -8px 8px;color:#fff5f8
 }
 .event-feature{min-height:86px}
+#city-page .profile-hero{grid-template-columns:clamp(76px,23vw,123px) minmax(0,1fr)}
+.profile-hero .avatar-picker{padding:0;overflow:hidden;cursor:pointer}
+.profile-hero .avatar-picker img{width:100%;height:100%;object-fit:cover}
+.city-identity .city-logo img{border-radius:9px}
+#city-page:has([data-scene="profile"]) .season-banner b{background:linear-gradient(#209575,#0a3c36);border:1px solid #7fecca}
+#city-shell:has([data-scene="profile"]) .bottom-nav [data-view="profile"].nav-active,
+#city-shell:has([data-scene="events"]) .bottom-nav [data-view="events"].nav-active{
+ background:linear-gradient(#7d39a5,#3c1a56);border-color:#f6a2ff;box-shadow:inset 0 0 13px #e879ff,0 0 10px #bd56dd
+}
+.district-tools .district-pass{background:radial-gradient(ellipse at 50% 100%,#7829a1,#251732 74%)}

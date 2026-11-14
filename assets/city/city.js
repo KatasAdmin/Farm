@@ -31,6 +31,44 @@ async function api(path,body){
   throw error;
  }finally{clearTimeout(timeout)}
 }
+let telegramPhoto="",photoLookup="";
+const avatarSource=()=>data?.avatar_photo?.startsWith("data:image/jpeg;base64,")?data.avatar_photo:
+ telegramPhoto||"/assets/city/tab-icon-0.webp";
+
+async function loadTelegramPhoto(){
+ const signed=tgData();
+ if(!data||!signed||data.avatar_photo||photoLookup===signed)return;
+ photoLookup=signed;
+ try{
+  const result=await api("/telegram-avatar",{telegram_data:signed});
+  telegramPhoto=result.photo||"";
+  $("district-avatar").querySelector("img").src=avatarSource();
+  const profile=$("city-profile-photo");
+  if(profile)profile.src=avatarSource();
+ }catch{photoLookup=""}
+}
+
+async function changeAvatar(event){
+ const field=event.target;
+ const file=field.files[0];
+ if(!file)return;
+ field.value="";
+ const url=URL.createObjectURL(file);
+ try{
+  const img=new Image();
+  img.src=url;
+  await img.decode();
+  const canvas=document.createElement("canvas");
+  canvas.width=canvas.height=256;
+  const size=Math.min(img.naturalWidth,img.naturalHeight);
+  canvas.getContext("2d").drawImage(img,(img.naturalWidth-size)/2,(img.naturalHeight-size)/2,size,size,0,0,256,256);
+  await api("/avatar",{avatar_photo:canvas.toDataURL("image/jpeg",.72)});
+  await load();
+  toast("Фото профиля обновлено");
+ }catch(error){toast(error.message||"Не удалось загрузить фото")}
+ finally{URL.revokeObjectURL(url)}
+}
+
 async function entry(){
  window.Telegram?.WebApp?.ready?.();
  token=store.get();
@@ -88,7 +126,8 @@ function paint(){
   button.querySelector("small").textContent=level?"Ур. "+level:"🔒";
  });
  const avatar=$("district-avatar");
- if(data.avatar_photo?.startsWith("data:image/jpeg;base64,"))avatar.innerHTML='<img src="'+esc(data.avatar_photo)+'" alt="">';
+ avatar.querySelector("img").src=avatarSource();
+ loadTelegramPhoto();
  const xp=$("district-xp");
  xp.max=data.progress?.next_xp||Math.max(1,data.progress?.xp||0);
  xp.value=data.progress?.xp||0;
@@ -474,8 +513,7 @@ function showHelp(){
 const promoForm='<form id="city-promo-form" class="city-promo-form"><input id="city-promo-input" aria-label="Промокод" autocomplete="off" spellcheck="false" maxlength="64" placeholder="FARM-…" required><button class="btn gold" type="submit">Получить награду</button></form>';
 
 function showProfile(){
- const avatar=data.avatar_photo?.startsWith("data:image/jpeg;base64,")?
-  '<img class="profile-avatar" src="'+esc(data.avatar_photo)+'" alt="">':'<div class="profile-avatar"><img src="/assets/city/tab-icon-0.webp" alt=""></div>';
+ const avatar='<button type="button" class="profile-avatar avatar-picker" data-action="avatar-picker" aria-label="Сменить фото профиля"><img id="city-profile-photo" src="'+esc(avatarSource())+'" alt=""></button>';
  const progress=data.progress||{};
  const stats=[
   ["🏆","Репутация",number(data.reputation),"reputation"],
@@ -544,6 +582,7 @@ async function action(action,item,amountId,listingId){
   catch(error){toast(error.message)}finally{working=false}
   return;
  }
+ if(action==="avatar-picker"){$("city-avatar-file").click();return}
  if(action==="featured-event"){document.querySelector(".event-entry")?.scrollIntoView({block:"start"});return}
  if(action==="event-section"){eventSection=item;return showGoals("events")}
  if(action==="season-section"){seasonSection=item;return showGoals("season")}
@@ -618,10 +657,11 @@ $("panel-body").addEventListener("click",e=>{
  const button=e.target.closest("button[data-action]");if(!button)return;
  action(button.dataset.action,button.dataset.item,button.dataset.amountId,button.dataset.listingId)
 });
+$("city-avatar-file").addEventListener("change",changeAvatar);
 $("auth-form").addEventListener("submit",loginPassword);
 $("telegram-login").addEventListener("click",loginTelegram);
 window.addEventListener("telegram-sdk-ready",()=>{
- if(data)window.CityEntryAds?.maybeStart?.();
+ if(data){loadTelegramPhoto();window.CityEntryAds?.maybeStart?.();}
  else if(!token&&!$("city-auth").classList.contains("hidden"))loginTelegram();
 });
 setInterval(()=>{
