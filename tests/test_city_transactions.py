@@ -364,18 +364,18 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(farm_wallet.available(db,buyer),0)
             self.assertEqual(db.execute("SELECT quantity FROM city_stock WHERE player_id='buyer' AND item='eggs'").fetchone()["quantity"],1)
 
-    def test_simple_system_refuses_unfunded_buyback_and_keeps_goods(self):
+    def test_simple_system_unfunded_buyback_credits_coins_and_debits_treasury(self):
         import simple_economy
         with self.connect() as db:
             simple_economy.initialize(db)
             db.execute("INSERT INTO city_products VALUES('buyer','pancakes',3)")
-        with self.assertRaises(HTTPException) as ctx:
-            with self.connect() as db:
-                p=db.execute("SELECT * FROM players WHERE id='buyer'").fetchone()
-                simple_economy.city_product_trade(db,p,"pancakes",2,"sell",city_world.RECIPES)
-        self.assertEqual(ctx.exception.status_code,409)
-        with self.connect() as db:
-            self.assertEqual(db.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='pancakes'").fetchone()["quantity"],3)
+            p=db.execute("SELECT * FROM players WHERE id='buyer'").fetchone()
+            result=simple_economy.city_product_trade(db,p,"pancakes",2,"sell",city_world.RECIPES)
+            self.assertGreater(result["received"],0)
+            self.assertEqual(db.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='pancakes'").fetchone()["quantity"],1)
+            self.assertEqual(db.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200+result["received"])
+            self.assertEqual(db.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"],-result["received"])
+            self.assertEqual(farm_wallet.available(db,db.execute("SELECT * FROM players WHERE id='buyer'").fetchone()),0)
 
     def test_simple_market_old_listings_restore_exactly_once(self):
         import simple_economy
