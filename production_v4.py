@@ -5,7 +5,7 @@ import city_nutrition
 from production import CYCLE, FEED_EVERY, GRAIN_PRICE
 GOOSE_CYCLE=2*3600
 GOOSE_FEED=2
-FEATHER_INTERVAL=7*24*3600
+FEATHER_INTERVAL=7*24*3600  # Predictable production: one feather per fed goose each 7 days.
 COW_FEED=3
 MILK_INTERVAL=8*3600
 MILK_PRICE=11
