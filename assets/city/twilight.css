@@ -34,7 +34,7 @@ body{background:#190d30}
 #world .dairy-target{--x:17%;--y:62%}
 #world .atelier-target{--x:83%;--y:63%}
 #world .warehouse-target{--x:48%;--y:72%}
-#city-shell .map-shortcuts{position:fixed;inset:auto auto calc(88px + env(safe-area-inset-bottom));left:50%;width:min(88%,485px);display:flex;justify-content:center;gap:10px;transform:translateX(-50%);z-index:5}
+#city-shell .map-shortcuts{position:fixed;inset:auto auto calc(108px + env(safe-area-inset-bottom));left:50%;width:min(88%,485px);display:flex;justify-content:center;gap:10px;transform:translateX(-50%);z-index:5}
 #city-shell .map-shortcuts button{position:relative;min-width:0;width:min(43%,150px);display:flex;justify-content:center;align-items:center;gap:6px;padding:5px 7px;border:1px solid #e19df7;border-radius:99px;background:#341752;box-shadow:0 0 10px #d676ee88;color:white}
 #city-shell .map-shortcuts img{width:27px;height:27px;object-fit:contain}
 #city-shell .map-shortcuts small{font-size:clamp(12px,3.5vw,17px)}
@@ -46,4 +46,4 @@ body{background:#190d30}
 .city-goal-list>*{border:1px solid #9c70c0;border-radius:13px;background:#322046}
 .bonus-actions{display:grid;gap:8px}
 
-@media(max-height:590px){#city-shell .map-shortcuts{bottom:calc(81px + env(safe-area-inset-bottom))}#world .warehouse-target{--y:68%}}
+@media(max-height:590px){#city-shell .map-shortcuts{bottom:calc(103px + env(safe-area-inset-bottom))}#world .warehouse-target{--y:64%}}
