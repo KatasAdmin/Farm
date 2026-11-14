@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
     <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
-      <link rel="stylesheet" href="/assets/city/farm-products.css?v=10" />
+      <link rel="stylesheet" href="/assets/city/farm-products.css?v=11" />
     <link rel="stylesheet" href="/assets/farm-final-scenes.css?v=1" />
   </head>
   <body>
@@ -144,6 +144,9 @@
             decoding="async"
           />
           <h1><span>НОВАЯ ЖИЗНЬ</span>Ферма</h1>
+          <a class="farm-hero-city-link" href="/city" aria-label="Перейти в город">
+            <span class="farm-hero-city-icon" aria-hidden="true">🏙️</span><span>В город</span>
+          </a>
           <div class="flock" aria-hidden="true">
             <img loading="lazy"
               src="/assets/redesign/hen.webp"
@@ -162,24 +165,15 @@
           <button type="button" class="farm-tile" onclick="tab('coop')"><img loading="lazy" src="/assets/redesign/coop-icon.webp" alt=""><strong>Животные</strong></button>
           <button type="button" class="farm-tile" onclick="tab('storage')"><img loading="lazy" src="/assets/redesign/storage.webp" alt=""><strong>Склад</strong></button>
           <button type="button" class="farm-tile farm-tile-fields" onclick="tab('fields')"><img loading="lazy" src="/assets/illustrations/field-icon-v2.webp" alt=""><strong>Поля</strong></button>
-          <button type="button" class="farm-tile farm-tile-enterprise" onclick="tab('production')" aria-label="Открыть производство и городские товары"><img loading="lazy" src="/assets/illustrations/factory-icon-v2.webp" alt=""><strong>Предприятия</strong></button>
-        </div>
-        <div class="farm-food-summary" role="group" aria-label="Питание фермера и ускорение производства">
-          <div class="farm-food-intro">
-            <span class="farm-food-icon" aria-hidden="true">🍽️</span>
-            <div class="farm-food-heading">
-              <strong>Питание фермера</strong>
-              <small>Еда ускоряет производство всех животных</small>
-            </div>
-          </div>
-          <div class="farm-food-metrics" aria-live="polite">
-            <span class="farm-food-stat"><small>Сытость</small><strong data-farmer-fullness>—</strong></span>
-            <span class="farm-food-stat"><small>Ускорение</small><strong data-farmer-bonus>—</strong></span>
-          </div>
-          <div class="farm-food-bottom">
-            <span>100% сытости = +50% к скорости производства</span>
-            <button type="button" class="farm-food-buy" onclick="tab('production')">Купить еду <span aria-hidden="true">›</span></button>
-          </div>
+          <button type="button" class="farm-tile farm-tile-enterprise farm-tile-food" onclick="tab('production')" aria-label="Открыть еду и бонусы производства">
+            <span class="farm-food-utensils" aria-hidden="true">
+              <svg viewBox="0 0 64 64" width="48" height="48" xmlns="http://www.w3.org/2000/svg" fill="none">
+                <path d="M13 7v18m8-18v18m8-18v18M13 25c0 8 16 8 16 0M21 29v28" stroke="#e9faff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M48 33c-8 0-11-7-11-14 0-9 4-14 11-14s11 5 11 14c0 7-3 14-11 14Zm0 0v24" stroke="#f6e5ae" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <strong>Еда и бонусы</strong>
+          </button>
         </div>
         <details class="card launch-guide" id="launch-guide" hidden>
  <summary>🌱 Как начать играть? · подсказка для новичка</summary>
@@ -297,7 +291,6 @@
         <div class="farm-city-header card">
           <div class="farm-food-heading">
             <h2>🍽️ Еда и бонусы</h2>
-            <a href="/city" class="farm-city-cta">🏙️ В город</a>
           </div>
           <div class="farm-food-status">
             <span>Сытность <strong data-farmer-fullness>—</strong></span>
