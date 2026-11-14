@@ -2121,7 +2121,7 @@ def autobuy(q:Request,authorization:str=Header(default="")):
  return {"ok":True}
 
 # Small fixed daily grants. Minted rewards are recorded separately from the original 10,000-coin treasury.
-REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1,"milk":1,"milk_listing":1,"feather":1,"market_sale":1,"feeding":1,"market_buy":1,"buy_chicken":1,"buy_goose":1,"buy_cow":1}
+REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1,"milk":1,"milk_listing":1,"feather":15,"market_sale":1,"feeding":1,"market_buy":1,"buy_chicken":1,"buy_goose":1,"buy_cow":1}
 @app.post("/api/weekly/claim")
 def claim_weekly(authorization:str=Header(default="")):
  with db() as c:
