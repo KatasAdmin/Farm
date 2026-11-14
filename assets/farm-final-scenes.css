@@ -10,7 +10,7 @@
  margin:0 -9px!important;
  overflow:hidden!important;
  border:0!important;
- background:linear-gradient(160deg,#1376bd,#073e81)!important;
+ background:linear-gradient(160deg,#bea2c9,#cbbdd1)!important;
 }
 #wallet>.wallet-landscape img,
 #profile>.profile-landscape img{
@@ -32,7 +32,7 @@
  pointer-events:none!important;
  background:linear-gradient(to bottom,
    rgba(2,30,78,.03) 0%,rgba(2,44,98,.22) 35%,
-   rgba(4,48,110,.70) 74%,#05377d 100%)!important;
+   rgba(4,48,110,.70) 74%,#d0c5d5 100%)!important;
 }
 #wallet>.moneyhero,
 #profile>.profile-card{
@@ -43,7 +43,7 @@
  margin-right:7px!important;
  border:1.5px solid rgba(145,223,255,.78)!important;
  border-radius:18px!important;
- background:linear-gradient(155deg,rgba(21,123,205,.89),rgba(5,70,149,.93) 50%,rgba(4,43,104,.96))!important;
+ background:linear-gradient(155deg,rgba(100,48,123,.89),rgba(62,29,83,.93) 50%,rgba(39,20,55,.96))!important;
  -webkit-backdrop-filter:blur(8px);
  backdrop-filter:blur(8px);
  box-shadow:inset 0 2px rgba(210,250,255,.27),0 8px 22px rgba(0,15,59,.35)!important;
@@ -66,6 +66,6 @@
  #wallet>.moneyhero,#profile>.profile-card{
    -webkit-backdrop-filter:none;
    backdrop-filter:none;
-   background:linear-gradient(150deg,#1367ae,#073c88)!important;
+   background:linear-gradient(150deg,#baa0c5,#ccbed2)!important;
  }
 }

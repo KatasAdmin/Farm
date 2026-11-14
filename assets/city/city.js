@@ -636,6 +636,13 @@ function loadGoals(){
   cityTasksReady=periodReady(snapshot.daily)||periodReady(snapshot.story)||
    snapshot.campaigns.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium?.some(readyGoal));
   $("city-task-alert").hidden=!cityTasksReady&&!farmTasksReady;
+  for(const kind of ["season","events"]){
+   const periods=snapshot.campaigns.filter(period=>period.kind===(kind==="events"?"event":"season"));
+   const ready=(kind==="events"&&periodReady(snapshot.daily))||periods.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium?.some(readyGoal));
+   const button=document.querySelector('.bottom-nav [data-view="'+kind+'"]');
+   button?.querySelector(".shortcut-alert")?.remove();
+   button?.insertAdjacentHTML("beforeend",taskAlert(ready));
+  }
   return snapshot;
  }).finally(()=>{homeGoalsRequest=null});
  return homeGoalsRequest;
@@ -714,7 +721,7 @@ function illustratedSeason(period){
   const state=goal.claimed?"Получено ✓":ready?"":!period.active?"Сезон завершён":isPremium&&!period.pass_owned?"Нужен пропуск":"Ещё "+number(Math.max(0,goal.goal-period.xp))+" XP";
   return '<article data-reward-state="'+(goal.claimed?"claimed":ready?"ready":"locked")+'">'+illustratedIcon(art,"event-gift")+
    '<b>'+number(goal.goal)+' XP</b><strong>'+esc(goal.name)+'</strong>'+
-   (ready?'<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Забрать</button>':'<small>'+state+'</small>')+'</article>';
+   (ready?'<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Забрать'+taskAlert(true)+'</button>':'<small>'+state+'</small>')+'</article>';
  };
  const rewards='<div class="p3-rewards"><section class="season-track"><h3>Бесплатные награды</h3><div class="p3-reward-track">'+free.map(goal=>card(goal,false)).join("")+
   '</div></section><section class="season-track"><h3>Премиум-награды</h3><div class="p3-reward-track p3-premium-track">'+premium.map(goal=>card(goal,true)).join("")+'</div>'+

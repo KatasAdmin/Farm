@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#06357f" />
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
-    <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
+    <link rel="stylesheet" href="/assets/azure-v4.css?v=6" />
     <link rel="stylesheet" href="/assets/daily-v1.css?v=29" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/birds.css?v=2" />
@@ -20,15 +20,15 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=126" defer></script>
+    <script src="/assets/game.js?v=127" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
     <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
       <link rel="stylesheet" href="/assets/city/farm-products.css?v=13" />
-    <link rel="stylesheet" href="/assets/farm-final-scenes.css?v=1" />
-  <link rel="stylesheet" href="/assets/farm-painted.css?v=3">
+    <link rel="stylesheet" href="/assets/farm-final-scenes.css?v=2" />
+  <link rel="stylesheet" href="/assets/farm-painted.css?v=4">
   </head>
   <body>
     <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #80d6ff;border-radius:14px;background:#103c7c;color:white;font-family:Arial,sans-serif">
@@ -729,11 +729,11 @@
           Выполняй ежедневные задания и развивай хозяйство.
         </p>
         <div class="card" id="daily-task-card">
-          <h2 class="cardtitle">☀️ Задания на сегодня</h2>
+          <h2 id="farm-daily-heading" class="cardtitle">☀️ Задания на сегодня</h2>
           <p class="muted">Обновляются ежедневно по UTC. Получай бонусные монеты для покупок. Молочные задания появляются при наличии коров или молока. За перо теперь есть отдельная награда в еженедельных заданиях. Каждую ежедневную награду можно забрать только раз в сутки.</p>
           <div id="daily-tasks" aria-live="polite"></div>
         </div>
-        <h2 class="section-title">📅 Задания недели</h2>
+        <h2 id="farm-weekly-heading" class="section-title">📅 Задания недели</h2>
         <div class="card tasks-list weekly-tasks">
           <p class="muted">Неделя обновляется в понедельник (00:00 UTC). За три основные цели — <b>30 монет</b>. Остальные задания учитываются в этом же списке. За произведённое перо — отдельная награда <b>15 монет</b>.</p>
           <p class="weekly-deadline" id="weekly-deadline">До конца недели: —</p>

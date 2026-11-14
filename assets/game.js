@@ -466,6 +466,13 @@ async function claimWeeklyFeather(){
   toast("🪶 Еженедельная награда за перо: +"+number(result.awarded)+" монет");
  }catch(error){toast(error.message);}finally{busy(false);}
 }
+const farmRewardBadge = '<span class="farm-reward-badge" aria-label="Доступна награда">!</span>';
+function setFarmRewardBadge(control, ready) {
+  if (!control) return;
+  control.querySelector(".farm-reward-badge")?.remove();
+  if (ready) control.insertAdjacentHTML("beforeend", farmRewardBadge);
+}
+
 function taskSection(which) {
   const panes={goals:"goals-pane",achievements:"achievement-pane",referrals:"referrals-pane"};
   if(!panes[which])return;
@@ -1200,7 +1207,7 @@ function render() {
     achievementList.innerHTML = stageRows.map(stage => {
       const [emoji] = labels[stage.track] || ["🏅"];
       const ready = Boolean(stage.claimable);
-      return '<div class="achievement-row"><span class="achievement-emoji">'+emoji+'</span><div><strong>'+stageTitle(stage)+'</strong><small>'+number(stage.progress)+' / '+number(stage.threshold)+' · +'+number(stage.xp)+' XP</small></div><button class="btn small" '+(ready?'':'disabled')+' onclick="claimAchievement(\''+stage.track+'\')">'+(ready?'Получить XP':'Ещё не выполнено')+'</button></div>';
+      return '<div class="achievement-row"><span class="achievement-emoji">'+emoji+'</span><div><strong>'+stageTitle(stage)+'</strong><small>'+number(stage.progress)+' / '+number(stage.threshold)+' · +'+number(stage.xp)+' XP</small></div><button class="btn small" '+(ready?'':'disabled')+' onclick="claimAchievement(\''+stage.track+'\')">'+(ready?'Получить XP'+farmRewardBadge:'Ещё не выполнено')+'</button></div>';
     }).join("");
   }
   const daily = state.daily || {};
@@ -1223,12 +1230,12 @@ function render() {
   if (dailyBox) {
     const bonusDone = claimed.has("bonus");
     const rewards = state.reward_values;
-    dailyBox.innerHTML = '<div class="daily-task"><div><strong>Бонус за вход</strong><small>+' + number(rewards.bonus) + ' монет · раз в сутки</small></div><button class="btn small" ' + (bonusDone ? 'disabled' : '') + ' onclick="claimDaily(\'bonus\')">' + (bonusDone ? 'Получено ✓' : 'Получить +' + number(rewards.bonus)) + '</button></div>' +
+    dailyBox.innerHTML = '<div class="daily-task"><div><strong>Бонус за вход</strong><small>+' + number(rewards.bonus) + ' монет · раз в сутки</small></div><button class="btn small" ' + (bonusDone ? 'disabled' : '') + ' onclick="claimDaily(\'bonus\')">' + (bonusDone ? 'Получено ✓' : 'Получить +' + number(rewards.bonus) + farmRewardBadge) + '</button></div>' +
       dailyMissions.map(([key,name,value,target]) => {
         const n = Math.min(value,target);
         const done = n >= target;
         const isClaimed = claimed.has(key);
-        return '<div class="daily-task"><div><strong>' + name + '</strong><small>' + number(n) + ' / ' + target + ' · +' + number(rewards[key]) + ' монет</small></div><div class="progress"><span style="width:' + (100*n/target) + '%"></span></div><button class="btn small" ' + (!done || isClaimed ? 'disabled' : '') + ' onclick="claimDaily(\'' + key + '\')">' + (isClaimed ? 'Получено ✓' : done ? 'Забрать +' + number(rewards[key]) : 'Выполни задание') + '</button></div>';
+        return '<div class="daily-task"><div><strong>' + name + '</strong><small>' + number(n) + ' / ' + target + ' · +' + number(rewards[key]) + ' монет</small></div><div class="progress"><span style="width:' + (100*n/target) + '%"></span></div><button class="btn small" ' + (!done || isClaimed ? 'disabled' : '') + ' onclick="claimDaily(\'' + key + '\')">' + (isClaimed ? 'Получено ✓' : done ? 'Забрать +' + number(rewards[key]) + farmRewardBadge : 'Выполни задание') + '</button></div>';
       }).join("");
   }
   const f = state.farm;
@@ -1312,7 +1319,7 @@ function render() {
       const done=n>=task.target;
       const action=task.reward?
         '<button type="button" class="btn small weekly-task-action" onclick="claimWeeklyFeather()" '+(!done||task.claimed||pending?'disabled':'')+'>'+
-        (task.claimed?'Награда получена ✓':done?'Забрать +'+task.reward+' монет':'Награда +'+task.reward+' монет')+'</button>':'';
+        (task.claimed?'Награда получена ✓':done?'Забрать +'+task.reward+' монет'+farmRewardBadge:'Награда +'+task.reward+' монет')+'</button>':'';
       return '<div class="weekly-task-item">'+
         '<span class="weekly-task-icon" aria-hidden="true">'+task.icon+'</span>'+
         '<div class="weekly-task-details"><strong>'+task.name+'</strong>'+
@@ -1323,6 +1330,17 @@ function render() {
   }
   const claim=el("weekly-claim");
   if(claim){claim.disabled=pending||!weeklyDone||weekly.claimed;claim.textContent=weekly.claimed?"🏆 Награда получена ✓":"🏆 Забрать награду: +"+(weekly.reward||30)+" монет";}
+  const dailyReady = !claimed.has("bonus") || dailyMissions.some(([key,,value,target]) => value>=target&&!claimed.has(key));
+  const weeklyMainReady = weeklyDone && !weekly.claimed;
+  const weeklyReady = weeklyMainReady || (weekly.feathers>=1&&!weekly.feather_claimed);
+  const achievementsReady = stageRows.some(stage=>stage.claimable);
+  setFarmRewardBadge(claim, weeklyMainReady);
+  setFarmRewardBadge(el("farm-daily-heading"), dailyReady);
+  setFarmRewardBadge(el("farm-weekly-heading"), weeklyReady);
+  setFarmRewardBadge(el("tasks-switch"), dailyReady||weeklyReady);
+  setFarmRewardBadge(el("achievements-switch"), achievementsReady);
+  setFarmRewardBadge(document.querySelector('#nav [data-tab="tasks"]'), dailyReady||weeklyReady||achievementsReady);
+
   const dead=el("weekly-deadline");
   if(dead&&weekly.ends_at){const hours=Math.max(0,Math.ceil((weekly.ends_at-Date.now()/1000)/3600));dead.textContent="До конца недели: "+Math.floor(hours/24)+" дн. "+hours%24+" ч";}
 

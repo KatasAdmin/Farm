@@ -44,3 +44,21 @@ body{background:#190d2c}
 }
 #app :is(.price,.cardtitle,.section-title,.resource strong){color:#ffe0a2!important}
 #app .muted{color:#e0cde9}
+
+#app button:has(>.farm-reward-badge),#nav button:has(>.farm-reward-badge){position:relative}
+.farm-reward-badge{
+ display:inline-grid;place-items:center;width:18px;height:18px;box-sizing:border-box;
+ border:1px solid #ffc2cd;border-radius:50%;background:#be1941;color:#fff;
+ font:800 12px/1 system-ui;vertical-align:middle;margin-inline-start:5px;
+ text-shadow:none;box-shadow:0 2px 5px #4e1128;
+}
+button>.farm-reward-badge{position:absolute;z-index:2;inset:1px 2px auto auto;margin:0;pointer-events:none}
+#app :is(.topbar,.daily-task,.achievement-row,.weekly-task-item,.task-row,.switch button,.market-categories button,.trade-extras>summary,.referral-resource){
+ background:#382047;border-color:#a974c5;color:#fff1de;
+}
+#app :is(.daily-task,.achievement-row,.weekly-task-item,.task-row) small{color:#ead6ee}
+#app .progress{background:#261434;border-color:#a974c5;box-shadow:none}
+#app .progress>span{background:linear-gradient(#dc99fe,#9c53c0);box-shadow:none}
+#app :is(input,select,textarea):not([type=checkbox]):not([type=radio]){
+ background-color:#241331;border-color:#a974c5;color:#fff5e9;
+}

@@ -140,3 +140,6 @@
 .p3-painted-season .p3-meter progress{appearance:none;-webkit-appearance:none;border:0;border-radius:999px;background:#2c143e}
 .p3-meter progress::-webkit-progress-bar{background:#2c143e;border-radius:999px}
 .p3-meter progress::-webkit-progress-value{background:#d180fa;border-radius:999px}
+
+.bottom-nav button:has(>.shortcut-alert),.season-track button:has(>.shortcut-alert){position:relative}
+.bottom-nav button>.shortcut-alert,.season-track button>.shortcut-alert{inset:1px 2px auto auto}
