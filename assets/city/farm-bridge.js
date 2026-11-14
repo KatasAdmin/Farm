@@ -47,6 +47,16 @@
  }
  function shop(target,category){
   const food=category==="food";
+  if(info.simple_economy){
+   const offers=Object.entries(info.city_catalog).filter(([item])=>info.recipes[item]&&Boolean(info.food_restore[item])===food);
+   target.innerHTML=offers.map(([item,offer])=>card(item,
+    '🏪 Купить '+fmt(offer.buy_price)+' 🪙 · Продать '+fmt(offer.sell_price)+' 🪙'+
+    (food?' · +'+info.food_restore[item]+' сытости':''),
+    '<input type="number" min="1" max="500" value="1" aria-label="Количество">'+
+    '<button type="button" data-city-buy="'+item+'" data-destination="'+(food?'farm':'city')+'">Купить</button>'
+   )).join("");
+   return;
+  }
   const offers=Object.entries(info.city_catalog).filter(([item,offer])=>
    offer.quantity>0&&info.recipes[item]&&Boolean(info.food_restore[item])===food);
   target.innerHTML=offers.length?offers.map(([item,offer])=>
@@ -65,9 +75,15 @@
   const owned=Object.entries(info.food).filter(([item,n])=>n>0&&info.food_restore[item]);
   const onFarm=owned.map(([item,n])=>card(item,
    fmt(n)+' шт. · +'+info.food_restore[item]+' п. п.',
-   '<button type="button" data-city-eat="'+item+'">Съесть</button>'
+   '<button type="button" data-city-eat="'+item+'">Съесть</button>'+
+   (info.simple_economy?'<button type="button" data-city-sell="'+item+'" data-destination="farm">Продать · '+fmt(info.system_prices[item].sell)+' 🪙</button>'+
+    '<button type="button" data-city-move="'+item+'" data-destination="to_city">→ В город</button>':'')
   )).join("");
-  inventory.innerHTML=onFarm||'<p class="farm-city-blank">На складе фермы пока нет еды</p>';
+  let cityFood='';
+  if(info.simple_economy)cityFood=Object.entries(info.city_food||{}).filter(([item,n])=>n>0)
+   .map(([item,n])=>card(item,fmt(n)+' шт. на складе города',
+     '<button type="button" data-city-move="'+item+'" data-destination="to_farm">← На ферму</button>')).join("");
+  inventory.innerHTML=(onFarm+cityFood)||'<p class="farm-city-blank">На складе пока нет еды</p>';
  }
  function load(){
   if(!tokenValue())return Promise.resolve();
@@ -79,8 +95,8 @@
     shop(catalog,"food");
     renderInventory();
     const listings=ownOffers("food");
-    own.hidden=!listings.length;
-    ownList.innerHTML=listings.map(listingCard).join("");
+    own.hidden=info.simple_economy||!listings.length;
+    ownList.innerHTML=info.simple_economy?'':listings.map(listingCard).join("");
    }
    if(!market.hidden)shop(market,marketCategory);
   }).catch(error=>{
@@ -97,12 +113,13 @@
   return load();
  }
  async function execute(event){
-  const source=event.target.closest("button[data-city-buy],button[data-city-eat],button[data-city-move],button[data-city-unlist]");
+  const source=event.target.closest("button[data-city-buy],button[data-city-sell],button[data-city-eat],button[data-city-move],button[data-city-unlist]");
   if(!source||busy)return;
   const buying=Boolean(source.dataset.cityBuy);
   const moving=Boolean(source.dataset.cityMove);
+  const selling=Boolean(source.dataset.citySell);
   const listing=source.dataset.cityUnlist;
-  const item=source.dataset.cityBuy||source.dataset.cityEat||source.dataset.cityMove;
+  const item=source.dataset.cityBuy||source.dataset.cityEat||source.dataset.cityMove||source.dataset.citySell;
   const field=source.closest(".farm-city-product")?.querySelector("input");
   const amount=field?Number(field.value):1;
   if(!Number.isSafeInteger(amount)||amount<1||(field&&amount>Number(field.max))){
@@ -115,7 +132,8 @@
     request_id:Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,"0")).join("")};
    if(buying){
     const quote=await call("quote-product",{item,amount,destination:body.destination});
-    const message=quote.own_quantity===amount
+    const message=info.simple_economy?"Купить "+amount+" шт. за "+fmt(quote.cost)+" монет?"
+    :quote.own_quantity===amount
      ?"Забрать на ферму "+amount+" шт. из своих лотов за 0 монет?"
      :"Купить "+(amount-(quote.own_quantity||0))+" шт. за "+fmt(quote.cost)+" монет?"+
       (quote.own_quantity?" Ещё "+quote.own_quantity+" шт. поступит из своих лотов за 0 монет.":"");
@@ -123,9 +141,13 @@
     body.expected_cost=quote.cost;
    }
    if(listing)body.listing_id=listing;
-   const result=await call(listing?"cancel-product":buying?"buy-product":moving?"move-food":"eat",body);
+   if(selling&&!confirm("Продать "+amount+" шт. системе за "+fmt(amount*info.system_prices[item].sell)+" монет?"))return;
+   if(moving&&info.simple_economy&&!confirm("Перенести "+amount+" шт. бесплатно?"))return;
+   const path=listing?"cancel-product":buying?"buy-product":selling?"list-product":
+    moving?(info.simple_economy?"transfer-product":"move-food"):"eat";
+   const result=await call(path,body);
    if(result.nutrition)renderStatus(result.nutrition);
-   toast(listing?"Лот снят. Еда на складе города":buying?(body.destination==="farm"?"Еда на складе фермы":"Товар на складе города"):moving?"Еда перенесена на ферму":"Сытность обновлена");
+   toast(listing?"Лот снят":selling?"Продано! Монеты начислены.":buying?(body.destination==="farm"?"Еда на складе фермы":"Товар на складе города"):moving?"Еда перенесена бесплатно":"Сытость обновлена");
    await load();
    void refresh();
   }catch(error){
@@ -140,5 +162,5 @@
   if(event.persisted&&["production","shop"].includes(document.body.dataset.screen))void load();
  });
  window.farmCityProducts={load,showMarket,renderStatus};
-})();     const message="Купить "+amount+" шт. за "+fmt(quote.cost)+" монет?";
+})();
 
