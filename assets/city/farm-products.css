@@ -141,3 +141,60 @@
   #shop .farm-city-trade-row input,
   #production .farm-city-trade-row input {width:44px}
 }
+
+/* Pocket-friendly wallet and profile: hero illustration remains atmospheric
+   backdrop while the important controls stay above the fold. */
+#wallet .wallet-landscape{
+  height:170px!important;
+  margin-bottom:0!important;
+  opacity:.84;
+  -webkit-mask-image:linear-gradient(#000 25%,transparent 100%);
+  mask-image:linear-gradient(#000 25%,transparent 100%);
+}
+#wallet .moneyhero{
+  position:relative!important;
+  z-index:2!important;
+  margin-top:-83px!important;
+  background:linear-gradient(160deg,#126ebbe8 0%,#084c98f5 47%,#062c69fc 100%)!important;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  border:1.5px solid #7fd6ff!important;
+  box-shadow:inset 0 2px #ddfaff70,0 6px 18px #001b5073!important;
+  border-radius:17px!important;
+}
+#profile.active{
+  display:flex!important;
+  flex-direction:column;
+}
+#profile .panelhead{order:0}
+#profile .profile-landscape{
+  order:1;
+  height:175px!important;
+  opacity:.78;
+  -webkit-mask-image:linear-gradient(#000 30%,transparent 100%);
+  mask-image:linear-gradient(#000 30%,transparent 100%);
+}
+#profile .profile-card{
+  position:relative!important;
+  order:2;
+  margin-top:-93px!important;
+  z-index:2!important;
+  background:linear-gradient(160deg,#126ebbe9,#073d89f5 65%,#052b66fb)!important;
+  border:1.5px solid #83dfff!important;
+  box-shadow:inset 0 2px #ebfbff63,0 7px 20px #001b4b83!important;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+#profile .profile-card .profile-avatar{
+  width:96px!important;
+  height:96px!important;
+  margin:0 auto 8px!important;
+}
+#profile .support-guide{order:3}
+#profile .profile-card~*{order:4}
+@media(max-width:390px){
+  #wallet .wallet-landscape{height:148px!important}
+  #wallet .moneyhero{margin-top:-78px!important}
+  #profile .profile-landscape{height:155px!important}
+  #profile .profile-card{margin-top:-83px!important}
+}
