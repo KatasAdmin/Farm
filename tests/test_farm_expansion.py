@@ -124,15 +124,18 @@ class ExpansionTests(unittest.TestCase):
   with self.context():main.referral_claim(main.Request(item='cows'),'')
   self.assertIsNone(self.c.execute("SELECT * FROM referral_rewards WHERE player_id='parent'").fetchone())
  def test_only_organic_today_events_unlock_new_daily_tasks_once(self):
+  expected_total=0
   for key,(kind,target) in feature.EXTRA_MISSIONS.items():
    self.event('referral_milk',100);self.event(kind,1,at=time.time()//86400*86400-1);self.event(kind,1,pid='other')
    with self.context():
     with self.assertRaises(main.HTTPException):main.claim_reward(main.Request(item=key),'')
    self.event(kind)
    with self.context():
-    self.assertEqual(main.claim_reward(main.Request(item=key),'')['awarded'],1)
+    reward=main.REWARD_AMOUNTS[key]
+    self.assertEqual(main.claim_reward(main.Request(item=key),'')['awarded'],reward)
+    expected_total+=reward
     with self.assertRaises(main.HTTPException):main.claim_reward(main.Request(item=key),'')
-  self.assertEqual(self.p()['coins'],3)
+  self.assertEqual(self.p()['coins'],expected_total)
   self.assertEqual(farm_wallet.available(self.c,self.p()),0)
  def test_milk_can_complete_weekly_production_and_listing_without_eggs(self):
   self.c.execute('INSERT INTO daily_activity VALUES(%s,%s,10,0,0)',('p',time.strftime('%Y-%m-%d',time.gmtime())))
