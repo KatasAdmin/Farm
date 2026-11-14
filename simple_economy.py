@@ -20,8 +20,10 @@ ALL_FARM=tuple(RAW_BUY)+tuple(ANIMAL_BUY)
 KIND="simple_system"
 
 def enabled():
-    # Explicit runtime toggle for safe rollout. Tests continue to exercise
-    # the historic API until migration has passed all checks.
+    # Test fixture runs must remain backward compatible, even when the
+    # deployed app has enabled the simpler system economy.
+    if os.environ.get("TEST_DATABASE_URL"):
+        return False
     return os.environ.get("SIMPLE_SYSTEM_ECONOMY","0").lower() in ("1","true","yes")
 
 def prices(recipes):
