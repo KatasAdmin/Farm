@@ -20,13 +20,13 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=118" defer></script>
+    <script src="/assets/game.js?v=119" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
     <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
-      <link rel="stylesheet" href="/assets/city/farm-products.css?v=7" />
+      <link rel="stylesheet" href="/assets/city/farm-products.css?v=8" />
     <link rel="stylesheet" href="/assets/farm-final-scenes.css?v=1" />
   </head>
   <body>
@@ -758,12 +758,12 @@
         </p>
         <div class="card" id="daily-task-card">
           <h2 class="cardtitle">☀️ Задания на сегодня</h2>
-          <p class="muted">Обновляются ежедневно по UTC. Получай бонусные монеты для покупок. Молочные задания появляются при наличии коров или молока. Редкое перо не требуется для ежедневной награды. Каждую награду можно забрать только один раз в сутки.</p>
+          <p class="muted">Обновляются ежедневно по UTC. Получай бонусные монеты для покупок. Молочные задания появляются при наличии коров или молока. За перо теперь есть отдельная награда в еженедельных заданиях. Каждую ежедневную награду можно забрать только раз в сутки.</p>
           <div id="daily-tasks" aria-live="polite"></div>
         </div>
         <h2 class="section-title">📅 Задания недели</h2>
         <div class="card tasks-list weekly-tasks">
-          <p class="muted">Новая неделя начинается в понедельник (00:00 UTC). Выполни все три задания и забери особую награду — <b>30 монет</b>!</p>
+          <p class="muted">Неделя обновляется в понедельник (00:00 UTC). За три основные цели — <b>30 монет</b>. Остальные задания учитываются в этом же списке. За произведённое перо — отдельная награда <b>15 монет</b>.</p>
           <p class="weekly-deadline" id="weekly-deadline">До конца недели: —</p>
           <div class="task-row"><img loading="lazy" src="/assets/redesign/grain.webp" class="icon" alt=""><div><h3>Купить 10 зерна или скормить 5</h3><span data-weekly="grain">0 / 10</span><div class="progress"><span data-weekly-bar="grain"></span></div></div><strong data-weekly-status="grain">В процессе</strong></div>
           <div class="task-row"><img loading="lazy" src="/assets/redesign/egg.webp" class="icon" alt=""><div><h3>Собрать 10 яиц или 3 молока</h3><span data-weekly="eggs">0 / 10</span><div class="progress"><span data-weekly-bar="eggs"></span></div></div><strong data-weekly-status="eggs">В процессе</strong></div>
