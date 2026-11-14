@@ -635,7 +635,7 @@ let cityTasksReady=false;
 function loadGoals(){
  if(!homeGoalsRequest)homeGoalsRequest=api("/goals").then(snapshot=>{
   cityTasksReady=periodReady(snapshot.daily)||periodReady(snapshot.story)||
-   snapshot.campaigns.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium_rewards?.some(readyGoal));
+   snapshot.campaigns.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium?.some(readyGoal));
   $("city-task-alert").hidden=!cityTasksReady&&!farmTasksReady;
   return snapshot;
  }).finally(()=>{homeGoalsRequest=null});
@@ -740,7 +740,7 @@ async function showGoals(tab){
  if(!title)return;
  openPanel(title,'<p class="city-help" role="status">Загрузка…</p>');
  try{
-  const snapshot=await loadGoals();
+  const [snapshot]=await Promise.all([loadGoals(),tab==="daily"?loadFarmTaskAlerts():null]);
   if(activeView!==tab)return;
   const now=Date.now()/1000;
   let periods=tab==="daily"?[snapshot.daily]:snapshot.campaigns.filter(period=>
@@ -767,7 +767,7 @@ async function showGoals(tab){
     link("Ферма","",farm?.daily)+link("Недельные задания фермы","&amp;task_section=weekly",farm?.weekly)+
     (snapshot.story?paintedButton("Развитие города"+taskAlert(periodReady(snapshot.story)),"navigate","story"):"")+
     paintedButton("События города"+taskAlert(events.some(periodReady)),"navigate","events")+
-    paintedButton("Сезон"+taskAlert(seasons.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium_rewards?.some(readyGoal))),"navigate","season")+'</div>');
+    paintedButton("Сезон"+taskAlert(seasons.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium?.some(readyGoal))),"navigate","season")+'</div>');
   }
   if(tab==="story"){
    const period=snapshot.story;
@@ -776,7 +776,7 @@ async function showGoals(tab){
     '<div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period)).join("")+'</div>');
   }
   if(tab==="daily"){
-   const tabs='<div class="city-task-choices">'+paintedButton("Особые задания"+taskAlert(farmTasksReady||periodReady(snapshot.story)||snapshot.campaigns.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium_rewards?.some(readyGoal))),"navigate","special")+'</div>';
+   const tabs='<div class="city-task-choices">'+paintedButton("Особые задания"+taskAlert(farmTasksReady||periodReady(snapshot.story)||snapshot.campaigns.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium?.some(readyGoal))),"navigate","special")+'</div>';
    const period=snapshot.daily;
    const painted=period.goals.length===4&&period.goals.every((goal,index)=>goal.key===["batches","raw","sales","orders"][index]);
    if(painted)return openPanel(title,'<div class="p3-scene-art p3-painted-daily"><div class="scene-copy"><h3>Цели дня</h3>'+periodTimer(period,"До ")+'</div><div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period,true)).join("")+'</div></div>'+tabs);
