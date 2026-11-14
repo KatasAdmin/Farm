@@ -3,8 +3,9 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#28243f"><title>НОВАЯ ЖИЗНЬ — ГОРОД</title>
 <link rel="stylesheet" href="/assets/city/city.css?v=20">
+<link rel="stylesheet" href="/assets/city/premium.css?v=2">
 <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-<script src="/assets/city/city.js?v=22" defer></script>
+<script src="/assets/city/city.js?v=23" defer></script>
 <script src="/assets/adsgram-fallback.js?v=20261106-r38" defer></script>
 <script src="/assets/city/city-ads.js?v=2" defer></script>
 </head>
@@ -12,11 +13,11 @@
 <div class="backdrop-glow"></div>
 <div id="city-shell">
 <header class="topbar">
-<div class="city-identity"><div class="city-logo"><img src="/assets/city/original-brand.webp" alt=""></div><div><h1>TREVIXO <em>City</em></h1><span class="brand-kicker">Новая жизнь</span></div></div>
+<div class="city-identity"><div class="city-logo"><img src="/assets/city/original-brand.webp" alt=""></div><div><h1>TREVIXO <em>City</em></h1><span class="brand-kicker">Новая жизнь · город</span></div></div>
 <div class="top-counters">
  <button type="button" class="counter wallet-trigger" id="open-city-wallet" aria-label="Кошелёк"><img src="/assets/redesign/coin.webp" alt=""><strong id="coins">—</strong><b aria-hidden="true">+</b></button>
- <button type="button" class="counter rep" id="view-reputation" aria-label="Репутация"><img src="/assets/city/profile-icon-5.webp" alt=""><strong id="reputation">—</strong></button>
- <a class="counter farm-return" href="/" aria-label="Ферма"><img src="/assets/city/resource-1.webp" alt=""></a>
+ <button type="button" class="counter rep" id="view-reputation" aria-label="Репутация"><img src="/assets/city/profile-icon-5.webp" alt=""><strong id="reputation">—</strong><b aria-hidden="true">+</b></button>
+ <button type="button" class="counter grain-counter" id="view-grain-market" aria-label="Зерно на складе"><img src="/assets/city/resource-1.webp" alt=""><strong id="grain-count">—</strong><b aria-hidden="true">+</b></button>
  <button type="button" class="counter notification-counter" id="view-notifications" aria-label="Уведомления"><img src="/assets/city/tab-icon-2.webp" alt=""><strong id="unread">—</strong></button>
 </div>
 </header>
@@ -27,7 +28,7 @@
  <button class="quick-action district-pass" id="district-pass"><i aria-hidden="true"><img src="/assets/city/tab-icon-1.webp" alt=""></i><span class="pass-caption">Городской пропуск<span class="pass-meter" id="district-pass-progress" hidden></span></span><b aria-hidden="true">›</b></button>
 </div>
 <div class="world" id="world" aria-label="Интерактивный город">
-<div class="map-shortcuts"><button data-city-screen="daily">📋<small>Задания</small></button><button data-city-screen="ranking">🏆<small>Рейтинг</small></button></div><img class="district-art" src="/assets/city/city-skyline.webp" alt="" width="1100" height="880" fetchpriority="high">
+<div class="map-shortcuts"><button data-city-screen="season"><img src="/assets/city/menu-4.webp" alt=""><small>Бонус</small><i class="shortcut-alert" aria-hidden="true">!</i></button><button data-city-screen="daily"><img src="/assets/city/menu-2.webp" alt=""><small>Задания</small></button><button data-city-screen="ranking"><img src="/assets/city/menu-5.webp" alt=""><small>Рейтинг</small></button></div><img class="district-art" src="/assets/city/city-skyline.webp" alt="" width="1100" height="880" fetchpriority="high">
 <a class="district-target farm-target" href="/"><strong>Ферма</strong></a>
 <button class="district-target bakery-target" data-business="bakery"><strong>Пекарня</strong><small></small></button>
 <button class="district-target restaurant-target" data-business="restaurant"><strong>Ресторан</strong><small></small></button>
@@ -41,16 +42,16 @@
 <section class="dash" aria-label="Сводка города">
 <div class="stat-grid">
 <button class="stat" id="view-businesses"><i aria-hidden="true"><img src="/assets/city/tab-icon-3.webp" alt=""></i><span>Предприятия</span><strong id="business-count">—</strong></button>
-<button class="stat" id="view-orders"><i aria-hidden="true"><img src="/assets/city/profile-icon-1.webp" alt=""></i><span>Готовые товары</span><strong id="products-count">—</strong></button>
-<button class="stat" id="view-jobs"><i aria-hidden="true"><img src="/assets/city/tab-icon-2.webp" alt=""></i><span>В работе</span><strong id="jobs-count">—</strong></button>
-<button class="stat" id="view-residents"><i aria-hidden="true"><img src="/assets/city/profile-icon-2.webp" alt=""></i><span>Заказы жителей</span><strong id="orders-count">—</strong></button>
+<button class="stat" id="view-orders"><i aria-hidden="true"><img src="/assets/city/profile-icon-1.webp" alt=""></i><span>Готовая продукция</span><strong id="products-count">—</strong></button>
+<button class="stat" id="view-residents"><i aria-hidden="true"><img src="/assets/city/tab-icon-2.webp" alt=""></i><span>Заказы жителей</span><strong id="orders-count">—</strong></button>
+<button class="stat" id="view-jobs"><i aria-hidden="true"><img src="/assets/city/profile-icon-2.webp" alt=""></i><span>Выполнено заказов</span><strong id="completed-count">—</strong></button>
 </div>
 <div class="quick-actions">
+<button id="view-store" class="quick-action" type="button"><img src="/assets/city/menu-0.webp" alt=""> <span>Лавка наборов</span></button>
 <button id="view-market" class="quick-action market-quick" type="button"><img src="/assets/city/tab-icon-4.webp" alt=""> <span>Рынок города</span></button>
-<button id="view-store" class="quick-action" type="button"><img src="/assets/city/profile-icon-3.webp" alt=""> <span>Лавка наборов</span></button>
-<button id="city-watch-ad" class="quick-action" type="button" hidden>🎬 <span>Реклама · +3 🪙</span></button>
+<button id="city-watch-ad" class="quick-action ad-quick" type="button"><img src="/assets/city/menu-1.webp" alt=""> <span>Реклама · +3</span></button>
 </div>
-<button class="season-banner" data-city-screen="season"><span>Сезон города<small>Награды и задания</small></span><b>Подробнее ›</b></button>
+<button class="season-banner" data-city-screen="season"><img class="banner-treasure" src="/assets/city/ref-chest.webp" alt=""><span>Сезон города<small>Выполняй задания, получай награды<br>и развивай свой город!</small></span><b>Подробнее ›</b></button>
 <p id="city-ad-status" class="city-ad-status" role="status" hidden></p>
 </section>
 </div><section id="city-page" hidden aria-labelledby="page-heading"><h2 id="page-heading"></h2></section></main>
