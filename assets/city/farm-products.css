@@ -198,3 +198,82 @@
   #profile .profile-landscape{height:155px!important}
   #profile .profile-card{margin-top:-83px!important}
 }
+
+/* TREVIXO: compact nutrition dashboard — the entire circled home strip. */
+#farm .farm-food-summary{
+  display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:center!important;gap:12px!important;padding:14px 16px!important;
+  margin:10px 0 8px!important;min-height:0!important;width:100%!important;
+  box-sizing:border-box!important;
+  background:linear-gradient(158deg,#2397db 0%,#0e67b1 39%,#073873 100%)!important;
+  border:2px solid #8be4ff!important;border-radius:19px!important;
+  box-shadow:inset 0 2px 1px #eefbff8a,inset 0 -3px 5px #0029557a,0 6px 13px #0018449c!important;
+}
+#farm .farm-food-summary .farm-food-intro{
+  display:flex;gap:9px;align-items:center;min-width:0;
+}
+#farm .farm-food-summary .farm-food-icon{
+  display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;
+  font-size:25px;border-radius:12px;
+  background:linear-gradient(#51c8f9,#096cb9);
+  border:1px solid #a6edff;
+  box-shadow:inset 0 2px 2px #ffffff94,0 3px 6px #002a567a;
+}
+#farm .farm-food-summary .farm-food-heading{
+  display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;
+}
+#farm .farm-food-summary .farm-food-heading>strong{
+  font-size:17px!important;line-height:1.12;color:#fff!important;
+}
+#farm .farm-food-summary .farm-food-heading>small{
+  color:#deefff!important;font-size:11px!important;line-height:1.25!important;
+}
+#farm .farm-food-summary .farm-food-metrics{
+  display:grid!important;grid-template-columns:repeat(2,minmax(72px,1fr))!important;
+  gap:6px!important;
+}
+#farm .farm-food-summary .farm-food-stat{
+  display:flex!important;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;min-width:0;padding:8px 7px;border:1px solid #6dcaf0;
+  border-radius:12px;background:linear-gradient(160deg,#0d5fa9d9,#032e6dcf);
+  box-shadow:inset 0 1px 2px #bef1ff4a;
+}
+#farm .farm-food-summary .farm-food-stat small{
+  font-size:10px!important;color:#c6ebff!important;white-space:nowrap;
+}
+#farm .farm-food-summary .farm-food-stat strong{
+  font-size:19px!important;color:#fff7b6!important;line-height:1.1;
+}
+#farm .farm-food-summary .farm-food-bottom{
+  grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:9px;border-top:1px solid #70bce86b;padding-top:9px;
+}
+#farm .farm-food-summary .farm-food-bottom>span{
+  flex:1;min-width:160px;font-size:11px!important;color:#ddf1ff!important;line-height:1.3;
+}
+#farm .farm-food-summary .farm-food-buy{
+  min-height:39px!important;min-width:130px;flex:none;
+  padding:8px 14px!important;display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  font-size:13px!important;font-weight:850;border-radius:12px!important;
+}
+#farm .farm-food-summary .farm-food-buy span{font-size:22px;line-height:14px}
+@media(max-width:390px){
+  #farm .farm-food-summary{grid-template-columns:minmax(0,1fr)!important;padding:12px!important;gap:10px!important}
+  #farm .farm-food-summary .farm-food-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #farm .farm-food-summary .farm-food-bottom>span{min-width:140px}
+}
+#tasks .weekly-extra{
+  display:grid;gap:10px;margin-top:11px;padding:0!important;
+}
+#tasks .weekly-extra .weekly-task-item{
+  display:grid;grid-template-columns:32px minmax(0,1fr);align-items:center;
+  gap:9px 11px;padding:13px 11px;border:1px solid #66bceb;
+  border-radius:14px;background:linear-gradient(148deg,#1366ad,#063b7c);
+  box-shadow:inset 0 2px #ddf8ff36;
+}
+#tasks .weekly-extra .weekly-task-icon{font-size:26px;grid-row:1/3;align-self:center}
+#tasks .weekly-extra .weekly-task-details{min-width:0}
+#tasks .weekly-extra .weekly-task-details strong{display:block;font-size:15px;color:#fff}
+#tasks .weekly-extra .weekly-task-details small{font-size:12px;color:#d4eaff}
+#tasks .weekly-extra .weekly-task-item .progress{grid-column:2;min-width:0}
+#tasks .weekly-extra .weekly-task-action{grid-column:2;margin-top:2px;min-height:35px}
