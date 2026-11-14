@@ -131,8 +131,9 @@ function paint(){
  loadTelegramPhoto();
  loadHomeSeason();
  const xp=$("district-xp");
- xp.max=data.progress?.next_xp||Math.max(1,data.progress?.xp||0);
- xp.value=data.progress?.xp||0;
+ const baseXp=data.progress?.level_xp||0;
+ xp.max=Math.max(1,(data.progress?.next_xp||baseXp)-baseXp);
+ xp.value=Math.max(0,(data.progress?.xp||0)-baseXp);
  if(activeView!=="map")refreshPanel();
  clearTimeout(jobTimer);
  if(data.jobs.length)jobTimer=setTimeout(()=>{if(!working&&document.visibilityState==="visible")load().catch(()=>{})},Math.max(1000,secondsLeft(data.jobs[0])*1000+300));
@@ -647,7 +648,7 @@ function showProfile(){
   ["promo","🎁","Промокод"],["achievements","🏆","Достижения"],["settings","⚙️","Настройки"],["help","❔","Помощь"]];
  const card=(target,icon,label,value="",index=null)=>'<button class="stat" data-action="navigate" data-item="'+target+'"><i aria-hidden="true"><img src="/assets/city/profile-icon-'+(index===null?icon:index)+'.webp" alt=""></i><span>'+label+'</span>'+(value?'<strong>'+value+'</strong>':"")+'</button>';
  const hero='<div class="profile-hero"><button type="button" class="profile-edit" data-action="avatar-picker" aria-label="Сменить фото профиля">✎</button>'+avatar+'<div><strong>'+esc(data.name)+'</strong><span>Горожанин · Ур. '+number(progress.level)+'</span>'+
-  '<progress aria-label="Опыт города" max="'+(progress.next_xp||Math.max(1,progress.xp||0))+'" value="'+(progress.xp||0)+'"></progress><small>'+number(progress.xp)+(progress.next_xp?" / "+number(progress.next_xp):"")+' XP</small></div></div>';
+  '<progress aria-label="Опыт аккаунта" max="'+Math.max(1,(progress.next_xp||0)-(progress.level_xp||0))+'" value="'+Math.max(0,(progress.xp||0)-(progress.level_xp||0))+'"></progress><small>'+number(progress.xp)+(progress.next_xp?" / "+number(progress.next_xp):"")+' XP</small></div></div>';
  const wallet='<div class="profile-balance"><img src="/assets/city/ref-wallet.webp" alt=""><span>Баланс<strong>'+number(data.coins)+'</strong></span><button class="btn" data-action="wallet">Кошелёк ›</button></div>';
  openPanel("Кабинет",hero+'<div class="profile-stats">'+stats.map(([icon,label,value,target])=>card(target,icon,label,value)).join("")+'</div>'+
   wallet+'<div class="profile-menu">'+links.map(([target,icon,label],index)=>card(target,icon,label,"",index)).join("")+'</div>'+

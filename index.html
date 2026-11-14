@@ -10,7 +10,7 @@
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
     <link rel="stylesheet" href="/assets/azure-v4.css?v=5" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=28" />
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=29" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/birds.css?v=2" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=123" defer></script>
+    <script src="/assets/game.js?v=124" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
@@ -436,7 +436,7 @@
           <div id="farm-city-products" class="farm-city-grid" hidden></div>
           <details class="catalog-help" id="market-topic-help"><summary id="market-topic-title">Корм и окупаемость животных</summary><div id="market-topic-body"><p>Животные производят ресурсы при наличии корма и места на складе. У каждого вида своя скорость производства.</p><p>🪶 Сытый гусь производит одно перо за 7 дней. Перья можно купить за 20 или продать за 16 монет.</p><p>Продажа сразу пополняет игровой баланс.</p></div></details>
         </div>
-        <details class="trade-extras"><summary>Набор фермера</summary>
+        <details class="trade-extras" id="farmer-bundle" hidden><summary>Набор фермера</summary>
         <div class="bundle">
           <h2>
             <img loading="lazy"
@@ -478,7 +478,6 @@
 
         </details>
         <details class="card trade-listings" hidden><summary>Мои объявления</summary><div id="mylist"></div></details>
-        <details class="card trade-rules"><summary>Как работает магазин?</summary><p>Покупка и продажа происходят сразу по фиксированным ценам.</p><p>За продажу начисляются игровые монеты.</p></details>
       </section>
       <section id="wallet" class="panel" aria-label="Кошелёк">
         <div class="panelhead">
@@ -619,7 +618,7 @@
             decoding="async"
           />
           <h2 data-value="name">Фермер</h2>
-          <p class="muted">Моя новая жизнь · <span id="profile-level">Уровень 1</span></p><p class="muted" id="profile-status">Статус: —</p><button class="btn small" onclick="toggleProfileEditor()">Изменить аватар и данные</button>
+          <p class="muted">Моя новая жизнь · <span id="profile-level">Уровень 1</span></p><button class="btn small" onclick="toggleProfileEditor()">Изменить аватар и данные</button>
           <div id="profile-editor" class="profile-editor" hidden><label>Пол<select id="profile-gender"><option value="unspecified">Не указано</option><option value="male">Мужской</option><option value="female">Женский</option></select></label><label>Возраст<input id="profile-age" type="number" min="1" max="120" inputmode="numeric" placeholder="Не указан"></label><label>Аватар<select id="profile-avatar"><option value="default">По умолчанию</option><option value="farmer">Фермер</option><option value="flower">Цветок</option><option value="chicken">Курица</option><option value="egg">Яйцо</option><option value="custom">Моё фото</option></select></label><label>Загрузить фото<input id="profile-image-file" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="btn wide" onclick="saveProfile()">Сохранить</button></div>
           <div class="three">
             <div class="resource">
@@ -740,7 +739,7 @@
             <div id="farmer-level" class="farmer-level" aria-live="polite"></div>
             <div class="progress"><span id="farmer-xp-bar"></span></div>
             <p id="farmer-xp-caption" class="muted"></p>
-            <p class="muted">Получай опыт за корм, покупку животных, производство, продажи, задания и улучшения. Гуси доступны с 3-го уровня. Достижения отмечают развитие стада, молочное хозяйство, перья и склад. Твой статус растёт от новичка до мастера фермы.</p>
+            <p class="muted">Опыт за задания, достижения и производство на ферме и в городе повышает общий уровень аккаунта.</p>
           </div>
           <div class="card achievements-list" id="achievements-list"></div>
           <details class="card compact-ranking"><summary>🏆 Зал славы · Топ‑5 фермеров</summary><div id="leaders"></div><p id="my-rank" class="muted"></p></details>

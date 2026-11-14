@@ -208,3 +208,5 @@
  #storage .pills button{padding-inline:5px;font-size:12px}
  #coop .coop-stock span{min-width:95px}
 }
+
+#farmer-bundle #bundle-buy + [data-ad-free="coins"] { margin-top:8px; }

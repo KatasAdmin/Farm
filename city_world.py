@@ -133,11 +133,11 @@ BUSINESSES = {
     "store": {"name": "Магазин", "emoji": "🛒", "open_cost": 0, "min_reputation": 160},
 }
 
-_db = _person = _advance = None
+_db = _person = _advance = _account_progress = None
 
-def setup(db, person, advance):
-    global _db, _person, _advance
-    _db, _person, _advance = db, person, advance
+def setup(db, person, advance, account_progress=None):
+    global _db, _person, _advance, _account_progress
+    _db, _person, _advance, _account_progress = db, person, advance, account_progress
     return router
 
 def initialize(c):
@@ -230,13 +230,21 @@ def _progress_event(c, pid, source, kind, now, xp, reputation=0):
         (pid, source, kind, now, xp, reputation))
 
 
-def _progress_summary(c, pid):
+def account_xp(c,pid):
+    return c.execute("SELECT COALESCE(SUM(xp),0) AS xp FROM city_progress_log WHERE player_id=%s",(pid,)).fetchone()["xp"]
+
+
+def _progress_summary(c, p):
+    pid=p["id"]
     stats = c.execute("""SELECT COALESCE(SUM(xp),0) AS xp,
         COUNT(*) FILTER (WHERE NOT read) AS unread
         FROM city_progress_log WHERE player_id=%s""", (pid,)).fetchone()
     orders = c.execute("SELECT COUNT(*) AS n FROM city_daily_orders WHERE player_id=%s",
                        (pid,)).fetchone()["n"]
     xp = int(stats["xp"])
+    if _account_progress is not None:
+        progress,_ = _account_progress(c,p,xp)
+        return {**progress,"orders":orders,"unread":stats["unread"]}
     level = sum(xp >= threshold for threshold in CITY_XP_THRESHOLDS)
     return {"xp": xp, "level": level, "level_xp": CITY_XP_THRESHOLDS[level-1],
             "next_xp": CITY_XP_THRESHOLDS[level] if level < len(CITY_XP_THRESHOLDS) else None,
@@ -323,6 +331,9 @@ def ranking(category: str = "reputation", authorization: str = Header(default=""
     table, owner, aggregate, condition = source
     with _db() as c:
         _auth(c, authorization)
+        if category == "level" and _account_progress is not None:
+            return c.execute("""SELECT name,farmer_level AS score FROM players
+                ORDER BY farmer_level DESC,name,id LIMIT 50""").fetchall()
         rows = c.execute(f"""SELECT p.name, stats.score FROM (
             SELECT {owner} AS player_id, {aggregate} AS score FROM {table}
             WHERE {condition} GROUP BY {owner}
@@ -637,7 +648,7 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "reputation":int(rep["points"]) if rep else 0}
         snapshot["nutrition"] = city_nutrition.status(city_nutrition.get(c,p["id"]),now)
         snapshot["achievements"] = _achievements(c, p["id"], now)
-        snapshot["progress"] = _progress_summary(c, p["id"])
+        snapshot["progress"] = _progress_summary(c, p)
         snapshot["cosmetics"] = city_goals.cosmetics(c, p["id"])
         snapshot["preferences"] = c.execute("""SELECT effects,cosmetic FROM city_preferences
             WHERE player_id=%s""", (p["id"],)).fetchone() or {"effects": True, "cosmetic": ""}

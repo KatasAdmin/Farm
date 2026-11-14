@@ -1106,12 +1106,11 @@ function render() {
     });
   }
   document.querySelectorAll("[data-birds-total]").forEach(n=>n.textContent=number(p.chickens+(p.geese||0)));
-  const prev = 25*(lvl-1)*(lvl-1), next = Number(pr.next_level_xp || 25);
+  const prev = pr.level_xp ?? 25*(lvl-1)*(lvl-1), next = Number(pr.next_level_xp || 25);
   const percent = Math.max(0,Math.min(100,100*(xp-prev)/Math.max(1,next-prev)));
   if (el("identity-level")) el("identity-level").textContent = "Уровень " + lvl + " · " + xp + " XP";
   if (el("identity-xp-fill")) el("identity-xp-fill").style.width = percent + "%";
   if (el("profile-level")) el("profile-level").textContent = "Уровень " + lvl + " · " + xp + " XP";
-  if(el("profile-status"))el("profile-status").textContent="Статус: "+farmerTitle(lvl);
   for (const img of document.querySelectorAll(".identity .avatar, .profile-avatar")) img.src = avatarSource(p);
   const promo = state.promotion || {};
   document.querySelectorAll("[data-promo-discount]").forEach(x => x.textContent = `−${Math.round(100*(1-promo.price/promo.value))}%`);
@@ -1172,7 +1171,7 @@ function render() {
   if (farmerLevel) farmerLevel.textContent = "Уровень " + number(progression.level || 1) + " · " + number(progression.xp || 0) + " XP";
   const totalXp = progression.xp || 0;
   const level = progression.level || 1;
-  const baseXp = 25 * (level-1) * (level-1);
+  const baseXp = progression.level_xp ?? 25 * (level-1) * (level-1);
   const nextXp = progression.next_level_xp || 25;
   if (farmerXp) farmerXp.textContent = "До следующего уровня: " + number(Math.max(0,nextXp - totalXp)) + " XP";
   if (xpBar) xpBar.style.width = Math.min(100,100*Math.max(0,totalXp-baseXp)/Math.max(1,nextXp-baseXp)) + "%";
@@ -1376,6 +1375,7 @@ function countdown() {
     : "— (нет животных)";
   const promo = state.promotion;
   const promoActive = promotionActive();
+  if(el("farmer-bundle"))el("farmer-bundle").hidden=!promoActive;
   el("promo-status").textContent = promoActive
     ? `До конца: ${formatDuration(promo.seconds_left - elapsed)} · осталось покупок: ${Math.max(0,promo.limit-promo.used)} / ${promo.limit}`
     : "Акция завершена";
@@ -1585,7 +1585,6 @@ function celebrateLevel(playerId,level){
  dialog.showModal();
 }
 
-function farmerTitle(level){return level>=15?"Хозяин фермы":level>=10?"Мастер фермы":level>=5?"Фермер":level>=3?"Птицевод":"Новичок";}
 
 const farmAdButton=el("ad-reward-watch");
 if(farmAdButton)farmAdButton.addEventListener("click",()=>watchAdReward(selectedAdReward));

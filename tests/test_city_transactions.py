@@ -59,13 +59,13 @@ class CityTransactions(unittest.TestCase):
                ('own-egg-sale','buyer','eggs',20,1),
                ('grain-sale','seller','grain',10,2),
                ('milk-sale','seller','milk',10,3)""")
-        self.saved=(city_world._db,city_world._person,city_world._advance)
+        self.saved=(city_world._db,city_world._person,city_world._advance,city_world._account_progress)
         def person(c,h,lock=False):
             return c.execute("SELECT * FROM players WHERE token=%s"+(" FOR UPDATE" if lock else ""),(h.replace("Bearer ",""),)).fetchone()
         city_world.setup(self.connect,person,lambda c,p:p)
 
     def tearDown(self):
-        city_world._db,city_world._person,city_world._advance=self.saved
+        city_world._db,city_world._person,city_world._advance,city_world._account_progress=self.saved
 
     def action(self,item="",amount=1,price=1,request_id="",expected_cost=-1,listing_id=""):
         return city_world.Action(item=item,amount=amount,price=price,

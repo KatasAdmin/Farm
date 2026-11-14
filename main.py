@@ -1572,6 +1572,33 @@ def claim_staged_achievement(q:Request,authorization:str=Header(default="")):
    raise HTTPException(409,"Награда уже получена")
   return {"ok":True,"track":track,"threshold":stage["threshold"],"xp_awarded":stage["xp"]}
 
+def account_progress(c,p,city_xp):
+ totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
+ sold=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS amount FROM money_log WHERE player_id=%s AND kind IN ('market_sale','simple_system_sell') AND details ~ '^eggs x[0-9]+$'",(p["id"],)).fetchone()["amount"]
+ hens_bought=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS n FROM money_log WHERE player_id=%s AND kind IN ('shop','simple_system_buy') AND details ~ '^chickens x[0-9]+$'",(p["id"],)).fetchone()["n"]
+ if simple_economy.enabled():
+  totals["grain_bought"]+=simple_economy.trade_quantities(c,p["id"],"buy",0,float("inf")).get("grain",0)
+ missions=c.execute("SELECT COUNT(*)::int AS n FROM daily_claims WHERE player_id=%s AND claim<>%s",(p["id"],"bonus")).fetchone()["n"]
+ upgrades=c.execute("SELECT COUNT(*)::int AS n FROM money_log WHERE player_id=%s AND kind='upgrade'",(p["id"],)).fetchone()["n"]
+ hatched=c.execute("SELECT COUNT(*)::int AS n FROM farm_events WHERE player_id=%s AND kind='chick_matured'",(p["id"],)).fetchone()["n"]
+ packs=c.execute("SELECT COUNT(*)::int AS n FROM money_log WHERE player_id=%s AND kind='bundle'",(p["id"],)).fetchone()["n"]
+ old_eggs=p["xp_legacy_eggs"] or 0
+ old_listed=p["xp_legacy_listed"] or 0
+ old_sold=p["xp_legacy_sold"] or 0
+ egg_xp=5*old_eggs+5*((max(0,totals["eggs_produced"]-old_eggs)+11)//12)
+ listing_xp=2*old_listed+2*((max(0,totals["eggs_listed"]-old_listed)+11)//12)
+ sales_xp=3*old_sold+3*((max(0,sold-old_sold)+11)//12)
+ staged_xp=c.execute("SELECT COALESCE(SUM(xp),0)::int AS xp FROM staged_achievement_claims WHERE player_id=%s",(p["id"],)).fetchone()["xp"]
+ xp=totals["grain_bought"]+egg_xp+listing_xp+sales_xp+10*hens_bought+15*missions+20*upgrades+25*hatched+20*packs+p.get("goose_xp",0)+p.get("cow_xp",0)+staged_xp
+ import math
+ xp+=int(city_xp)
+ level=max(p.get("farmer_level",1),1+math.isqrt(xp//25))
+ if level>p.get("farmer_level",1):
+  c.execute("UPDATE players SET farmer_level=GREATEST(farmer_level,%s) WHERE id=%s",(level,p["id"]))
+
+ totals["eggs_sold"]=sold
+ return {"xp":xp,"level":level,"level_xp":25*(level-1)**2,"next_xp":25*level**2},totals
+
 def simple_daily_trade_progress(c,pid,start):
  buys=simple_economy.trade_quantities(c,pid,"buy",start,start+86400)
  sales=simple_economy.trade_quantities(c,pid,"sell",start,start+86400)
@@ -1663,32 +1690,11 @@ def state(authorization:str=Header(default="")):
   weekly_claimed=bool(c.execute("SELECT 1 FROM weekly_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
   weekly_feather_claimed=bool(c.execute("SELECT 1 FROM weekly_feather_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
-  totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
-  sold=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS amount FROM money_log WHERE player_id=%s AND kind IN ('market_sale','simple_system_sell') AND details ~ '^eggs x[0-9]+$'",(p["id"],)).fetchone()["amount"]
-  hens_bought=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS n FROM money_log WHERE player_id=%s AND kind IN ('shop','simple_system_buy') AND details ~ '^chickens x[0-9]+$'",(p["id"],)).fetchone()["n"]
-  if simple_economy.enabled():
-   totals["grain_bought"]+=simple_economy.trade_quantities(c,p["id"],"buy",0,float("inf")).get("grain",0)
-  missions=c.execute("SELECT COUNT(*)::int AS n FROM daily_claims WHERE player_id=%s AND claim<>%s",(p["id"],"bonus")).fetchone()["n"]
-  upgrades=c.execute("SELECT COUNT(*)::int AS n FROM money_log WHERE player_id=%s AND kind='upgrade'",(p["id"],)).fetchone()["n"]
-  hatched=c.execute("SELECT COUNT(*)::int AS n FROM farm_events WHERE player_id=%s AND kind='chick_matured'",(p["id"],)).fetchone()["n"]
-  packs=c.execute("SELECT COUNT(*)::int AS n FROM money_log WHERE player_id=%s AND kind='bundle'",(p["id"],)).fetchone()["n"]
-  old_eggs=p["xp_legacy_eggs"] or 0
-  old_listed=p["xp_legacy_listed"] or 0
-  old_sold=p["xp_legacy_sold"] or 0
-  egg_xp=5*old_eggs+5*((max(0,totals["eggs_produced"]-old_eggs)+11)//12)
-  listing_xp=2*old_listed+2*((max(0,totals["eggs_listed"]-old_listed)+11)//12)
-  sales_xp=3*old_sold+3*((max(0,sold-old_sold)+11)//12)
-  staged_xp=c.execute("SELECT COALESCE(SUM(xp),0)::int AS xp FROM staged_achievement_claims WHERE player_id=%s",(p["id"],)).fetchone()["xp"]
-  xp=totals["grain_bought"]+egg_xp+listing_xp+sales_xp+10*hens_bought+15*missions+20*upgrades+25*hatched+20*packs+p.get("goose_xp",0)+p.get("cow_xp",0)+staged_xp
-  import math
-  level=max(p.get("farmer_level",1),1+math.isqrt(xp//25))
-  if level>p.get("farmer_level",1):
-   c.execute("UPDATE players SET farmer_level=GREATEST(farmer_level,%s) WHERE id=%s",(level,p["id"]))
-   p={**p,"farmer_level":level}
-   # A concurrent login must not wait for the remaining heavy dashboard reads.
-   c.commit()
+  progress,totals=account_progress(c,p,city_world.account_xp(c,p["id"]))
+  level=progress["level"]
+  p={**p,"farmer_level":level}
+  sold=totals["eggs_sold"]
   top,my_rank=farm_ranking.snapshot(c,p["id"])
-  next_xp=25*level*level
   unlocked={
    "first_egg":totals["eggs_produced"]>=1,
    "ten_eggs":totals["eggs_produced"]>=120,
@@ -1715,7 +1721,7 @@ def state(authorization:str=Header(default="")):
   prediction=forecast_v4({**p,"_city_food":food},observed_at,jobs) if p.get('production_model',3)>=4 else forecast(p,observed_at,jobs)
   expected_eggs=min(p["fed_hens"]+3*p.get("fed_geese",0),max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0)-p.get("wool",0)))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"nutrition":city_nutrition.status(food,observed_at),"fields":fields.status(c,p),"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":livestock_used(p),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+p.get("wool",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":1000000000 if simple_economy.enabled() else available_milk,
+  return {"nutrition":city_nutrition.status(food,observed_at),"fields":fields.status(c,p),"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":livestock_used(p),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+p.get("wool",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{**progress,"next_level_xp":progress["next_xp"],"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":1000000000 if simple_economy.enabled() else available_milk,
     "available_eggs":1000000000 if simple_economy.enabled() else available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"market_purchases":weekly_stats["market_purchases"],"feathers":weekly_stats["feathers"],"feather_claimed":weekly_feather_claimed,"feather_reward":15,"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":({**simple_economy.RAW_BUY,**simple_economy.ANIMAL_BUY,
     "goose_min_level":GOOSE_MIN_LEVEL,"sheep_min_level":SHEEP_MIN_LEVEL,
     "cow_min_level":COW_MIN_LEVEL} if simple_economy.enabled() else
@@ -2379,4 +2385,4 @@ def tutorial_action(q:Request,authorization:str=Header(default="")):
 def city_page():
  return HTMLResponse(open("city.html",encoding="utf8").read(),headers={"Cache-Control":"no-store"})
 
-app.include_router(city_world.setup(db,person,advance))
+app.include_router(city_world.setup(db,person,advance,account_progress))
