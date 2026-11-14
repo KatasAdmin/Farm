@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from production import GRAIN_PRICE
 from production_v4 import MILK_PRICE
 import city_nutrition
+import ad_inventory
 
 RAW_BUY={"eggs":2,"grain":2,"milk":15,"feathers":20,"wool":20}
 RAW_SELL={"eggs":1,"grain":1,"milk":12,"feathers":16,"wool":16}
@@ -119,6 +120,7 @@ def farm_trade(c,p,item,n,kind,*,storage_limit=None,coop_limit=None,cowshed_limi
         else:
             c.execute("UPDATE players SET "+item+"="+item+"+%s WHERE id=%s",(n,p["id"]))
     else:
+        ad_inventory.take(c,p,item,n)
         if item in ANIMAL_BUY:
             fed={"chickens":"fed_hens","geese":"fed_geese","cows":"fed_cows","sheep":"fed_sheep"}[item]
             c.execute("UPDATE players SET "+item+"="+item+"-%s,"+fed+"=LEAST("+fed+","+item+"-%s) WHERE id=%s",(n,n,p["id"]))
@@ -127,20 +129,29 @@ def farm_trade(c,p,item,n,kind,*,storage_limit=None,coop_limit=None,cowshed_limi
     return {"ok":True,"spent":total if kind=="buy" else 0,
             "received":total if kind=="sell" else 0,"unit_price":prices[item]}
 
-def raw_city_trade(c,p,item,n,kind):
-    amount(n)
-    if item not in RAW_BUY:raise HTTPException(400,"Неизвестное сырьё")
-    if kind=="sell":
-        row=c.execute("""UPDATE city_stock SET quantity=quantity-%s
-            WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
-            (n,p["id"],item,n)).fetchone()
-        if not row:raise HTTPException(409,"Недостаточно сырья")
-    _cash(c,p,(RAW_BUY if kind=="buy" else RAW_SELL)[item]*n,kind,item,n)
-    if kind=="buy":
-        _add_city(c,"city_stock",p["id"],item,n)
-    price=(RAW_BUY if kind=="buy" else RAW_SELL)[item]
-    return {"ok":True,"spent":price*n if kind=="buy" else 0,
-            "received":price*n if kind=="sell" else 0,"unit_price":price}
+def merge_city_raw_stock(c):
+    """Preserve legacy stock even if it exceeds the player's storage capacity."""
+    for item in RAW_BUY:
+        c.execute(f"""WITH moved AS (DELETE FROM city_stock
+            WHERE item=%s AND player_id IN (SELECT id FROM players)
+            RETURNING player_id,quantity)
+            UPDATE players p SET {item}=p.{item}+moved.quantity
+            FROM moved WHERE p.id=moved.player_id""",(item,))
+
+def shared_stock(p):
+    return {item:int(p.get(item,0)) for item in RAW_BUY}
+
+def consume_raw(c,p,item,n):
+    if item not in RAW_BUY:raise ValueError("Invalid shared resource")
+    if p.get(item,0)<n:raise HTTPException(409,"Недостаточно сырья: "+item)
+    ad_inventory.take(c,p,item,n)
+    c.execute(f"UPDATE players SET {item}={item}-%s WHERE id=%s",(n,p["id"]))
+
+def trade_quantities(c,pid,kind,start,end):
+    rows=c.execute("""SELECT item,SUM(quantity)::bigint AS n FROM simple_system_trades
+        WHERE player_id=%s AND kind=%s AND created>=%s AND created<%s GROUP BY item""",
+        (pid,kind,start,end)).fetchall()
+    return {row["item"]:row["n"] for row in rows}
 
 def _add_city(c,table,pid,item,n):
     if table not in ("city_stock","city_products","farm_food"):raise ValueError("Invalid warehouse")
@@ -165,25 +176,6 @@ def city_product_trade(c,p,item,n,kind,recipes,*,destination="city"):
     if kind=="buy":_add_city(c,table,p["id"],item,n)
     return {"ok":True,"spent":unit*n if kind=="buy" else 0,
             "received":unit*n if kind=="sell" else 0,"unit_price":unit}
-
-def raw_transfer(c,p,item,n,direction,*,storage_limit=None):
-    amount(n)
-    if item not in RAW_BUY:raise HTTPException(400,"Неизвестный ресурс")
-    if direction=="to_city":
-        if p.get(item,0)<n:raise HTTPException(409,"Недостаточно ресурсов на ферме")
-        c.execute("UPDATE players SET "+item+"="+item+"-%s WHERE id=%s",(n,p["id"]))
-        _add_city(c,"city_stock",p["id"],item,n)
-    elif direction=="to_farm":
-        if storage_limit is not None and sum(int(p.get(k,0)) for k in RAW_BUY)+n>storage_limit:
-            raise HTTPException(409,"Недостаточно места на ферме")
-        row=c.execute("""UPDATE city_stock SET quantity=quantity-%s
-            WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
-            (n,p["id"],item,n)).fetchone()
-        if not row:raise HTTPException(409,"Недостаточно ресурсов в городе")
-        c.execute("UPDATE players SET "+item+"="+item+"+%s WHERE id=%s",(n,p["id"]))
-    else:raise HTTPException(400,"Неверное направление")
-    _record(c,p["id"],item,direction,n,0)
-    return {"ok":True,"transferred":n,"destination":direction}
 
 def product_transfer(c,p,item,n,direction):
     raise HTTPException(410,"Еда уже общая для фермы и города, перенос не требуется")

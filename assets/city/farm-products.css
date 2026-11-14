@@ -369,37 +369,35 @@
 #farm .farm-hero-city-link:active {transform:translateY(1px);filter:brightness(1.1)}
 #farm .farm-hero-city-link:focus-visible {outline:3px solid #fff;outline-offset:2px}
 #farm .farm-hero-city-icon {font-size:21px;line-height:1}
-#farm .farm-tile-food .farm-food-utensils {
-  display:inline-flex;
-  flex:0 0 48px;
-  align-items:center;
-  justify-content:center;
-  width:48px;
-  height:48px;
-  filter:drop-shadow(0 3px 3px #002d75);
+#farm .farm-tile-food {
+  border-color:#a9edff;
+  background:linear-gradient(160deg,#4bcafd 0%,#168fe4 32%,#164aa9 76%,#092e77 100%);
 }
-#farm .farm-tile-food .farm-food-utensils svg {display:block;width:48px;height:48px}
 #farm .farm-tile-food strong {min-width:0;max-width:100px;line-height:1.1;text-wrap:balance}
+#farm .farm-tile-food .farm-food-utensils {flex:0 0 auto;width:clamp(36px,12vw,54px);height:auto}
 @media(max-width:390px) {
   #farm .farm-hero-city-link {top:83px;right:9px;min-width:100px;min-height:40px;padding:7px 9px;font-size:13px}
-  #farm .farm-tile-food .farm-food-utensils {width:40px;height:44px;flex-basis:40px}
-  #farm .farm-tile-food .farm-food-utensils svg {width:40px;height:44px}
-  #farm .farm-tile-food strong {max-width:90px}
 }
 @media(max-width:359px) {
   #farm .farm-hero-city-link {right:8px;top:78px;min-width:92px;padding-inline:8px;font-size:12px}
 }
-
-
-/* City-first farm module. Finance/account live in City; Farm navigation is only for farming. */
-#nav.farm-module-nav {
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:8px;
-  padding-inline:max(12px,env(safe-area-inset-left)) max(12px,env(safe-area-inset-right));
+nav#nav .nav-button:focus-visible,#farm .farm-tile-food:focus-visible {
+  outline:2px solid white;outline-offset:2px;
 }
-#nav.farm-module-nav[hidden] {display:none!important}
-#nav.farm-module-nav .nav-button {min-width:0;max-width:none;width:100%}
+#app.shell {padding-bottom:calc(104px + env(safe-area-inset-bottom))}
+#production .farm-food-dashboard-icon img {width:45px;height:45px;object-fit:contain}
+#production #farm-city-catalog-list {
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));
+}
+#production #farm-city-catalog-list .farm-city-trade-row {
+  display:grid;grid-template-columns:minmax(0,0.6fr) minmax(0,1fr);
+}
+#production #farm-city-catalog-list .farm-city-trade-row input {
+  box-sizing:border-box;width:100%;min-width:0;font-size:16px;
+}
+#production #farm-city-catalog-list .farm-city-trade-row button {
+  padding-inline:4px;min-height:44px;
+}
 /* Nutrition information is grouped into a single legible sapphire dashboard. */
 #production .farm-food-dashboard {
   padding:15px 14px!important;

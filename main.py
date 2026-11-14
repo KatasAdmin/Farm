@@ -308,6 +308,7 @@ class Request(BaseModel):
  referral:str=""
  transfer_id:str=""
  expected_price:int|None=None
+ request_id:str=""
 def password_hash(password):
  if not 8<=len(password)<=128:raise HTTPException(400,"Пароль должен содержать от 8 до 128 символов")
  salt=secrets.token_bytes(16)
@@ -1571,6 +1572,14 @@ def claim_staged_achievement(q:Request,authorization:str=Header(default="")):
    raise HTTPException(409,"Награда уже получена")
   return {"ok":True,"track":track,"threshold":stage["threshold"],"xp_awarded":stage["xp"]}
 
+def simple_daily_trade_progress(c,pid,start):
+ buys=simple_economy.trade_quantities(c,pid,"buy",start,start+86400)
+ sales=simple_economy.trade_quantities(c,pid,"sell",start,start+86400)
+ return {"grain_bought":buys.get("grain",0),"eggs_listed":sales.get("eggs",0),
+         "milk_listing":sales.get("milk",0),"market_sale":sum(sales.values()),
+         "market_buy":sum(buys.values()),"buy_chicken":buys.get("chickens",0),
+         "buy_goose":buys.get("geese",0),"buy_cow":buys.get("cows",0)}
+
 @app.get("/api/state")
 def state(authorization:str=Header(default="")):
  # Farm production needs a write lock, but it must not be held while the
@@ -1596,13 +1605,14 @@ def state(authorization:str=Header(default="")):
   available_eggs=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("eggs",p["id"])).fetchone()["total"]
   available_milk=c.execute("SELECT COALESCE(SUM(quantity),0)::int AS total FROM market WHERE item=%s AND seller<>%s AND quantity>0",("milk",p["id"])).fetchone()["total"]
   mine=c.execute("SELECT id,item,quantity,price FROM market WHERE seller=%s AND quantity>0 ORDER BY item,price,id",(p["id"],)).fetchall()
-  day=time.strftime("%Y-%m-%d",time.gmtime())
+  now=time.time()
+  day=time.strftime("%Y-%m-%d",time.gmtime(now))
   activity=c.execute("SELECT grain_bought,eggs_listed,eggs_produced FROM daily_activity WHERE player_id=%s AND day=%s",(p["id"],day)).fetchone() or {"grain_bought":0,"eggs_listed":0,"eggs_produced":0}
   event=c.execute("SELECT id,kind,amount FROM farm_events WHERE player_id=%s ORDER BY created DESC,id DESC LIMIT 1",(p["id"],)).fetchone()
-  day_start=time.time()-(time.time()%86400)
+  day_start=int(now//86400)*86400
   cash=c.execute("""SELECT
-   COALESCE(SUM(CASE WHEN kind='market_sale' THEN delta ELSE 0 END),0)::int AS sales,
-   COALESCE(SUM(CASE WHEN (kind='shop' AND details LIKE 'grain x%%') OR kind='auto_grain' OR (kind='market_buy' AND details LIKE 'grain x%%') THEN -delta ELSE 0 END),0)::int AS feed_spent
+   COALESCE(SUM(CASE WHEN kind IN ('market_sale','simple_system_sell') THEN delta ELSE 0 END),0)::int AS sales,
+   COALESCE(SUM(CASE WHEN (kind IN ('shop','simple_system_buy') AND details LIKE 'grain x%%') OR kind='auto_grain' OR (kind='market_buy' AND details LIKE 'grain x%%') THEN -delta ELSE 0 END),0)::int AS feed_spent
    FROM money_log WHERE player_id=%s AND created>=%s""",(p["id"],day_start)).fetchone()
   milk_day=c.execute("SELECT COALESCE(SUM(amount),0)::int AS n FROM farm_events WHERE player_id=%s AND kind='milk_produced' AND created>=%s",(p["id"],day_start)).fetchone()["n"]
   day_stats={"eggs":activity["eggs_produced"],"milk":milk_day,"grain_bought":activity["grain_bought"],"eggs_listed":activity["eggs_listed"],"sales_coins":cash["sales"],"feed_spent_coins":cash["feed_spent"],"feed_margin_coins":cash["sales"]-cash["feed_spent"]}
@@ -1615,6 +1625,10 @@ def state(authorization:str=Header(default="")):
   activity["market_buy"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE buyer_id=%s AND created>=%s AND created<%s",(p["id"],day_start,day_start+86400)).fetchone()["n"]
   for mission,item in (("buy_chicken","chickens"),("buy_goose","geese"),("buy_cow","cows")):
    activity[mission]=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::bigint),0)::bigint AS n FROM money_log WHERE player_id=%s AND kind='shop' AND details ~ %s AND created>=%s AND created<%s",(p["id"],"^"+item+r" x[0-9]+$",day_start,day_start+86400)).fetchone()["n"]
+  if simple_economy.enabled():
+   for key,value in simple_daily_trade_progress(c,p["id"],day_start).items():
+    activity[key]+=value
+   day_stats["grain_bought"]=activity["grain_bought"]
   extra_totals=farm_expansion.progress(c,p["id"])
   extra_achievements=farm_expansion.achievement_rows(p,extra_totals)
   claims=[x["claim"] for x in c.execute("SELECT claim FROM daily_claims WHERE player_id=%s AND day=%s",(p["id"],day)).fetchall()]
@@ -1638,6 +1652,7 @@ def state(authorization:str=Header(default="")):
    weekly_stats["market_purchases"]+=c.execute("""SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM simple_system_trades
        WHERE player_id=%s AND kind='buy' AND created>=%s AND created<%s""",
        (p["id"],week_start,week_start+604800)).fetchone()["n"]
+   weekly_stats["grain"]+=simple_economy.trade_quantities(c,p["id"],"buy",week_start,week_start+604800).get("grain",0)
   weekly_stats["feathers"]=weekly_extra.get("feathers_collected",0)
   weekly_stats["milk"]=weekly_extra.get("milk_produced",0)
   weekly_stats["market_sales"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
@@ -1649,8 +1664,10 @@ def state(authorization:str=Header(default="")):
   weekly_feather_claimed=bool(c.execute("SELECT 1 FROM weekly_feather_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
   totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
-  sold=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS amount FROM money_log WHERE player_id=%s AND kind='market_sale' AND details ~ '^eggs x[0-9]+$'",(p["id"],)).fetchone()["amount"]
-  hens_bought=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS n FROM money_log WHERE player_id=%s AND kind='shop' AND details ~ '^chickens x[0-9]+$'",(p["id"],)).fetchone()["n"]
+  sold=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS amount FROM money_log WHERE player_id=%s AND kind IN ('market_sale','simple_system_sell') AND details ~ '^eggs x[0-9]+$'",(p["id"],)).fetchone()["amount"]
+  hens_bought=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS n FROM money_log WHERE player_id=%s AND kind IN ('shop','simple_system_buy') AND details ~ '^chickens x[0-9]+$'",(p["id"],)).fetchone()["n"]
+  if simple_economy.enabled():
+   totals["grain_bought"]+=simple_economy.trade_quantities(c,p["id"],"buy",0,float("inf")).get("grain",0)
   missions=c.execute("SELECT COUNT(*)::int AS n FROM daily_claims WHERE player_id=%s AND claim<>%s",(p["id"],"bonus")).fetchone()["n"]
   upgrades=c.execute("SELECT COUNT(*)::int AS n FROM money_log WHERE player_id=%s AND kind='upgrade'",(p["id"],)).fetchone()["n"]
   hatched=c.execute("SELECT COUNT(*)::int AS n FROM farm_events WHERE player_id=%s AND kind='chick_matured'",(p["id"],)).fetchone()["n"]
@@ -1666,7 +1683,7 @@ def state(authorization:str=Header(default="")):
   import math
   level=max(p.get("farmer_level",1),1+math.isqrt(xp//25))
   if level>p.get("farmer_level",1):
-   c.execute("UPDATE players SET farmer_level=%s WHERE id=%s",(level,p["id"]))
+   c.execute("UPDATE players SET farmer_level=GREATEST(farmer_level,%s) WHERE id=%s",(level,p["id"]))
    p={**p,"farmer_level":level}
    # A concurrent login must not wait for the remaining heavy dashboard reads.
    c.commit()
@@ -1791,12 +1808,12 @@ def sell(q:Request,authorization:str=Header(default="")):
   with db() as c:
    c.execute("SELECT pg_advisory_xact_lock(1984533)")
    p=advance(c,person(c,authorization,True))
-   simple_economy.amount(q.amount)
-   if q.item not in simple_economy.ALL_FARM:raise HTTPException(400,"Неизвестный товар")
-   if p.get(q.item,0)<q.amount:raise HTTPException(409,"Недостаточно товара")
-   if q.item in simple_economy.RAW_BUY:
-    ad_inventory.take(c,p,q.item,q.amount)
-   return simple_economy.farm_trade(c,p,q.item,q.amount,"sell")
+   if q.request_id:
+    previous=city_world._request(c,q,p["id"],"farm_sell")
+    if previous is not None:return previous
+   result=simple_economy.farm_trade(c,p,q.item,q.amount,"sell")
+   if q.request_id:city_world._finish_request(c,q,result)
+   return result
  check(q.amount);check(q.price)
  if q.item not in ("grain","eggs","milk","feathers","wool","chickens","geese","cows","sheep"):raise HTTPException(400,"Товар не найден")
  with db() as c:
@@ -1826,6 +1843,9 @@ def buy(q:Request,authorization:str=Header(default="")):
   with db() as c:
    c.execute("SELECT pg_advisory_xact_lock(1984533)")
    p=advance(c,person(c,authorization,True))
+   if q.request_id:
+    previous=city_world._request(c,q,p["id"],"farm_buy")
+    if previous is not None:return previous
    if q.item in ANIMAL_MIN_LEVELS and p.get("farmer_level",1)<ANIMAL_MIN_LEVELS[q.item]:
     raise HTTPException(403,"Покупка доступна с "+str(ANIMAL_MIN_LEVELS[q.item])+"-го уровня фермера")
    expected={**simple_economy.RAW_BUY,**simple_economy.ANIMAL_BUY}.get(q.item)
@@ -1835,6 +1855,7 @@ def buy(q:Request,authorization:str=Header(default="")):
    result=simple_economy.farm_trade(c,p,q.item,q.amount,"buy",
      storage_limit=storage_limit(p),coop_limit=coop_limit(p),cowshed_limit=cowshed_limit(p))
    award_referral_resource(c,p,q.item,q.amount)
+   if q.request_id:city_world._finish_request(c,q,result)
    return result
  check(q.amount)
  if q.item not in ("grain","eggs","milk","feathers","wool","chickens","geese","cows","sheep"):raise HTTPException(400,"Товар не найден")
@@ -2177,6 +2198,8 @@ def claim_weekly(authorization:str=Header(default="")):
    sales+=c.execute("""SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM simple_system_trades
        WHERE player_id=%s AND kind='sell' AND created>=%s AND created<%s""",
        (p["id"],week_start,week_start+604800)).fetchone()["n"]
+  if simple_economy.enabled():
+   total["grain"]+=simple_economy.trade_quantities(c,p["id"],"buy",week_start,week_start+604800).get("grain",0)
   if not weekly_missions.complete(total["grain"],feeding,total["eggs"],extra.get("milk_produced",0),total["listed"]+extra.get("milk_listed",0),sales):
    raise HTTPException(409,"Сначала выполни все задания недели")
   inserted=c.execute("INSERT INTO weekly_claims(player_id,week,claimed_at,amount) VALUES(%s,%s,%s,30) ON CONFLICT DO NOTHING RETURNING amount",(p["id"],week,now)).fetchone()
@@ -2190,37 +2213,36 @@ def claim_weekly(authorization:str=Header(default="")):
 def claim_reward(q:Request,authorization:str=Header(default="")):
  key=q.item
  if key not in REWARD_AMOUNTS:raise HTTPException(400,"Неизвестная награда")
- day=time.strftime("%Y-%m-%d",time.gmtime())
+ now=time.time()
+ start=int(now//86400)*86400
+ day=time.strftime("%Y-%m-%d",time.gmtime(now))
  with db() as c:
   p=advance(c,person(c,authorization,True))
+  trade_fields={"grain":"grain_bought","listing":"eggs_listed","milk_listing":"milk_listing",
+                **{key:key for key in ("market_sale","market_buy","buy_chicken","buy_goose","buy_cow")}}
+  trade_count=simple_daily_trade_progress(c,p["id"],start)[trade_fields[key]] if simple_economy.enabled() and key in trade_fields else 0
   if key=="feeding":
-   start=int(time.time()//86400)*86400
    count=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],start,start+86400)).fetchone()["n"]
-   if count<1:raise HTTPException(400,"Задание ещё не выполнено")
+   if count+trade_count<1:raise HTTPException(400,"Задание ещё не выполнено")
   elif key=="market_sale":
-   start=int(time.time()//86400)*86400
    count=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],start,start+86400)).fetchone()["n"]
-   if count<1:raise HTTPException(400,"Задание ещё не выполнено")
+   if count+trade_count<1:raise HTTPException(400,"Задание ещё не выполнено")
   elif key=="market_buy":
-   start=int(time.time()//86400)*86400
    count=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE buyer_id=%s AND created>=%s AND created<%s",(p["id"],start,start+86400)).fetchone()["n"]
-   if count<1:raise HTTPException(400,"Задание ещё не выполнено")
+   if count+trade_count<1:raise HTTPException(400,"Задание ещё не выполнено")
   elif key in ("buy_chicken","buy_goose","buy_cow"):
-   start=int(time.time()//86400)*86400
    item={"buy_chicken":"chickens","buy_goose":"geese","buy_cow":"cows"}[key]
    count=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::bigint),0)::bigint AS n FROM money_log WHERE player_id=%s AND kind='shop' AND details ~ %s AND created>=%s AND created<%s",(p["id"],"^"+item+r" x[0-9]+$",start,start+86400)).fetchone()["n"]
-   if count<1:raise HTTPException(400,"Задание ещё не выполнено")
+   if count+trade_count<1:raise HTTPException(400,"Задание ещё не выполнено")
   elif key in farm_expansion.EXTRA_MISSIONS:
-   start=time.time()//86400*86400
    counts=farm_expansion.progress(c,p["id"],start,start+86400)
    kind,target=farm_expansion.EXTRA_MISSIONS[key]
-   if counts.get(kind,0)<target:raise HTTPException(400,"Задание ещё не выполнено")
+   if counts.get(kind,0)+trade_count<target:raise HTTPException(400,"Задание ещё не выполнено")
   elif key!="bonus":
    activity=c.execute("SELECT grain_bought,eggs_listed,eggs_produced FROM daily_activity WHERE player_id=%s AND day=%s",(p["id"],day)).fetchone()
-   if not activity:raise HTTPException(400,"Задание ещё не выполнено")
    field={"grain":"grain_bought","eggs":"eggs_produced","listing":"eggs_listed"}[key]
    target=5 if key=="grain" else (3 if key=="eggs" else 1)
-   if activity[field]<target:raise HTTPException(400,"Задание ещё не выполнено")
+   if (activity or {}).get(field,0)+trade_count<target:raise HTTPException(400,"Задание ещё не выполнено")
   amount=REWARD_AMOUNTS[key]
   saved=c.execute("INSERT INTO daily_claims(player_id,day,claim,amount) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING amount",(p["id"],day,key,amount)).fetchone()
   if saved is None:raise HTTPException(409,"Сегодня награда уже получена")

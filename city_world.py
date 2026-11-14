@@ -155,6 +155,8 @@ def initialize(c):
     c.execute("""CREATE TABLE IF NOT EXISTS city_stock(
         player_id text NOT NULL, item text NOT NULL, quantity bigint NOT NULL DEFAULT 0
         CHECK(quantity>=0), PRIMARY KEY(player_id,item))""")
+    if simple_economy.enabled():
+        simple_economy.merge_city_raw_stock(c)
     c.execute("""CREATE TABLE IF NOT EXISTS city_products(
         player_id text NOT NULL, item text NOT NULL, quantity bigint NOT NULL DEFAULT 0
         CHECK(quantity>=0), PRIMARY KEY(player_id,item))""")
@@ -542,6 +544,10 @@ def farm_goods(authorization: str=Header(default="")):
 
 @router.get("/state")
 def state(authorization: str=Header(default=""), compact: bool=False):
+    shared=simple_economy.enabled()
+    if shared:
+        with _db() as c:
+            _advance(c,_auth(c,authorization,True))
     with _db() as c:
         p=_auth(c,authorization)
         _settle(c,p["id"])
@@ -600,7 +606,7 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "food_items":list(city_nutrition.FOOD_RESTORE),"materials":sorted(MATERIALS),
             "avatar_photo":p.get("avatar_photo") if p.get("avatar")=="custom" else None,
             "wallet_mode":"shared_farm_city","cashflow":city_cashflow,
-            "stock":_counts(c,"city_stock",p["id"]),
+            "stock":simple_economy.shared_stock(p) if shared else _counts(c,"city_stock",p["id"]),
             "farm_feathers":int(p.get("feathers",0)),
             "products":_counts(c,"city_products",p["id"]),
             "recipes":RECIPES,"price_guides":(
@@ -734,13 +740,13 @@ def buy_ingredient(q:Action,authorization:str=Header(default="")):
         _amount(q.amount,500)
         with _db() as c:
             c.execute("SELECT pg_advisory_xact_lock(1984533)")
-            p=_auth(c,authorization,True)
+            p=_advance(c,_auth(c,authorization,True))
             previous=_request(c,q,p["id"],"simple_raw_buy")
             if previous is not None:return previous
             cost=simple_economy.RAW_BUY.get(q.item,0)*q.amount
             if not cost:raise HTTPException(400,"Неизвестный ингредиент")
             if q.expected_cost!=cost:raise HTTPException(409,"Цена изменилась")
-            result=simple_economy.raw_city_trade(c,p,q.item,q.amount,"buy")
+            result=simple_economy.farm_trade(c,p,q.item,q.amount,"buy",storage_limit=int(p["storage_level"])*100)
             _finish_request(c,q,result)
             return result
     if q.item not in INGREDIENTS:raise HTTPException(400,"Этот ресурс нельзя закупать")
@@ -814,8 +820,10 @@ def produce(q:Action,authorization:str=Header(default="")):
     if not recipe:raise HTTPException(400,"Неизвестный рецепт")
     _amount(q.amount,20)
     with _db() as c:
-        p=_auth(c,authorization,True)
         c.execute("SELECT pg_advisory_xact_lock(1984533)")
+        p=_auth(c,authorization,True)
+        shared=simple_economy.enabled()
+        if shared:p=_advance(c,p)
         if q.request_id:
             previous=_request(c,q,p["id"],"produce")
             if previous is not None:return previous
@@ -837,6 +845,9 @@ def produce(q:Action,authorization:str=Header(default="")):
         if occupied+q.amount>business_batch_limit(int(opened["level"])):
             raise HTTPException(409,"Все производственные мощности заняты. Дождитесь завершения или улучшите предприятие")
         for item,qty in recipe["needs"].items():
+            if shared:
+                simple_economy.consume_raw(c,p,item,qty*q.amount)
+                continue
             changed=c.execute("""UPDATE city_stock SET quantity=quantity-%s
                 WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
                 (qty*q.amount,p["id"],item,qty*q.amount)).fetchone()
@@ -1031,20 +1042,9 @@ def move_food(q:Action,authorization:str=Header(default="")):
 @router.post("/transfer-raw")
 def transfer_raw(q:Action,authorization:str=Header(default="")):
     if not simple_economy.enabled():raise HTTPException(404,"Функция недоступна")
-    _amount(q.amount,500)
-    if q.destination not in ("to_city","to_farm"):raise HTTPException(400,"Неверное направление")
-    with _db() as c:
-        c.execute("SELECT pg_advisory_xact_lock(1984533)")
-        p=_advance(c,_auth(c,authorization,True))
-        previous=_request(c,q,p["id"],"raw_transfer:"+q.destination)
-        if previous is not None:return previous
-        cap=int(p["storage_level"])*100
-        result=simple_economy.raw_transfer(c,p,q.item,q.amount,q.destination,
-                                            storage_limit=cap)
-        if q.destination=="to_city":
-            ad_inventory.take(c,p,q.item,q.amount)
-        _finish_request(c,q,result)
-        return result
+    with _db() as c:_auth(c,authorization)
+    raise HTTPException(410,"Сырьё уже на общем складе")
+
 
 @router.post("/transfer-product")
 def transfer_product(q:Action,authorization:str=Header(default="")):
@@ -1068,10 +1068,10 @@ def sell_ingredient(q:Action,authorization:str=Header(default="")):
     _amount(q.amount,500)
     with _db() as c:
         c.execute("SELECT pg_advisory_xact_lock(1984533)")
-        p=_auth(c,authorization,True)
+        p=_advance(c,_auth(c,authorization,True))
         previous=_request(c,q,p["id"],"simple_raw_sell")
         if previous is not None:return previous
-        result=simple_economy.raw_city_trade(c,p,q.item,q.amount,"sell")
+        result=simple_economy.farm_trade(c,p,q.item,q.amount,"sell")
         _finish_request(c,q,result)
         return result
 

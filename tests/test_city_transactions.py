@@ -354,15 +354,17 @@ class CityTransactions(unittest.TestCase):
             simple_economy.initialize(db)
             db.execute("UPDATE economy SET treasury=100 WHERE id=1")
             p=db.execute("SELECT * FROM players WHERE id='buyer'").fetchone()
-            bought=simple_economy.raw_city_trade(db,p,"eggs",3,"buy")
+            db.execute("ALTER TABLE players ADD COLUMN eggs bigint DEFAULT 0")
+            bought=simple_economy.farm_trade(db,p,"eggs",3,"buy",storage_limit=100)
             self.assertEqual(bought["spent"],6)
-            sold=simple_economy.raw_city_trade(db,p,"eggs",2,"sell")
+            p=db.execute("SELECT * FROM players WHERE id='buyer'").fetchone()
+            sold=simple_economy.farm_trade(db,p,"eggs",2,"sell")
             self.assertEqual(sold["received"],2)
             self.assertEqual(db.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"],104)
             buyer=db.execute("SELECT * FROM players WHERE id='buyer'").fetchone()
             self.assertEqual(buyer["coins"],196)
             self.assertEqual(farm_wallet.available(db,buyer),0)
-            self.assertEqual(db.execute("SELECT quantity FROM city_stock WHERE player_id='buyer' AND item='eggs'").fetchone()["quantity"],1)
+            self.assertEqual(buyer["eggs"],1)
 
     def test_simple_system_unfunded_buyback_credits_coins_and_debits_treasury(self):
         import simple_economy
@@ -397,23 +399,31 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(db.execute("SELECT COUNT(*) AS n FROM city_listings WHERE quantity>0").fetchone()["n"],0)
             self.assertEqual(db.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200)
 
-    def test_farm_to_business_to_farm_is_free_and_exact(self):
+    def test_shared_warehouse_migrates_once_and_city_consumes_farm_stock(self):
         import simple_economy
+        from unittest.mock import patch
+        auth="Bearer t-buyer"
         with self.connect() as db:
             simple_economy.initialize(db)
-            db.execute("ALTER TABLE players ADD COLUMN eggs bigint DEFAULT 0")
-            db.execute("ALTER TABLE players ADD COLUMN grain bigint DEFAULT 0")
-            db.execute("ALTER TABLE players ADD COLUMN milk bigint DEFAULT 0")
-            db.execute("ALTER TABLE players ADD COLUMN feathers bigint DEFAULT 0")
-            db.execute("ALTER TABLE players ADD COLUMN wool bigint DEFAULT 0")
-            db.execute("UPDATE players SET eggs=8 WHERE id='buyer'")
-            p=db.execute("SELECT * FROM players WHERE id='buyer'").fetchone()
-            simple_economy.raw_transfer(db,p,"eggs",3,"to_city",storage_limit=100)
-            p=db.execute("SELECT * FROM players WHERE id='buyer'").fetchone()
-            simple_economy.raw_transfer(db,p,"eggs",2,"to_farm",storage_limit=100)
-            self.assertEqual(db.execute("SELECT eggs FROM players WHERE id='buyer'").fetchone()["eggs"],7)
-            self.assertEqual(db.execute("SELECT quantity FROM city_stock WHERE item='eggs' AND player_id='buyer'").fetchone()["quantity"],1)
-            self.assertEqual(db.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200)
+            for item in simple_economy.RAW_BUY:
+                db.execute(f"ALTER TABLE players ADD COLUMN {item} bigint DEFAULT 0")
+            db.execute("UPDATE players SET eggs=8,grain=10,milk=2 WHERE id='buyer'")
+            db.execute("INSERT INTO city_stock VALUES('buyer','eggs',3)")
+            db.execute("INSERT INTO city_businesses VALUES('buyer','bakery',1,0)")
+            simple_economy.merge_city_raw_stock(db)
+            simple_economy.merge_city_raw_stock(db)
+            self.assertEqual(db.execute("SELECT eggs FROM players WHERE id='buyer'").fetchone()["eggs"],11)
+            self.assertEqual(db.execute("SELECT count(*) AS n FROM city_stock").fetchone()["n"],0)
+        with patch.object(simple_economy,"enabled",return_value=True):
+            self.assertEqual(city_world.state(authorization=auth)["stock"]["eggs"],11)
+            request=self.action("pancakes",request_id="e"*32)
+            first=city_world.produce(request,authorization=auth)
+            self.assertEqual(city_world.produce(request,authorization=auth),first)
+        with self.connect() as db:
+            p=db.execute("SELECT eggs,coins FROM players WHERE id='buyer'").fetchone()
+            self.assertEqual(p["eggs"],11-city_world.RECIPES["pancakes"]["needs"]["eggs"])
+            self.assertEqual(p["coins"],200)
+            self.assertEqual(db.execute("SELECT count(*) AS n FROM city_jobs").fetchone()["n"],1)
 
     def test_fixed_prices_have_no_instant_craft_arbitrage(self):
         import simple_economy

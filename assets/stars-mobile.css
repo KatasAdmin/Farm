@@ -186,8 +186,8 @@ html, body {max-width:100%;overflow-x:clip;}
 #market .trade-amount-controls input {min-width:0;width:100%;box-sizing:border-box;font-size:16px!important;}
 #market .trade-amount-controls .btn {min-width:72px;}
 #market .trade-listings {margin:12px 10px;}
-/* Bottom navigation: stable icon and caption baselines across every button. */
-nav#nav.bottom {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch;gap:3px;}
+/* Three equal farm destinations with room for device safe areas. */
+nav#nav.bottom {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:clamp(5px,2vw,8px);box-sizing:border-box;padding-inline:max(10px,env(safe-area-inset-left)) max(10px,env(safe-area-inset-right));}
 nav#nav.bottom[hidden] {display:none!important;}
 nav#nav.bottom .nav-button {
   min-width:0;width:100%;min-height:74px;box-sizing:border-box;

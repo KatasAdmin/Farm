@@ -5,6 +5,8 @@ historical totals. Feeding is deliberately excluded until a durable feeding
 event exists.
 """
 
+import simple_economy
+
 SUPPORTED = ("eggs", "feathers", "milk", "chickens_bought", "geese_bought",
              "cows_bought", "market_sales", "market_purchases", "feeding")
 
@@ -22,9 +24,14 @@ def count(c, player_id, track):
     if track in ("chickens_bought", "geese_bought", "cows_bought"):
         item = track.removesuffix("_bought")
         sql = """SELECT COALESCE(SUM((split_part(details,' x',2))::bigint),0)::bigint AS n
-            FROM money_log WHERE player_id=%s AND kind='shop'
+            FROM money_log WHERE player_id=%s AND kind IN ('shop','simple_system_buy')
             AND details ~ %s"""
         return c.execute(sql, (player_id, "^" + item + r" x[0-9]+$")).fetchone()["n"]
     if track == "market_sales":
-        return c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s", (player_id,)).fetchone()["n"]
-    return c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE buyer_id=%s", (player_id,)).fetchone()["n"]
+        prior=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s", (player_id,)).fetchone()["n"]
+    else:
+        prior=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE buyer_id=%s", (player_id,)).fetchone()["n"]
+    if not simple_economy.enabled():
+        return prior
+    kind="sell" if track=="market_sales" else "buy"
+    return prior+sum(simple_economy.trade_quantities(c,player_id,kind,0,float("inf")).values())

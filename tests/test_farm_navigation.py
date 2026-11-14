@@ -33,6 +33,8 @@ class FarmNavigationTests(unittest.TestCase):
         page = HTML.read_text(encoding="utf-8")
         bottom = page.split('<nav id="nav"', 1)[1].split("</nav>", 1)[0]
         self.assertIn("tab('shop')", bottom)
+        css = (HTML.parent / "assets" / "stars-mobile.css").read_text(encoding="utf-8")
+        self.assertRegex(css, r"nav#nav\.bottom \{[^}]*repeat\(3,minmax\(0,1fr\)\)")
         self.assertIn("tab('tasks')", bottom)
         self.assertEqual(bottom.count('class="nav-button"'), 3)
         self.assertNotIn('data-tab="wallet"', bottom)

@@ -86,7 +86,7 @@ class FrontendBootSafety(unittest.TestCase):
   self.assertIn('class="gems" hidden',html)
   self.assertIn('Задания недели',html)
   self.assertIn('id="weekly-claim"',html)
-  self.assertIn('/assets/stars-mobile.css?v=13',html)
+  self.assertRegex(html,r'/assets/stars-mobile\.css\?v=\d+')
   self.assertIn('.gems[hidden] {display:none!important;}',css)
  def test_nickname_editor_enabled_for_every_farmer(self):
   root=Path(__file__).resolve().parents[1]

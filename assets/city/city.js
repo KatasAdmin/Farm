@@ -295,16 +295,14 @@ function showBusiness(kind){
 function simpleShoppingList(recipeId){
  const recipe=data.recipes[recipeId];if(!recipe)return;
  activeBusiness=null;activeView="shopping";
- let html='<p class="panel-note">🌾 С фермы в предприятие бесплатно. Если своих запасов мало, докупи у системы по фиксированной цене.</p>';
+ let html='<p class="panel-note">Предприятие берёт ингредиенты с общего склада.</p>';
  html+=Object.entries(recipe.needs||{}).map(([item,required])=>{
-  const stock=data.stock?.[item]||0,fromFarm=data.farm_stock?.[item]||0,short=Math.max(0,required-stock);
+  const stock=data.stock?.[item]||0,short=Math.max(0,required-stock);
   const controls=short?
-    (fromFarm?input("qty-transfer-"+item,Math.min(short,fromFarm),Math.min(500,fromFarm))+
-     '<button class="btn ghost" data-action="transfer-to-city" data-item="'+item+'" data-amount-id="qty-transfer-'+item+'">Со своей фермы</button>':'')+
     input("qty-shop-"+item,short,500)+
     '<button class="btn" data-action="raw" data-item="'+item+'" data-amount-id="qty-shop-'+item+'">Купить · '+data.system_prices.raw_buy[item]+' 🪙/шт.</button>':
     '<span class="pill">✅ Хватает</span>';
-  return row(names[item],'Для одной партии: '+required+' · В городе: '+stock+' · На ферме: '+fromFarm,controls);
+  return row(names[item],'Для одной партии: '+required+' · На складе: '+stock,controls);
  }).join("");
  html+=Object.entries(recipe.needs_products||{}).map(([item,required])=>row(
     (icons[item]||"📦")+" "+esc(data.recipes[item].name),
@@ -353,15 +351,11 @@ function simpleWarehouse(){
  let html='<div class="city-market-tabs">'+Object.entries(tabs).map(([key,label])=>
   '<button class="btn ghost" aria-pressed="'+(warehouseTab===key)+'" data-action="warehouse-tab" data-item="'+key+'">'+label+'</button>').join("")+'</div>';
  if(warehouseTab==="raw"){
-  html+='<p class="panel-note">Ресурсы бесплатно переходят между складами. Покупать собственные яйца, зерно или молоко больше не нужно.</p>';
-  html+=Object.entries(data.system_prices.raw_buy).map(([item,price])=>{
-   const farm=data.farm_stock[item]||0,city=data.stock[item]||0;
-   return row(names[item],
-     'Ферма: '+farm+' шт. · Город: '+city+' шт.',
-     input("qty-move-"+item,1,500)+
-     (farm?'<button class="btn" data-action="transfer-to-city" data-item="'+item+'" data-amount-id="qty-move-'+item+'">→ В город</button>':'')+
-     (city?'<button class="btn ghost" data-action="transfer-to-farm" data-item="'+item+'" data-amount-id="qty-move-'+item+'">← На ферму</button>':'')+
-     (city?'<button class="btn gold" data-action="sell-raw" data-item="'+item+'" data-amount-id="qty-move-'+item+'">Продать · '+data.system_prices.raw_sell[item]+' 🪙</button>':''));
+  html+=Object.keys(data.system_prices.raw_buy).map(item=>{
+   const stock=data.stock[item]||0;
+   return row(names[item],'В наличии: '+stock+' шт.',stock?
+     input("qty-stock-"+item,1,Math.min(stock,500))+
+     '<button class="btn gold" data-action="sell-raw" data-item="'+item+'" data-amount-id="qty-stock-'+item+'">Продать · '+data.system_prices.raw_sell[item]+' 🪙</button>':'');
   }).join("");
  }else{
   html+='<p class="panel-note">Один общий запас еды и продукции для города и фермы. Покупки, производство и продажи сразу меняют количество в обоих разделах.</p>';
@@ -376,7 +370,7 @@ function simpleWarehouse(){
     '<button class="btn gold" data-action="list" data-item="'+item+'">Продать</button>');
   }).join(""):'<div class="empty">Пока нет готовой продукции</div>';
  }
- openPanel("📦 Мои склады",html);
+ openPanel("📦 Общий склад",html);
 }
 function showShoppingList(recipeId){
  if(data?.simple_economy)return simpleShoppingList(recipeId);
@@ -758,9 +752,6 @@ async function action(action,item,amountId,listingId){
    if(!confirm("Выставить "+body.amount+" шт. на "+number(body.amount*body.price)+" монет?"))return;
   }
  }
- else if(action==="transfer-to-city"||action==="transfer-to-farm"){
-  path="/transfer-raw";body.amount=amount;body.destination=action==="transfer-to-city"?"to_city":"to_farm";
- }
  else if(action==="food-to-farm"||action==="food-to-city"){
   path="/transfer-product";
   body.amount=getAmount(action==="food-to-farm"?"qty-list-"+item:"qty-farm-food-"+item);
@@ -778,7 +769,7 @@ async function action(action,item,amountId,listingId){
  else if(action==="fulfill"){path="/fulfill-order";body.order_day=data.resident_orders.find(order=>order.id===item)?.day}
  else return;
  working=true;
- if(["raw","product","produce","list","cancel","fulfill","upgrade","transfer-to-city","transfer-to-farm","food-to-farm","food-to-city","sell-raw","sell-market-product"].includes(action)){
+ if(["raw","product","produce","list","cancel","fulfill","upgrade","food-to-farm","food-to-city","sell-raw","sell-market-product"].includes(action)){
   body.request_id=(globalThis.crypto?.randomUUID?.()||(Date.now().toString(16)+Math.floor(Math.random()*1e15).toString(16)).padEnd(32,"a")).replaceAll("-","").slice(0,32);
  }
  if(action==="raw"||action==="product"){
@@ -788,7 +779,7 @@ async function action(action,item,amountId,listingId){
    if(!confirm("Купить "+body.amount+" шт. за "+number(quote.cost)+" монет?")){working=false;return}
   }catch(e){toast(e.message);working=false;return}
  }
- try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":["list","sell-raw","sell-market-product"].includes(action)?(data.simple_economy?"Продано! Монеты начислены.":"Товар выставлен на рынок"):action==="open"?"Предприятие открыто!":"Готово!");
+ try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё поступило на общий склад!":action==="produce"?"Производство запущено!":["list","sell-raw","sell-market-product"].includes(action)?(data.simple_economy?"Продано! Монеты начислены.":"Товар выставлен на рынок"):action==="open"?"Предприятие открыто!":"Готово!");
  await load();
  }catch(e){toast(e.message)}
  finally{working=false}
@@ -833,6 +824,9 @@ setInterval(()=>{
   timer.textContent=formatTime(remaining);
  }
 },1000);
+window.addEventListener("pageshow",event=>{
+ if(event.persisted&&data&&!working)load().catch(()=>{});
+});
 document.addEventListener("visibilitychange",()=>{
  if(data&&!working&&document.visibilityState==="visible")load().catch(()=>{});
 });

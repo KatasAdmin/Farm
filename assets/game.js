@@ -108,7 +108,8 @@ function toast(message) {
 }
 async function api(path, payload, extraHeaders={}) {
   const isRead=payload===undefined;
-  const maxAttempts=isRead && path==="/api/state" ? 2 : 1;
+  const retryableTrade=Boolean(payload?.request_id)&&["/api/shop","/api/buy","/api/sell","/api/shop/sell"].includes(path);
+  const maxAttempts=(isRead && path==="/api/state")||retryableTrade ? 2 : 1;
   let response,value;
   for(let attempt=0;attempt<maxAttempts;attempt++){
     const controller=new AbortController();
@@ -122,7 +123,7 @@ async function api(path, payload, extraHeaders={}) {
       value=await response.json();
       break;
     } catch(error) {
-      if(isRead && error.name==="AbortError" && attempt+1<maxAttempts)continue;
+      if(attempt+1<maxAttempts&&(error.name==="AbortError"||(retryableTrade&&error instanceof TypeError)))continue;
       if(error.name==="AbortError"){
         const failure=Error(isRead
           ? "Сервер временно не отвечает. Данные остались без изменений."
@@ -171,6 +172,9 @@ async function perform(path, data) {
   if (pending) return false;
   busy(true);
   try {
+    if(state?.simple_economy&&["/api/shop","/api/buy","/api/sell","/api/shop/sell"].includes(path)){
+      data={...data,request_id:Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,"0")).join("")};
+    }
     const result = await api(path, data);
     if (el("purchase-dialog").open) el("purchase-dialog").close();
     // The operation has committed; refresh failure must never encourage a repeated charge.
@@ -427,10 +431,11 @@ function tab(id) {
   document
     .querySelectorAll(".panel")
     .forEach((x) => x.classList.toggle("active", x.id === id));
+  const farmSections=["coop","storage","fields","production"];
   document.querySelectorAll("[data-tab]").forEach((x) => {
-    const active = x.dataset.tab === id;
+    const active = x.dataset.tab === (farmSections.includes(id)?"farm":id);
     x.classList.toggle("active", active);
-    if (active) x.setAttribute("aria-current", "page");
+    if (active) x.setAttribute("aria-current", x.dataset.tab===id?"page":"location");
     else x.removeAttribute("aria-current");
   });
   window.scrollTo({ top: 0, behavior: "instant" });
@@ -530,7 +535,7 @@ function openResourceActions(item) {
   el("resource-action-free").textContent=freeLabels[item]||"🎬 Получить бесплатно";
   const progress=el("resource-action-ad-progress");
   if(progress){progress.hidden=!adRewards[item];progress.textContent=adRewards[item]?(adProgress[item]||0)+"/"+adRewards[item][0]+" подтверждённых просмотров":"";}
-  el("resource-action-description").textContent=state.simple_economy?"Магазин: покупка и продажа сразу, без ожидания и объявлений.":"Купи товар у других фермеров или выставь свой на общий рынок.";
+  el("resource-action-description").textContent=state.simple_economy?"Покупай и продавай по фиксированным ценам.":"Купи товар у других фермеров или выставь свой на общий рынок.";
   el("resource-action-buy").textContent="Купить";
   el("resource-action-sell").textContent=state.simple_economy?"Продать":"Выставить на продажу";
   el("resource-actions-dialog").showModal();
@@ -646,7 +651,9 @@ function drawPool() {
   document.querySelectorAll("[data-market-available]").forEach(node=>{
     const item=node.dataset.marketAvailable;
     const qty=marketRows(item).reduce((sum,row)=>sum+row.quantity,0);
-    node.textContent=state.simple_economy?"Магазин · "+number(state.shop[item]||0)+" 🪙":("У игроков: "+number(qty)+" шт.");
+    node.textContent=state.simple_economy?"В наличии в магазине":("У игроков: "+number(qty)+" шт.");
+    const price=node.closest(".market-card")?.querySelector(".price");
+    if(state.simple_economy&&price&&state.shop[item]!=null)price.firstChild.textContent=number(state.shop[item]);
   });
   const available = Number(state.available_eggs ?? 0);
   const label = el("eggs-available");
@@ -1208,7 +1215,7 @@ function render() {
     ["buy_chicken", "Купить курицу", daily.buy_chicken || 0, 1],
     ...((p.farmer_level>=3||daily.buy_goose>0)?[["buy_goose", "Купить гуся", daily.buy_goose || 0, 1]]:[]),
     ...((p.cows>0||daily.buy_cow>0||p.coins>=500)?[["buy_cow", "Купить корову", daily.buy_cow || 0, 1]]:[]),
-    ...(((p.chickens||0)+(p.geese||0)+(p.cows||0)>0||daily.feeding>0)?[["feeding","Покормить животных",daily.feeding||0,1]]:[]),
+    ...(((p.chickens||0)+(p.geese||0)+(p.cows||0)+(p.sheep||0)>0||daily.feeding>0)?[["feeding","Покормить животных",daily.feeding||0,1]]:[]),
     ...((p.cows>0||daily.milk>0)?[["milk","Собрать молоко",daily.milk||0,1]]:[]),
     ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Продать молоко",daily.milk_listing||0,1]]:[])
     // Feather reward was moved into the weekly mission list.
@@ -1288,7 +1295,7 @@ function render() {
     const count=el("weekly-count-"+key)||document.querySelector(`[data-weekly="${key}"]`);
     const bar=document.querySelector(`[data-weekly-bar="${key}"]`);
     const status=document.querySelector(`[data-weekly-status="${key}"]`);
-    if(count)count.textContent=key==="eggs"?Math.min(target,weekly.eggs||0)+" / "+target+" яиц · "+Math.min(3,weekly.milk||0)+" / 3 молока":key==="grain"?Math.min(10,weekly.grain||0)+" / 10 зерна · "+Math.min(5,weekly.feeding||0)+" / 5 скормлено":key==="listed"?Math.min(3,weekly.listed||0)+" / 3 выставлено · "+Math.min(3,weekly.market_sales||0)+" / 3 продано":value+" / "+target;
+    if(count)count.textContent=key==="eggs"?Math.min(target,weekly.eggs||0)+" / "+target+" яиц · "+Math.min(3,weekly.milk||0)+" / 3 молока":key==="grain"?Math.min(10,weekly.grain||0)+" / 10 зерна · "+Math.min(5,weekly.feeding||0)+" / 5 скормлено":key==="listed"?state.simple_economy?value+" / "+target:Math.min(3,weekly.listed||0)+" / 3 выставлено · "+Math.min(3,weekly.market_sales||0)+" / 3 продано":value+" / "+target;
     if(bar)bar.style.width=(100*value/target)+"%";
     if(status)status.textContent=value>=target?"Готово":"В процессе";
   }
@@ -1362,6 +1369,7 @@ function promotionActive() {
 function countdown() {
   if (!state) return;
   const elapsed = elapsedSeconds();
+  window.farmCityProducts?.updateStatus();
   const reserve=Math.max(0,(state.farm.feed_stock_seconds||0)-elapsed);
   el("feedstock").textContent=state.farm.grain_required_next_feed>0
     ? (reserve>=3600?"~"+Math.floor(reserve/3600)+" часов":Math.ceil(reserve/60)+" мин")
@@ -1375,7 +1383,7 @@ function countdown() {
   const inc=state.incubator||{}, now=state.now+elapsed;
   const jobs=inc.jobs||[];
   const full=state.me.chickens+(state.me.geese||0)>=state.buildings.coop_capacity;
-  const status=!inc.owned?"Инкубатор ещё не куплен":jobs.length===0?"Свободен · заложи 12 яиц":jobs.length+" из "+inc.capacity+" мест занято";
+  const status=!inc.owned?"Инкубатор ещё не куплен":jobs.length===0?"Свободен · заложи 20 яиц":jobs.length+" из "+inc.capacity+" мест занято";
   if(el("incubation-status"))el("incubation-status").textContent=status;
   document.querySelectorAll("[data-incubator-summary]").forEach(x=>x.textContent=status);
   const list=el("incubator-jobs");
@@ -1400,7 +1408,14 @@ function countdown() {
   const featherLabel=!gooseCount?"Нет гусей":!state.farm.next_feather_scheduled?(state.farm.next_feather_status==="storage_full"?"Склад заполнен":"Нет доступного сбора — проверь корм"):featherRemaining<=0?"Обновляем…":
     (featherRemaining>=86400?Math.floor(featherRemaining/86400)+" д ":"")+clockDuration(featherRemaining%86400);
   document.querySelectorAll('[data-feather-tick]').forEach(x=>x.textContent=featherLabel);
-  const featherProgress=Math.min(100,100*((state.me.feather_progress||0)+fedGeese*elapsed)/(7*86400));
+  const productionElapsed=Math.min(elapsed,state.farm.seconds_to_next_feed);
+  const food=state.nutrition;
+  const bonusDuration=Math.max(0,Math.min(productionElapsed,(food?.next_empty_at||0)-state.now));
+  const decay=food?.decay_per_hour||0;
+  const boostStart=(food?.production_multiplier||1)-1;
+  const boostEnd=Math.max(0,boostStart-decay*bonusDuration/720000);
+  const accelerated=productionElapsed+bonusDuration*(boostStart+boostEnd)/2;
+  const featherProgress=Math.min(100,100*((state.me.feather_progress||0)+fedGeese*accelerated)/(7*86400));
   document.querySelectorAll('[data-feather-progress]').forEach(x=>{x.setAttribute('aria-valuenow',Math.floor(featherProgress));x.firstElementChild.style.width=featherProgress+'%';});
   document.querySelectorAll('[data-feather-note]').forEach(x=>x.textContent=!gooseCount?'Перья дают гуси. Купи гусыню на рынке — здесь появится время до следующего пера.':warehouseFull?'Освободи место: новые перья не сохраняются.':!fedGeese?'Пока гуси голодны, прогресс пера приостановлен.':'Сытых гусей: '+fedGeese+' из '+gooseCount+'. Один гусь даёт перо за 7 дней сытости. Таймер предполагает постоянный корм.');
   const milkScheduled=Boolean(state.farm.next_milk_scheduled),milkSeconds=Math.max(0,(state.farm.seconds_to_next_milk||0)-elapsed);
@@ -1471,6 +1486,9 @@ function logout() {
     state = null;
   }
 }
+window.addEventListener("pageshow",event=>{
+  if(event.persisted&&token)void refresh();
+});
 document.addEventListener("visibilitychange", () => {
   if (token && document.visibilityState === "visible") refresh();
 });

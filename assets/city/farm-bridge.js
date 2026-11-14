@@ -12,7 +12,7 @@
  const number=new Intl.NumberFormat("ru-RU",{maximumFractionDigits:1});
  const fmt=n=>number.format(Number(n)||0);
  const esc=s=>String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
- let info,loading,busy=false,marketCategory="food";
+ let info,loading,nutrition,busy=false,marketCategory="food";
 
  function tokenValue(){
   if(typeof token==="string"&&token)return token;
@@ -55,7 +55,7 @@
       nameA.localeCompare(nameB,"ru"));
    target.innerHTML=offers.map(([item,offer])=>card(item,
     '🏪 Купить '+fmt(offer.buy_price)+' 🪙 · Продать '+fmt(offer.sell_price)+' 🪙'+
-    (food?' · +'+info.food_restore[item]+' сытости':''),
+    (food?' · +'+info.food_restore[item]+'% сытости':''),
     '<input type="number" min="1" max="500" value="1" aria-label="Количество">'+
     '<button type="button" data-city-buy="'+item+'" data-destination="'+(food?'farm':'city')+'">Купить</button>'
    )).join("");
@@ -75,9 +75,16 @@
  }
  function renderStatus(food){
   if(!food)return;
-  for(const el of document.querySelectorAll("[data-farmer-fullness]"))el.textContent=fmt(food.fullness)+"%";
-  for(const el of document.querySelectorAll("[data-farmer-bonus]"))el.textContent="+"+fmt(food.bonus_percent)+"%";
-  const fullness=Math.max(0,Math.min(100,Number(food.fullness)||0));
+  nutrition={...food,receivedAt:performance.now()};
+  updateStatus();
+ }
+ function updateStatus(){
+  if(!nutrition||document.body.dataset.screen!=="production")return;
+  const hours=(performance.now()-nutrition.receivedAt)/3600000;
+  const fullness=Math.max(0,Math.min(100,nutrition.fullness-hours*nutrition.decay_per_hour));
+  const bonus=Math.max(0,nutrition.bonus_percent-hours*nutrition.decay_per_hour/2);
+  for(const el of document.querySelectorAll("[data-farmer-fullness]"))el.textContent=fmt(fullness)+"%";
+  for(const el of document.querySelectorAll("[data-farmer-bonus]"))el.textContent="+"+fmt(bonus)+"%";
   const bar=document.querySelector("#production .farm-food-progress");
   if(bar){
    bar.setAttribute("aria-valuenow",String(Math.round(fullness)));
@@ -96,9 +103,7 @@
    '<button type="button" data-city-eat="'+item+'">Съесть</button>'+
    (info.simple_economy?'<button type="button" data-city-sell="'+item+'" data-destination="farm">Продать</button>':'')
   )).join("");
-  // Food is a single stock for this account, not two separate warehouses.
-  const cityFood="";
-  inventory.innerHTML=(onFarm+cityFood)||'<p class="farm-city-blank">На складе пока нет еды</p>';
+  inventory.innerHTML=onFarm||'<p class="farm-city-blank">На складе пока нет еды</p>';
  }
  function load(){
   if(!tokenValue())return Promise.resolve();
@@ -176,6 +181,6 @@
  window.addEventListener("pageshow",event=>{
   if(event.persisted&&["production","shop"].includes(document.body.dataset.screen))void load();
  });
- window.farmCityProducts={load,showMarket,renderStatus};
+ window.farmCityProducts={load,showMarket,renderStatus,updateStatus};
 })();
 
