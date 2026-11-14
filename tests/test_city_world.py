@@ -77,7 +77,7 @@ class CityWorldSafety(unittest.TestCase):
         self.assertNotIn('demo:true',js)
         self.assertNotIn('@router.get("/catalog")',backend)
         self.assertIn('href="/city"',farm)
-        self.assertIn('Предприятия',farm)
+        self.assertIn('Еда и бонусы',farm)
         self.assertIn("farm_url().rstrip('/') + '/city'",bot)
         self.assertIn("'web_app': {'url': farm_url()}",bot)
 
