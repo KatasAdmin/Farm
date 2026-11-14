@@ -365,7 +365,7 @@ async function showProgressLog(reputationOnly){
  }catch(error){if(activeView===current)openPanel(title,'<p class="empty">'+esc(error.message)+'</p>')}
 }
 
-const goalTitles={season:"👑 Городской пропуск",events:"🗓️ События",daily:"📋 Ежедневные задания"};
+const goalTitles={season:"Сезон",events:"События",daily:"Ежедневные задания"};
 
 async function showGoals(tab){
  const title=goalTitles[tab];
@@ -447,7 +447,7 @@ const promoForm='<form id="city-promo-form" class="city-promo-form"><input id="c
 
 function showProfile(){
  const avatar=data.avatar_photo?.startsWith("data:image/jpeg;base64,")?
-  '<img class="profile-avatar" src="'+esc(data.avatar_photo)+'" alt="">':'<div class="profile-avatar">👤</div>';
+  '<img class="profile-avatar" src="'+esc(data.avatar_photo)+'" alt="">':'<div class="profile-avatar"><img src="/assets/city/tab-icon-0.webp" alt=""></div>';
  const progress=data.progress||{};
  const stats=[
   ["🏆","Репутация",number(data.reputation),"reputation"],
@@ -464,7 +464,7 @@ function showProfile(){
  const wallet='<div class="profile-balance"><img src="/assets/city/ref-wallet.webp" alt=""><span>Баланс<strong>'+number(data.coins)+'</strong></span><button class="btn" data-action="wallet">Кошелёк ›</button></div>';
  openPanel("Кабинет",hero+'<div class="profile-stats">'+stats.map(([icon,label,value,target])=>card(target,icon,label,value)).join("")+'</div>'+
   wallet+'<div class="profile-menu">'+links.map(([target,icon,label],index)=>card(target,icon,label,"",index)).join("")+'</div>'+
-  '<button class="season-banner" data-action="navigate" data-item="season"><span>👑 Сезон города</span><b>К сезону ›</b></button>'+
+  '<button class="season-banner" data-action="navigate" data-item="season"><span>Сезон города<small>Награды и задания</small></span><b>К сезону ›</b></button>'+
   '<button class="btn ghost" data-action="navigate" data-item="nutrition">🍽️ Питание</button>');
 }
 function showWarehouse(){
