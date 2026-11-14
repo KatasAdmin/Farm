@@ -1288,9 +1288,9 @@ function render() {
     const objectives=[
       ["🛒 Купить 3 товара на рынке",weekly.market_purchases||0,3],
       ["🥛 Собрать 5 единиц молока",weekly.milk||0,5,Boolean(p.cows||weekly.milk)],
-      ["🪶 Получить редкое перо",weekly.feathers||0,1,Boolean(p.geese||weekly.feathers)]
+      ["🪶 Произвести перо",weekly.feathers||0,1,Boolean(p.geese||weekly.feathers)]
     ].filter(row=>row.length<4||row[3]);
-    weeklyExtra.innerHTML='<h3>Дополнительные цели недели</h3><p class="muted">Не обязательны для получения основной награды. Редкое перо — случайный дроп.</p>'+
+    weeklyExtra.innerHTML='<h3>Дополнительные цели недели</h3><p class="muted">Не обязательны для основной награды. 🪶 Перья производятся гусями по таймеру. За ежедневное задание с пером можно получить +15 монет.</p>'+
       objectives.map(([name,value,target])=>'<div class="daily-task"><div><strong>'+name+'</strong><small>'+number(Math.min(value,target))+' / '+target+'</small></div><div class="progress"><span style="width:'+(100*Math.min(value,target)/target)+'%"></span></div></div>').join("");
   }
   const claim=el("weekly-claim");
