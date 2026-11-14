@@ -1,0 +1,63 @@
+:root{--p3-card:url("/assets/city/premium3/card.webp");--p3-velvet:url("/assets/city/premium3/velvet.webp");--p3-emerald:url("/assets/city/premium3/emerald.webp");--p3-gold:url("/assets/city/premium3/gold.webp");--p3-ink:#fdf0e6;--p3-metal:#ffe1a2}
+#panel-overlay:is([data-scene="daily"],[data-scene="bonus"],[data-scene="promo"]){z-index:50;bottom:var(--p3-keyboard,0px)}
+#panel-overlay:is([data-scene="daily"],[data-scene="bonus"],[data-scene="promo"]) .panel-backdrop{background:#1b0a3062;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+#panel-overlay:is([data-scene="daily"],[data-scene="bonus"],[data-scene="promo"]) .city-panel{width:min(100%,560px);max-height:min(90dvh,calc(var(--p3-viewport,100dvh) - 12px));color:var(--p3-ink);background:var(--p3-velvet) center/100% 100% no-repeat,#230d39;border:1px solid #d489e8;border-radius:clamp(23px,8vw,39px);padding:9px clamp(10px,4vw,21px) calc(14px + env(safe-area-inset-bottom));box-sizing:border-box;animation:p3-rise .22s ease-out}
+@keyframes p3-rise{from{transform:translateY(15px);opacity:.55}to{transform:translateY(0);opacity:1}}
+@media(prefers-reduced-motion:reduce){#panel-overlay .city-panel{animation:none!important}}
+#panel-overlay:is([data-scene="daily"],[data-scene="bonus"],[data-scene="promo"]) .panel-top{gap:5px;margin-bottom:7px}
+#panel-overlay:is([data-scene="daily"],[data-scene="bonus"],[data-scene="promo"]) #panel-heading{font:700 clamp(19px,6vw,33px)/1.1 Georgia,serif;color:var(--p3-metal);margin:0}
+#panel-overlay:is([data-scene="daily"],[data-scene="bonus"],[data-scene="promo"]) .close-panel{background:var(--p3-card) center/135% 125%,#36174d;border:0;border-radius:50%;width:44px;height:44px;flex:0 0 44px;color:#fff;font-size:19px}
+#panel-overlay:is([data-scene="daily"],[data-scene="bonus"],[data-scene="promo"]) .panel-grip{background:#e1a9ef;width:44px;height:5px}
+#panel-overlay[data-scene="promo"] .city-panel{background:url("/assets/city/premium3/promo.webp") center/100% 100% no-repeat,var(--p3-velvet) center/cover,#230d39}
+#panel-overlay[data-scene="promo"] #panel-heading{padding-inline:8px}
+.p3-banner{overflow:hidden;position:relative;min-height:84px;margin-bottom:9px;padding:12px;border-radius:20px;border:1px solid #d693ed;background:var(--p3-card) center/100% 100%,#2b103e;display:grid;align-content:center;justify-items:start;gap:5px}
+.p3-banner h3,.p3-season-lead h2,.p3-season-lead h3{font:700 clamp(18px,6vw,32px)/1.06 Georgia,serif;color:var(--p3-metal);margin:0;text-shadow:0 2px 4px #210c31}
+.p3-banner p{margin:3px 0 0;max-width:70%;font-size:clamp(12px,3.4vw,17px);text-shadow:0 1px 4px #210c31}
+.p3-daily{background:url("/assets/city/premium3/daily.webp") right 58%/49% auto no-repeat,var(--p3-card) center/100% 100%,#2b103e}
+.p3-rotunda{min-height:140px;align-content:start;background:linear-gradient(90deg,#220f3ce0,transparent 87%),url("/assets/city/premium3/rotunda.webp") right 48%/cover,#290f40}
+.p3-time{display:inline-block;min-height:24px;padding:4px 9px;background:#231032e8;border:1px solid #d6a16a;border-radius:30px;color:#ffe5bc;font-size:clamp(11px,3.2vw,16px)}
+.p3-goals,.p3-bonus .bonus-actions{display:grid;gap:7px}
+.p3-goal{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:7px;padding:7px 8px;min-height:57px;background:var(--p3-card) center/100% 100% no-repeat,#2c1248;border-radius:15px;color:var(--p3-ink)}
+.p3-icon{width:100%;height:100%;object-fit:contain;mix-blend-mode:screen}
+.p3-goal .p3-icon{height:47px}
+.p3-goal div{min-width:0;border-left:1px solid #d4a3e064;padding-left:7px}
+.p3-goal strong,.p3-goal small{display:block;overflow-wrap:anywhere}
+.p3-goal strong{font-size:clamp(11px,3.45vw,17px);line-height:1.15}
+.p3-goal small,.p3-claimed{color:var(--p3-metal);font-size:clamp(10px,2.9vw,14px);margin-top:3px}
+.p3-arrow{min-width:36px;min-height:44px;color:#ffe0a5;font-size:25px;background:var(--p3-card) center/135% 115%;border:0;border-radius:12px}
+.p3-button{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;min-width:0;min-height:48px;padding:5px 12px;box-sizing:border-box;border:0;border-radius:16px;color:#fff8e9;background:var(--p3-emerald) center/100% 100% no-repeat,#115149;font:700 clamp(12px,4vw,21px)/1.1 Georgia,serif;text-wrap:balance;text-shadow:0 1px 3px #191127;cursor:pointer}
+.p3-button .p3-icon{width:clamp(24px,9vw,45px);height:clamp(24px,9vw,45px);flex:none}
+.p3-button[aria-pressed="false"]{filter:brightness(.79)}
+.p3-button:active:not(:disabled){transform:translateY(1px);filter:brightness(1.2)}
+.p3-button:disabled{filter:grayscale(.8);opacity:.6;cursor:default}
+.p3-button:focus-visible,.p3-arrow:focus-visible{outline:2px solid white;outline-offset:2px}
+.p3-gold{background-image:var(--p3-gold);background-color:#dfa13d;color:#351900;text-shadow:none}
+.p3-goal .p3-button,.p3-reward-track .p3-button{font-size:11px;padding-inline:7px;min-height:44px}
+#panel-body[data-scene="promo"] .city-promo-form{display:grid;gap:12px;margin:10px 0 13px}
+#panel-body[data-scene="promo"] #city-promo-input{width:100%;box-sizing:border-box;min-height:52px;padding:8px 15px;border:0;border-radius:23px;background:var(--p3-card) center/100% 100%,#210f34;color:#fff;font-size:16px}
+#panel-body[data-scene="promo"] #city-promo-input::placeholder{color:#d8c3e6}
+#panel-body[data-scene="promo"] .p3-gold{width:94%;justify-self:center}
+#city-shell:has(#panel-body[data-scene="season"]):has(#city-page:not([hidden])) .topbar{display:none}
+#city-shell #city-page:has(#panel-body[data-scene="season"]){padding:0 9px calc(96px + env(safe-area-inset-bottom));background:var(--p3-velvet) center bottom/100% auto no-repeat,#210e37}
+#city-page:has(#panel-body[data-scene="season"]) #page-heading{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}
+.p3-season-lead{margin-inline:-10px;min-height:clamp(160px,45vw,252px);display:grid;align-content:start;justify-items:center;gap:6px;padding:10px 7px;background:url("/assets/city/premium3/season.webp") center 40%/100% 125%,#251139;text-align:center}
+.p3-season-lead .p3-icon{width:52px;height:47px}
+.p3-season-lead h3{padding:9px 18px;border-radius:15px;background:var(--p3-card) center/100% 100%,#2a1043}
+.p3-main-reward{display:grid;grid-template-columns:minmax(0,1fr) 32%;align-items:center;margin-top:-12px;min-height:82px}
+.p3-main-reward .p3-icon{height:83px}
+.p3-main-reward h3{margin-top:5px}
+.p3-meter{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--p3-metal);margin:9px 0}
+.p3-meter progress{flex:1;min-width:0;accent-color:#c981ff}
+.p3-season-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:8px 0}
+.p3-season-tabs .p3-button{font-size:clamp(10px,3.35vw,17px);padding-inline:6px}
+.p3-rewards{display:grid;gap:5px}
+.p3-reward-track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.p3-reward-track article,.p3-reward-track header{display:grid;justify-items:center;align-content:start;gap:3px;padding:6px 3px;text-align:center;font-size:clamp(9px,2.7vw,13px);min-width:0;color:#fff1e4;overflow-wrap:anywhere;background:var(--p3-card) center/100% 100%,#32144b;border-radius:12px}
+.p3-premium-track article,.p3-premium-track header{border:1px solid #cd9b51}
+.p3-reward-track .p3-icon{width:46px;max-width:100%;height:40px}
+.p3-reward-track small,.p3-reward-track b{color:var(--p3-metal)}
+.p3-icon{mix-blend-mode:normal}
+#panel-overlay:is([data-scene="daily"],[data-scene="bonus"]) .city-panel{background:linear-gradient(#220e35dd,#220e35ed),var(--p3-velvet) center/100% 100%,#230d39}
+.p3-season{background:#210e37e8}
+.p3-season-lead{padding-top:clamp(45px,13vw,76px);min-height:clamp(166px,45vw,252px)}
+#panel-body[data-scene="promo"] #city-promo-input:focus{outline:2px solid #ffd598;outline-offset:1px}
