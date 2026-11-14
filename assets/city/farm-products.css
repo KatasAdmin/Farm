@@ -337,3 +337,55 @@
 #farm-city-inventory .farm-city-trade-row button:only-child{
   grid-column:1/-1;
 }
+
+
+/* Farm 2026: one City entry in top-right hero, no redundant home food panel */
+#farm .farm-hero-city-link {
+  position:absolute;
+  z-index:5;
+  top:85px;
+  right:13px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:42px;
+  min-width:110px;
+  box-sizing:border-box;
+  padding:8px 12px;
+  border-radius:15px;
+  border:1.5px solid #aff4ff;
+  color:#fff!important;
+  background:linear-gradient(180deg,#49cafa 0%,#1189db 44%,#044a9d 100%);
+  box-shadow:inset 0 2px 1px #ffffffb3,inset 0 -3px 3px #00366b,0 4px 12px #001946bf;
+  text-shadow:0 2px 2px #00396f;
+  font-size:14px;
+  font-weight:850;
+  letter-spacing:0.1px;
+  text-decoration:none!important;
+  white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;
+}
+#farm .farm-hero-city-link:active {transform:translateY(1px);filter:brightness(1.1)}
+#farm .farm-hero-city-link:focus-visible {outline:3px solid #fff;outline-offset:2px}
+#farm .farm-hero-city-icon {font-size:21px;line-height:1}
+#farm .farm-tile-food .farm-food-utensils {
+  display:inline-flex;
+  flex:0 0 48px;
+  align-items:center;
+  justify-content:center;
+  width:48px;
+  height:48px;
+  filter:drop-shadow(0 3px 3px #002d75);
+}
+#farm .farm-tile-food .farm-food-utensils svg {display:block;width:48px;height:48px}
+#farm .farm-tile-food strong {min-width:0;max-width:100px;line-height:1.1;text-wrap:balance}
+@media(max-width:390px) {
+  #farm .farm-hero-city-link {top:83px;right:9px;min-width:100px;min-height:40px;padding:7px 9px;font-size:13px}
+  #farm .farm-tile-food .farm-food-utensils {width:40px;height:44px;flex-basis:40px}
+  #farm .farm-tile-food .farm-food-utensils svg {width:40px;height:44px}
+  #farm .farm-tile-food strong {max-width:90px}
+}
+@media(max-width:359px) {
+  #farm .farm-hero-city-link {right:8px;top:78px;min-width:92px;padding-inline:8px;font-size:12px}
+}
