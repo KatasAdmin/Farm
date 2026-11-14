@@ -348,6 +348,39 @@ class CityTransactions(unittest.TestCase):
             self.assertEqual(amounts,{"seller":5,"other":1})
             self.assertEqual(c.execute("SELECT quantity FROM market WHERE id='own-egg-sale'").fetchone()["quantity"],20)
 
+    def test_one_shared_food_stock_and_safe_migration(self):
+        from unittest.mock import patch
+        import simple_economy
+        auth="Bearer t-buyer"
+        with self.connect() as c:
+            c.execute("INSERT INTO farm_food VALUES('buyer','bread',3)")
+            c.execute("INSERT INTO city_products VALUES('buyer','bread',2)")
+            c.execute("INSERT INTO farm_food VALUES('buyer','omelet',1)")
+        with patch.object(simple_economy,"enabled",return_value=True):
+            with self.connect() as c:
+                city_world.initialize(c)
+                self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='bread'").fetchone()["quantity"],5)
+                self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM farm_food").fetchone()["n"],0)
+                city_world.initialize(c)
+                self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='bread'").fetchone()["quantity"],5)
+            self.assertEqual(city_world.farm_goods(authorization=auth)["food"],{"bread":5,"omelet":1})
+            self.assertEqual(city_world.farm_goods(authorization=auth)["city_food"],{})
+            price=simple_economy.prices(city_world.RECIPES)["bread"]["buy"]
+            q=self.action("bread",1,request_id=uuid.uuid4().hex,expected_cost=price)
+            q.destination="farm"
+            city_world.buy_product(q,authorization=auth)
+            self.assertEqual(city_world.farm_goods(authorization=auth)["food"]["bread"],6)
+            meal=self.action("bread",2,request_id=uuid.uuid4().hex)
+            meal.destination="farm"
+            city_world.eat(meal,authorization=auth)
+            self.assertEqual(city_world.farm_goods(authorization=auth)["food"]["bread"],4)
+            sale=self.action("bread",1,request_id=uuid.uuid4().hex)
+            sale.destination="city"
+            city_world.list_product(sale,authorization=auth)
+            self.assertEqual(city_world.farm_goods(authorization=auth)["food"]["bread"],3)
+            with self.connect() as c:
+                self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM farm_food").fetchone()["n"],0)
+
     def test_simple_system_uses_treasury_and_nonwithdrawable_game_credits(self):
         import simple_economy
         with self.connect() as db:
