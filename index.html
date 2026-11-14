@@ -20,13 +20,13 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=120" defer></script>
+    <script src="/assets/game.js?v=121" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
     <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
-      <link rel="stylesheet" href="/assets/city/farm-products.css?v=11" />
+      <link rel="stylesheet" href="/assets/city/farm-products.css?v=12" />
     <link rel="stylesheet" href="/assets/farm-final-scenes.css?v=1" />
   </head>
   <body>
@@ -288,14 +288,18 @@
 
       </section>
       <section id="production" class="panel unified-farm-panel" aria-label="Еда и бонусы">
-        <div class="farm-city-header card">
-          <div class="farm-food-heading">
-            <h2>🍽️ Еда и бонусы</h2>
+        <div class="farm-city-header farm-food-dashboard card">
+          <div class="farm-food-dashboard-title">
+            <span class="farm-food-dashboard-icon" aria-hidden="true">🍽️</span>
+            <div><h2>Еда и бонусы</h2><p>Питайся — и ускоряй производство фермы</p></div>
           </div>
-          <div class="farm-food-status">
-            <span>Сытность <strong data-farmer-fullness>—</strong></span>
-            <span>К выпуску продукции <strong data-farmer-bonus>—</strong></span>
+          <div class="farm-food-status" aria-live="polite">
+            <div class="farm-food-status-item"><span>Сытость</span><strong data-farmer-fullness>—</strong></div>
+            <div class="farm-food-status-item"><span>Ускорение</span><strong data-farmer-bonus>—</strong></div>
           </div>
+          <div class="farm-food-progress" role="progressbar" aria-label="Сытость фермера" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+          <p class="farm-food-explainer">Каждые 2% сытости ускоряют производство на 1%. При 100% — скорость +50%.</p>
+          <button type="button" class="farm-food-shop-jump" onclick="document.getElementById('farm-city-catalog')?.scrollIntoView({behavior:'smooth',block:'start'})">Выбрать еду <span aria-hidden="true">›</span></button>
         </div>
         <div class="farm-city-section card" id="farm-city-catalog">
           <div class="farm-city-heading"><h3>Купить еду</h3><button type="button" id="farm-city-refresh" class="farm-city-cta farm-city-cta-alt" aria-label="Обновить предложения">↻</button></div>
@@ -876,7 +880,7 @@
         <span id="fields-invested" hidden>0</span>
       </section>
     </div>
-    <nav id="nav" class="bottom" aria-label="Основная навигация" hidden>
+    <nav id="nav" class="bottom farm-module-nav" aria-label="Основная навигация" hidden>
       <button class="nav-button" onclick="tab('farm')" data-tab="farm">
         <span class="nav-art" aria-hidden="true"
           ><img loading="lazy"
@@ -887,23 +891,6 @@
         ><span>Ферма</span></button
       ><button class="nav-button" onclick="tab('shop')" data-tab="shop"><span class="nav-art" aria-hidden="true"><img loading="lazy" src="/assets/illustrations/market-icon-v2.webp" class="icon" alt=""></span><span>Рынок</span></button>
       <button class="nav-button" onclick="tab('tasks')" data-tab="tasks"><span class="nav-art" aria-hidden="true"><img loading="lazy" src="/assets/redesign/achievement.webp" class="icon" alt=""></span><span>Задания</span></button>
-      <button class="nav-button" onclick="tab('wallet')" data-tab="wallet">
-        <span class="nav-art" aria-hidden="true"
-          ><img loading="lazy"
-            src="/assets/redesign/wallet-icon.webp"
-            class="icon"
-            alt=""
-            decoding="async" /></span
-        ><span>Кошелёк</span></button
-      ><button class="nav-button" onclick="tab('profile')" data-tab="profile">
-        <span class="nav-art" aria-hidden="true"
-          ><img loading="lazy"
-            src="/assets/redesign/farmer.webp"
-            class="icon"
-            alt=""
-            decoding="async" /></span
-        ><span>Профиль</span>
-      </button>
     </nav>
     <dialog id="egg-sale-dialog" class="resource-dialog" aria-labelledby="egg-sale-title">
       <form method="dialog"><button class="dialog-close" aria-label="Закрыть">×</button></form>
