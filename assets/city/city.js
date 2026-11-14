@@ -226,7 +226,7 @@ function saleRow(item,quantity){
   return row((icons[item]||"📦")+" "+esc(recipe.name),
     number(quantity)+" шт. · Продажа за "+data.system_prices.product[item].sell+" 🪙/шт.",
     input("qty-list-"+item,1,Math.min(quantity,500))+
-    '<button class="btn gold" data-action="list" data-item="'+item+'">Продать сразу</button>');
+    '<button class="btn gold" data-action="list" data-item="'+item+'">Продать</button>');
  }
  return row((icons[item]||"📦")+" "+esc(recipe.name),number(quantity)+" шт. на складе",
   '<div class="sale-fields"><label>Количество'+input("qty-list-"+item)+'</label><label>Цена за штуку<input class="number-input" aria-label="Цена за штуку" id="price-'+item+'" type="number" min="1" max="100000" value="10"></label></div>'+
@@ -331,17 +331,19 @@ function simpleMarket(){
    return row(names[item],'Купить: '+price+' 🪙 · Продать: '+payout+' 🪙 · В городе: '+owned,
      input("qty-market-"+item,1,500)+
      '<button class="btn" data-action="raw" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Купить</button>'+
-     (owned?'<button class="btn gold" data-action="sell-raw" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Продать сразу</button>':''));
+     (owned?'<button class="btn gold" data-action="sell-raw" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Продать</button>':''));
   }).join("");
  }else{
   const food=marketCategory==="food";
-  html+=Object.entries(data.recipes).filter(([item])=>data.food_items.includes(item)===food).map(([item,recipe])=>{
+  html+=Object.entries(data.recipes).filter(([item])=>data.food_items.includes(item)===food)
+   .sort(([keyA],[keyB])=>data.system_prices.product[keyA].buy-data.system_prices.product[keyB].buy||
+     keyA.localeCompare(keyB,"ru")).map(([item,recipe])=>{
    const v=data.system_prices.product[item],owned=data.products[item]||0;
    return row((icons[item]||"📦")+" "+esc(recipe.name),
     'Купить: '+v.buy+' 🪙 · Продать: '+v.sell+' 🪙 · На складе: '+owned,
     input("qty-market-"+item,1,500)+
     '<button class="btn" data-action="product" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Купить</button>'+
-    (owned?'<button class="btn gold" data-action="sell-market-product" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Продать сразу</button>':''));
+    (owned?'<button class="btn gold" data-action="sell-market-product" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Продать</button>':''));
   }).join("");
  }
  openPanel("🏪 Магазин",html);
@@ -362,23 +364,17 @@ function simpleWarehouse(){
      (city?'<button class="btn gold" data-action="sell-raw" data-item="'+item+'" data-amount-id="qty-move-'+item+'">Продать · '+data.system_prices.raw_sell[item]+' 🪙</button>':''));
   }).join("");
  }else{
-  html+='<p class="panel-note">Готовый товар продаётся сразу. Еду можно переносить на ферму для сытости и ускорения производства.</p>';
-  const goods=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key]);
+  html+='<p class="panel-note">Один общий запас еды и продукции для города и фермы. Покупки, производство и продажи сразу меняют количество в обоих разделах.</p>';
+  const goods=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key])
+    .sort(([a],[b])=>data.system_prices.product[a].buy-data.system_prices.product[b].buy||
+      a.localeCompare(b,"ru"));
   html+=goods.length?goods.map(([item,n])=>{
    const v=data.system_prices.product[item];
    return row((icons[item]||"📦")+" "+esc(data.recipes[item].name),
-    'В городе: '+n+' шт. · Продажа: '+v.sell+' 🪙/шт.',
+    'В наличии: '+n+' шт. · Продажа: '+v.sell+' 🪙/шт.',
     input("qty-list-"+item,1,500)+
-    '<button class="btn gold" data-action="list" data-item="'+item+'">Продать сразу</button>'+
-    (data.food_items.includes(item)?'<button class="btn ghost" data-action="food-to-farm" data-item="'+item+'">→ На ферму</button>':''));
+    '<button class="btn gold" data-action="list" data-item="'+item+'">Продать</button>');
   }).join(""):'<div class="empty">Пока нет готовой продукции</div>';
-  const farm=Object.entries(data.farm_food||{}).filter(([item,n])=>n>0&&data.food_items.includes(item));
-  if(farm.length){
-   html+='<h3 class="section-subtitle">🍽️ На фермерском складе</h3>';
-   html+=farm.map(([item,n])=>row((icons[item]||"🍽️")+" "+esc(data.recipes[item].name),
-    'На ферме: '+n+' шт.',input("qty-farm-food-"+item,1,500)+
-    '<button class="btn ghost" data-action="food-to-city" data-item="'+item+'">← В город</button>')).join("");
-  }
  }
  openPanel("📦 Мои склады",html);
 }
