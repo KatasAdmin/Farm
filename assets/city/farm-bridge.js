@@ -77,6 +77,13 @@
   if(!food)return;
   for(const el of document.querySelectorAll("[data-farmer-fullness]"))el.textContent=fmt(food.fullness)+"%";
   for(const el of document.querySelectorAll("[data-farmer-bonus]"))el.textContent="+"+fmt(food.bonus_percent)+"%";
+  const fullness=Math.max(0,Math.min(100,Number(food.fullness)||0));
+  const bar=document.querySelector("#production .farm-food-progress");
+  if(bar){
+   bar.setAttribute("aria-valuenow",String(Math.round(fullness)));
+   const fill=bar.querySelector("span");
+   if(fill)fill.style.width=fullness+"%";
+  }
  }
  function renderInventory(){
   const owned=Object.entries(info.food).filter(([item,n])=>n>0&&info.food_restore[item]);
