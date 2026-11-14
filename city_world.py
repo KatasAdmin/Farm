@@ -252,13 +252,21 @@ def _achievements(c, pid, now):
             WHERE seller=%(pid)s AND buyer<>seller) AS sales,
         (SELECT COUNT(*) FROM city_daily_orders WHERE player_id=%(pid)s) AS orders
         """, {"pid": pid, "now": now}).fetchone()
-    values = (counts["businesses"], counts["bread"], counts["sales"], counts["orders"],
+    system_sales = 0
+    if simple_economy.enabled():
+        result=c.execute("""SELECT COALESCE(SUM(quantity),0) AS n FROM simple_system_trades
+            WHERE player_id=%s AND kind='sell' AND item=ANY(%s)""",
+            (pid,list(RECIPES))).fetchone()
+        system_sales=int(result["n"])
+    values = (counts["businesses"], counts["bread"], counts["sales"]+system_sales, counts["orders"],
               counts["business_level"], counts["businesses"])
     achieved = []
     for (key, name, description, goal, xp), value in zip(ACHIEVEMENTS, values):
         done = value >= goal
         if done:
             _progress_event(c, pid, "achievement:" + key, "achievement", now, xp)
+        if key=="merchant" and simple_economy.enabled():
+            description="Продать готовые товары системе"
         achieved.append({"name": name, "description": description, "goal": goal,
                          "value": value, "xp": xp, "done": done})
     return achieved
@@ -848,6 +856,7 @@ def list_product(q:Action,authorization:str=Header(default="")):
             _settle(c,p["id"])
             result=simple_economy.city_product_trade(c,p,q.item,q.amount,
                       "sell",RECIPES,destination=q.destination)
+            _progress_event(c,p["id"],"sale:"+q.request_id,"sale",time.time(),0)
             _finish_request(c,q,result)
             return result
     _amount(q.amount,500)
