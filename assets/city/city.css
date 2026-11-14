@@ -496,3 +496,39 @@ body{background:radial-gradient(ellipse at 52% 7%,#39234d 0%,#17152a 48%,#100e1b
 .season-track article{min-height:115px}
 #panel-body[data-scene="events"] .festival-hero{min-height:145px}
 @media(max-width:365px){.top-counters .counter b{display:none}.city-identity .city-logo{display:none}.season-banner{padding-left:57px;background-size:55px auto,cover}}
+
+/* Compact reference market rows, with a dedicated slot for every control. */
+.market-line{
+ grid-template-columns:38px minmax(42px,1fr) auto auto;
+ gap:5px;padding:6px;min-height:58px
+}
+.market-line .product-art{width:38px;height:38px}
+.market-description strong{font-size:clamp(11px,3.5vw,15px)}
+.market-description small{font-size:clamp(8px,2.45vw,11px);line-height:1.15}
+.market-price{padding:3px;gap:2px;font-size:11px;white-space:nowrap}
+.market-price img{width:12px;height:12px}
+.market-controls{grid-column:auto;flex-wrap:nowrap;gap:4px}
+.market-line:not(:has(.market-price)) .market-controls{grid-column:3/-1}
+#panel-body .market-controls .quantity-step{grid-template-columns:24px 24px 24px;flex-basis:72px}
+#panel-body .market-controls .quantity-step button,
+#panel-body .market-controls .number-input{height:34px;min-height:34px;font-size:12px}
+.market-controls>.btn{min-width:45px;min-height:37px;padding:3px 4px;font-size:11px}
+.market-line:has([data-action="sell-product"]) .market-controls{grid-column:2/-1;justify-content:end}
+.reward-board{display:grid;gap:8px;margin:14px 0}
+.reward-rail{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.reward-rail>*{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+ gap:5px;padding:7px 3px;border:1px solid #a976c6;border-radius:12px;background:linear-gradient(#38244f,#1b172a);
+ box-shadow:inset 0 -4px 12px #ab56d03d}
+.reward-rail img{width:clamp(27px,9vw,48px);height:clamp(27px,9vw,48px);object-fit:contain}
+.reward-rail strong,.reward-rail small{font-size:clamp(9px,2.65vw,14px);overflow-wrap:anywhere}
+.reward-rail.premium-track header{background:linear-gradient(#93570c,#42290f);border-color:#ffd27b}
+.reward-rail .reward-threshold{color:#ffe2a3;font-size:10px;font-weight:800}
+#panel-body .reward-rail .item-card{display:flex;flex-direction:column;align-items:center;gap:3px;margin:0;padding:0;border:0;background:none;box-shadow:none}
+#panel-body .reward-rail .item-card>div{flex:auto;min-width:0}
+#panel-body .reward-rail .item-card .btn{min-height:32px;padding:4px;font-size:10px}
+@media(max-width:345px){.market-line{grid-template-columns:31px minmax(42px,1fr) auto auto;gap:3px;padding:5px}.market-line .product-art{width:31px;height:31px}}
+#panel-body .season-switch .btn[aria-pressed=false]{
+ background:linear-gradient(#51405f,#2a203b);border:1px solid #a479c6;box-shadow:inset 0 0 10px #c98bff37
+}
+.market-scene strong{justify-self:center;align-self:end}
+html{overflow-anchor:none}
