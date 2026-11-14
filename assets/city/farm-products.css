@@ -24,3 +24,120 @@
 .farm-food-buy{border:1px solid #4f9bd3;border-radius:9px;background:linear-gradient(125deg,#137cb2,#2054ab);padding:8px 12px;min-height:42px;color:#fff;font-size:14px;font-weight:800}
 .farm-food-metrics{display:flex;gap:5px 12px;flex-wrap:wrap}
 .farm-city-market-heading{grid-column:1/-1;margin:5px 0 0;font-size:15px;color:#eafaff}
+
+
+/* TREVIXO sapphire catalog: unify City goods and Farm food with the
+   existing glossy-blue Farm tiles; all transactions remain unchanged. */
+#farm .farm-food-summary,
+#production .farm-food-status,
+#farm .farm-food-status {
+  background:linear-gradient(160deg,#168de1 0%,#0b5aaa 43%,#073975 100%)!important;
+  color:#effaff!important;
+  border:1.5px solid #86dcff!important;
+  border-radius:16px!important;
+  box-shadow:inset 0 2px 1px #e9fbff99,inset 0 -3px 5px #00295c80,
+             0 5px 13px #001c4780!important;
+}
+#farm .farm-food-summary *,
+#production .farm-food-status *,
+#farm .farm-food-status * {
+  color:#fff!important;
+  text-shadow:0 1px 2px #002d65a8;
+}
+#farm .farm-food-buy {
+  color:#fff!important;
+  background:linear-gradient(180deg,#33c7f8 0%,#087acb 43%,#06418f 100%)!important;
+  border:1.5px solid #a3edff!important;
+  border-radius:12px!important;
+  box-shadow:inset 0 2px 1px #fff8,inset 0 -3px 4px #00396b9e,
+             0 3px 7px #001b4873!important;
+  text-shadow:0 1px 2px #002758;
+}
+#shop .farm-city-product,
+#production .farm-city-product {
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(165deg,#20b9f1 0%,#1386cb 16%,#0965b2 43%,#064280 75%,#062e65 100%)!important;
+  border:1.5px solid #7fddff!important;
+  border-radius:16px!important;
+  color:#fff!important;
+  box-shadow:inset 0 2px 2px #e0faff91,inset 0 -3px 5px #002b5f,
+             0 5px 12px #001d4b80!important;
+  padding:11px 10px!important;
+}
+#shop .farm-city-product::before,
+#production .farm-city-product::before {
+  content:"";
+  pointer-events:none;
+  position:absolute;
+  top:2px;left:10px;right:10px;
+  height:18px;border-radius:55% 55% 45% 45%;
+  background:linear-gradient(180deg,#e0fcff69,#e0fcff00);
+  opacity:.55;
+}
+#shop .farm-city-product-top,
+#production .farm-city-product-top,
+#shop .farm-city-trade-row,
+#production .farm-city-trade-row {
+  position:relative;z-index:1;
+}
+#shop .farm-city-product-top strong,
+#production .farm-city-product-top strong {
+  color:#fff!important;
+  font-size:14px!important;
+  font-weight:850;
+  line-height:1.15;
+  text-shadow:0 2px 3px #00214a;
+}
+#shop .farm-city-product-top small,
+#production .farm-city-product-top small {
+  color:#e1f4ff!important;
+  font-size:11px!important;
+  line-height:1.35!important;
+  text-shadow:0 1px 2px #00214a;
+}
+#shop .farm-city-icon,
+#production .farm-city-icon {
+  font-size:27px;
+  filter:drop-shadow(0 3px 4px #001b4ba8);
+}
+#shop .farm-city-trade-row input,
+#production .farm-city-trade-row input {
+  background:linear-gradient(170deg,#1c8bca,#064a94)!important;
+  color:#fff!important;
+  border:1.5px solid #9feaff!important;
+  border-radius:11px!important;
+  box-shadow:inset 0 2px 3px #002e5e7a!important;
+  font-weight:750;
+  min-height:36px;
+}
+#shop .farm-city-trade-row button,
+#production .farm-city-trade-row button {
+  background:linear-gradient(180deg,#35c8fa 0%,#0b86d7 42%,#0751a7 100%)!important;
+  border:1.5px solid #b6f3ff!important;
+  border-radius:11px!important;
+  box-shadow:inset 0 2px 2px #f0ffff7d,inset 0 -3px 3px #003b80a8,
+             0 3px 5px #0024548c!important;
+  color:#fff!important;
+  font-weight:850;
+  text-shadow:0 1px 2px #00336e;
+  min-height:37px;
+}
+#shop .farm-city-trade-row button:focus-visible,
+#production .farm-city-trade-row button:focus-visible,
+#farm .farm-food-buy:focus-visible {
+  outline:3px solid #fff!important;
+  outline-offset:2px;
+}
+#shop .farm-city-trade-row button:disabled,
+#production .farm-city-trade-row button:disabled {
+  opacity:.58;filter:saturate(.55);
+}
+@media(max-width:390px){
+  #shop .farm-city-product,
+  #production .farm-city-product {padding:9px 7px!important}
+  #shop .farm-city-trade-row,
+  #production .farm-city-trade-row {gap:5px}
+  #shop .farm-city-trade-row input,
+  #production .farm-city-trade-row input {width:44px}
+}
