@@ -84,7 +84,9 @@ async def lifespan(app):
   bot_cash_ad_credits.initialize(c)
   bot_adsgram_daily.initialize(c)
   ad_inventory.initialize(c)
-  c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury int not null check(treasury>=0))")
+  c.execute("CREATE TABLE IF NOT EXISTS economy(id int primary key,treasury bigint NOT NULL)")
+  c.execute("ALTER TABLE economy DROP CONSTRAINT IF EXISTS economy_treasury_check")
+  c.execute("ALTER TABLE economy ALTER COLUMN treasury TYPE bigint")
   c.execute("INSERT INTO economy(id,treasury) SELECT 1,GREATEST(0,10000-(SELECT COALESCE(SUM(coins),0)::int FROM players)) WHERE NOT EXISTS(SELECT 1 FROM economy)")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS satiety integer NOT NULL DEFAULT 100")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_tick double precision")
@@ -1007,8 +1009,7 @@ def join(q:Request):
    limit_public_registration(c,time.time())
    if c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s)",(name,)).fetchone():
     raise HTTPException(409,"Ник уже занят")
-   treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
-   if treasury<10:raise HTTPException(409,"Стартовый фонд исчерпан")
+   # The treasury is an accounting ledger, not a registration budget.
    pid=uuid.uuid4().hex
    c.execute("INSERT INTO players(id,name,token,coins,last_tick,created_at,gender,password_hash,production_model,fed_hens,feed_phase,xp_legacy_eggs,xp_legacy_listed,xp_legacy_sold) VALUES(%s,%s,%s,10,%s,%s,%s,%s,3,1,0,0,0,0)",(pid,name,token,time.time(),time.time(),q.gender,stored))
    if q.referral:register_referral(c,pid,q.referral,time.time())
@@ -1511,8 +1512,7 @@ def login_telegram(q:Request):
   c.execute("SELECT pg_advisory_xact_lock(%s)",(uid,))
   p=c.execute("SELECT id FROM players WHERE telegram_id=%s FOR UPDATE",(uid,)).fetchone()
   if not p:
-   treasury=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()["treasury"]
-   if treasury<10:raise HTTPException(409,"Новые регистрации временно закрыты")
+   # New registrations are permitted regardless of the accounting treasury.
    name="tg_"+secrets.token_hex(6)
    while c.execute("SELECT 1 FROM players WHERE lower(name)=lower(%s)",(name,)).fetchone():
     name="tg_"+secrets.token_hex(6)
@@ -1723,9 +1723,7 @@ def sell_to_system(q:Request,authorization:str=Header(default="")):
   c.execute("SELECT pg_advisory_xact_lock(1984533)")
   p=advance(c,person(c,authorization,True))
   if p[q.item]<q.amount:raise HTTPException(400,"Недостаточно товара для продажи")
-  funds=c.execute("SELECT treasury FROM economy WHERE id=1 FOR UPDATE").fetchone()
-  if not funds or funds["treasury"]<payout:
-   raise HTTPException(409,"В системе временно не хватает монет для выкупа")
+  # The treasury may become negative; system sales never wait for replenishment.
   tagged=ad_inventory.take(c,p,q.item,q.amount)
   if q.item=="chickens":
    remaining=p["chickens"]-q.amount
