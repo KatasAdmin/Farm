@@ -509,7 +509,7 @@ function marketTab(mode) {
 }
 let selectedResource="eggs";
 let sellingResource=null;
-const systemBuyback={grain:1,feathers:5};
+const systemBuyback={grain:1,feathers:16};
 function openResourceActions(item) {
   if (!state || !["grain","chickens","geese","cows","sheep","wool","milk","feathers","eggs"].includes(item)) return;
   selectedResource=item;
