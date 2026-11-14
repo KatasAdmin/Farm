@@ -30,7 +30,7 @@ class UnifiedFarmScreens(unittest.TestCase):
   for key in ('id="coop-birds-pane"','id="coop-incubator-pane"','id="nickname-settings"','id="auto-storage"','id="coop-harvest"','id="next-harvest"'):
    self.assertIn(key,self.page)
  def test_canonical_production_copy(self):
-  self.assertIn("≈ 30 дней",self.page)
+  self.assertIn("≈ 15 дней",self.page)
   # Detailed feed-cost calculations are now presented in the game logic, not as a fixed UI label.
   self.assertIn("Сытая курица несёт яйцо за 6 часов",self.page)
   self.assertNotIn("≈ 10 дней",self.page)
