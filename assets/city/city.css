@@ -394,3 +394,58 @@ body{background:radial-gradient(ellipse at 52% 7%,#39234d 0%,#17152a 48%,#100e1b
  .district-target strong{font-size:clamp(8px,2.5vw,11px);padding:3px 4px}
  .map-shortcuts button{min-width:40px;min-height:40px}
 }
+
+/* Reference proportions at phone sizes. */
+#city-shell{max-width:560px;padding-bottom:calc(112px + env(safe-area-inset-bottom))}
+.topbar{min-height:43px;padding-block:4px;border-radius:0 0 16px 16px}
+.city-logo img,.district-pass i img,.stat i img{display:block;width:100%;height:100%;object-fit:contain}
+.district-pass i{width:36px;height:36px;flex:none}
+.stat i:has(img){width:24px;height:24px}
+.top-counters .counter,.farm-return{min-height:30px}
+.district-tools{background:radial-gradient(ellipse at 60% 0,#532c5d,#151829 80%)}
+.district-tools .quick-action{min-height:48px}
+.district-tools .quick-action{box-shadow:inset 0 0 14px #bd50ff64,0 0 11px #9f53c16b}
+.district-tools #district-name{font-size:13px}
+.district-target strong{border-width:1.5px;letter-spacing:.15px}
+.dash .stat{min-height:64px}
+.quick-actions #view-market{background:linear-gradient(#ac690f,#61330e);border-color:#ffc774;box-shadow:inset 0 0 9px #ffca62,0 0 9px #f2a12f77;order:2}
+.quick-actions #city-watch-ad{order:3}
+.bottom-nav{max-width:550px;gap:4px;padding:5px;border-color:#a96cc9;background:linear-gradient(#251e37,#181424);box-shadow:0 -3px 17px #8d42bc55}
+.bottom-nav button{min-height:59px;border-radius:15px;background:linear-gradient(#322742,#21192e);box-shadow:inset 0 0 9px #aa6cd13d}
+.bottom-nav button.nav-active{background:linear-gradient(#158469,#07332e);box-shadow:inset 0 0 12px #6effd6,0 0 10px #6affc887}
+.bottom-nav small{font-weight:750}
+
+.business-gallery{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+#panel-body[data-scene="businesses"]{padding-top:0;background:none}
+.business-tile{min-width:0;padding:0 0 9px;color:#ffe4a2;overflow:hidden;border-radius:15px;border:1px solid #c58de6;background:#30203f}
+.business-tile>span{display:block;padding:7px 2px 0;font-size:12px}
+.business-art{position:relative;overflow:hidden;min-height:130px;isolation:isolate;border-radius:14px;display:flex;align-items:flex-end;padding:10px;color:white}
+.business-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
+.business-art::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 25%,#190f22dc);z-index:-1}
+.business-art strong,.business-art small{display:block}
+.business-art small{color:#ffe1a1}
+#panel-body[data-scene="business"]>.business-art{min-height:180px;margin-bottom:12px}
+.market-line{display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:5px 8px;align-items:center;margin:0 0 7px;padding:7px;
+ border-radius:15px;border:1px solid #bc80e5;background:linear-gradient(135deg,#372246,#1a1729);box-shadow:inset 0 0 12px #b55ed049}
+.product-art{width:45px;height:45px;object-fit:contain;border:1px solid #9d69b6;border-radius:12px;background:#3a224f}
+.market-description{min-width:0;line-height:1.2}
+.market-description strong,.market-description small{display:block}
+.market-description small{color:#e5cde9;font-size:10px;margin-top:3px}
+.market-price{display:flex;gap:4px;align-items:center;color:#ffe2a7;background:#181321;border:1px solid #9066a7;border-radius:8px;padding:4px 7px}
+.market-price img{width:15px;height:15px}
+.market-controls{grid-column:2/-1;display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.market-controls>.btn{min-height:40px;padding:5px 8px;flex:1;min-width:52px}
+#panel-body .market-controls .quantity-step{grid-template-columns:30px 32px 30px;flex-basis:92px}
+.season-track article>img{width:42px;height:42px;object-fit:contain}
+.premium-track article{background:linear-gradient(#584020,#281a24);border-color:#c78e45}
+#panel-body[data-scene="events"] .empty{min-height:86px;display:grid;place-items:center;color:#ffe7a6;border-style:solid;background:linear-gradient(90deg,#291631f4,#29163135),url("evening-festival.webp") center/cover}
+.market-scene{background-image:url("ref-market.webp");background-position:center 48%;min-height:115px;position:relative;display:grid;align-items:end;justify-items:center;padding-bottom:15px}
+.market-scene strong{font-family:Georgia,serif;font-size:34px;font-style:italic;text-shadow:0 2px 6px #291100}
+.market-scene .btn{position:absolute;right:5px;bottom:7px;padding:3px 6px;min-height:32px}
+#panel-body .profile-hero{background-image:linear-gradient(90deg,#231432d9,#23143211),url("ref-profile.webp");background-position:center}
+.profile-balance img{width:55px;height:55px;object-fit:contain}
+#city-page .profile-hero{min-height:110px}
+.profile-menu .stat{min-height:58px}
+.season-banner{background-image:url("ref-chest.webp"),linear-gradient(95deg,#3b2052,#1a1628);
+ background-position:left center,center;background-size:65px auto,cover;background-repeat:no-repeat;padding-left:66px}
+#panel-body[data-scene="market"] .city-market-tabs img{display:block;width:19px;height:19px;object-fit:contain;margin:0 auto 2px}
