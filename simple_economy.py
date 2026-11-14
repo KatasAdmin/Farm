@@ -11,8 +11,8 @@ from production import GRAIN_PRICE
 from production_v4 import MILK_PRICE
 import city_nutrition
 
-RAW_BUY={"eggs":2,"grain":2,"milk":15,"feathers":7,"wool":20}
-RAW_SELL={"eggs":1,"grain":1,"milk":12,"feathers":5,"wool":16}
+RAW_BUY={"eggs":2,"grain":2,"milk":15,"feathers":20,"wool":20}
+RAW_SELL={"eggs":1,"grain":1,"milk":12,"feathers":16,"wool":16}
 ANIMAL_BUY={"chickens":20,"geese":120,"cows":500,"sheep":200}
 ANIMAL_SELL={k:max(1,p//2) for k,p in ANIMAL_BUY.items()}
 BUSINESS_COST={"bakery":80,"restaurant":180,"dairy":280,"atelier":360,"store":500}
