@@ -593,6 +593,7 @@ def state(authorization: str=Header(default=""), compact: bool=False):
                          if simple_economy.enabled() else BUSINESSES),
             "simple_economy":simple_economy.enabled(),
             "farm_stock":{k:int(p.get(k,0)) for k in INGREDIENTS},
+            "farm_food":_counts(c,"farm_food",p["id"]),
             "system_prices":{"raw_buy":simple_economy.RAW_BUY,
                              "raw_sell":simple_economy.RAW_SELL,
                              "product":simple_economy.prices(RECIPES),
