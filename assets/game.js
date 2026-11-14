@@ -703,19 +703,20 @@ function openPurchase(data) {
     (data.kind === "bundle" ? "redesign/wallet" : art[data.item]) +
     (/\.(png|webp|svg)$/.test(art[data.item]||"")?"":".webp");
   el("purchase-amount").value = 1;
+  el("purchase-amount").max=state?.simple_economy?"500":"10000";
   el("purchase-amount").closest(".stepper").hidden = data.kind === "bundle";
   purchaseQuote();
   el("purchase-dialog").showModal();
 }
 function stepAmount(delta) {
   const value = Number(el("purchase-amount").value) || 1;
-  el("purchase-amount").value = Math.max(1, Math.min(10000, value + delta));
+  el("purchase-amount").value = Math.max(1, Math.min(state?.simple_economy?500:10000, value + delta));
   purchaseQuote();
 }
 function purchaseQuote() {
   if (!purchase || !state) return;
   const n = purchase.kind === "bundle" ? 1 : Number(el("purchase-amount").value);
-  const valid = Number.isSafeInteger(n) && n >= 1 && n <= 10000;
+  const valid = Number.isSafeInteger(n) && n >= 1 && n <= (state?.simple_economy?500:10000);
   const market = purchase.kind === "market";
   const result = purchase.kind==="bundle"
     ? {cost:purchase.price*n,remaining:0}
@@ -765,7 +766,7 @@ async function confirmPurchase() {
 }
 function sellMaximum() {
   if(!state)return;
-  const eggs=Math.min(10000,Math.max(0,Number(state.me[el("sellitem").value])||0));
+  const eggs=Math.min(state?.simple_economy?500:10000,Math.max(0,Number(state.me[el("sellitem").value])||0));
   if(!eggs){toast("Пока нет товара для продажи");return;}
   el("sellnum").value=eggs;
   sellQuote();
