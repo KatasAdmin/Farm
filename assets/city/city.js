@@ -191,7 +191,7 @@ function view(tab){
  if(changed&&mainScreens.has(tab))window.scrollTo(0,0);
  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("nav-active",x.dataset.view===tab));
  if(tab==="map")closePanel();
- else if(["season","events","daily"].includes(tab))showGoals(tab);
+ else if(["season","events","daily","story"].includes(tab))showGoals(tab);
  else if(tab==="bonus")showBonus();
  else if(tab==="ranking")showRanking("reputation");
  else if(tab==="wallet")showWallet(true);
@@ -518,7 +518,7 @@ async function showProgressLog(reputationOnly){
  }catch(error){if(activeView===current)openPanel(title,'<p class="empty">'+esc(error.message)+'</p>')}
 }
 
-const goalTitles={season:"Сезон",events:"События",daily:"Ежедневные задания"};
+const goalTitles={season:"Сезон",events:"События",daily:"Ежедневные задания",story:"Развитие города"};
 
 let homeGoalsRequest;
 function loadGoals(){
@@ -538,12 +538,12 @@ function showBonus(){
 }
 const goalDestinations={batches:["factory","businesses"],raw:["supplies","market"],sales:["stall","warehouse"],orders:["resident","residents"],upgrades:["factory","businesses"]};
 function illustratedGoal(goal,period,painted=false){
- const [art,destination]=goalDestinations[goal.key]||["scroll",null];
+ const [art,destination]=goalDestinations[goal.key]||["scroll",period.id==="story"?"businesses":null];
  const ready=goal.available&&!goal.claimed;
  const next=goal.claimed?'<span class="p3-claimed">Получено</span>':ready?
  '<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Получить</button>':
  destination&&period.active?'<button class="p3-arrow" aria-label="Перейти к заданию: '+esc(goal.name)+'" data-action="navigate" data-item="'+destination+'">›</button>':'';
- return '<article class="p3-goal">'+(painted?"":illustratedIcon(art,"menu-2"))+'<div><strong>'+esc(goal.name)+'</strong><small>'+number(Math.min(goal.value,goal.goal))+" / "+number(goal.goal)+" · +"+number(goal.xp)+' XP</small></div>'+next+'</article>';
+ return '<article class="p3-goal">'+(painted?"":illustratedIcon(art,"menu-2"))+'<div><strong>'+esc(goal.name)+'</strong><small>'+number(Math.min(goal.value,goal.goal))+" / "+number(goal.goal)+" · +"+number(goal.xp)+' XP'+(goal.status?' · +'+number(goal.status)+' статуса':'')+'</small></div>'+next+'</article>';
 }
 function periodTimer(period,prefix){
  if(!period.active)return '<span class="p3-time">'+(period.ends<=Date.now()/1000?"Завершено":"Скоро")+'</span>';
@@ -607,11 +607,19 @@ async function showGoals(tab){
     '<div class="season-switch"><button class="btn" data-action="event-section" data-item="current" aria-pressed="'+(eventSection==="current")+'">Текущие</button><button class="btn" data-action="event-section" data-item="history" aria-pressed="'+(eventSection==="history")+'">Завершённые</button></div>';
    if(featured&&eventSection==="current")periods.unshift(featured);
   }
+  if(tab==="story"){
+   const period=snapshot.story;
+   if(!period)return openPanel(title,'<p class="empty">Развитие города недоступно</p>');
+   return openPanel(title,citySectionArt("Развитие города","Открой предприятия и забери городской статус.","district")+
+    '<div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period)).join("")+'</div>');
+  }
   if(tab==="daily"){
+   const tabs=snapshot.story?'<div class="city-task-links">'+paintedButton("Сюжетные","navigate","story")+
+    '<a class="p3-button" href="/?tasks=1">Недельные</a>'+paintedButton("Особые","navigate","events")+'</div>':'';
    const period=snapshot.daily;
    const painted=period.goals.length===4&&period.goals.every((goal,index)=>goal.key===["batches","raw","sales","orders"][index]);
-   if(painted)return openPanel(title,'<div class="p3-scene-art p3-painted-daily"><div class="scene-copy"><h3>Цели дня</h3>'+periodTimer(period,"До ")+'</div><div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period,true)).join("")+'</div></div>');
-   return openPanel(title,'<div class="p3-banner p3-daily"><h3>Цели дня</h3>'+periodTimer(period,"До ")+'</div><div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period)).join("")+'</div>');
+   if(painted)return openPanel(title,'<div class="p3-scene-art p3-painted-daily"><div class="scene-copy"><h3>Цели дня</h3>'+periodTimer(period,"До ")+'</div><div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period,true)).join("")+'</div></div>'+tabs);
+   return openPanel(title,'<div class="p3-banner p3-daily"><h3>Цели дня</h3>'+periodTimer(period,"До ")+'</div><div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period)).join("")+'</div>'+tabs);
   }
   if(tab==="season"){
    const season=periods.find(period=>period.active)||periods[0];

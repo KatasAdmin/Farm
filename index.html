@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=124" defer></script>
+    <script src="/assets/game.js?v=125" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
       <link rel="stylesheet" href="/assets/city/farm-products.css?v=13" />
     <link rel="stylesheet" href="/assets/farm-final-scenes.css?v=1" />
+  <link rel="stylesheet" href="/assets/farm-painted.css?v=1">
   </head>
   <body>
     <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #80d6ff;border-radius:14px;background:#103c7c;color:white;font-family:Arial,sans-serif">
@@ -136,39 +137,18 @@
       </header>
       <section id="farm" class="panel active unified-farm-panel" aria-label="Ферма">
         <div id="tutorial-card" class="card tutorial-card" hidden><div class="tutorial-heading"><img loading="lazy" src="/assets/redesign/achievement.webp" alt=""><div><strong>Добро пожаловать на ферму!</strong><small id="tutorial-progress">Шаг 1 из 3</small></div></div><p id="tutorial-instruction">Начнём с животных.</p><button id="tutorial-next" class="btn wide" onclick="completeTutorialStep()">Посмотреть животных</button><p class="muted">Три подсказки и +5 монет за завершение. Один раз на аккаунт.</p></div>
-        <div class="farm-hero">
-          <img loading="lazy"
-            src="/assets/illustrations/farm-home-v1.webp"
-            class="farm-landscape"
-            alt="Красный амбар, ветряк и ферма на закате"
-            decoding="async"
-          />
-          <h1><span>НОВАЯ ЖИЗНЬ</span>Ферма</h1>
+        <div class="farm-hero farm-painted-map">
+          <img src="/assets/illustrations/farm-interactive.webp" class="farm-painted-landscape"
+               width="940" height="627" alt="" fetchpriority="high">
           <a class="farm-hero-city-link" href="/city" aria-label="Перейти в город">
             <span class="farm-hero-city-icon" aria-hidden="true">🏙️</span><span>В город</span>
           </a>
-          <div class="flock" aria-hidden="true">
-            <img loading="lazy"
-              src="/assets/redesign/hen.webp"
-              class="hen hen-one"
-              alt=""
-              decoding="async"
-            /><img loading="lazy"
-              src="/assets/redesign/hen.webp"
-              class="hen hen-two"
-              alt=""
-              decoding="async"
-            />
+          <div class="farm-tiles-v2">
+            <button type="button" class="farm-map-target" style="--x:24%;--y:44.6%;--top:12%" onclick="tab('coop')"><strong>Животные</strong></button>
+            <button type="button" class="farm-map-target" style="--x:76%;--y:44.6%;--top:12%" onclick="tab('storage')"><strong>Склад</strong></button>
+            <button type="button" class="farm-map-target" style="--x:25%;--y:85.5%;--top:55%" onclick="tab('fields')"><strong>Поля</strong></button>
+            <button type="button" class="farm-map-target" style="--x:75%;--y:85.5%;--top:55%" onclick="tab('production')"><strong>Еда и бонусы</strong></button>
           </div>
-        </div>
-        <div class="farm-tiles-v2">
-          <button type="button" class="farm-tile" onclick="tab('coop')"><img loading="lazy" src="/assets/redesign/coop-icon.webp" alt=""><strong>Животные</strong></button>
-          <button type="button" class="farm-tile" onclick="tab('storage')"><img loading="lazy" src="/assets/redesign/storage.webp" alt=""><strong>Склад</strong></button>
-          <button type="button" class="farm-tile farm-tile-fields" onclick="tab('fields')"><img loading="lazy" src="/assets/illustrations/field-icon-v2.webp" alt=""><strong>Поля</strong></button>
-          <button type="button" class="farm-tile farm-tile-food" onclick="tab('production')">
-            <img class="farm-food-utensils" src="/assets/illustrations/farm-food.svg" width="54" height="54" alt="">
-            <strong>Еда и бонусы</strong>
-          </button>
         </div>
         <details class="card launch-guide" id="launch-guide" hidden>
  <summary>🌱 Как начать играть? · подсказка для новичка</summary>

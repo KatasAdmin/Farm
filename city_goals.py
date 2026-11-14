@@ -117,6 +117,19 @@ def _state(c, pid, scope, start, end, now, specs, enabled=True):
             "xp": sum(claims.values()), "goals": goals, "claims": claims}
 
 
+def story_state(c,pid):
+    opened={row["kind"] for row in c.execute(
+        "SELECT kind FROM city_businesses WHERE player_id=%s",(pid,)).fetchall()}
+    claims={row["goal"] for row in c.execute(
+        "SELECT goal FROM city_goal_claims WHERE player_id=%s AND scope='story'",(pid,)).fetchall()}
+    goals=[]
+    for kind,name in (("bakery","Открыть пекарню"),("restaurant","Открыть ресторан"),
+                      ("dairy","Открыть молочную"),("atelier","Открыть ателье")):
+        goals.append({"key":kind,"name":name,"goal":1,"value":int(kind in opened),
+                      "available":kind in opened,"claimed":kind in claims,"xp":20,"status":10})
+    return {"id":"story","active":True,"goals":goals}
+
+
 def state(c, pid, now):
     start = now - now % 86400
     daily = _state(c, pid, "day:" + str(int(start // 86400)), start, start+86400, now, DAILY)
@@ -135,7 +148,8 @@ def state(c, pid, now):
                 "available": result["active"] and result["xp"] >= threshold}
                 for key, label, threshold in REWARDS]
         campaigns.append(result)
-    return {"daily": daily, "campaigns": campaigns}
+    return {"daily": daily, "campaigns": campaigns,
+            **({"story":story_state(c,pid)} if simple_economy.enabled() else {})}
 
 
 def cosmetics(c, pid):
@@ -147,8 +161,11 @@ def cosmetics(c, pid):
 
 
 def claim(c, pid, scope, key, now, progress_event):
-    snapshot = state(c, pid, now)
-    period = next((p for p in [snapshot["daily"], *snapshot["campaigns"]] if p["id"] == scope), None)
+    if scope=="story" and simple_economy.enabled():
+        period=story_state(c,pid)
+    else:
+        snapshot=state(c,pid,now)
+        period=next((p for p in [snapshot["daily"],*snapshot["campaigns"]] if p["id"]==scope),None)
     if not period:
         raise HTTPException(404, "Период не найден")
     goal = next((g for g in period["goals"]+period.get("rewards", []) if g["key"] == key), None)
@@ -163,5 +180,12 @@ def claim(c, pid, scope, key, now, progress_event):
     created = c.execute("""INSERT INTO city_goal_claims VALUES(%s,%s,%s,%s)
         ON CONFLICT DO NOTHING RETURNING goal""", (pid, scope, key, xp if season else 0)).fetchone()
     if created:
-        progress_event(c, pid, "goal:"+scope+":"+key, "goal", now, 0 if season else xp)
+        status=goal.get("status",0)
+        if status:
+            c.execute("""INSERT INTO city_reputation(player_id,points) VALUES(%s,%s)
+                ON CONFLICT(player_id) DO UPDATE SET points=city_reputation.points+EXCLUDED.points""",
+                (pid,status))
+            progress_event(c,pid,"goal:"+scope+":"+key,"goal",now,xp,status)
+        else:
+            progress_event(c,pid,"goal:"+scope+":"+key,"goal",now,0 if season else xp)
     return {"ok": True}

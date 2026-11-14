@@ -1449,8 +1449,9 @@ async function refresh() {
       hideStartup();
       const entryParams=new URLSearchParams(location.search);
       const marketItem=entryParams.get("market");
-      if(entryParams.get("wallet")==="1" || entryParams.get("food")==="1" || entryParams.get("profile")==="1"){
-        const target=entryParams.get("wallet")==="1"?"wallet":entryParams.get("profile")==="1"?"profile":"production";
+      if(entryParams.get("tasks")==="1" || entryParams.get("wallet")==="1" || entryParams.get("food")==="1" || entryParams.get("profile")==="1"){
+        const target=entryParams.get("tasks")==="1"?"tasks":entryParams.get("wallet")==="1"?"wallet":entryParams.get("profile")==="1"?"profile":"production";
+        entryParams.delete("tasks");
         entryParams.delete("wallet");
         entryParams.delete("food");
         entryParams.delete("profile");

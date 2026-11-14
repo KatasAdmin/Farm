@@ -26,7 +26,7 @@ class FarmNavigationTests(unittest.TestCase):
         self.assertEqual(farm.count('href="/city"'), 1)
         self.assertIn('class="farm-hero-city-link"', farm)
         self.assertNotIn('class="farm-food-summary"', farm)
-        self.assertIn('class="farm-food-utensils"', farm)
+        self.assertIn('/assets/illustrations/farm-interactive.webp', farm)
         self.assertIn("Еда и бонусы", farm)
 
     def test_bottom_navigation_retains_shop_tasks(self):

@@ -1,0 +1,9 @@
+#farm .farm-painted-map{position:relative;height:auto;aspect-ratio:940/627;overflow:hidden;background:#28213f}
+#farm .farm-painted-landscape{display:block;width:100%;height:100%;object-fit:fill}
+#farm .farm-painted-map .farm-hero-city-link{top:2%;right:2%;min-height:38px}
+#farm .farm-painted-map .farm-tiles-v2{display:block;position:absolute;inset:0;margin:0;pointer-events:none}
+#farm .farm-map-target{position:absolute;left:var(--x);top:var(--top);width:31%;height:calc(var(--y) - var(--top) + 5%);transform:translateX(-50%);border:0;background:transparent;padding:0;box-shadow:none;pointer-events:auto;cursor:pointer;color:#fff4de;line-height:1}
+#farm .farm-map-target strong{position:absolute;left:0;right:0;bottom:0;height:24%;display:grid;place-items:center;text-align:center;font-size:clamp(10px,3.2vw,15px);text-shadow:0 2px 3px #271126}
+#farm .farm-map-target:focus-visible{outline:2px solid #ffe9ae;outline-offset:-2px;border-radius:16px}
+#farm .farm-painted-map:after{content:none}
+#farm .farm-painted-map .farm-hero-city-link{z-index:3}

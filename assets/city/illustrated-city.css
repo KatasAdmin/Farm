@@ -17,3 +17,5 @@
 .city-profile-art .profile-live strong{font-size:clamp(12px,4.1vw,22px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .city-profile-art .profile-live progress{width:100%}
 .city-profile-art .profile-live span,.city-profile-art .profile-live small{font-size:clamp(9px,2.8vw,13px)}
+.city-task-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:6px}
+.city-task-links .p3-button{font-size:clamp(10px,3.2vw,15px);padding-inline:3px;text-decoration:none}

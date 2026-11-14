@@ -412,6 +412,24 @@ class CityTransactions(unittest.TestCase):
                 self.assertEqual(city_goals._metric(db,"buyer","raw",0,20),3)
                 self.assertEqual(city_goals._metric(db,"buyer","sales",0,20),2)
 
+    def test_story_rewards_are_available_only_after_opening_and_granted_once(self):
+        import simple_economy
+        from unittest.mock import patch
+        auth="Bearer t-buyer"
+        goal=city_world.GoalClaim(scope="story",key="bakery")
+        with patch.object(simple_economy,"enabled",return_value=True):
+            with self.assertRaises(HTTPException) as failure:
+                city_world.claim_goal(goal,authorization=auth)
+            self.assertEqual(failure.exception.status_code,409)
+            with self.connect() as db:
+                db.execute("INSERT INTO city_businesses VALUES('buyer','bakery',1,0)")
+            for _ in range(2):
+                self.assertTrue(city_world.claim_goal(goal,authorization=auth)["ok"])
+            with self.connect() as db:
+                self.assertEqual(city_world.city_status(db,"buyer"),10)
+                self.assertEqual(city_world.account_xp(db,"buyer"),20)
+                self.assertEqual(db.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200)
+
     def test_city_status_thresholds_and_opening_order_are_enforced(self):
         import simple_economy
         from unittest.mock import patch
