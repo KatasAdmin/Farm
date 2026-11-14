@@ -388,9 +388,12 @@ async function showGoals(tab){
    const item=(goal,details)=>row(esc(goal.name),details,goal.claimed?'<span class="pill">Получено</span>':
     goal.available?'<button class="btn" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Получить</button>':"");
    const goals=period.goals.map(goal=>item(goal,number(Math.min(goal.value,goal.goal))+" / "+number(goal.goal)+" · +"+goal.xp+" XP")).join("");
-   const rewards=period.rewards?'<h3>Бесплатные награды</h3>'+'<div class="season-track">'+period.rewards.map(goal=>'<article><img src="/assets/city/profile-icon-4.webp" alt="">'+item(goal,goal.goal+" XP"+(!goal.available&&!goal.claimed?" · Закрыто":""))+'</article>').join("")+'</div>'+
-    '<h3>Премиум</h3><div class="season-track premium-track">'+period.premium.map(label=>'<article><img src="/assets/city/tab-icon-1.webp" alt=""><strong>'+esc(label)+'</strong><small>Закрыто</small></article>').join("")+'</div>':"";
    if(!period.rewards)return heading+goals;
+   const rewards='<div class="reward-board"><div class="reward-rail premium-track"><header><img src="/assets/city/tab-icon-1.webp" alt=""><strong>Премиум</strong><small>Закрыто</small></header>'+
+    period.premium.map((label,index)=>'<article><img src="/assets/city/'+(index?"profile-icon-5":"tab-icon-1")+'.webp" alt=""><strong>'+esc(label)+'</strong><small>Закрыто</small></article>').join("")+
+    '</div><div class="reward-rail free-track"><header><img src="/assets/city/profile-icon-4.webp" alt=""><strong>Бесплатно</strong></header>'+
+    period.rewards.map((goal,index)=>'<article><span class="reward-threshold">'+number(goal.goal)+' XP</span><img src="/assets/city/'+["profile-icon-5","profile-icon-4","ref-chest"][index%3]+'.webp" alt="">'+
+     item(goal,goal.available||goal.claimed?"":"Закрыто")+'</article>').join("")+'</div></div>';
    const next=period.rewards.find(goal=>goal.goal>period.xp)?.goal||period.rewards.at(-1)?.goal||1;
    const tabs='<div class="season-switch"><button class="btn" data-action="season-section" data-item="rewards" aria-pressed="'+(seasonSection==="rewards")+'">Награды сезона</button><button class="btn" data-action="season-section" data-item="tasks" aria-pressed="'+(seasonSection==="tasks")+'">Задания сезона</button></div>';
    return heading+'<div class="season-meter"><strong>Ур. '+period.level+'</strong><progress aria-label="Опыт сезона" value="'+period.xp+'" max="'+next+'"></progress><small>'+period.xp+' / '+next+' XP</small></div>'+tabs+(seasonSection==="tasks"?goals:rewards);
