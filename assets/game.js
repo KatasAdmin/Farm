@@ -1451,13 +1451,16 @@ async function refresh() {
       const marketItem=entryParams.get("market");
       if(entryParams.get("tasks")==="1" || entryParams.get("wallet")==="1" || entryParams.get("food")==="1" || entryParams.get("profile")==="1"){
         const target=entryParams.get("tasks")==="1"?"tasks":entryParams.get("wallet")==="1"?"wallet":entryParams.get("profile")==="1"?"profile":"production";
+        const weekly=entryParams.get("task_section")==="weekly";
         entryParams.delete("tasks");
+        entryParams.delete("task_section");
         entryParams.delete("wallet");
         entryParams.delete("food");
         entryParams.delete("profile");
         const search=entryParams.toString();
         history.replaceState(null,"",location.pathname+(search?"?"+search:"")+location.hash);
         tab(target);
+        if(target==="tasks"&&weekly)requestAnimationFrame(()=>document.querySelector(".weekly-tasks")?.scrollIntoView({block:"start"}));
       }else if(["chickens","geese","cows","sheep"].includes(marketItem)){
         tab("shop");
         history.replaceState(null,"",location.pathname+location.hash);

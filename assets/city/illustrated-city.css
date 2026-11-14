@@ -117,3 +117,8 @@
 .wallet-overview .wallet-withdraw{left:51%}
 .wallet-payment .wallet-hit{bottom:11%;height:10%}
 .wallet-transfer .wallet-hit{bottom:14%;height:13%}
+
+.city-task-choices{display:grid;gap:8px;margin:12px 4px 0}
+.city-task-choices .p3-button,.p3-goal .p3-button{position:relative;text-decoration:none}
+.shortcut-alert[hidden]{display:none}
+.city-task-choices .shortcut-alert,.p3-goal .shortcut-alert{right:4px;top:0}

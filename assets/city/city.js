@@ -166,7 +166,7 @@ function openPanel(title,html){
  syncCityBack();
 }
 function closePanel(){
- const target=["topup","withdraw"].includes(activeView)?"wallet":mainScreens.has(parentScreen)?parentScreen:"map";
+ const target=["topup","withdraw"].includes(activeView)?"wallet":activeView==="special"?"daily":mainScreens.has(parentScreen)?parentScreen:"map";
  parentScreen="map";
  activeBusiness=null;
  if(target!=="map"){view(target);return}
@@ -193,7 +193,7 @@ function view(tab){
  if(changed&&mainScreens.has(tab))window.scrollTo(0,0);
  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("nav-active",x.dataset.view===tab));
  if(tab==="map")closePanel();
- else if(["season","events","daily","story"].includes(tab))showGoals(tab);
+ else if(["season","events","daily","story","special"].includes(tab))showGoals(tab);
  else if(tab==="bonus")showBonus();
  else if(tab==="ranking")showRanking("reputation");
  else if(tab==="wallet")showWallet(true);
@@ -611,17 +611,37 @@ async function showProgressLog(reputationOnly){
  }catch(error){if(activeView===current)openPanel(title,'<p class="empty">'+esc(error.message)+'</p>')}
 }
 
-const goalTitles={season:"Сезон",events:"События",daily:"Ежедневные задания",story:"Развитие города"};
+const goalTitles={special:"Особые задания",season:"Сезон",events:"События",daily:"Ежедневные задания",story:"Развитие города"};
 
-let homeGoalsRequest;
+let homeGoalsRequest,farmTaskRequest,farmTasksReady=false;
+const readyGoal=goal=>goal.available&&!goal.claimed;
+const periodReady=period=>Boolean(period?.goals?.some(readyGoal));
+function loadFarmTaskAlerts(){
+ if(!farmTaskRequest)farmTaskRequest=api("/api/state").then(state=>{
+  const claimed=new Set(state.claimed_rewards),daily=state.daily,week=state.weekly;
+  const requirements={grain:["grain_bought",5],eggs:["eggs_produced",3],listing:["eggs_listed",1],
+   market_sale:["market_sale",1],market_buy:["market_buy",1],buy_chicken:["buy_chicken",1],
+   buy_goose:["buy_goose",1],buy_cow:["buy_cow",1],feeding:["feeding",1],milk:["milk",1],milk_listing:["milk_listing",1]};
+  const readyDaily=!claimed.has("bonus")||Object.entries(requirements).some(([key,[field,target]])=>!claimed.has(key)&&daily[field]>=target);
+  const readyWeekly=(!week.feather_claimed&&week.feathers>=1)||(!week.claimed&&
+   (week.grain>=10||week.feeding>=5)&&(week.eggs>=10||week.milk>=3)&&(week.listed>=3||week.market_sales>=3));
+  farmTasksReady=readyDaily||readyWeekly;
+  $("city-task-alert").hidden=!cityTasksReady&&!farmTasksReady;
+  return {daily:readyDaily,weekly:readyWeekly};
+ }).catch(()=>null).finally(()=>{farmTaskRequest=null});
+ return farmTaskRequest;
+}
+let cityTasksReady=false;
 function loadGoals(){
  if(!homeGoalsRequest)homeGoalsRequest=api("/goals").then(snapshot=>{
-  const ready=snapshot.daily.goals.some(goal=>goal.available&&!goal.claimed);
-  $("city-task-alert").hidden=!ready;
+  cityTasksReady=periodReady(snapshot.daily)||periodReady(snapshot.story)||
+   snapshot.campaigns.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium_rewards?.some(readyGoal));
+  $("city-task-alert").hidden=!cityTasksReady&&!farmTasksReady;
   return snapshot;
  }).finally(()=>{homeGoalsRequest=null});
  return homeGoalsRequest;
 }
+const taskAlert=ready=>ready?'<i class="shortcut-alert" aria-label="Доступна награда">!</i>':"";
 const premiumArt="/assets/city/premium3/";
 const illustratedIcon=(name, fallback)=>'<img class="p3-icon" src="'+premiumArt+name+'.webp" alt="" onerror="this.onerror=null;this.src=\'/assets/city/'+fallback+'.webp\'">';
 const paintedButton=(label,action,item,active)=>'<button class="p3-button" data-action="'+action+'" data-item="'+item+'"'+(active===undefined?'':' aria-pressed="'+active+'"')+'>'+label+'</button>';
@@ -667,7 +687,7 @@ function illustratedGoal(goal,period,painted=false){
  const [art,destination]=goalDestinations[goal.key]||["scroll",period.id==="story"?"businesses":null];
  const ready=goal.available&&!goal.claimed;
  const next=goal.claimed?'<span class="p3-claimed">Получено</span>':ready?
- '<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Получить</button>':
+ '<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Получить'+taskAlert(true)+'</button>':
  goal.business&&period.active?'<button class="p3-arrow" aria-label="Открыть предприятие" data-action="business" data-item="'+esc(goal.business)+'">›</button>':
  destination&&period.active?'<button class="p3-arrow" aria-label="Перейти к заданию: '+esc(goal.name)+'" data-action="navigate" data-item="'+destination+'">›</button>':'';
  return '<article class="p3-goal">'+(painted?"":illustratedIcon(art,"menu-2"))+'<div><strong>'+esc(goal.name)+'</strong><small>'+number(Math.min(goal.value,goal.goal))+" / "+number(goal.goal)+" · +"+number(goal.xp)+' XP'+(goal.status?' · +'+number(goal.status)+' статуса':'')+'</small></div>'+next+'</article>';
@@ -704,7 +724,7 @@ function illustratedSeason(period){
 }
 async function loadHomeSeason(){
  try{
-  const {campaigns}=await loadGoals();
+  const [{campaigns}]=await Promise.all([loadGoals(),loadFarmTaskAlerts()]);
   const season=campaigns.find(period=>period.kind==="season"&&period.active);
   if(!season){$("district-pass-progress").hidden=true;return;}
   const milestones=season.rewards||[];
@@ -737,6 +757,18 @@ async function showGoals(tab){
     '<div class="season-switch"><button class="btn" data-action="event-section" data-item="current" aria-pressed="'+(eventSection==="current")+'">Текущие</button><button class="btn" data-action="event-section" data-item="history" aria-pressed="'+(eventSection==="history")+'">Завершённые</button></div>';
    if(featured&&eventSection==="current")periods.unshift(featured);
   }
+  if(tab==="special"){
+   const farm=await loadFarmTaskAlerts();
+   if(activeView!==tab)return;
+   const link=(name,section,ready)=>'<a class="p3-button" href="/?tasks=1'+section+'">'+name+taskAlert(ready)+'</a>';
+   const events=snapshot.campaigns.filter(period=>period.kind==="event");
+   const seasons=snapshot.campaigns.filter(period=>period.kind==="season");
+   return openPanel(title,'<div class="city-task-choices">'+
+    link("Ферма","",farm?.daily)+link("Недельные задания фермы","&amp;task_section=weekly",farm?.weekly)+
+    (snapshot.story?paintedButton("Развитие города"+taskAlert(periodReady(snapshot.story)),"navigate","story"):"")+
+    paintedButton("События города"+taskAlert(events.some(periodReady)),"navigate","events")+
+    paintedButton("Сезон"+taskAlert(seasons.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium_rewards?.some(readyGoal))),"navigate","season")+'</div>');
+  }
   if(tab==="story"){
    const period=snapshot.story;
    if(!period)return openPanel(title,'<p class="empty">Развитие города недоступно</p>');
@@ -744,8 +776,7 @@ async function showGoals(tab){
     '<div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period)).join("")+'</div>');
   }
   if(tab==="daily"){
-   const tabs=snapshot.story?'<div class="city-task-links">'+paintedButton("Сюжетные","navigate","story")+
-    '<a class="p3-button" href="/?tasks=1">Недельные</a>'+paintedButton("Особые","navigate","events")+'</div>':'';
+   const tabs='<div class="city-task-choices">'+paintedButton("Особые задания"+taskAlert(farmTasksReady||periodReady(snapshot.story)||snapshot.campaigns.some(period=>periodReady(period)||period.rewards?.some(readyGoal)||period.premium_rewards?.some(readyGoal))),"navigate","special")+'</div>';
    const period=snapshot.daily;
    const painted=period.goals.length===4&&period.goals.every((goal,index)=>goal.key===["batches","raw","sales","orders"][index]);
    if(painted)return openPanel(title,'<div class="p3-scene-art p3-painted-daily"><div class="scene-copy"><h3>Цели дня</h3>'+periodTimer(period,"До ")+'</div><div class="p3-goals">'+period.goals.map(goal=>illustratedGoal(goal,period,true)).join("")+'</div></div>'+tabs);
