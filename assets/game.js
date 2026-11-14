@@ -1210,8 +1210,8 @@ function render() {
     ...((p.cows>0||daily.buy_cow>0||p.coins>=500)?[["buy_cow", "Купить корову", daily.buy_cow || 0, 1]]:[]),
     ...(((p.chickens||0)+(p.geese||0)+(p.cows||0)>0||daily.feeding>0)?[["feeding","Покормить животных",daily.feeding||0,1]]:[]),
     ...((p.cows>0||daily.milk>0)?[["milk","Собрать молоко",daily.milk||0,1]]:[]),
-    ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Продать молоко",daily.milk_listing||0,1]]:[]),
-    ...((p.geese>0||daily.feather>0||claimed.has("feather"))?[["feather","Произвести перо от гуся",daily.feather||0,1]]:[])
+    ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Продать молоко",daily.milk_listing||0,1]]:[])
+    // Feather reward was moved into the weekly mission list.
   ];
   const dailyBox = el("daily-tasks");
   if (dailyBox) {
