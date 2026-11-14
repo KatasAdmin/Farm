@@ -1824,8 +1824,10 @@ def buy(q:Request,authorization:str=Header(default="")):
    if expected is None:raise HTTPException(400,"Неизвестный товар")
    if q.expected_price is not None and q.expected_price!=expected:
     raise HTTPException(409,"Цена товара изменилась")
-   return simple_economy.farm_trade(c,p,q.item,q.amount,"buy",
+   result=simple_economy.farm_trade(c,p,q.item,q.amount,"buy",
      storage_limit=storage_limit(p),coop_limit=coop_limit(p),cowshed_limit=cowshed_limit(p))
+   award_referral_resource(c,p,q.item,q.amount)
+   return result
  check(q.amount)
  if q.item not in ("grain","eggs","milk","feathers","wool","chickens","geese","cows","sheep"):raise HTTPException(400,"Товар не найден")
  with db() as c:
