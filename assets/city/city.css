@@ -449,3 +449,50 @@ body{background:radial-gradient(ellipse at 52% 7%,#39234d 0%,#17152a 48%,#100e1b
 .season-banner{background-image:url("ref-chest.webp"),linear-gradient(95deg,#3b2052,#1a1628);
  background-position:left center,center;background-size:65px auto,cover;background-repeat:no-repeat;padding-left:66px}
 #panel-body[data-scene="market"] .city-market-tabs img{display:block;width:19px;height:19px;object-fit:contain;margin:0 auto 2px}
+
+/* Shared City chrome and proportions from the reference screens. */
+#city-shell{padding-inline:8px}
+.topbar{margin:0 -4px;min-height:42px;gap:3px;padding:3px 4px;border:1px solid #9d6dbc;
+ border-radius:16px;background:radial-gradient(ellipse at 30% 120%,#67368c 0%,#251d37 54%,#171524 100%);
+ box-shadow:inset 0 -2px 7px #cd79ec68,0 2px 9px #a74be76e}
+.city-identity{gap:4px;flex:1 1 auto}
+.city-identity h1{margin:0;font-size:clamp(10px,3.5vw,19px);line-height:1.1;letter-spacing:.2px}
+.city-identity h1 em{font-family:Georgia,serif;color:#ffd27c}
+.city-identity .brand-kicker{margin-top:2px;letter-spacing:.1px;text-transform:none;color:#e0d5ec;font-weight:500}
+.city-identity .city-logo{display:block;flex:none;width:clamp(17px,6vw,33px);height:28px;box-shadow:none}
+.top-counters{gap:3px}
+.top-counters .counter{position:relative;gap:3px;min-height:30px;padding:3px;border:1px solid #9970b3;border-radius:9px;
+ background:#181425;box-shadow:inset 0 0 6px #8055a74d}
+.top-counters img{width:clamp(12px,4.5vw,22px);height:clamp(12px,4.5vw,22px);object-fit:contain}
+.top-counters .counter strong{font-size:clamp(9px,2.8vw,14px);font-variant-numeric:tabular-nums}
+.top-counters .counter b{color:#fff;background:#17694d;border:1px solid #67cfa7;border-radius:4px;padding:0 2px;line-height:1.2}
+.notification-counter strong{color:#ffc1df}
+.world-frame{margin-inline:-8px}
+.district-tools{gap:9%;padding:7px 8px 4px}
+.world{aspect-ratio:3/2}
+.map-shortcuts{bottom:5%}
+.dash .stat{min-height:clamp(61px,15.4vw,90px);border-radius:15px}
+.quick-actions .quick-action{display:flex;align-items:center;justify-content:center;gap:4px;min-height:44px}
+.quick-actions img{width:22px;height:22px;object-fit:contain}
+.season-banner{min-height:65px;padding-left:75px;background-size:72px auto,cover}
+.season-banner>span{text-align:left;font-size:15px}
+.season-banner small{display:block;font-size:10px;font-weight:500;color:#ede1f5;margin-top:3px}
+.bottom-nav{width:calc(100% - 12px);padding:5px;gap:4px;border-radius:21px}
+.bottom-nav button{min-height:clamp(59px,15vw,80px);border-radius:16px}
+#city-page .profile-hero{padding:10px;grid-template-columns:clamp(62px,22vw,115px) minmax(0,1fr);min-height:110px}
+.profile-hero .profile-avatar{display:grid;place-items:center;width:100%;height:auto;aspect-ratio:1;border:2px solid #ffe084;
+ box-shadow:0 0 12px #e5a64c91,inset 0 0 14px #d38a4755}
+.profile-avatar img{width:80%;height:80%;object-fit:contain}
+.profile-hero>div:last-child{min-width:0;overflow-wrap:anywhere}
+.profile-hero>div:last-child>strong{font-size:clamp(19px,5.6vw,30px);line-height:1.1}
+.profile-hero progress{height:11px;accent-color:#bf5bea}
+.profile-stats .stat,.profile-menu .stat{border-radius:14px}
+.profile-balance{min-height:65px}
+.market-scene{min-height:clamp(95px,21vw,144px);padding-bottom:9px;background-position:center 55%}
+.market-scene strong{font-size:clamp(22px,7.8vw,40px);line-height:1}
+.market-line{margin-bottom:6px}
+#panel-body[data-scene="season"] .campaign-hero{min-height:135px}
+.season-switch .btn{min-height:42px}
+.season-track article{min-height:115px}
+#panel-body[data-scene="events"] .festival-hero{min-height:145px}
+@media(max-width:365px){.top-counters .counter b{display:none}.city-identity .city-logo{display:none}.season-banner{padding-left:57px;background-size:55px auto,cover}}
