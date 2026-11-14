@@ -1,7 +1,7 @@
 """TREVIXO simple-system economy. No player orders or auction matching.
 
-System sales are paid from the finite in-game treasury and marked as
-non-withdrawable game credits. Buying from system replenishes treasury.
+System sales create non-withdrawable game credits; the treasury is a signed
+accounting balance rather than a spending limit. Buying from system replenishes treasury.
 All changes in a single PostgreSQL transaction guarded by the shared lock.
 """
 from __future__ import annotations
@@ -81,9 +81,7 @@ def _cash(c,p,coins,kind,item,n):
         c.execute("UPDATE economy SET treasury=treasury+%s WHERE id=1",(coins,))
         delta=-coins
     else:
-        funds=c.execute("UPDATE economy SET treasury=treasury-%s WHERE id=1 AND treasury>=%s RETURNING treasury",
-                        (coins,coins)).fetchone()
-        if not funds:raise HTTPException(409,"Бюджет моментального выкупа временно исчерпан")
+        c.execute("UPDATE economy SET treasury=treasury-%s WHERE id=1",(coins,))
         c.execute("UPDATE players SET coins=coins+%s WHERE id=%s",(coins,p["id"]))
         delta=coins
     log_id=uuid.uuid4().hex
