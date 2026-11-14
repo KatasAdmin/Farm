@@ -163,6 +163,7 @@ function openPanel(title,html){
  (primary?page:document.querySelector(".city-panel")).append(body);
  $("panel-overlay").classList.toggle("hidden",primary);
  body.scrollTop=scrollTop;
+ syncCityBack();
 }
 function closePanel(){
  const target=mainScreens.has(parentScreen)?parentScreen:"map";
@@ -173,6 +174,7 @@ function closePanel(){
  $("panel-overlay").classList.add("hidden");
  $("city-page").hidden=true;
  $("city-home").hidden=false;
+ syncCityBack();
  document.querySelectorAll(".bottom-nav button").forEach(x=>x.classList.toggle("nav-active",x.dataset.view==="map"));
 }
 function row(name,details,actions){return '<div class="item-card"><div><strong>'+name+'</strong><small>'+details+'</small></div><div class="item-actions">'+actions+'</div></div>'}
@@ -878,7 +880,24 @@ $("panel-body").addEventListener("click",e=>{
 $("city-avatar-file").addEventListener("change",changeAvatar);
 $("auth-form").addEventListener("submit",loginPassword);
 $("telegram-login").addEventListener("click",loginTelegram);
+function cityBack(){
+ if(working||activeView==="map")return;
+ closePanel();
+}
+let telegramBack;
+function syncCityBack(){
+ const back=window.Telegram?.WebApp?.BackButton;
+ if(!back)return;
+ if(telegramBack!==back){
+  telegramBack?.offClick?.(cityBack);
+  back.onClick?.(cityBack);
+  telegramBack=back;
+ }
+ if(activeView==="map")back.hide?.();
+ else back.show?.();
+}
 window.addEventListener("telegram-sdk-ready",()=>{
+ syncCityBack();
  if(data){loadTelegramPhoto();window.CityEntryAds?.maybeStart?.();}
  else if(!token&&!$("city-auth").classList.contains("hidden"))loginTelegram();
 });
@@ -907,4 +926,5 @@ function sizeCitySheet(){
 window.visualViewport?.addEventListener("resize",sizeCitySheet);
 window.visualViewport?.addEventListener("scroll",sizeCitySheet);
 sizeCitySheet();
+syncCityBack();
 entry();

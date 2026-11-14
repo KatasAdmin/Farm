@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
       <link rel="stylesheet" href="/assets/city/farm-products.css?v=13" />
     <link rel="stylesheet" href="/assets/farm-final-scenes.css?v=1" />
-  <link rel="stylesheet" href="/assets/farm-painted.css?v=1">
+  <link rel="stylesheet" href="/assets/farm-painted.css?v=2">
   </head>
   <body>
     <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #80d6ff;border-radius:14px;background:#103c7c;color:white;font-family:Arial,sans-serif">
@@ -264,8 +264,8 @@
       </section>
       <section id="production" class="panel unified-farm-panel" aria-label="Еда и бонусы">
         <div class="farm-city-header farm-food-dashboard card">
-          <div class="farm-food-dashboard-title">
-            <span class="farm-food-dashboard-icon" aria-hidden="true"><img src="/assets/illustrations/farm-food.svg" alt=""></span>
+          <div class="farm-food-dashboard-title farm-inner-banner">
+            <button class="back" onclick="tab('farm')" aria-label="Назад на ферму">‹</button>
             <div><h2>Еда и бонусы</h2><p>Питайся — и ускоряй производство фермы</p></div>
           </div>
           <div class="farm-food-status" aria-live="polite">
@@ -290,7 +290,7 @@
         </div>
       </section>
       <section id="coop" class="panel unified-farm-panel" aria-label="Животные">
-        <div class="panelhead">
+        <div class="panelhead farm-inner-banner">
           <button
             class="back"
             onclick="tab('farm')"
@@ -379,7 +379,7 @@
       <section id="shop" class="panel" aria-label="Рынок">
         <div class="scene-banner compact-trade-scene">
           <img loading="lazy"
-            src="/assets/illustrations/market-panorama-v1.webp"
+            src="/assets/illustrations/farm-scenes/market.webp"
             class="scene-image"
             alt="Магазин"
             decoding="async"
@@ -663,7 +663,7 @@
         </button>
       </section>
       <section id="tasks" class="panel" aria-label="Задания">
-        <div class="panelhead">
+        <div class="panelhead farm-inner-banner">
           <button
             class="back"
             onclick="tab('farm')"
@@ -749,7 +749,7 @@
         </button>
       </section>
       <section id="storage" class="panel" aria-label="Склад">
-        <div class="panelhead">
+        <div class="panelhead farm-inner-banner">
           <button
             class="back"
             onclick="tab('farm')"
@@ -820,7 +820,7 @@
         </div>
       </section>
       <section id="fields" class="panel unified-farm-panel fields-v2" aria-label="Поля">
-        <div class="fields-v2-header">
+        <div class="fields-v2-header farm-inner-banner">
           <button class="fields-v2-back" onclick="tab('farm')" aria-label="Назад">‹</button>
           <div><h1>🌾 Поля</h1><p>Выращивай зерно для своих животных</p></div>
         </div>

@@ -7,3 +7,21 @@
 #farm .farm-map-target:focus-visible{outline:2px solid #ffe9ae;outline-offset:-2px;border-radius:16px}
 #farm .farm-painted-map:after{content:none}
 #farm .farm-painted-map .farm-hero-city-link{z-index:3}
+#coop{--farm-scene:url("/assets/illustrations/farm-scenes/animals.webp")}
+#storage{--farm-scene:url("/assets/illustrations/farm-scenes/warehouse.webp")}
+#fields{--farm-scene:url("/assets/illustrations/farm-scenes/fields.webp")}
+#production{--farm-scene:url("/assets/illustrations/farm-scenes/food.webp")}
+#tasks{--farm-scene:url("/assets/illustrations/farm-scenes/tasks.webp")}
+#app .farm-inner-banner{
+  display:flex;align-items:center;gap:10px;
+  box-sizing:border-box;min-height:clamp(94px,30vw,144px);
+  margin:0 0 10px;padding:10px 12px;border-radius:15px;
+  background:linear-gradient(90deg,#190f31bd,transparent),var(--farm-scene) center/cover no-repeat,#29183e;
+  color:#fff2d6;text-shadow:0 2px 4px #1d112f;
+}
+#app .farm-inner-banner>.icon,#app .farm-inner-banner>.nav-art{display:none}
+#app .farm-inner-banner h1,#app .farm-inner-banner h2{margin:0;color:#fff2d6;font-size:clamp(19px,6vw,29px)}
+#app .farm-inner-banner p{margin:3px 0 0;color:#fff1e9}
+#app .farm-inner-banner small{color:#fff1e9}
+#app .farm-inner-banner>button{min-width:44px;min-height:44px;flex:none}
+#production .farm-food-dashboard .farm-inner-banner{margin:0}
