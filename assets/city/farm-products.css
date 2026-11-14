@@ -389,3 +389,99 @@
 @media(max-width:359px) {
   #farm .farm-hero-city-link {right:8px;top:78px;min-width:92px;padding-inline:8px;font-size:12px}
 }
+
+
+/* City-first farm module. Finance/account live in City; Farm navigation is only for farming. */
+#nav.farm-module-nav {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  padding-inline:max(12px,env(safe-area-inset-left)) max(12px,env(safe-area-inset-right));
+}
+#nav.farm-module-nav[hidden] {display:none!important}
+#nav.farm-module-nav .nav-button {min-width:0;max-width:none;width:100%}
+/* Nutrition information is grouped into a single legible sapphire dashboard. */
+#production .farm-food-dashboard {
+  padding:15px 14px!important;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:11px;
+  overflow:hidden;
+  border-radius:19px!important;
+  background:linear-gradient(155deg,#1b8fdb 0%,#0a64b8 36%,#063675 100%)!important;
+  border:1.5px solid #9deaff!important;
+  box-shadow:inset 0 2px 2px #ffffff91,inset 0 -3px 4px #00295b,0 7px 15px #00224a7d!important;
+}
+#production .farm-food-dashboard-title {
+  display:flex;
+  align-items:center;
+  gap:11px;
+  min-width:0;
+}
+#production .farm-food-dashboard-icon {
+  display:grid;
+  place-items:center;
+  flex:0 0 49px;
+  height:49px;
+  font-size:26px;
+  border:1px solid #a9ecff;
+  border-radius:13px;
+  background:linear-gradient(165deg,#4accfd,#087acc 60%,#064282);
+  box-shadow:inset 0 2px 2px #fff9,0 3px 9px #00214c9c;
+}
+#production .farm-food-dashboard-title div {min-width:0}
+#production .farm-food-dashboard-title h2 {
+  color:#fff!important;font-size:21px!important;line-height:1.08;
+  margin:0 0 5px!important;text-shadow:0 2px 3px #002454;
+}
+#production .farm-food-dashboard-title p {
+  margin:0!important;color:#d9efff!important;font-size:12px!important;line-height:1.35;
+}
+#production .farm-food-dashboard .farm-food-status {
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:9px!important;padding:0!important;margin:0!important;
+  border:0!important;border-radius:0!important;box-shadow:none!important;
+  background:none!important;
+}
+#production .farm-food-status-item {
+  display:flex;flex-direction:column;align-items:flex-start;gap:6px;
+  padding:11px 13px!important;min-width:0;
+  border:1px solid #83cfff;border-radius:13px;
+  background:linear-gradient(150deg,#0c6cbbd9,#062e71e8);
+  box-shadow:inset 0 1px 2px #cff7ff77;
+}
+#production .farm-food-status-item span {
+  color:#d4eaff!important;font-size:12px!important;font-weight:650;
+}
+#production .farm-food-status-item strong {
+  color:#ffeaa0!important;font-size:24px!important;line-height:1;white-space:nowrap;
+}
+#production .farm-food-progress {
+  width:100%;height:10px;overflow:hidden;box-sizing:border-box;
+  border-radius:20px;border:1px solid #81d9ff;
+  background:#032457;box-shadow:inset 0 2px 4px #001a41a8;
+}
+#production .farm-food-progress>span {
+  display:block;height:100%;width:0;min-width:0;
+  background:linear-gradient(90deg,#3ce3fb 0%,#5cea9d 55%,#d5fb74 100%);
+  box-shadow:0 0 7px #9bfbe5;
+  transition:width 300ms ease-out;
+}
+#production .farm-food-explainer {
+  margin:0!important;font-size:12px!important;line-height:1.4!important;color:#e1f1ff!important;
+}
+#production .farm-food-shop-jump {
+  display:flex;align-items:center;justify-content:space-between;
+  width:100%;min-height:46px;
+  padding:10px 15px;border-radius:13px;border:1.5px solid #c1faff;
+  color:#fff;font-size:15px;font-weight:850;
+  background:linear-gradient(180deg,#42c7fb,#0b84d8 45%,#074a9d 100%);
+  box-shadow:inset 0 2px 2px #ffffffa3,inset 0 -3px 4px #002e70,0 4px 8px #0025548a;
+  text-shadow:0 2px 2px #002854;
+}
+#production .farm-food-shop-jump span {font-size:24px;line-height:1}
+#production .farm-food-shop-jump:focus-visible {outline:3px solid #fff;outline-offset:2px}
+#production #farm-city-catalog {scroll-margin-top:15px}
+@media (prefers-reduced-motion:reduce) {
+ #production .farm-food-progress>span {transition:none}
+}
