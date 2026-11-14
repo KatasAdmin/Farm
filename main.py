@@ -178,6 +178,7 @@ async def lifespan(app):
   c.execute("CREATE TABLE IF NOT EXISTS farm_events(id text primary key,player_id text NOT NULL,kind text NOT NULL,amount int NOT NULL,created double precision NOT NULL)")
   c.execute("CREATE TABLE IF NOT EXISTS daily_claims(player_id text NOT NULL,day text NOT NULL,claim text NOT NULL,amount int NOT NULL,PRIMARY KEY(player_id,day,claim))")
   c.execute("CREATE TABLE IF NOT EXISTS weekly_claims(player_id text NOT NULL,week text NOT NULL,claimed_at double precision NOT NULL,amount integer NOT NULL,PRIMARY KEY(player_id,week))")
+  c.execute("CREATE TABLE IF NOT EXISTS weekly_feather_claims(player_id text NOT NULL,week text NOT NULL,claimed_at double precision NOT NULL,amount integer NOT NULL,PRIMARY KEY(player_id,week))")
   c.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS referral_organic_eggs bigint NOT NULL DEFAULT 0")
   c.execute("CREATE TABLE IF NOT EXISTS referral_codes(player_id text PRIMARY KEY,code text NOT NULL UNIQUE)")
   c.execute("CREATE TABLE IF NOT EXISTS referrals(child_id text PRIMARY KEY,parent_id text NOT NULL,created double precision NOT NULL,qualified boolean NOT NULL DEFAULT false)")
@@ -1645,6 +1646,7 @@ def state(authorization:str=Header(default="")):
        WHERE player_id=%s AND kind='sell' AND created>=%s AND created<%s""",
        (p["id"],week_start,week_start+604800)).fetchone()["n"]
   weekly_claimed=bool(c.execute("SELECT 1 FROM weekly_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
+  weekly_feather_claimed=bool(c.execute("SELECT 1 FROM weekly_feather_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
   totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
   sold=c.execute("SELECT COALESCE(SUM((split_part(details,' x',2))::int),0)::int AS amount FROM money_log WHERE player_id=%s AND kind='market_sale' AND details ~ '^eggs x[0-9]+$'",(p["id"],)).fetchone()["amount"]
@@ -1697,7 +1699,7 @@ def state(authorization:str=Header(default="")):
   expected_eggs=min(p["fed_hens"]+3*p.get("fed_geese",0),max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0)-p.get("wool",0)))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
   return {"nutrition":city_nutrition.status(food,observed_at),"fields":fields.status(c,p),"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":livestock_used(p),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+p.get("wool",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":1000000000 if simple_economy.enabled() else available_milk,
-    "available_eggs":1000000000 if simple_economy.enabled() else available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"market_purchases":weekly_stats["market_purchases"],"feathers":weekly_stats["feathers"],"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":({**simple_economy.RAW_BUY,**simple_economy.ANIMAL_BUY,
+    "available_eggs":1000000000 if simple_economy.enabled() else available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"market_purchases":weekly_stats["market_purchases"],"feathers":weekly_stats["feathers"],"feather_claimed":weekly_feather_claimed,"feather_reward":15,"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":({**simple_economy.RAW_BUY,**simple_economy.ANIMAL_BUY,
     "goose_min_level":GOOSE_MIN_LEVEL,"sheep_min_level":SHEEP_MIN_LEVEL,
     "cow_min_level":COW_MIN_LEVEL} if simple_economy.enabled() else
     {"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"sheep":SHEEP_PRICE,
@@ -2130,6 +2132,31 @@ def autobuy(q:Request,authorization:str=Header(default="")):
 
 # Small fixed daily grants. Minted rewards are recorded separately from the original 10,000-coin treasury.
 REWARD_AMOUNTS={"bonus":2,"grain":1,"eggs":1,"listing":1,"milk":1,"milk_listing":1,"feather":15,"market_sale":1,"feeding":1,"market_buy":1,"buy_chicken":1,"buy_goose":1,"buy_cow":1}
+@app.post("/api/weekly/feather/claim")
+def claim_weekly_feather(authorization:str=Header(default="")):
+ """Optional +15 weekly task: harvest an actual goose feather, not buy one."""
+ with db() as c:
+  c.execute("SELECT pg_advisory_xact_lock(1984533)")
+  p=advance(c,person(c,authorization,True))
+  now=time.time()
+  week_start=int((now+3*86400)//604800)*604800-3*86400
+  if week_start>now:week_start-=604800
+  week=time.strftime("%Y-%m-%d",time.gmtime(week_start))
+  progress=c.execute("""SELECT COALESCE(SUM(amount),0)::bigint AS n
+     FROM farm_events WHERE player_id=%s AND kind='feathers_collected'
+     AND created>=%s AND created<%s""",(p["id"],week_start,week_start+604800)).fetchone()
+  if not progress or progress["n"]<1:
+   raise HTTPException(409,"Сначала произведи 1 перо от гуся на этой неделе")
+  row=c.execute("""INSERT INTO weekly_feather_claims(player_id,week,claimed_at,amount)
+    VALUES(%s,%s,%s,15) ON CONFLICT DO NOTHING RETURNING amount""",
+    (p["id"],week,now)).fetchone()
+  if not row:raise HTTPException(409,"Награда за перо на этой неделе уже получена")
+  c.execute("UPDATE players SET coins=coins+15 WHERE id=%s",(p["id"],))
+  c.execute("UPDATE reward_emission SET total_minted=total_minted+15 WHERE id=1")
+  c.execute("INSERT INTO money_log(id,player_id,kind,delta,details,created) VALUES(%s,%s,%s,15,%s,%s)",
+    (uuid.uuid4().hex,p["id"],"weekly_feather_reward","Еженедельное задание: произведено перо",now))
+ return {"ok":True,"awarded":15}
+
 @app.post("/api/weekly/claim")
 def claim_weekly(authorization:str=Header(default="")):
  with db() as c:
