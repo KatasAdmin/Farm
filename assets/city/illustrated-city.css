@@ -40,3 +40,80 @@
 .p3-premium-track article,.p3-premium-track header{border-color:#dba65e}
 .p3-reward-track article small{margin-top:4px}
 .p3-reward-track .p3-icon{mix-blend-mode:normal}
+
+#panel-overlay:is([data-scene="topup"],[data-scene="withdraw"]){
+ bottom:var(--p3-keyboard,0px);
+}
+.city-wallet-art{
+ position:relative;
+ max-width:480px;
+ margin:0 auto 12px;
+ isolation:isolate;
+ border-radius:12px;
+ background:#2b103c center / 100% 100% no-repeat;
+ container-type:inline-size;
+}
+/* Artwork and controls share the same box. Button coordinates follow the painted rims. */
+.wallet-overview{aspect-ratio:512/530;background-image:url("/assets/city/wallet-wallet.webp")}
+.wallet-payment{aspect-ratio:512/735;background-image:url("/assets/city/wallet-topup.webp")}
+.wallet-transfer{aspect-ratio:512/575;background-image:url("/assets/city/wallet-withdraw.webp")}
+.wallet-balance{
+ position:absolute;
+ inset:42% 7% auto;
+ text-align:center;
+ color:#fff3d5;
+ font-size:clamp(.82rem,4cqw,1.1rem);
+}
+.wallet-balance strong{display:block;font-size:clamp(1.6rem,9cqw,2.8rem);font-variant-numeric:tabular-nums}
+.wallet-balance small{font-size:.48em}
+.wallet-fields{
+ position:absolute;
+ inset:24% 8% 22%;
+ display:grid;
+ align-content:center;
+ gap:clamp(5px,2cqw,10px);
+ font-size:clamp(.72rem,3.65cqw,.98rem);
+ line-height:1.25;
+ color:#fff3e8;
+ overflow:auto;
+ overflow-wrap:anywhere;
+}
+.wallet-transfer .wallet-fields{top:33%;bottom:28%}
+.wallet-fields p{margin:0}
+.wallet-fields label{display:grid;gap:3px}
+.wallet-fields input{
+ box-sizing:border-box;
+ width:100%;
+ min-width:0;
+ min-height:36px;
+ padding:4px 6px;
+ border:1px solid #bc847e;
+ border-radius:8px;
+ background:#210e31;
+ color:#fff3e8;
+ font-size:16px;
+}
+.wallet-fields input[type=file]{font-size:inherit}
+.wallet-hit{
+ position:absolute;
+ inset:auto 4% 15% 4%;
+ min-height:44px;
+ height:13%;
+ margin:0;
+ padding:0 3px;
+ border:0;
+ border-radius:999px;
+ background:transparent;
+ color:#fff8dc;
+ font:700 clamp(.82rem,4.8cqw,1.25rem)/1 Georgia,serif;
+ text-shadow:0 1px 3px #181023;
+ cursor:pointer;
+}
+.wallet-hit:focus-visible{outline:2px solid white;outline-offset:2px}
+.wallet-hit:active{background:#ffffff24}
+.wallet-hit:disabled{background:#150b2280;cursor:wait}
+.wallet-overview .wallet-hit{bottom:14.5%;height:13%}
+.wallet-overview .wallet-topup{right:51%;color:#371307;text-shadow:none}
+.wallet-overview .wallet-withdraw{left:51%}
+.wallet-payment .wallet-hit{bottom:11%;height:10%}
+.wallet-transfer .wallet-hit{bottom:14%;height:13%}

@@ -478,15 +478,13 @@ function showResidents(){
 }
 async function showWallet(fetchDetails=false){
  const quote=walletDetails?.quote,history=walletDetails?.history;
- const balance='<div class="wallet-hero"><img src="/assets/redesign/coin.webp" alt="" class="wallet-hero-coin"><span>Единый баланс TREVIXO</span><strong>'+number(data.coins)+' <small>монет</small></strong></div>';
- const actions='<div class="profile-links"><button class="p3-button p3-gold" data-action="navigate" data-item="topup">Пополнение</button><button class="p3-button" data-action="navigate" data-item="withdraw">Вывод</button></div>';
- const details=quote?row("Курс монеты",esc(quote.nominal_coin_price_uah)+" грн","")+
-  row("Капитализация",number(quote.capitalization_kopeks/100)+" грн · "+number(quote.total_coins)+" монет в обращении","")+
-  row("Бонусные монеты",number(quote.bonus_coins),""):"";
+ const balance='<div class="city-wallet-art wallet-overview"><div class="wallet-balance"><span>Единый баланс TREVIXO</span><strong>'+number(data.coins)+' <small>монет</small></strong></div>'+
+  '<button class="wallet-hit wallet-topup" data-action="navigate" data-item="topup">Пополнение</button><button class="wallet-hit wallet-withdraw" data-action="navigate" data-item="withdraw">Вывод</button></div>';
+ const details=quote?row("Курс монеты",walletRate(quote.coin_price_uah)+" грн",""):"";
  const logs=history?'<h3>Последние операции</h3>'+(history.entries.length?history.entries.map(entry=>
   row(esc(entry.details||entry.kind),new Date(entry.created*1000).toLocaleString("ru-RU"),
    '<span class="pill">'+(entry.delta>0?"+":"")+number(entry.delta)+' 🪙</span>')).join(""):'<p class="empty">Операций пока нет</p>'):"";
- openPanel("🪙 Мой кошелёк",balance+actions+details+logs);
+ openPanel("🪙 Мой кошелёк",balance+details+logs);
  if(!fetchDetails)return;
  try{
   const [quote,history]=await Promise.all([api("/api/farm/exchange/quote"),api("/api/finance?limit=10")]);
@@ -496,6 +494,11 @@ async function showWallet(fetchDetails=false){
  }catch(error){if(activeView==="wallet")toast(error.message)}
 }
 
+function walletRate(value){
+ const rate=Number(value);
+ return esc(Number.isFinite(rate)&&rate>0
+  ?rate.toLocaleString("ru-RU",{maximumSignificantDigits:8,useGrouping:false}):value);
+}
 let withdrawKey;
 async function cityMoneyForm(scene){
  const topup=scene==="topup";
@@ -507,19 +510,29 @@ async function cityMoneyForm(scene){
   if(activeView!==scene)return;
   let html;
   if(topup){
-   html=config.enabled?'<p>Карта: <strong>'+esc(config.card)+'</strong></p><p>Получатель: '+esc(config.recipient||"—")+'</p><p>Цена покупки: '+esc(quote.purchase_price_uah)+' грн за монету. Зачисление после проверки квитанции.</p>'+
-    '<form id="city-topup-form"><label>Сумма перевода, грн<input name="amount" type="number" min="1" max="100000" required></label><label>Квитанция JPG, PNG или PDF до 4 МБ<input name="receipt" type="file" accept="image/jpeg,image/png,application/pdf" required></label><button class="p3-button">Отправить квитанцию</button></form>':
+   html=config.enabled?'<form class="city-wallet-art wallet-payment" id="city-topup-form"><div class="wallet-fields">'+
+    '<div class="wallet-requisites">Карта: <strong>'+esc(config.card)+'</strong><br>Получатель: '+esc(config.recipient||"—")+'</div>'+
+    '<p>Курс покупки: '+walletRate(quote.purchase_price_uah)+' грн за монету. Зачисление после проверки квитанции.</p>'+
+    '<label>Сумма перевода, грн<input name="amount" type="number" min="1" max="100000" inputmode="decimal" required></label>'+
+    '<label>Квитанция JPG, PNG или PDF до 4 МБ<input name="receipt" type="file" accept="image/jpeg,image/png,application/pdf" required></label></div>'+
+    '<button class="wallet-hit">Отправить квитанцию</button></form>':
     '<p>'+esc(config.reason||"Пополнение пока недоступно")+'</p>';
   }else{
    const min=Number(config.minimum||100);
    const max=Math.min(1000000000,Number(quote.coin_count||0));
    const pending=config.request?.status==="pending";
-   html='<p>Курс вывода: '+esc(quote.coin_price_uah)+' грн за монету. Минимум '+number(min)+' монет.</p>'+
-    (!data.account?.telegram_linked?'<button class="p3-button" data-action="navigate" data-item="account">Привязать Telegram</button>':
-      !pending&&quote.payout_enabled&&max>=min?'<form id="city-withdraw-form"><label>Количество монет<input name="amount" type="number" min="'+min+'" max="'+max+'" required></label><button class="p3-button">Перевести в бот</button></form>':'<p>Перевод сейчас недоступен.</p>')+
-    (pending?'<button class="p3-button" data-action="cancel-city-withdraw">Отменить текущую заявку</button>':'');
+   const rate='<p>Курс вывода: '+walletRate(quote.coin_price_uah)+' грн за монету. Минимум '+number(min)+' монет.</p>';
+   if(data.account?.telegram_linked&&!pending&&quote.payout_enabled&&max>=min){
+    html='<form class="city-wallet-art wallet-transfer" id="city-withdraw-form"><div class="wallet-fields">'+rate+
+     '<label>Количество монет<input name="amount" type="number" min="'+min+'" max="'+max+'" inputmode="numeric" required></label></div>'+
+     '<button class="wallet-hit">Перевести в бот</button></form>';
+   }else{
+    html=rate+(!data.account?.telegram_linked?'<button class="p3-button" data-action="navigate" data-item="account">Привязать Telegram</button>':'<p>Перевод сейчас недоступен.</p>')+
+     (pending?'<button class="p3-button" data-action="cancel-city-withdraw">Отменить текущую заявку</button>':'');
+   }
   }
-  openPanel(title,'<div class="city-account-forms">'+html+'<p id="city-money-feedback" role="status"></p></div>');
+  openPanel(title,html+'<p id="city-money-feedback" role="status"></p>');
+
  }catch(error){if(activeView===scene)openPanel(title,'<p>'+esc(error.message)+'</p>')}
 }
 async function submitCityMoney(event){
