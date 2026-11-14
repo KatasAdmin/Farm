@@ -73,31 +73,39 @@ def simulate(p, now):
   # Interleave feather events and egg production by time, so polling cannot
   # change which resource occupies the last warehouse slot. Eggs win ties.
   while until>cursor:
-   step=min(until,cursor+max(1e-6,(FEATHER_INTERVAL-feather_progress)/fed_geese)) if fed_geese else until
-   if fed_cows:step=min(step,cursor+max(1e-6,(MILK_INTERVAL-milk_progress)/fed_cows))
-   if fed_sheep:step=min(step,cursor+max(1e-6,(WOOL_INTERVAL-wool_progress)/fed_sheep))
    rate=fed/CYCLE+fed_geese/GOOSE_CYCLE
    ad_rate=ad_fed/CYCLE+ad_goose_fed/GOOSE_CYCLE
-   food_active=food and cursor<food["updated_at"]+food["fullness"]/city_nutrition.DECAY_PER_SECOND
-   if rate and (food_active or bonus_progress.get("eggs",0)>=1-1e-9):
-    step=min(step,cursor+max(1e-6,(1-progress)/rate))
+   def target_step(remaining, per_second):
+    if per_second<=0:return until
+    # Integrate satiety over time, so the same factor drives actual production
+    # and the countdown, not a separate delayed "bonus item" lottery.
+    maximum=cursor+remaining/per_second
+    maximum=min(maximum,until)
+    if not food:return maximum
+    if per_second*((maximum-cursor)+city_nutrition.bonus_seconds(food,cursor,maximum))<remaining-1e-8:
+     return maximum
+    lo=cursor;hi=maximum
+    for _ in range(28):
+     mid=(lo+hi)/2
+     progress_at=per_second*((mid-cursor)+city_nutrition.bonus_seconds(food,cursor,mid))
+     if progress_at>=remaining:hi=mid
+     else:lo=mid
+    return hi
+   step=until
+   if fed_geese:step=min(step,target_step(max(0,FEATHER_INTERVAL-feather_progress),fed_geese))
+   if fed_cows:step=min(step,target_step(max(0,MILK_INTERVAL-milk_progress),fed_cows))
+   if fed_sheep:step=min(step,target_step(max(0,WOOL_INTERVAL-wool_progress),fed_sheep))
+   if rate:step=min(step,target_step(max(0,1-progress),rate))
+   if step<=cursor:step=min(until,cursor+1e-6)
    elapsed=max(0,step-cursor)
    bonus=city_nutrition.bonus_seconds(food,cursor,step)
+   accelerated=elapsed+bonus
    before_progress=progress
-   total=progress+rate*elapsed
+   total=progress+rate*accelerated
    whole=math.floor(total+1e-10)
    progress=max(0,min(.999999999,total-whole))
-   if bonus:
-    for item,base_rate,restricted_rate in (
-      ("eggs",rate,ad_rate),("milk",fed_cows/MILK_INTERVAL,ad_cow_fed/MILK_INTERVAL),
-      ("feathers",fed_geese/FEATHER_INTERVAL,ad_goose_fed/FEATHER_INTERVAL),
-      ("wool",fed_sheep/WOOL_INTERVAL,ad_sheep_fed/WOOL_INTERVAL)):
-     if base_rate:
-      bonus_progress[item]=bonus_progress.get(item,0)+base_rate*bonus
-     if tagged and restricted_rate:
-      key="ad_"+item
-      bonus_progress[key]=bonus_progress.get(key,0)+restricted_rate*bonus
-   extra,extra_ad=bonus_yield("eggs",whole) if food else (0,0)
+   # No additional random or delayed bonus units: only elapsed production time accelerates.
+   extra=extra_ad=0
    free=max(0,capacity-grain-eggs-feathers-milk-wool)
    laid=min(whole,free)
    bonus_laid=min(extra,free-laid)
@@ -109,16 +117,16 @@ def simulate(p, now):
     at_last=lambda count:ad_ep+ad_rate*max(0,(count-before_progress)/rate) if rate and count else ad_ep
     stored_ad=min(laid,max(0,math.ceil(at_last(laid)-1e-10))) if laid else 0
     generated_ad=min(whole,max(0,math.ceil(at_last(whole)-1e-10))) if whole else 0
-    ad_ep+=ad_rate*elapsed-generated_ad
+    ad_ep+=ad_rate*accelerated-generated_ad
     ad_eggs+=stored_ad+min(extra_ad,bonus_laid)
-    ad_mp+=ad_cow_fed*elapsed;ad_fp+=ad_goose_fed*elapsed;ad_wp+=ad_sheep_fed*elapsed
-   feather_progress+=fed_geese*elapsed
-   milk_progress+=fed_cows*elapsed
-   wool_progress+=fed_sheep*elapsed
+    ad_mp+=ad_cow_fed*accelerated;ad_fp+=ad_goose_fed*accelerated;ad_wp+=ad_sheep_fed*accelerated
+   feather_progress+=fed_geese*accelerated
+   milk_progress+=fed_cows*accelerated
+   wool_progress+=fed_sheep*accelerated
    cursor=step
    if feather_progress>=FEATHER_INTERVAL-1e-7:
     feather_progress=max(0,feather_progress-FEATHER_INTERVAL)
-    extra,extra_ad=bonus_yield("feathers",1) if food else (0,0)
+    extra=extra_ad=0
     free=max(0,capacity-grain-eggs-feathers-milk-wool)
     if free:
      feathers+=1+min(extra,free-1)
@@ -126,7 +134,7 @@ def simulate(p, now):
     if tagged and ad_fp>1e-7:ad_fp-=FEATHER_INTERVAL
    if milk_progress>=MILK_INTERVAL-1e-7:
     milk_progress=max(0,milk_progress-MILK_INTERVAL)
-    extra,extra_ad=bonus_yield("milk",1) if food else (0,0)
+    extra=extra_ad=0
     free=max(0,capacity-grain-eggs-feathers-milk-wool)
     if free:
      milk+=1+min(extra,free-1)
@@ -134,7 +142,7 @@ def simulate(p, now):
     if tagged and ad_mp>1e-7:ad_mp-=MILK_INTERVAL
    if wool_progress>=WOOL_INTERVAL-1e-7:
     wool_progress=max(0,wool_progress-WOOL_INTERVAL)
-    extra,extra_ad=bonus_yield("wool",1) if food else (0,0)
+    extra=extra_ad=0
     free=max(0,capacity-grain-eggs-feathers-milk-wool)
     if free:
      wool+=1+min(extra,free-1)
