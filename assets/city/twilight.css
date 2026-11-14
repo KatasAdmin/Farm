@@ -32,7 +32,7 @@ body{background:#190d30}
 #world .store-target{--x:24%;--y:55%}
 #world .dairy-target{--x:17%;--y:68%}
 #world .atelier-target{--x:83%;--y:68%}
-#world .warehouse-target{--x:48%;--y:76%}
+#world .warehouse-target{--x:48%;--y:74%}
 #city-shell .map-shortcuts{position:fixed;inset:auto auto calc(108px + env(safe-area-inset-bottom));left:50%;width:min(88%,485px);display:flex;justify-content:center;gap:10px;transform:translateX(-50%);z-index:5}
 #city-shell .map-shortcuts button{position:relative;min-width:0;width:min(43%,150px);display:flex;justify-content:center;align-items:center;gap:6px;padding:5px 7px;border:1px solid #e19df7;border-radius:99px;background:#341752;box-shadow:0 0 10px #d676ee88;color:white}
 #city-shell .map-shortcuts img{width:27px;height:27px;object-fit:contain}
