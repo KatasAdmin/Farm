@@ -277,3 +277,63 @@
 #tasks .weekly-extra .weekly-task-details small{font-size:12px;color:#d4eaff}
 #tasks .weekly-extra .weekly-task-item .progress{grid-column:2;min-width:0}
 #tasks .weekly-extra .weekly-task-action{grid-column:2;margin-top:2px;min-height:35px}
+
+/* Owned food inventory: full-width cards keep all three actions legible
+   in a narrow Telegram iPhone WebView. Other shop cards are unchanged. */
+#farm-city-inventory.farm-city-grid{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))!important;
+  gap:12px!important;
+  align-items:stretch;
+}
+#farm-city-inventory .farm-city-product{
+  width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+  padding:13px!important;
+  gap:11px!important;
+}
+#farm-city-inventory .farm-city-product-top{
+  min-width:0!important;
+  display:flex!important;
+  align-items:flex-start!important;
+  gap:10px!important;
+}
+#farm-city-inventory .farm-city-product-top>div{
+  flex:1 1 0;
+  min-width:0;
+}
+#farm-city-inventory .farm-city-product-top small{
+  overflow-wrap:anywhere;
+  line-height:1.4!important;
+}
+#farm-city-inventory .farm-city-trade-row{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:8px!important;
+  width:100%;
+  min-width:0;
+}
+#farm-city-inventory .farm-city-trade-row button{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  box-sizing:border-box!important;
+  min-width:0!important;
+  width:100%!important;
+  min-height:43px!important;
+  padding:9px 7px!important;
+  font-size:14px!important;
+  line-height:1.2!important;
+  white-space:normal!important;
+  overflow-wrap:break-word;
+  text-align:center!important;
+}
+#farm-city-inventory .farm-city-trade-row button[data-city-move]{
+  grid-column:1/-1;
+  min-height:40px!important;
+  background:linear-gradient(180deg,#268ed0,#075090)!important;
+}
+#farm-city-inventory .farm-city-trade-row button:only-child{
+  grid-column:1/-1;
+}
