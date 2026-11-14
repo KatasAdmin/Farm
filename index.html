@@ -20,13 +20,13 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=116" defer></script>
+    <script src="/assets/game.js?v=117" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
     <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
-      <link rel="stylesheet" href="/assets/city/farm-products.css?v=5" />
+      <link rel="stylesheet" href="/assets/city/farm-products.css?v=6" />
   </head>
   <body>
     <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #80d6ff;border-radius:14px;background:#103c7c;color:white;font-family:Arial,sans-serif">
@@ -431,12 +431,7 @@
           <div class="product catalog-row market-card equipment fields-market-row"><img loading="lazy" class="product-image" src="/assets/illustrations/combine-icon-v2.webp" alt="Комбайн"><div class="product-copy"><h3>Комбайн</h3><small>Обслуживает до 5 полей</small></div><strong class="price">200<img loading="lazy" src="/assets/redesign/coin.webp" class="icon" alt="монет"></strong><div class="trade-dual-actions"><button class="btn small" id="fields-buy-combine-market" onclick="buyFieldItem('combine')">Купить</button></div></div>
           </div>
           <div id="farm-city-products" class="farm-city-grid" hidden></div>
-          <details class="catalog-help"><summary>Корм и окупаемость животных</summary><div>
-<p>🐔 Курица — 20 🪙, 🪿 гусыня — 120 🪙, 🐄 корова — 500 🪙, 🐑 овца — 200 🪙.</p>
-<p>При регулярном кормлении покупным зерном и моментальной продаже всей продукции по фиксированным ценам приблизительная окупаемость — 15–20 дней. Это расчёт при полной загрузке, без учёта нехватки места на складе.</p>
-<p>Яйца выкупаются по 1 монете, молоко по 12, шерсть по 16, перья по 5. Стоимость покупки и системного выкупа различается. При работе поля зерно можно получать самостоятельно и снижать расходы.</p>
-<p>Продажа происходит сразу, пока в игровой казне достаточно монет. Все системные начисления — игровые и невыводимые.</p>
-</div></details>
+          <details class="catalog-help" id="market-topic-help"><summary id="market-topic-title">Корм и окупаемость животных</summary><div id="market-topic-body"><p>Животные производят ресурсы при наличии корма и места на складе. У каждого вида своя скорость производства.</p><p>🪶 Сытый гусь производит одно перо за 7 дней. Перья можно купить за 20 или продать за 16 монет.</p><p>Системные продажи не ограничиваются остатком игровой казны; начисленные монеты — игровые.</p></div></details>
         </div>
         <details class="trade-extras"><summary>Набор фермера</summary>
         <div class="bundle">
@@ -951,7 +946,7 @@
       <div class="purchase-product">
         <img loading="lazy"
           src="/assets/redesign/hen.webp"
-          class="purchase-art"
+          class="purchase-art" onerror="this.onerror=null;this.src='/assets/illustrations/feather-icon-v3.webp'"
           alt=""
           decoding="async"
         />
