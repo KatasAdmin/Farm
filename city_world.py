@@ -506,8 +506,14 @@ def farm_goods(authorization: str=Header(default="")):
         own_offers=c.execute("""SELECT id,item,quantity,price FROM city_listings
             WHERE seller=%s AND quantity>0 ORDER BY created DESC,id""",(p["id"],)).fetchall()
         return {"recipes":RECIPES,"food_restore":city_nutrition.FOOD_RESTORE,
-                "my_offers":own_offers,
-                "city_catalog":_product_catalog(c,p["id"]),
+                "simple_economy":simple_economy.enabled(),
+                "system_prices":simple_economy.prices(RECIPES) if simple_economy.enabled() else {},
+                "my_offers":[] if simple_economy.enabled() else own_offers,
+                "city_catalog":({k:{"quantity":1000000000,"sellers":0,"offers":0,
+                                    "min_price":v["buy"],"buy_price":v["buy"],
+                                    "sell_price":v["sell"]}
+                    for k,v in simple_economy.prices(RECIPES).items()}
+                    if simple_economy.enabled() else _product_catalog(c,p["id"])),
                 "food":_counts(c,"farm_food",p["id"]),
                 "city_food":{item:quantity for item,quantity in _counts(c,"city_products",p["id"]).items()
                              if item in city_nutrition.FOOD_RESTORE},
@@ -535,6 +541,15 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             ) sold ON true
             WHERE l.seller=%s AND l.quantity>0 ORDER BY l.created DESC""",(p["id"],)).fetchall()
         city_catalog=_product_catalog(c,p["id"])
+        if simple_economy.enabled():
+            catalog_prices=simple_economy.prices(RECIPES)
+            city_catalog={k:{"quantity":1000000000,"sellers":0,"offers":0,
+                      "min_price":v["buy"],"buy_price":v["buy"],
+                      "sell_price":v["sell"]} for k,v in catalog_prices.items()}
+            market_catalog={k:{"quantity":1000000000,"sellers":0,"offers":0,
+                            "min_price":price,"buy_price":price,
+                            "sell_price":simple_economy.RAW_SELL[k]}
+                            for k,price in simple_economy.RAW_BUY.items()}
         jobs=c.execute("SELECT recipe,quantity,ready_at FROM city_jobs WHERE player_id=%s ORDER BY ready_at",(p["id"],)).fetchall()
         rep=c.execute("SELECT points FROM city_reputation WHERE player_id=%s",(p["id"],)).fetchone()
         # City accounting is a report of transfers between players, not a
@@ -572,8 +587,17 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "farm_reference_prices":FARM_REFERENCE_PRICES,
             "business_investment_guides":business_investment_guides(),
             "food_value_guides":food_value_guides(),
-            "business_catalog":BUSINESSES,
-            "my_city_offers":my_city_offers,"jobs":jobs,"now":now,
+            "business_catalog":({kind:{**info,"min_reputation":0,"feather_cost":0,
+                         "open_cost":simple_economy.BUSINESS_COST[kind]}
+                         for kind,info in BUSINESSES.items()}
+                         if simple_economy.enabled() else BUSINESSES),
+            "simple_economy":simple_economy.enabled(),
+            "farm_stock":{k:int(p.get(k,0)) for k in INGREDIENTS},
+            "system_prices":{"raw_buy":simple_economy.RAW_BUY,
+                             "raw_sell":simple_economy.RAW_SELL,
+                             "product":simple_economy.prices(RECIPES),
+                             "business_open":simple_economy.BUSINESS_COST} if simple_economy.enabled() else {},
+            "my_city_offers":[] if simple_economy.enabled() else my_city_offers,"jobs":jobs,"now":now,
             "resident_orders":daily_orders(c,p["id"],now),
             "reputation":int(rep["points"]) if rep else 0}
         snapshot["nutrition"] = city_nutrition.status(city_nutrition.get(c,p["id"]),now)
@@ -603,6 +627,9 @@ def state(authorization: str=Header(default=""), compact: bool=False):
         city_daily=c.execute("""SELECT COUNT(*) AS n,COALESCE(SUM(coins),0) AS coins
             FROM city_receipts WHERE created>=%s""",(today_start,)).fetchone()
         snapshot.update(finished_goods_sales_today=city_daily["n"],finished_goods_turnover_today=city_daily["coins"])
+        if simple_economy.enabled():
+            snapshot.update(farm_offers=[],city_offers=[],farm_market_totals={},
+                            city_demand_today={})
         return snapshot
 
 @router.post("/open")
@@ -968,6 +995,51 @@ def move_food(q:Action,authorization:str=Header(default="")):
         _finish_request(c,q,result)
     return result
 
+
+@router.post("/transfer-raw")
+def transfer_raw(q:Action,authorization:str=Header(default="")):
+    if not simple_economy.enabled():raise HTTPException(404,"Функция недоступна")
+    _amount(q.amount,500)
+    if q.destination not in ("to_city","to_farm"):raise HTTPException(400,"Неверное направление")
+    with _db() as c:
+        c.execute("SELECT pg_advisory_xact_lock(1984533)")
+        p=_advance(c,_auth(c,authorization,True))
+        previous=_request(c,q,p["id"],"raw_transfer:"+q.destination)
+        if previous is not None:return previous
+        cap=int(p["storage_level"])*100
+        result=simple_economy.raw_transfer(c,p,q.item,q.amount,q.destination,
+                                            storage_limit=cap)
+        if q.destination=="to_city":
+            ad_inventory.take(c,p,q.item,q.amount)
+        _finish_request(c,q,result)
+        return result
+
+@router.post("/transfer-product")
+def transfer_product(q:Action,authorization:str=Header(default="")):
+    if not simple_economy.enabled():raise HTTPException(404,"Функция недоступна")
+    _amount(q.amount,500)
+    with _db() as c:
+        c.execute("SELECT pg_advisory_xact_lock(1984533)")
+        p=_auth(c,authorization,True)
+        previous=_request(c,q,p["id"],"product_transfer:"+q.destination)
+        if previous is not None:return previous
+        _settle(c,p["id"])
+        result=simple_economy.product_transfer(c,p,q.item,q.amount,q.destination)
+        _finish_request(c,q,result)
+        return result
+
+@router.post("/sell-ingredient")
+def sell_ingredient(q:Action,authorization:str=Header(default="")):
+    if not simple_economy.enabled():raise HTTPException(404,"Функция недоступна")
+    _amount(q.amount,500)
+    with _db() as c:
+        c.execute("SELECT pg_advisory_xact_lock(1984533)")
+        p=_auth(c,authorization,True)
+        previous=_request(c,q,p["id"],"simple_raw_sell")
+        if previous is not None:return previous
+        result=simple_economy.raw_city_trade(c,p,q.item,q.amount,"sell")
+        _finish_request(c,q,result)
+        return result
 
 @router.post("/eat")
 def eat(q:Action,authorization:str=Header(default="")):
