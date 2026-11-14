@@ -44,7 +44,8 @@ class FarmNavigationTests(unittest.TestCase):
         city = (HTML.parent / "assets" / "city" / "city.js").read_text(encoding="utf-8")
         self.assertIn('entryParams.get("profile")==="1"', app)
         self.assertIn('data-item="account"', city)
-        self.assertIn('href="/?wallet=1"', city)
+        self.assertIn('data-item="topup"', city)
+        self.assertIn('data-item="withdraw"', city)
 
     def test_food_dashboard_is_module_specific(self):
         page = HTML.read_text(encoding="utf-8")

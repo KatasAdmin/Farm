@@ -166,7 +166,7 @@ function openPanel(title,html){
  syncCityBack();
 }
 function closePanel(){
- const target=mainScreens.has(parentScreen)?parentScreen:"map";
+ const target=["topup","withdraw"].includes(activeView)?"wallet":mainScreens.has(parentScreen)?parentScreen:"map";
  parentScreen="map";
  activeBusiness=null;
  if(target!=="map"){view(target);return}
@@ -197,6 +197,7 @@ function view(tab){
  else if(tab==="bonus")showBonus();
  else if(tab==="ranking")showRanking("reputation");
  else if(tab==="wallet")showWallet(true);
+ else if(["topup","withdraw"].includes(tab))cityMoneyForm(tab);
  else refreshPanel();
 }
 function refreshPanel(){
@@ -207,6 +208,7 @@ function refreshPanel(){
  if(activeView==="warehouse")return showWarehouse();
  if(activeView==="profile")return showProfile();
  if(activeView==="wallet")return showWallet();
+ if(["topup","withdraw"].includes(activeView))return;
  if(activeView==="residents")return showResidents();
  if(activeView==="achievements")return showAchievements();
  if(activeView==="nutrition")return showNutrition();
@@ -477,7 +479,7 @@ function showResidents(){
 async function showWallet(fetchDetails=false){
  const quote=walletDetails?.quote,history=walletDetails?.history;
  const balance='<div class="wallet-hero"><img src="/assets/redesign/coin.webp" alt="" class="wallet-hero-coin"><span>Единый баланс TREVIXO</span><strong>'+number(data.coins)+' <small>монет</small></strong></div>';
- const actions='<div class="profile-links"><a class="btn gold city-link" href="/?wallet=1">Пополнение</a><a class="btn city-link" href="/?wallet=1">Вывод</a></div>';
+ const actions='<div class="profile-links"><button class="p3-button p3-gold" data-action="navigate" data-item="topup">Пополнение</button><button class="p3-button" data-action="navigate" data-item="withdraw">Вывод</button></div>';
  const details=quote?row("Курс монеты",esc(quote.nominal_coin_price_uah)+" грн","")+
   row("Капитализация",number(quote.capitalization_kopeks/100)+" грн · "+number(quote.total_coins)+" монет в обращении","")+
   row("Бонусные монеты",number(quote.bonus_coins),""):"";
@@ -492,6 +494,72 @@ async function showWallet(fetchDetails=false){
   walletDetails={quote,history};
   showWallet();
  }catch(error){if(activeView==="wallet")toast(error.message)}
+}
+
+let withdrawKey;
+async function cityMoneyForm(scene){
+ const topup=scene==="topup";
+ const title=topup?"Пополнение":"Вывод на баланс бота";
+ openPanel(title,'<p role="status">Загрузка…</p>');
+ try{
+  const quote=await api("/api/farm/exchange/quote");
+  const config=await api(topup?"/api/farm/card/config":"/api/withdraw/status");
+  if(activeView!==scene)return;
+  let html;
+  if(topup){
+   html=config.enabled?'<p>Карта: <strong>'+esc(config.card)+'</strong></p><p>Получатель: '+esc(config.recipient||"—")+'</p><p>Цена покупки: '+esc(quote.purchase_price_uah)+' грн за монету. Зачисление после проверки квитанции.</p>'+
+    '<form id="city-topup-form"><label>Сумма перевода, грн<input name="amount" type="number" min="1" max="100000" required></label><label>Квитанция JPG, PNG или PDF до 4 МБ<input name="receipt" type="file" accept="image/jpeg,image/png,application/pdf" required></label><button class="p3-button">Отправить квитанцию</button></form>':
+    '<p>'+esc(config.reason||"Пополнение пока недоступно")+'</p>';
+  }else{
+   const min=Number(config.minimum||100);
+   const max=Math.min(1000000000,Number(quote.coin_count||0));
+   const pending=config.request?.status==="pending";
+   html='<p>Курс вывода: '+esc(quote.coin_price_uah)+' грн за монету. Минимум '+number(min)+' монет.</p>'+
+    (!data.account?.telegram_linked?'<button class="p3-button" data-action="navigate" data-item="account">Привязать Telegram</button>':
+      !pending&&quote.payout_enabled&&max>=min?'<form id="city-withdraw-form"><label>Количество монет<input name="amount" type="number" min="'+min+'" max="'+max+'" required></label><button class="p3-button">Перевести в бот</button></form>':'<p>Перевод сейчас недоступен.</p>')+
+    (pending?'<button class="p3-button" data-action="cancel-city-withdraw">Отменить текущую заявку</button>':'');
+  }
+  openPanel(title,'<div class="city-account-forms">'+html+'<p id="city-money-feedback" role="status"></p></div>');
+ }catch(error){if(activeView===scene)openPanel(title,'<p>'+esc(error.message)+'</p>')}
+}
+async function submitCityMoney(event){
+ event.preventDefault();
+ if(working)return;
+ const form=event.target;
+ const topup=form.id==="city-topup-form";
+ const fields=new FormData(form);
+ const amount=Number(fields.get("amount"));
+ const submit=form.querySelector("button");
+ working=true;submit.disabled=true;
+ try{
+  let message;
+  if(topup){
+   const file=fields.get("receipt");
+   if(!file||!["image/jpeg","image/png","application/pdf"].includes(file.type)||file.size<100||file.size>4*1024*1024)throw Error("Прикрепи квитанцию JPG, PNG или PDF до 4 МБ");
+   const receipt_b64=await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(String(reader.result).split(",")[1]);
+    reader.onerror=()=>reject(Error("Не удалось прочитать квитанцию"));
+    reader.readAsDataURL(file);
+   });
+   const result=await api("/api/farm/card/receipt",{amount,mime:file.type,receipt_b64});
+   message="Квитанция отправлена на проверку. Заявка "+result.id;
+  }else{
+   const q=await api("/api/farm/exchange/quote");
+   const estimated=Math.floor(Number(q.coin_price_uah)*amount*100)/100;
+   if(!q.payout_enabled||!Number.isFinite(estimated)||estimated<0.01)throw Error("Перевод сейчас недоступен для этой суммы");
+   if(!confirm("Перевести "+number(amount)+" монет на баланс бота за примерно "+estimated.toFixed(2)+" грн?"))return;
+   withdrawKey||=crypto.randomUUID();
+   const result=await api("/api/withdraw/request",{amount,transfer_id:withdrawKey});
+   withdrawKey=null;
+   message="На баланс бота зачислено "+(Number(result.credited_kopeks)/100).toFixed(2)+" грн";
+   await load();
+   if(activeView==="withdraw")await cityMoneyForm("withdraw");
+  }
+  form.reset();
+  if($("city-money-feedback"))$("city-money-feedback").textContent=message;
+  toast(message);
+ }catch(error){toast(error.message)}finally{working=false;submit.disabled=false}
 }
 
 function showNutrition(){
@@ -720,7 +788,7 @@ function showAccount(){
   '<form id="city-password-form">'+(current.has_password?'<label>Текущий пароль<input name="current_password" type="password" autocomplete="current-password" required></label>':'')+
   '<label>Новый пароль<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><button class="p3-button">Сохранить пароль</button></form>'+
   (current.telegram_linked?'<p>Telegram привязан ✓</p>':'<button class="p3-button" data-action="link-account">Привязать Telegram</button>')+
-  '<button class="p3-button" data-action="avatar-picker">Сменить фото</button></div>');
+  '<button class="p3-button" data-action="avatar-picker">Сменить фото</button><p>Для восстановления доступа отправь боту <code>/support ТвойНик</code> и опиши проблему. Пароль и код Telegram отправлять не нужно.</p></div>');
 }
 async function saveAccount(event){
  event.preventDefault();
@@ -870,6 +938,13 @@ async function action(action,item,amountId,listingId){
   catch(error){toast(error.message)}finally{working=false}
   return;
  }
+ if(action==="cancel-city-withdraw"){
+  if(!confirm("Отменить заявку и вернуть зарезервированные монеты?"))return;
+  working=true;
+  try{await api("/api/withdraw/cancel",{});await load();if(activeView==="withdraw")await cityMoneyForm("withdraw");toast("Заявка отменена")}
+  catch(error){toast(error.message)}finally{working=false}
+  return;
+ }
  if(action==="link-account")return linkCityAccount();
  if(action==="avatar-picker"){$("city-avatar-file").click();return}
  if(action==="featured-event"){document.querySelector(".event-entry")?.scrollIntoView({block:"start"});return}
@@ -971,6 +1046,7 @@ $("close-panel").addEventListener("click",closePanel);
 $("panel-backdrop").addEventListener("click",closePanel);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closePanel()});
 $("panel-body").addEventListener("submit",e=>{
+ if(["city-topup-form","city-withdraw-form"].includes(e.target.id))submitCityMoney(e);
  if(["city-name-form","city-password-form"].includes(e.target.id))saveAccount(e);
  if(e.target.id==="city-promo-form")redeemPromo(e);
  if(e.target.id==="city-settings")saveSettings(e);
