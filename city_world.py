@@ -161,6 +161,15 @@ def initialize(c):
     c.execute("""CREATE TABLE IF NOT EXISTS farm_food(
         player_id text NOT NULL, item text NOT NULL, quantity bigint NOT NULL
         CHECK(quantity>=0), PRIMARY KEY(player_id,item))""")
+    if simple_economy.enabled():
+        # One canonical owned-food store for Farm and City. The former farm
+        # stock is transferred atomically, once; redeploys cannot duplicate it.
+        # PostgreSQL transactions roll back both changes on startup failure.
+        c.execute("""INSERT INTO city_products(player_id,item,quantity)
+            SELECT player_id,item,quantity FROM farm_food WHERE quantity>0
+            ON CONFLICT(player_id,item) DO UPDATE
+            SET quantity=city_products.quantity+EXCLUDED.quantity""")
+        c.execute("DELETE FROM farm_food")
     c.execute("""CREATE TABLE IF NOT EXISTS city_production_history(
         id text PRIMARY KEY, player_id text NOT NULL, recipe text NOT NULL,
         quantity integer NOT NULL CHECK(quantity>0),
@@ -522,9 +531,12 @@ def farm_goods(authorization: str=Header(default="")):
                                     "sell_price":v["sell"]}
                     for k,v in simple_economy.prices(RECIPES).items()}
                     if simple_economy.enabled() else _product_catalog(c,p["id"])),
-                "food":_counts(c,"farm_food",p["id"]),
-                "city_food":{item:quantity for item,quantity in _counts(c,"city_products",p["id"]).items()
-                             if item in city_nutrition.FOOD_RESTORE},
+                "food":({item:quantity for item,quantity in _counts(c,"city_products",p["id"]).items()
+                          if item in city_nutrition.FOOD_RESTORE}
+                        if simple_economy.enabled() else _counts(c,"farm_food",p["id"])),
+                "city_food":({} if simple_economy.enabled() else
+                             {item:quantity for item,quantity in _counts(c,"city_products",p["id"]).items()
+                              if item in city_nutrition.FOOD_RESTORE}),
                 "nutrition":city_nutrition.status(city_nutrition.get(c,p["id"]))}
 
 
@@ -607,7 +619,9 @@ def state(authorization: str=Header(default=""), compact: bool=False):
                          if simple_economy.enabled() else BUSINESSES),
             "simple_economy":simple_economy.enabled(),
             "farm_stock":{k:int(p.get(k,0)) for k in INGREDIENTS},
-            "farm_food":_counts(c,"farm_food",p["id"]),
+            "farm_food":({item:quantity for item,quantity in _counts(c,"city_products",p["id"]).items()
+                           if item in city_nutrition.FOOD_RESTORE} if simple_economy.enabled()
+                          else _counts(c,"farm_food",p["id"])),
             "system_prices":{"raw_buy":simple_economy.RAW_BUY,
                              "raw_sell":simple_economy.RAW_SELL,
                              "product":simple_economy.prices(RECIPES),
@@ -995,6 +1009,8 @@ def fulfill_order(q:Action,authorization:str=Header(default="")):
 
 @router.post("/move-food")
 def move_food(q:Action,authorization:str=Header(default="")):
+    if simple_economy.enabled():
+        raise HTTPException(410,"Еда уже общая для фермы и города, перенос не требуется")
     if q.item not in city_nutrition.FOOD_RESTORE:
         raise HTTPException(400,"На ферму можно перенести только еду")
     _amount(q.amount,500)
@@ -1032,6 +1048,8 @@ def transfer_raw(q:Action,authorization:str=Header(default="")):
 
 @router.post("/transfer-product")
 def transfer_product(q:Action,authorization:str=Header(default="")):
+    if simple_economy.enabled():
+        raise HTTPException(410,"Еда теперь находится на едином складе, перенос не требуется")
     if not simple_economy.enabled():raise HTTPException(404,"Функция недоступна")
     _amount(q.amount,500)
     with _db() as c:
@@ -1074,7 +1092,8 @@ def eat(q:Action,authorization:str=Header(default="")):
         if previous is not None:return previous
         # Settle all production BEFORE eating; food never boosts past hours.
         p=_advance(c,p)
-        table="farm_food" if q.destination=="farm" else "city_products"
+        table=("city_products" if simple_economy.enabled() else
+               ("farm_food" if q.destination=="farm" else "city_products"))
         if table=="city_products":
             _settle(c,p["id"])
         updated=c.execute(f"""UPDATE {table} SET quantity=quantity-%s
