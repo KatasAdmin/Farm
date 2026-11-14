@@ -738,16 +738,50 @@ async function action(action,item,amountId,listingId){
   if(price===undefined||!confirm("Улучшить до уровня "+(level+1)+" за "+number(price)+" монет?"))return;
   path="/upgrade-business";body.expected_cost=price;
  }
- else if(action==="open")path="/open";
+ else if(action==="open"){
+  path="/open";
+  if(data.simple_economy){
+   const price=data.business_catalog[item].open_cost;
+   if(!confirm("Открыть предприятие за "+number(price)+" монет?"))return;
+   body.expected_cost=price;
+  }
+ }
  else if(action==="produce"){path="/produce";body.amount=getAmount("qty-craft-"+item);if(!body.amount)return}
  else if(action==="raw"){path="/buy-ingredient";body.amount=amount}
  else if(action==="product"){path="/buy-product";body.amount=amount}
- else if(action==="list"){path="/list-product";body.amount=getAmount("qty-list-"+item);body.price=Number($("price-"+item)?.value);if(!body.amount||!Number.isSafeInteger(body.price)||body.price<1||body.price>100000){toast("Укажи количество и цену");return}if(!confirm("Выставить "+body.amount+" шт. на "+number(body.amount*body.price)+" монет?"))return}
+ else if(action==="list"){
+  path="/list-product";body.amount=getAmount("qty-list-"+item);
+  if(!body.amount)return;
+  if(data.simple_economy){
+   const unit=data.system_prices.product[item].sell;
+   if(!confirm("Продать системе "+body.amount+" шт. сразу за "+number(body.amount*unit)+" монет?"))return;
+  }else{
+   body.price=Number($("price-"+item)?.value);
+   if(!Number.isSafeInteger(body.price)||body.price<1||body.price>100000){toast("Укажи цену");return}
+   if(!confirm("Выставить "+body.amount+" шт. на "+number(body.amount*body.price)+" монет?"))return;
+  }
+ }
+ else if(action==="transfer-to-city"||action==="transfer-to-farm"){
+  path="/transfer-raw";body.amount=amount;body.destination=action==="transfer-to-city"?"to_city":"to_farm";
+ }
+ else if(action==="food-to-farm"||action==="food-to-city"){
+  path="/transfer-product";
+  body.amount=getAmount(action==="food-to-farm"?"qty-list-"+item:"qty-farm-food-"+item);
+  body.destination=action==="food-to-farm"?"to_farm":"to_city";
+  if(!body.amount)return;
+ }
+ else if(action==="sell-raw"||action==="sell-market-product"){
+  path=action==="sell-raw"?"/sell-ingredient":"/list-product";
+  body.amount=amount;
+  if(!body.amount)return;
+  const price=action==="sell-raw"?data.system_prices.raw_sell[item]:data.system_prices.product[item].sell;
+  if(!confirm("Продать "+body.amount+" шт. сразу за "+number(body.amount*price)+" монет?"))return;
+ }
  else if(action==="cancel"){if(!confirm("Снять объявление и вернуть остаток на склад?"))return;path="/cancel-product";body.listing_id=listingId}
  else if(action==="fulfill"){path="/fulfill-order";body.order_day=data.resident_orders.find(order=>order.id===item)?.day}
  else return;
  working=true;
- if(["raw","product","produce","list","cancel","fulfill","upgrade"].includes(action)){
+ if(["raw","product","produce","list","cancel","fulfill","upgrade","transfer-to-city","transfer-to-farm","food-to-farm","food-to-city","sell-raw","sell-market-product"].includes(action)){
   body.request_id=(globalThis.crypto?.randomUUID?.()||(Date.now().toString(16)+Math.floor(Math.random()*1e15).toString(16)).padEnd(32,"a")).replaceAll("-","").slice(0,32);
  }
  if(action==="raw"||action==="product"){
@@ -757,7 +791,7 @@ async function action(action,item,amountId,listingId){
    if(!confirm("Купить "+body.amount+" шт. за "+number(quote.cost)+" монет?")){working=false;return}
   }catch(e){toast(e.message);working=false;return}
  }
- try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":action==="list"?"Товар на рынке · смотри в «Мои лоты»":action==="open"?"Предприятие открыто!":"Готово!");
+ try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё куплено на склад бизнеса!":action==="produce"?"Производство запущено!":["list","sell-raw","sell-market-product"].includes(action)?(data.simple_economy?"Продано! Монеты начислены.":"Товар выставлен на рынок"):action==="open"?"Предприятие открыто!":"Готово!");
  await load();
  }catch(e){toast(e.message)}
  finally{working=false}
