@@ -583,7 +583,13 @@ def state(authorization: str=Header(default=""), compact: bool=False):
             "stock":_counts(c,"city_stock",p["id"]),
             "farm_feathers":int(p.get("feathers",0)),
             "products":_counts(c,"city_products",p["id"]),
-            "recipes":RECIPES,"price_guides":recipe_price_guides(),
+            "recipes":RECIPES,"price_guides":(
+                {k:{"batch_input_cost":v["batch_input_cost"],
+                    "suggested_unit_price":v["sell"],
+                    "batch_output":RECIPES[k]["output"],
+                    "batch_seconds":RECIPES[k]["seconds"]}
+                 for k,v in simple_economy.prices(RECIPES).items()}
+                if simple_economy.enabled() else recipe_price_guides()),
             "farm_reference_prices":FARM_REFERENCE_PRICES,
             "business_investment_guides":business_investment_guides(),
             "food_value_guides":food_value_guides(),
