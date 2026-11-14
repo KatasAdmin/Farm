@@ -523,7 +523,7 @@ function openResourceActions(item) {
   if(progress){progress.hidden=!adRewards[item];progress.textContent=adRewards[item]?(adProgress[item]||0)+"/"+adRewards[item][0]+" подтверждённых просмотров":"";}
   el("resource-action-description").textContent=state.simple_economy?"Магазин: покупка и продажа сразу, без ожидания и объявлений.":"Купи товар у других фермеров или выставь свой на общий рынок.";
   el("resource-action-buy").textContent="Купить";
-  el("resource-action-sell").textContent=state.simple_economy?"Продать сразу":"Выставить на продажу";
+  el("resource-action-sell").textContent=state.simple_economy?"Продать":"Выставить на продажу";
   el("resource-actions-dialog").showModal();
 }
 const adRewards={grain:[1,1,"🌾"],eggs:[2,2,"🥚"],milk:[5,1,"🥛"],chickens:[20,1,"🐔"],geese:[80,1,"🪿"],cows:[250,1,"🐄"],sheep:[100,1,"🐑"],coins:[1,3,"🪙"]};
@@ -595,7 +595,7 @@ function openSell(item) {
  if(!state||pending)return;
  el("sellitem").value=item;
  el("sellprice").value=String(state.shop[item]|| (item==="feathers"?5:1));
- el("egg-sale-title").textContent=(state.simple_economy?"Продать сразу: ":"Выставить на рынок: ")+itemNames[item];
+ el("egg-sale-title").textContent=(state.simple_economy?"Продать: ":"Выставить на рынок: ")+itemNames[item];
  document.querySelector('label[for="sellnum"]').textContent="Количество";
  el("sellnum").value="1";
  el("sellnum").max=state.simple_economy?"500":"10000";
