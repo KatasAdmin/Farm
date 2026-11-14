@@ -41,7 +41,7 @@ class CityTransactions(unittest.TestCase):
             c.execute("""CREATE TABLE market(id text PRIMARY KEY,seller text,item text,quantity integer,price integer)""")
             c.execute("""CREATE TABLE money_log(id text PRIMARY KEY,player_id text,kind text,delta integer,details text,created double precision)""")
             c.execute("""CREATE TABLE market_trade_audit(id text PRIMARY KEY,buyer_id text,seller_id text,item text,quantity integer,coins integer,created double precision)""")
-            c.execute("""CREATE TABLE star_orders(id text PRIMARY KEY,player_id text)""")
+            c.execute("""CREATE TABLE star_orders(id text PRIMARY KEY,player_id text,charge_id text)""")
             c.execute("""CREATE TABLE stars_refund_intents(order_id text PRIMARY KEY,status text)""")
             farm_wallet.initialize_sources(c)
             ad_inventory.initialize(c)
@@ -411,6 +411,35 @@ class CityTransactions(unittest.TestCase):
             with patch.object(simple_economy,"enabled",return_value=True):
                 self.assertEqual(city_goals._metric(db,"buyer","raw",0,20),3)
                 self.assertEqual(city_goals._metric(db,"buyer","sales",0,20),2)
+
+    def test_city_pass_validates_checkout_and_grants_cosmetics_once(self):
+        import time
+        import city_pass
+        import city_goals
+        from unittest.mock import patch
+        now=time.time()
+        with self.connect() as db, patch.dict(os.environ,{"CITY_SEASON_PASS_STARS":"175"}):
+            player={"id":"buyer","telegram_id":77}
+            key,price=city_pass.invoice(db,player,"city-development",now)
+            self.assertEqual(city_pass.invoice(db,player,"city-development",now),(key,175))
+            query={"id":"checkout","invoice_payload":key,"from":{"id":77},"currency":"XTR","total_amount":price}
+            self.assertFalse(city_pass.precheckout(db,{**query,"total_amount":174}))
+            self.assertTrue(city_pass.precheckout(db,query))
+            self.assertFalse(city_pass.precheckout(db,{**query,"id":"other-checkout"}))
+            message={"from":{"id":77},"successful_payment":{"invoice_payload":key,"currency":"XTR",
+                     "total_amount":175,"telegram_payment_charge_id":"test-city-pass"}}
+            self.assertTrue(city_pass.settle(db,message))
+            self.assertFalse(city_pass.settle(db,message))
+            self.assertTrue(city_pass.entitlement(db,"buyer","city-development"))
+            self.assertEqual(db.execute("SELECT coins FROM players WHERE id='buyer'").fetchone()["coins"],200)
+            db.execute("INSERT INTO city_goal_claims VALUES('buyer','city-development','batches',50)")
+            for _ in range(2):
+                city_goals.claim(db,"buyer","city-development","reward:night",now,city_world._progress_event)
+            self.assertEqual([x["id"] for x in city_goals.cosmetics(db,"buyer")],["night"])
+            self.assertTrue(city_pass.refund(db,{"refunded_payment":message["successful_payment"]}))
+            self.assertFalse(city_pass.entitlement(db,"buyer","city-development"))
+            self.assertEqual(city_goals.cosmetics(db,"buyer"),[])
+
 
     def test_story_rewards_are_available_only_after_opening_and_granted_once(self):
         import simple_economy

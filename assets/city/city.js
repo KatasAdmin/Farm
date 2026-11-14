@@ -214,7 +214,7 @@ function refreshPanel(){
  if(activeView==="settings")return showSettings();
  if(activeView==="promo")return openPanel("Промокод",promoForm);
  if(activeView==="help")return showHelp();
- if(activeView==="store")return showBusiness("store");
+ if(activeView==="store")return showBundles();
  if(activeView==="shopping")return showShoppingList(lastShoppingRecipe);
 }
 function jobRows(jobs){
@@ -239,7 +239,8 @@ function saleRow(item,quantity){
   '<button class="btn gold" data-action="list" data-item="'+item+'">Продать</button>');
 }
 function businessArt(kind,name,level){
- return '<div class="business-art"><img src="/assets/city/building-'+kind+'.webp" alt=""><div><strong>'+esc(name)+'</strong><small>'+
+ const art=kind==="bakery"&&level?"scenes/bakery-"+Math.min(level,4):"building-"+kind;
+ return '<div class="business-art"><img src="/assets/city/'+art+'.webp" alt=""><div><strong>'+esc(name)+'</strong><small>'+
   (level?"Работает · уровень "+number(level):"Закрыто")+'</small></div></div>';
 }
 function citySectionArt(title,description,art){
@@ -534,9 +535,42 @@ function loadGoals(){
 const premiumArt="/assets/city/premium3/";
 const illustratedIcon=(name, fallback)=>'<img class="p3-icon" src="'+premiumArt+name+'.webp" alt="" onerror="this.onerror=null;this.src=\'/assets/city/'+fallback+'.webp\'">';
 const paintedButton=(label,action,item,active)=>'<button class="p3-button" data-action="'+action+'" data-item="'+item+'"'+(active===undefined?'':' aria-pressed="'+active+'"')+'>'+label+'</button>';
+async function showBundles(){
+ const title="Лавка наборов";
+ openPanel(title,'<p class="city-help" role="status">Загрузка…</p>');
+ try{
+  const {offers}=await api("/bundles");
+  if(activeView!=="store")return;
+  openPanel(title,citySectionArt("Лавка наборов","Покупки за игровые монеты.","festival")+
+   (offers.length?offers.map(offer=>row(esc(offer.name),
+    number(offer.chickens)+" кур · "+number(offer.grain)+" зерна · Осталось покупок: "+number(offer.remaining),
+    '<button class="p3-button p3-gold" data-action="buy-bundle" data-item="'+esc(offer.id)+'" data-price="'+Number(offer.price)+'">Купить · '+number(offer.price)+' 🪙</button>')).join(""):'<p class="empty">Сейчас доступных наборов нет</p>'));
+ }catch(error){if(activeView==="store")openPanel(title,'<p class="empty">'+esc(error.message)+'</p>')}
+}
+async function buySeasonPass(season){
+ const telegram=window.Telegram?.WebApp;
+ if(!telegram?.openInvoice){toast("Открой оплату в Telegram");return}
+ working=true;
+ try{
+  const {url}=await api("/pass-invoice",{item:season});
+  const status=await new Promise(resolve=>telegram.openInvoice(url,resolve));
+  if(status==="paid"||status==="pending"){
+   for(let attempt=0;attempt<5;attempt++){
+    const snapshot=await loadGoals();
+    if(snapshot.campaigns.find(period=>period.id===season)?.pass_owned){
+     toast("Городской пропуск активирован");
+     if(activeView==="season")await showGoals("season");
+     return;
+    }
+    await new Promise(resolve=>setTimeout(resolve,1200));
+   }
+   toast("Ожидаем подтверждение от Telegram. Пропуск появится в сезоне после оплаты.");
+  }else if(status==="failed")toast("Telegram не подтвердил оплату");
+ }catch(error){toast(error.message)}finally{working=false}
+}
 function showBonus(){
  openPanel("Бонусы",'<section class="p3-scene-art p3-painted-bonus"><div class="scene-copy"><h3>Награды города</h3><p>Забери награды сезона или введи промокод.</p></div><div class="p3-painted-actions">'+
- paintedButton("Награды сезона","navigate","season")+paintedButton("Ввести промокод","navigate","promo")+'</div></section>');
+ paintedButton("Награды сезона","navigate","season")+paintedButton("Ввести промокод","navigate","promo")+'</div></section><button class="p3-button" data-action="navigate" data-item="store">Лавка наборов</button>');
 }
 const goalDestinations={batches:["factory","businesses"],raw:["supplies","market"],sales:["stall","warehouse"],orders:["resident","residents"],upgrades:["factory","businesses"]};
 function illustratedGoal(goal,period,painted=false){
@@ -564,7 +598,10 @@ function illustratedSeason(period){
  const next=period.rewards.find(goal=>goal.goal>period.xp)?.goal||feature?.goal||1;
  const rewardStatus=goal=>goal.claimed?"Получено":goal.available?"Доступно":"Закрыто";
  const rewards='<div class="p3-rewards"><div class="p3-reward-track p3-premium-track"><header>'+illustratedIcon("crown","tab-icon-1")+'<strong>Премиум</strong></header>'+
- (period.premium||[]).map((name,index)=>'<article>'+illustratedIcon(index?"trophy":"frame","tab-icon-1")+'<strong>'+esc(name)+'</strong><small>Закрыто</small></article>').join("")+
+ (period.premium||[]).map((goal,index)=>typeof goal==="string"?'<article><strong>'+esc(goal)+'</strong><small>Закрыто</small></article>':
+ '<article>'+illustratedIcon(index?"trophy":"frame","tab-icon-1")+'<b>'+number(goal.goal)+' XP</b><strong>'+esc(goal.name)+'</strong><small>'+rewardStatus(goal)+'</small>'+
+ (goal.available&&!goal.claimed?'<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Забрать</button>':'')+'</article>').join("")+
+ (period.pass_owned?'<p class="pass-state">Пропуск активен</p>':period.pass_stars?'<button class="p3-button p3-gold pass-state" data-action="season-pass" data-item="'+esc(period.id)+'">Купить пропуск · '+number(period.pass_stars)+' ⭐</button>':'')+
  '</div><div class="p3-reward-track"><header>'+illustratedIcon("gift","event-gift")+'<strong>Бесплатно</strong></header>'+period.rewards.map(goal=>
  '<article><b>'+number(goal.goal)+' XP</b>'+illustratedIcon(rewardArt(goal.key),"event-gift")+'<strong>'+esc(goal.name)+'</strong><small>'+rewardStatus(goal)+'</small>'+
  (goal.available&&!goal.claimed?'<button class="p3-button p3-gold" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Забрать</button>':'')+
@@ -711,7 +748,7 @@ function showProfile(){
   ["residents","📋","Заказы жителей"],["market","🧺","Рынок"],
   ["promo","🎁","Промокод"],["achievements","🏆","Достижения"],["settings","⚙️","Настройки"],["help","❔","Помощь"]];
  const card=(target,icon,label,value="",index=null)=>'<button class="stat" data-action="navigate" data-item="'+target+'"><i aria-hidden="true"><img src="/assets/city/profile-icon-'+(index===null?icon:index)+'.webp" alt=""></i><span>'+label+'</span>'+(value?'<strong>'+value+'</strong>':"")+'</button>';
- const hero='<div class="profile-hero"><span class="profile-edit-mark" aria-hidden="true">✎</span>'+avatar+'<div class="profile-live"><strong>'+esc(data.name)+'</strong><span>Горожанин · Ур. '+number(progress.level)+'</span>'+
+ const hero='<div class="profile-hero" data-cosmetic="'+esc(data.preferences?.cosmetic||"")+'"><span class="profile-edit-mark" aria-hidden="true">✎</span>'+avatar+'<div class="profile-live"><strong>'+esc(data.name)+'</strong><span>Горожанин · Ур. '+number(progress.level)+'</span>'+
   '<progress aria-label="Опыт аккаунта" max="'+Math.max(1,(progress.next_xp||0)-(progress.level_xp||0))+'" value="'+Math.max(0,(progress.xp||0)-(progress.level_xp||0))+'"></progress><small>'+number(progress.xp)+(progress.next_xp?" / "+number(progress.next_xp):"")+' XP</small></div></div>';
  const wallet='<div class="profile-balance"><img src="/assets/city/ref-wallet.webp" alt=""><span>Баланс<strong>'+number(data.coins)+'</strong></span><button class="btn" data-action="wallet">Кошелёк ›</button></div>';
  openPanel("Кабинет",'<section class="city-profile-art">'+hero+'<div class="profile-stats">'+stats.map(([icon,label,value,target])=>card(target,icon,label,value)).join("")+'</div>'+
@@ -764,6 +801,18 @@ async function action(action,item,amountId,listingId){
  const amount=amountId?getAmount(amountId):null;
  if(amountId&&amount===null)return;
  let path,body={item};
+ if(action==="season-pass")return buySeasonPass(item);
+ if(action==="buy-bundle"){
+  const price=Number(document.querySelector('[data-action="buy-bundle"]')?.dataset.price);
+  if(!Number.isSafeInteger(price)||price<=0||!confirm("Купить набор за "+number(price)+" монет?"))return;
+  working=true;
+  try{
+   await api("/api/bundle",{item,request_id:crypto.randomUUID().replaceAll("-","")});
+   await load();
+   toast("Набор получен. Животные и зерно уже на ферме.");
+  }catch(error){toast(error.message)}finally{working=false}
+  return;
+ }
  if(action==="claim-goal"){
   working=true;
   try{await api("/claim-goal",{scope:listingId,key:item});await load();await showGoals(activeView)}

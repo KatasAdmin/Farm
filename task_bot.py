@@ -517,7 +517,7 @@ def handle(payload, db, api, is_admin, deliver_posts_inline=True):
         return retained
     callback = payload.get('callback_query') or {}
     message = callback.get('message') or payload.get('message') or {}
-    if payload.get('pre_checkout_query') or message.get('successful_payment'):
+    if payload.get('pre_checkout_query') or message.get('successful_payment') or message.get('refunded_payment'):
         return None
     sender = callback.get('from') or message.get('from') or {}
     uid = sender.get('id')

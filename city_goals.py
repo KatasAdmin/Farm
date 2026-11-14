@@ -1,6 +1,7 @@
 """Time-limited city goals over the existing production and trade records."""
 import time
 import simple_economy
+import city_pass
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -31,7 +32,7 @@ SEASON = (
 )
 REWARDS = (("founder", "Значок «Горожанин»", 50), ("violet", "Фиолетовая рамка", 150),
            ("gold", "Золотая рамка", 300))
-PREMIUM = ("Рамка «Ночной город»", "Значок «Меценат»")
+PREMIUM = (("night", "Рамка «Ночной город»", 50), ("patron", "Значок «Меценат»", 150))
 
 
 class Campaign(BaseModel):
@@ -48,6 +49,7 @@ class Campaign(BaseModel):
 
 
 def initialize(c):
+    city_pass.initialize(c)
     c.execute("""CREATE TABLE IF NOT EXISTS city_campaigns(
         id text PRIMARY KEY, kind text NOT NULL, starts double precision NOT NULL,
         ends double precision NOT NULL, enabled boolean NOT NULL, definition jsonb NOT NULL)""")
@@ -142,7 +144,13 @@ def state(c, pid, now):
         result.update(name=spec["name"], description=spec["description"], kind=row["kind"])
         if season:
             result["level"] = 1 + sum(result["xp"] >= threshold for _, _, threshold in REWARDS)
-            result["premium"] = PREMIUM
+            unlocked=city_pass.entitlement(c,pid,row["id"])
+            result["pass_owned"]=unlocked
+            result["pass_stars"]=city_pass.price() if result["active"] and not unlocked else 0
+            result["premium"] = [{"key":"reward:"+key,"name":label,"goal":threshold,
+                "claimed":"reward:"+key in result["claims"],
+                "available":unlocked and result["active"] and result["xp"]>=threshold}
+                for key,label,threshold in PREMIUM]
             result["rewards"] = [{"key": "reward:"+key, "name": label, "goal": threshold,
                 "claimed": "reward:"+key in result["claims"],
                 "available": result["active"] and result["xp"] >= threshold}
@@ -156,7 +164,7 @@ def cosmetics(c, pid):
     claimed = {row["goal"] for row in c.execute("""SELECT DISTINCT claim.goal
         FROM city_goal_claims claim JOIN city_campaigns campaign ON campaign.id=claim.scope
         WHERE claim.player_id=%s AND campaign.kind='season'""", (pid,)).fetchall()}
-    return [{"id": key, "name": label} for key, label, _ in REWARDS if "reward:"+key in claimed]
+    return [{"id": key, "name": label} for key, label, _ in (*REWARDS,*PREMIUM) if "reward:"+key in claimed]
 
 
 
@@ -168,7 +176,7 @@ def claim(c, pid, scope, key, now, progress_event):
         period=next((p for p in [snapshot["daily"],*snapshot["campaigns"]] if p["id"]==scope),None)
     if not period:
         raise HTTPException(404, "Период не найден")
-    goal = next((g for g in period["goals"]+period.get("rewards", []) if g["key"] == key), None)
+    goal = next((g for g in period["goals"]+period.get("rewards", [])+period.get("premium", []) if g["key"] == key), None)
     if not goal:
         raise HTTPException(404, "Награда не найдена")
     if goal["claimed"]:

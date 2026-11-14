@@ -19,3 +19,6 @@
 .city-profile-art .profile-live span,.city-profile-art .profile-live small{font-size:clamp(9px,2.8vw,13px)}
 .city-task-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:6px}
 .city-task-links .p3-button{font-size:clamp(10px,3.2vw,15px);padding-inline:3px;text-decoration:none}
+.p3-premium-track .pass-state{grid-column:1/-1;margin:4px 0;text-align:center}
+#district-profile[data-cosmetic="night"],.profile-hero[data-cosmetic="night"] .avatar-picker{outline:3px solid #8e72ff;box-shadow:0 0 12px #7160ea}
+.profile-hero[data-cosmetic="patron"] .profile-live strong::after{content:" ♛";color:#fbd881}

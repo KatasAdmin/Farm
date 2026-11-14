@@ -6,6 +6,7 @@ import weekly_missions
 import market_allocation
 import incubation_rules
 import stars_validation
+import city_pass
 import monetag_ads
 import bot_monetag_cash
 import bot_cash_ad_credits
@@ -1260,9 +1261,25 @@ def create_stars_invoice(q:Request,authorization:str=Header(default="")):
   raise HTTPException(503,"Не удалось создать счёт Telegram")
  return {"url":result,"coins":q.amount,"stars":stars}
 
+@app.post("/api/city/pass-invoice")
+def create_city_pass_invoice(q:Request,authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization,True)
+  key,price=city_pass.invoice(c,p,q.item,time.time())
+ try:
+  url=telegram_api("createInvoiceLink",{"title":"Городской пропуск TREVIXO",
+   "description":"Премиальные косметические награды выбранного сезона. Требуется сезонный XP.",
+   "payload":key,"currency":"XTR","prices":[{"label":"Городской пропуск","amount":price}]})
+ except Exception:
+  logger.exception("city_pass_invoice_failed")
+  raise HTTPException(503,"Не удалось создать счёт Telegram")
+ return {"url":url,"stars":price}
+
 def stars_precheckout(query):
  order_id=query.get("invoice_payload","")
  valid=False
+ if isinstance(order_id,str) and order_id.startswith(city_pass.PREFIX):
+  with db() as c:valid=city_pass.precheckout(c,query)
  if isinstance(order_id,str) and len(order_id)==32:
   with db() as c:
    x=c.execute("SELECT telegram_id,stars,status,created FROM star_orders WHERE id=%s",(order_id,)).fetchone()
@@ -1273,6 +1290,11 @@ def stars_precheckout(query):
 def stars_payment_received(message):
  paid=message.get("successful_payment") or {}
  order_id=paid.get("invoice_payload","")
+ if isinstance(order_id,str) and order_id.startswith(city_pass.PREFIX):
+  with db() as c:
+   credited=city_pass.settle(c,message)
+  return ({"method":"sendMessage","chat_id":message.get("chat",{}).get("id"),
+           "text":"✅ Городской пропуск активирован."} if credited else {"ok":True})
  charge=paid.get("telegram_payment_charge_id","")
  if not isinstance(order_id,str) or len(order_id)!=32 or not isinstance(charge,str) or not charge:return {"ok":True}
  with db() as c:
@@ -1417,7 +1439,7 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
  if result is not None:return result
  # Telegram may redeliver the same update; process ordinary messages/callbacks only once.
  # Payment events retain their own idempotency rules.
- if not payload.get("pre_checkout_query") and not (payload.get("message") or {}).get("successful_payment"):
+ if not payload.get("pre_checkout_query") and not any((payload.get("message") or {}).get(key) for key in ("successful_payment","refunded_payment")):
   update_id=payload.get("update_id")
   if isinstance(update_id,int) and not isinstance(update_id,bool):
    with db() as c:
@@ -1448,6 +1470,10 @@ def telegram_webhook(payload:dict, x_telegram_bot_api_secret_token:str=Header(de
   return stars_precheckout(payload["pre_checkout_query"])
  message=payload.get("message") or {}
  if message.get("successful_payment"):return stars_payment_received(message)
+ refunded=message.get("refunded_payment") or {}
+ if isinstance(refunded.get("invoice_payload"),str) and refunded["invoice_payload"].startswith(city_pass.PREFIX):
+  with db() as c:city_pass.refund(c,message)
+  return {"ok":True}
  # Also deduplicate by the original Telegram chat/message pair. Different delivery IDs
  # must never produce multiple replies to the same user message.
  chat_info=message.get("chat") or {}
@@ -1781,11 +1807,23 @@ def sell_to_system(q:Request,authorization:str=Header(default="")):
   if ad_inventory.active(p):ad_inventory.credit(c,log_id,tagged*unit_price)
  return {"ok":True,"received":payout,"unit_price":unit_price}
 
+@app.get("/api/city/bundles")
+def city_bundles(authorization:str=Header(default="")):
+ with db() as c:
+  p=person(c,authorization)
+  active=time.time()<p["created_at"]+PROMO_SECONDS and p["bundle_uses"]<5
+  return {"offers":[{"id":"farmer","name":"Набор фермера","chickens":10,"grain":100,
+                    "price":PROMO_PRICE,"remaining":5-p["bundle_uses"],
+                    "ends":p["created_at"]+PROMO_SECONDS}] if active else []}
+
 @app.post("/api/bundle")
-def buy_bundle(authorization:str=Header(default="")):
+def buy_bundle(authorization:str=Header(default=""),q:Request|None=None):
  now=time.time()
  with db() as c:
   p=advance(c,person(c,authorization,True))
+  if q and q.request_id:
+   previous=city_world._request(c,q,p["id"],"farm_bundle")
+   if previous is not None:return previous
   if now>=p["created_at"]+PROMO_SECONDS or p["bundle_uses"]>=5:raise HTTPException(400,"Акция завершена")
   if p["coins"]<PROMO_PRICE:raise HTTPException(400,"Недостаточно монет")
   ad_funded=ad_inventory.balance(c,p)>0
@@ -1802,7 +1840,9 @@ def buy_bundle(authorization:str=Header(default="")):
   else:
    award_referral_resource(c,p,"chickens",10)
    award_referral_resource(c,p,"grain",100)
- return {"ok":True,"spent":PROMO_PRICE}
+  result={"ok":True,"spent":PROMO_PRICE}
+  if q and q.request_id:city_world._finish_request(c,q,result)
+ return result
 
 @app.post("/api/feed")
 def feed_disabled():
