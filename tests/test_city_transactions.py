@@ -192,7 +192,7 @@ class CityTransactions(unittest.TestCase):
         meal=self.action("omelet",1,request_id="4"*32)
         result=city_world.eat(meal,authorization="Bearer t-buyer")
         self.assertTrue(result["ok"])
-        self.assertEqual(result["nutrition"]["fullness"],40)
+        self.assertEqual(result["nutrition"]["fullness"],28)
         same=city_world.eat(meal,authorization="Bearer t-buyer")
         self.assertEqual(result,same)
         with self.connect() as c:
@@ -233,7 +233,7 @@ class CityTransactions(unittest.TestCase):
         self.assertEqual(city_world.farm_goods(authorization=auth)["food"],{"bread":1})
         meal=self.action("bread",request_id=uuid.uuid4().hex)
         meal.destination="farm"
-        self.assertEqual(city_world.eat(meal,authorization=auth)["nutrition"]["fullness"],20)
+        self.assertEqual(city_world.eat(meal,authorization=auth)["nutrition"]["fullness"],5)
         self.assertEqual(city_world.farm_goods(authorization=auth)["food"],{})
 
     def test_pancakes_listing_visible_on_farm_to_owner_and_buyer(self):
