@@ -22,3 +22,14 @@
 .p3-premium-track .pass-state{grid-column:1/-1;margin:4px 0;text-align:center}
 #district-profile[data-cosmetic="night"],.profile-hero[data-cosmetic="night"] .avatar-picker{outline:3px solid #8e72ff;box-shadow:0 0 12px #7160ea}
 .profile-hero[data-cosmetic="patron"] .profile-live strong::after{content:" ♛";color:#fbd881}
+.city-trade-art{display:grid;grid-template-columns:49px minmax(0,1fr);align-items:center;gap:5px 9px;margin:0 0 6px;padding:8px 11px;min-width:0;border-radius:16px;color:#fff3df;background:url("/assets/city/premium3/card.webp") center/100% 100% no-repeat,#2a133c}
+.city-trade-art>img{width:49px;height:49px;object-fit:contain}
+.city-trade-art strong,.city-trade-art small{display:block;overflow-wrap:anywhere}
+.city-trade-art small{color:#ffe2a6;margin-top:3px}
+.city-trade-art .item-actions{grid-column:2;display:flex;flex-wrap:wrap;gap:5px}
+.city-trade-art .item-actions .btn{min-height:40px}
+#panel-body .business-art.business-painted{aspect-ratio:3/1;min-height:0;padding:0}
+.business-art.business-painted::after{content:none}
+.business-art.business-painted>div{position:absolute;inset:72% auto auto 3%;width:24%;text-align:center;line-height:1.05;color:#301c26}
+#panel-body .business-art.business-painted strong{font-size:clamp(9px,2.85vw,16px)}
+.business-art.business-painted small{color:#51303b;font-size:clamp(7px,2vw,11px);margin-top:2px}

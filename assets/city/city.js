@@ -239,8 +239,10 @@ function saleRow(item,quantity){
   '<button class="btn gold" data-action="list" data-item="'+item+'">Продать</button>');
 }
 function businessArt(kind,name,level){
- const art=kind==="bakery"&&level?"scenes/bakery-"+Math.min(level,4):"building-"+kind;
- return '<div class="business-art"><img src="/assets/city/'+art+'.webp" alt=""><div><strong>'+esc(name)+'</strong><small>'+
+ const stage=kind==="bakery"?Math.min(level,4):
+  ["restaurant","dairy","atelier"].includes(kind)?(level>=5?3:level>=3?2:1):0;
+ const art=level&&stage?"scenes/"+kind+"-"+stage:"building-"+kind;
+ return '<div class="business-art'+(level&&stage&&kind!=="bakery"?' business-painted':'')+'"><img src="/assets/city/'+art+'.webp" alt=""><div><strong>'+esc(name)+'</strong><small>'+
   (level?"Работает · уровень "+number(level):"Закрыто")+'</small></div></div>';
 }
 function citySectionArt(title,description,art){
@@ -334,11 +336,17 @@ function simpleShoppingList(recipeId){
  html+='<button class="btn ghost" data-action="business" data-item="'+recipe.business+'">← Вернуться в '+esc(data.business_catalog[recipe.business].name)+'</button>';
  openPanel("🌾 Ингредиенты · "+recipe.name,html);
 }
+const tradeArt={eggs:"/assets/redesign/egg.webp",grain:"/assets/redesign/grain.webp",
+ milk:"/assets/milk-v1.webp",feathers:"/assets/illustrations/feather-icon-v3.webp"};
+function illustratedTradeRow(name,item,details,actions){
+ const art=tradeArt[item]||"/assets/city/product-"+encodeURIComponent(item)+".webp";
+ return '<article class="city-trade-art"><img src="'+art+'" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'/assets/city/profile-icon-1.webp\'"><div><strong>'+name+'</strong><small>'+details+'</small></div><div class="item-actions">'+actions+'</div></article>';
+}
 function simpleMarket(){
  const categories={raw:"Сырьё",materials:"Материалы",food:"Еда",products:"Товары",animals:"Животные"};
  let html='<div class="city-market-tabs">'+Object.entries(categories).map(([k,label])=>
   '<button class="btn ghost" data-action="category" data-item="'+k+'" aria-pressed="'+(marketCategory===k)+'">'+label+'</button>').join("")+'</div>'+
-  '<p class="panel-note">🏪 Обычный магазин. Никаких продавцов и ожидания выкупа. Цена фиксирована, операция происходит сразу.</p>';
+  '';
  if(marketCategory==="animals"){
   html+='<p class="panel-note">🐔 Животных можно сразу купить на ферме. Окупаемость зависит от кормления и использования продукции.</p>'+
   '<a class="btn city-link" href="/?market=chickens">Купить животных на ферме</a>';
@@ -347,7 +355,7 @@ function simpleMarket(){
   html+=keys.map(item=>{
    const price=data.system_prices.raw_buy[item],payout=data.system_prices.raw_sell[item];
    const owned=data.stock?.[item]||0;
-   return row(names[item],'Купить: '+price+' 🪙 · Продать: '+payout+' 🪙 · В городе: '+owned,
+   return illustratedTradeRow(names[item],item,'Купить: '+price+' 🪙 · Продать: '+payout+' 🪙 · На складе: '+owned,
      input("qty-market-"+item,1,500)+
      '<button class="btn" data-action="raw" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Купить</button>'+
      (owned?'<button class="btn gold" data-action="sell-raw" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Продать</button>':''));
@@ -358,7 +366,7 @@ function simpleMarket(){
    .sort(([keyA],[keyB])=>data.system_prices.product[keyA].buy-data.system_prices.product[keyB].buy||
      keyA.localeCompare(keyB,"ru")).map(([item,recipe])=>{
    const v=data.system_prices.product[item],owned=data.products[item]||0;
-   return row((icons[item]||"📦")+" "+esc(recipe.name),
+   return illustratedTradeRow(esc(recipe.name),item,
     'Купить: '+v.buy+' 🪙 · Продать: '+v.sell+' 🪙 · На складе: '+owned,
     input("qty-market-"+item,1,500)+
     '<button class="btn" data-action="product" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Купить</button>'+
@@ -368,24 +376,24 @@ function simpleMarket(){
  openPanel("Рынок",citySectionArt("Рынок","Покупай и продавай по фиксированным ценам.","market")+html);
 }
 function simpleWarehouse(){
- const tabs={raw:"Сырьё",products:"Продукция"};
+ const tabs={raw:"Сырьё",materials:"Материалы",food:"Еда",products:"Товары"};
  let html='<div class="city-market-tabs">'+Object.entries(tabs).map(([key,label])=>
   '<button class="btn ghost" aria-pressed="'+(warehouseTab===key)+'" data-action="warehouse-tab" data-item="'+key+'">'+label+'</button>').join("")+'</div>';
- if(warehouseTab==="raw"){
-  html+=Object.keys(data.system_prices.raw_buy).map(item=>{
+ if(warehouseTab==="raw"||warehouseTab==="materials"){
+  html+=Object.keys(data.system_prices.raw_buy).filter(item=>["feathers","wool"].includes(item)===(warehouseTab==="materials")).map(item=>{
    const stock=data.stock[item]||0;
-   return row(names[item],'В наличии: '+stock+' шт.',stock?
+   return illustratedTradeRow(names[item],item,'В наличии: '+stock+' шт.',stock?
      input("qty-stock-"+item,1,Math.min(stock,500))+
      '<button class="btn gold" data-action="sell-raw" data-item="'+item+'" data-amount-id="qty-stock-'+item+'">Продать · '+data.system_prices.raw_sell[item]+' 🪙</button>':'');
   }).join("");
  }else{
   html+='<p class="panel-note">Один общий запас еды и продукции для города и фермы. Покупки, производство и продажи сразу меняют количество в обоих разделах.</p>';
-  const goods=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key])
+  const goods=Object.entries(data.products).filter(([key,n])=>n>0&&data.recipes[key]&&Boolean(data.food_items?.includes(key))===(warehouseTab==="food"))
     .sort(([a],[b])=>data.system_prices.product[a].buy-data.system_prices.product[b].buy||
       a.localeCompare(b,"ru"));
   html+=goods.length?goods.map(([item,n])=>{
    const v=data.system_prices.product[item];
-   return row((icons[item]||"📦")+" "+esc(data.recipes[item].name),
+   return illustratedTradeRow(esc(data.recipes[item].name),item,
     'В наличии: '+n+' шт. · Продажа: '+v.sell+' 🪙/шт.',
     input("qty-list-"+item,1,500)+
     '<button class="btn gold" data-action="list" data-item="'+item+'">Продать</button>');
@@ -825,7 +833,7 @@ async function action(action,item,amountId,listingId){
  if(action==="season-section"){seasonSection=item;return showGoals("season")}
  if(action==="market-lots"){warehouseTab="lots";return view("warehouse")}
  if(action==="warehouse-tab"){warehouseTab=item;return showWarehouse()}
- if(action==="sell-product"){warehouseTab="products";view("warehouse");$("qty-list-"+item)?.focus();return}
+ if(action==="sell-product"){warehouseTab=data.simple_economy&&data.food_items?.includes(item)?"food":"products";view("warehouse");$("qty-list-"+item)?.focus();return}
  if(action==="ranking")return showRanking(item);
  if(action==="navigate"){if(item==="reputation")return showProgressLog(true);return view(item)}
  if(action==="order-market"){
