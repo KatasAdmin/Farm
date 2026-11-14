@@ -175,7 +175,7 @@ async function perform(path, data) {
     if (el("purchase-dialog").open) el("purchase-dialog").close();
     // The operation has committed; refresh failure must never encourage a repeated charge.
     const message = path === "/api/sell"
-      ? "Товар выставлен на продажу. Монеты поступят после покупки другим игроком."
+      ? (state?.simple_economy?"Продано сразу! +"+number(result.received)+" игровых монет.":"Товар выставлен на продажу. Монеты поступят после покупки другим игроком.")
       : path.startsWith("/api/cancel/") ? `Возвращено на склад: ${number(result.returned)} шт.`
       : "Операция выполнена" + (result.spent ? ` · ${number(result.spent)} монет` : "");
     toast(message);
@@ -521,9 +521,9 @@ function openResourceActions(item) {
   el("resource-action-free").textContent=freeLabels[item]||"🎬 Получить бесплатно";
   const progress=el("resource-action-ad-progress");
   if(progress){progress.hidden=!adRewards[item];progress.textContent=adRewards[item]?(adProgress[item]||0)+"/"+adRewards[item][0]+" подтверждённых просмотров":"";}
-  el("resource-action-description").textContent="Купи товар у других фермеров или выставь свой на общий рынок.";
+  el("resource-action-description").textContent=state.simple_economy?"Магазин: покупка и продажа сразу, без ожидания и объявлений.":"Купи товар у других фермеров или выставь свой на общий рынок.";
   el("resource-action-buy").textContent="Купить";
-  el("resource-action-sell").textContent="Выставить на продажу";
+  el("resource-action-sell").textContent=state.simple_economy?"Продать сразу":"Выставить на продажу";
   el("resource-actions-dialog").showModal();
 }
 const adRewards={grain:[1,1,"🌾"],eggs:[2,2,"🥚"],milk:[5,1,"🥛"],chickens:[20,1,"🐔"],geese:[80,1,"🪿"],cows:[250,1,"🐄"],sheep:[100,1,"🐑"],coins:[1,3,"🪙"]};
@@ -595,9 +595,10 @@ function openSell(item) {
  if(!state||pending)return;
  el("sellitem").value=item;
  el("sellprice").value=String(state.shop[item]|| (item==="feathers"?5:1));
- el("egg-sale-title").textContent="Выставить на рынок: "+itemNames[item];
+ el("egg-sale-title").textContent=(state.simple_economy?"Продать сразу: ":"Выставить на рынок: ")+itemNames[item];
  document.querySelector('label[for="sellnum"]').textContent="Количество";
  el("sellnum").value="1";
+ el("sellnum").max=state.simple_economy?"500":"10000";
  sellType();
  const dialog=el("egg-sale-dialog");
  if(dialog&&!dialog.open)dialog.showModal();
@@ -616,6 +617,7 @@ function marketRows(item) {
     : [];
 }
 function quote(item, n) {
+  if(state?.simple_economy)return {cost:(state.shop[item]||0)*n,remaining:0};
   if (["eggs","milk"].includes(item)) {
     const available = Number((item==="milk"?state?.available_milk:state?.available_eggs) ?? 0);
     return {cost:(state.shop[item]||1)*n,remaining:Math.max(0,n-available)};
@@ -635,14 +637,14 @@ function drawPool() {
   document.querySelectorAll("[data-market-available]").forEach(node=>{
     const item=node.dataset.marketAvailable;
     const qty=marketRows(item).reduce((sum,row)=>sum+row.quantity,0);
-    node.textContent="У игроков: "+number(qty)+" шт.";
+    node.textContent=state.simple_economy?"Магазин · "+number(state.shop[item]||0)+" 🪙":("У игроков: "+number(qty)+" шт.");
   });
   const available = Number(state.available_eggs ?? 0);
   const label = el("eggs-available");
   const buy = el("eggs-buy-button");
-  if (label) label.textContent = "Доступно для покупки: " + number(available) + " шт.";
+  if (label) label.textContent = state.simple_economy?"Магазин системы · "+number(state.shop.eggs)+" 🪙/шт.":"Доступно для покупки: " + number(available) + " шт.";
   const milkAvailable=Number(state.available_milk||0);
-  if(el("milk-available"))el("milk-available").textContent="Доступно для покупки: "+number(milkAvailable)+" шт.";
+  if(el("milk-available"))el("milk-available").textContent=state.simple_economy?"Магазин системы · "+number(state.shop.milk)+" 🪙/шт.":"Доступно для покупки: "+number(milkAvailable)+" шт.";
   if(el("milk-buy-button")){el("milk-buy-button").disabled=pending;el("milk-buy-button").textContent="Купить";}
   if (buy) {
     buy.disabled = pending;
@@ -651,6 +653,7 @@ function drawPool() {
 }
 function selectBuy(item) {
   if (!state || pending) return;
+  if(state.simple_economy){openPurchase({kind:"shop",item,price:state.shop[item]});return}
   const rows = marketRows(item);
   const available = ["eggs","milk"].includes(item) ? Number((item==="milk"?state?.available_milk:state?.available_eggs) ?? 0) : rows.reduce((sum,row) => sum + row.quantity, 0);
   if (!available && !["eggs","milk","grain","chickens","geese","cows","sheep"].includes(item)) {
@@ -769,14 +772,14 @@ function sellMaximum() {
 }
 function sellType() {
   const grainPriceWrap=el("grainPriceWrap");
-  if(grainPriceWrap)grainPriceWrap.hidden=el("sellitem").value!=="grain";
+  if(grainPriceWrap)grainPriceWrap.hidden=state?.simple_economy||el("sellitem").value!=="grain";
   sellQuote();
 }
 function sellQuote() {
   if (!state) return;
   const item = el("sellitem").value,
     n = Number(el("sellnum").value),
-    price = ["eggs","milk","feathers","wool","chickens","geese","cows","sheep"].includes(item) ? (state.shop[item]||(item==="feathers"?5:1)) : Number(el("sellprice").value);
+    price = state.simple_economy?(state.system_sell_prices[item]||0): ["eggs","milk","feathers","wool","chickens","geese","cows","sheep"].includes(item) ? (state.shop[item]||(item==="feathers"?5:1)) : Number(el("sellprice").value);
   const reserved=["chickens","geese","cows","sheep"].includes(item)?state.my_listings.filter(x=>x.item===item).reduce((v,x)=>v+x.quantity,0):0;
   const free=state.me[item]-reserved;
   el("myStock").textContent = `Доступно для продажи: ${number(free)} шт.`;
@@ -792,8 +795,9 @@ async function sellNow() {
   try {
     const item=el("sellitem").value,n=amount("sellnum");
     if(!state||!["eggs","milk","grain","feathers","wool","chickens","geese","cows","sheep"].includes(item))throw Error("Недостаточно товара");
+    if(state.simple_economy&&n>500)throw Error("До 500 шт. за одну продажу");
     const success=await perform("/api/sell",{
-      item,amount:n,price:state.shop[item]||(item==="feathers"?5:1),
+      item,amount:n,price:state.simple_economy?state.system_sell_prices[item]:(state.shop[item]||(item==="feathers"?5:1)),
     });
     if(success&&el("egg-sale-dialog")?.open)el("egg-sale-dialog").close();
   } catch(error){toast(error.message);}
