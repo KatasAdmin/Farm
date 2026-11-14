@@ -32,7 +32,7 @@ def prices(recipes):
     for key,r in recipes.items():
         cost=sum(RAW_BUY[k]*n for k,n in r.get("needs",{}).items())
         cost+=sum(output[k]["buy"]*n for k,n in r.get("needs_products",{}).items())
-        per_unit=max(1,int(math.floor(cost*0.82/max(1,r["output"]))))
+        per_unit=max(1,int(math.floor(cost*0.88/max(1,r["output"]))))
         output[key]={"sell":per_unit,"buy":max(per_unit+1,int(math.ceil(per_unit*1.25))),
                      "batch_input_cost":cost}
     return output
