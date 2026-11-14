@@ -532,3 +532,54 @@ body{background:radial-gradient(ellipse at 52% 7%,#39234d 0%,#17152a 48%,#100e1b
 }
 .market-scene strong{justify-self:center;align-self:end}
 html{overflow-anchor:none}
+
+/* Reference composition: illustrated titles, featured cards and continuous chrome. */
+body{background:radial-gradient(ellipse at 50% 10%,#3f2554,#19162a 47%,#0f1020 88%)}
+.topbar{min-height:38px;border-radius:0 0 19px 19px}
+.city-identity h1{font-size:clamp(12px,4.1vw,23px)}
+.city-identity .brand-kicker{font-size:clamp(8px,2.5vw,14px)}
+.bottom-nav{padding:5px 4px;box-shadow:0 -1px 16px #bf64f281,inset 0 1px 10px #9359b64d}
+.bottom-nav button{min-height:clamp(56px,14.3vw,80px)}
+.bottom-nav button i img{width:clamp(29px,8vw,45px);height:clamp(29px,8vw,45px)}
+.world-frame{background:linear-gradient(#201735,#151527)}
+.district-tools{background:linear-gradient(#211635,#1c1d37);padding-bottom:6px}
+.district-tools .quick-action{min-height:54px}
+.district-target strong{font-size:clamp(8px,2.8vw,14px)}
+.stat-grid .stat,.profile-stats .stat,.profile-menu .stat{
+ box-shadow:inset 0 -7px 15px #b267d575,inset 0 1px 4px #e4bbfa6b,0 2px 5px #100718
+}
+.profile-menu .stat{min-height:clamp(56px,15vw,80px)}
+#city-page .profile-hero{margin-top:12px;min-height:clamp(96px,24vw,145px)}
+#city-page .profile-balance{margin-block:10px}
+.market-scene{height:clamp(75px,21vw,126px);min-height:0;display:grid;align-items:center;padding:0;
+ background-image:url("evening-market.webp");background-position:center 56%}
+.market-scene .market-sign{width:48%;height:100%;object-fit:contain;justify-self:center;align-self:center}
+.market-scene .btn{right:5px;bottom:9px}
+.market-line{border-color:#bd82dd;box-shadow:inset 0 0 11px #c671ec54}
+#city-page:has([data-scene="season"]) #page-heading{margin:5px 0 0;color:#ffe2a0;text-shadow:0 0 12px #eb982d91}
+.season-lead{display:grid;justify-items:center;gap:4px;padding:3px 6px 12px;margin:0 -8px 7px;color:#fff5dd;
+ background:linear-gradient(#19162a44,#1e172cbd),url("evening-season.webp") center 32%/cover}
+.season-lead img{width:39px;height:39px;object-fit:contain}
+.season-lead strong{padding:4px 11px;border-radius:8px;background:linear-gradient(#873e65,#472141)}
+.season-lead small{padding:4px 9px;border-radius:10px;background:#191523dc}
+.season-feature{min-height:72px;display:grid;align-content:center;gap:4px;padding:9px 42% 9px 11px;color:#fff;border:1px solid #d17fea;border-radius:14px;
+ background:linear-gradient(90deg,#472859 42%,transparent 66%),url("season-feature.webp") right center/auto 100% no-repeat,#332049}
+.season-feature small{color:#f5d4a7}
+.event-intro{text-align:center;font-size:11px;margin:-4px 0 8px;color:#f0dff5}
+.event-feature,.event-entry{display:grid;grid-template-columns:clamp(72px,23vw,128px) minmax(0,1fr);gap:8px;
+ background:linear-gradient(120deg,#472854,#241c34);border:1px solid #a86cc6;border-radius:15px;overflow:hidden;margin-bottom:9px;align-items:center}
+.event-feature>img,.event-entry>img{width:100%;height:100%;max-height:115px;object-fit:cover}
+.event-feature>div,.event-entry>div{padding:6px 6px 6px 0}
+.event-feature strong,.event-feature small,.event-entry strong,.event-entry small{display:block}
+.event-feature small,.event-entry small{color:#ffdb95;font-size:11px}
+.event-feature .btn{margin-top:6px;padding:5px 8px;min-height:34px}
+.event-entry{margin-top:7px}
+.event-entry .event-goals{grid-column:1/-1;padding:0 5px}
+.daily-banner progress{margin-top:4px;accent-color:#46d86a}
+.market-scene .market-sign{position:absolute;inset:0;margin:auto;width:55%;height:100%}
+#panel-body .season-switch .btn[aria-pressed="false"]{background:linear-gradient(#493d58,#282135);border-color:#8a6ca1;box-shadow:inset 0 0 10px #bf87e732}
+#city-page:has([data-scene="events"]) #page-heading{
+ background:linear-gradient(90deg,#1a1528aa,#1a152833),url("ref-profile.webp") right center/cover;
+ padding:12px 4px 14px;margin:0 -8px 8px;color:#fff5f8
+}
+.event-feature{min-height:86px}

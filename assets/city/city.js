@@ -97,7 +97,7 @@ function paint(){
  if(data.jobs.length)jobTimer=setTimeout(()=>{if(!working&&document.visibilityState==="visible")load().catch(()=>{})},Math.max(1000,secondsLeft(data.jobs[0])*1000+300));
 }
 const mainScreens=new Set(["profile","season","events","market","businesses","ranking","business","warehouse","residents"]);
-let parentScreen="map",seasonSection="rewards";
+let parentScreen="map",seasonSection="rewards",eventSection="current";
 
 function openPanel(title,html){
  const body=$("panel-body");
@@ -267,7 +267,7 @@ function showShoppingList(recipeId){
 }
 function showMarket(){
  const categories={raw:["Сырьё","resource-1"],food:["Еда","product-pancakes"],products:["Готовая продукция","profile-icon-1"],materials:["Материалы","resource-4"],animals:["Животные","resource-2"]};
- let html='<div class="city-scene market-scene"><strong>Рынок</strong><button class="btn ghost" data-action="market-lots">📦 Мои лоты</button></div><div class="city-market-tabs" aria-label="Категории">' +Object.entries(categories).map(([key,[label,art]])=>
+ let html='<div class="city-scene market-scene"><img class="market-sign" src="/assets/city/market-sign.webp" alt="Рынок"><button class="btn ghost" data-action="market-lots">📦 Мои лоты</button></div><div class="city-market-tabs" aria-label="Категории">' +Object.entries(categories).map(([key,[label,art]])=>
    '<button type="button" class="btn ghost" aria-pressed="'+(key===marketCategory)+'" data-action="category" data-item="'+key+'"><img src="/assets/city/'+art+'.webp" alt="">'+label+'</button>').join("")+'</div>';
  if(marketCategory==="animals"){
   const animals={chickens:"🐔 Курица",geese:"🪿 Гусыня",cows:"🐄 Корова",sheep:"🐑 Овца"};
@@ -374,10 +374,21 @@ async function showGoals(tab){
  try{
   const snapshot=await api("/goals");
   if(activeView!==tab)return;
-  const periods=tab==="daily"?[snapshot.daily]:snapshot.campaigns.filter(period=>
+  const now=Date.now()/1000;
+  let periods=tab==="daily"?[snapshot.daily]:snapshot.campaigns.filter(period=>
    period.kind===(tab==="season"?"season":"event"));
   const dailyCount=snapshot.daily.goals.filter(goal=>goal.claimed).length;
-  let html=tab==="events"?'<div class="city-scene festival-hero"><strong>События города</strong></div><button class="season-banner daily-banner" data-action="navigate" data-item="daily"><span>Ежедневные задания · '+dailyCount+' / '+snapshot.daily.goals.length+'</span><b>Смотреть ›</b></button>':"";
+  let html="";
+  if(tab==="events"){
+   const featured=periods.find(period=>period.active);
+   periods=periods.filter(period=>eventSection==="history"?period.ends<=now:period.active&&period!==featured);
+   html='<div class="event-intro">Временные активности и особые задания</div>'+
+    '<div class="event-feature"><img src="/assets/city/event-gift.webp" alt=""><div><small>'+(featured?"Главное событие":"Афиша города")+'</small><strong>'+
+    (featured?esc(featured.name):"Скоро новые события")+'</strong>'+
+    (featured?'<button class="btn" data-action="featured-event">Участвовать ›</button>':"")+'</div></div>'+
+    '<div class="season-switch"><button class="btn" data-action="event-section" data-item="current" aria-pressed="'+(eventSection==="current")+'">Текущие</button><button class="btn" data-action="event-section" data-item="history" aria-pressed="'+(eventSection==="history")+'">Завершённые</button></div>';
+   if(featured&&eventSection==="current")periods.unshift(featured);
+  }
   html+=periods.map(period=>{
    const hours=Math.max(0,Math.ceil((period.ends-Date.now()/1000)/3600));
    const date=Math.floor(hours/24)+" дн. "+hours%24+" ч.";
@@ -388,6 +399,12 @@ async function showGoals(tab){
    const item=(goal,details)=>row(esc(goal.name),details,goal.claimed?'<span class="pill">Получено</span>':
     goal.available?'<button class="btn" data-action="claim-goal" data-item="'+esc(goal.key)+'" data-listing-id="'+esc(period.id)+'">Получить</button>':"");
    const goals=period.goals.map(goal=>item(goal,number(Math.min(goal.value,goal.goal))+" / "+number(goal.goal)+" · +"+goal.xp+" XP")).join("");
+   if(tab==="events"){
+    const metric=period.goals[0]?.key;
+    const art=metric==="raw"?"harvest":metric==="upgrades"?"building":metric==="pancakes"||metric==="batches"?"cooking":"gift";
+    return '<article class="event-entry"><img src="/assets/city/event-'+art+'.webp" alt=""><div><strong>'+esc(period.name)+'</strong><small>'+
+     (period.active?"До конца: "+date:"Завершено")+'</small>'+(period.description?'<p>'+esc(period.description)+'</p>':"")+'</div><div class="event-goals">'+goals+'</div></article>';
+   }
    if(!period.rewards)return heading+goals;
    const rewards='<div class="reward-board"><div class="reward-rail premium-track"><header><img src="/assets/city/tab-icon-1.webp" alt=""><strong>Премиум</strong><small>Закрыто</small></header>'+
     period.premium.map((label,index)=>'<article><img src="/assets/city/'+(index?"profile-icon-5":"tab-icon-1")+'.webp" alt=""><strong>'+esc(label)+'</strong><small>Закрыто</small></article>').join("")+
@@ -396,9 +413,17 @@ async function showGoals(tab){
      item(goal,goal.available||goal.claimed?"":"Закрыто")+'</article>').join("")+'</div></div>';
    const next=period.rewards.find(goal=>goal.goal>period.xp)?.goal||period.rewards.at(-1)?.goal||1;
    const tabs='<div class="season-switch"><button class="btn" data-action="season-section" data-item="rewards" aria-pressed="'+(seasonSection==="rewards")+'">Награды сезона</button><button class="btn" data-action="season-section" data-item="tasks" aria-pressed="'+(seasonSection==="tasks")+'">Задания сезона</button></div>';
-   return heading+'<div class="season-meter"><strong>Ур. '+period.level+'</strong><progress aria-label="Опыт сезона" value="'+period.xp+'" max="'+next+'"></progress><small>'+period.xp+' / '+next+' XP</small></div>'+tabs+(seasonSection==="tasks"?goals:rewards);
+   const feature=period.rewards.at(-1);
+   const lead='<div class="season-lead"><img src="/assets/city/tab-icon-1.webp" alt=""><strong>'+esc(period.name)+'</strong><small>'+
+    (period.active?"До конца сезона: "+date:period.ends<=now?"Завершён":"Скоро")+'</small></div>'+
+    (feature?'<div class="season-feature"><small>Главная награда сезона</small><strong>'+esc(feature.name)+'</strong></div>':"");
+   return lead+'<div class="season-meter"><strong>Ур. '+period.level+'</strong><progress aria-label="Опыт сезона" value="'+period.xp+'" max="'+next+'"></progress><small>'+period.xp+' / '+next+' XP</small></div>'+tabs+(seasonSection==="tasks"?goals:rewards);
   }).join("");
-  openPanel(title,html+(periods.length?"":'<div class="empty">Скоро новые события</div>'));
+  if(tab==="events"){
+   if(!periods.length&&eventSection==="history")html+='<p class="empty">Завершённых событий пока нет</p>';
+   html+='<button class="season-banner daily-banner" data-action="navigate" data-item="daily"><span>Ежедневные задания<progress max="'+Math.max(1,snapshot.daily.goals.length)+'" value="'+dailyCount+'" aria-label="Прогресс дня"></progress><small>'+dailyCount+' / '+snapshot.daily.goals.length+'</small></span><b>Смотреть ›</b></button>';
+  }
+  openPanel(title,html||'<div class="empty">Скоро новый сезон</div>');
  }catch(error){if(activeView===tab)openPanel(title,'<p class="empty">'+esc(error.message)+'</p>')}
 }
 
@@ -519,6 +544,8 @@ async function action(action,item,amountId,listingId){
   catch(error){toast(error.message)}finally{working=false}
   return;
  }
+ if(action==="featured-event"){document.querySelector(".event-entry")?.scrollIntoView({block:"start"});return}
+ if(action==="event-section"){eventSection=item;return showGoals("events")}
  if(action==="season-section"){seasonSection=item;return showGoals("season")}
  if(action==="market-lots"){warehouseTab="lots";return view("warehouse")}
  if(action==="warehouse-tab"){warehouseTab=item;return showWarehouse()}
