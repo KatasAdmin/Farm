@@ -452,6 +452,15 @@ async function claimWeekly(){
   toast("🏆 Недельное испытание пройдено! +"+number(result.awarded)+" монет");
  }catch(error){toast(error.message);}finally{busy(false);}
 }
+async function claimWeeklyFeather(){
+ if(pending||!state?.weekly||state.weekly.feather_claimed||!state.weekly.feathers)return;
+ try{
+  busy(true);
+  const result=await api("/api/weekly/feather/claim",{});
+  await refresh();
+  toast("🪶 Еженедельная награда за перо: +"+number(result.awarded)+" монет");
+ }catch(error){toast(error.message);}finally{busy(false);}
+}
 function taskSection(which) {
   const panes={goals:"goals-pane",achievements:"achievement-pane",referrals:"referrals-pane"};
   if(!panes[which])return;
@@ -1285,13 +1294,26 @@ function render() {
   }
   const weeklyExtra=el("weekly-extra");
   if(weeklyExtra){
+    // These belong to the same weekly mission list — no separate
+    // "additional objectives" heading or misleading daily reward copy.
     const objectives=[
-      ["🛒 Купить 3 товара на рынке",weekly.market_purchases||0,3],
-      ["🥛 Собрать 5 единиц молока",weekly.milk||0,5,Boolean(p.cows||weekly.milk)],
-      ["🪶 Произвести перо",weekly.feathers||0,1,Boolean(p.geese||weekly.feathers)]
-    ].filter(row=>row.length<4||row[3]);
-    weeklyExtra.innerHTML='<h3>Дополнительные цели недели</h3><p class="muted">Не обязательны для основной награды. 🪶 Перья производятся гусями по таймеру. За ежедневное задание с пером можно получить +15 монет.</p>'+
-      objectives.map(([name,value,target])=>'<div class="daily-task"><div><strong>'+name+'</strong><small>'+number(Math.min(value,target))+' / '+target+'</small></div><div class="progress"><span style="width:'+(100*Math.min(value,target)/target)+'%"></span></div></div>').join("");
+      {icon:"🛒",name:"Купить 3 товара в магазине",value:weekly.market_purchases||0,target:3},
+      {icon:"🥛",name:"Получить 5 единиц молока",value:weekly.milk||0,target:5},
+      {icon:"🪶",name:"Произвести 1 перо от гуся",value:weekly.feathers||0,target:1,reward:weekly.feather_reward||15,claimed:!!weekly.feather_claimed}
+    ];
+    weeklyExtra.innerHTML=objectives.map(task=>{
+      const n=Math.min(task.target,Math.max(0,task.value));
+      const done=n>=task.target;
+      const action=task.reward?
+        '<button type="button" class="btn small weekly-task-action" onclick="claimWeeklyFeather()" '+(!done||task.claimed||pending?'disabled':'')+'>'+
+        (task.claimed?'Награда получена ✓':done?'Забрать +'+task.reward+' монет':'Награда +'+task.reward+' монет')+'</button>':'';
+      return '<div class="weekly-task-item">'+
+        '<span class="weekly-task-icon" aria-hidden="true">'+task.icon+'</span>'+
+        '<div class="weekly-task-details"><strong>'+task.name+'</strong>'+
+        '<small>'+number(n)+' / '+task.target+' · '+(done?'Готово':'В процессе')+'</small></div>'+
+        '<div class="progress"><span style="width:'+(100*n/task.target)+'%"></span></div>'+
+        action+'</div>';
+    }).join("");
   }
   const claim=el("weekly-claim");
   if(claim){claim.disabled=pending||!weeklyDone||weekly.claimed;claim.textContent=weekly.claimed?"🏆 Награда получена ✓":"🏆 Забрать награду: +"+(weekly.reward||30)+" монет";}
