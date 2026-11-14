@@ -50,10 +50,10 @@ body{background:#190d30}
 
 /* Fade the illustrated wordmark into the sky on all four edges. */
 #city-shell .city-wordmark {
-  -webkit-mask-image:radial-gradient(ellipse 57% 72% at 50% 50%,#000 51%,transparent 91%);
-  mask-image:radial-gradient(ellipse 57% 72% at 50% 50%,#000 51%,transparent 91%);
+  -webkit-mask-image:radial-gradient(ellipse 57% 72% at 50% 50%,#000 45%,transparent 87%);
+  mask-image:radial-gradient(ellipse 57% 72% at 50% 50%,#000 45%,transparent 87%);
   mix-blend-mode:lighten;
 }
-#city-shell .topbar{z-index:auto}
+#city-shell .topbar{z-index:auto;margin:0;grid-template-columns:minmax(0,1fr)}
 #city-shell .city-identity{position:relative;z-index:4}
 #city-shell .top-counters{position:relative;z-index:8}
