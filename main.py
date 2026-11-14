@@ -1703,6 +1703,8 @@ def state(authorization:str=Header(default="")):
     "my_listings":[] if simple_economy.enabled() else mine,"top":top,"my_rank":my_rank,"now":observed_at}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
+ if simple_economy.enabled():
+  return buy(q,authorization)
  check(q.amount)
  if q.item not in ("grain","chickens","geese","cows","sheep"):raise HTTPException(400,"Товар не найден")
  return buy(q,authorization)
