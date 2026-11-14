@@ -17,6 +17,7 @@ import farm_ranking
 import release_grants
 import farm_wallet
 import city_world
+import simple_economy
 import city_nutrition
 import farm_exchange
 import farm_capitalization
@@ -216,6 +217,11 @@ async def lifespan(app):
   logger.warning("farm_startup_bot_schema_ready")
   farm_wallet.initialize(c)
   city_world.initialize(c)
+  simple_economy.initialize(c)
+  if simple_economy.enabled():
+   restored=simple_economy.migrate_listings(c)
+   logger.warning("simple_economy_legacy_lots_restored farm=%s city=%s",
+                  restored["farm_lots"],restored["city_lots"])
   farm_capitalization.initialize(c)
   farm_exchange.initialize(c)
   if os.environ.get("FARM_STAGING", "").lower() not in ("1", "true", "yes"):
@@ -1682,7 +1688,19 @@ def state(authorization:str=Header(default="")):
   prediction=forecast_v4({**p,"_city_food":food},observed_at,jobs) if p.get('production_model',3)>=4 else forecast(p,observed_at,jobs)
   expected_eggs=min(p["fed_hens"]+3*p.get("fed_geese",0),max(0,storage_limit(p)-p["grain"]-p["eggs"]-p.get("feathers",0)-p.get("milk",0)-p.get("wool",0)))
   production_history=c.execute("SELECT id,amount,created FROM farm_events WHERE player_id=%s AND kind='eggs_produced' ORDER BY created DESC,id DESC LIMIT 10",(p["id"],)).fetchall()
-  return {"nutrition":city_nutrition.status(food,observed_at),"fields":fields.status(c,p),"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":livestock_used(p),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+p.get("wool",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":available_milk,"available_eggs":available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"market_purchases":weekly_stats["market_purchases"],"feathers":weekly_stats["feathers"],"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":{"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"sheep":SHEEP_PRICE,"wool":WOOL_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,"goose_min_level":GOOSE_MIN_LEVEL,"sheep_min_level":SHEEP_MIN_LEVEL,"cow_min_level":COW_MIN_LEVEL,"eggs":EGG_PRICE},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":listings,"my_listings":mine,"top":top,"my_rank":my_rank,"now":observed_at}
+  return {"nutrition":city_nutrition.status(food,observed_at),"fields":fields.status(c,p),"day_stats":day_stats,"tutorial":tutorial,"production_history":production_history,"promotion":promotion,"incubator":incubation,"buildings":{"cowshed_level":p.get("cowshed_level",1),"cowshed_capacity":cowshed_limit(p),"cows_used":livestock_used(p),"cowshed_next_cost":upgrade_cost("cowshed",p.get("cowshed_level",1)) if p.get("cowshed_level",1)<MAX_BUILDING_LEVEL else None,"coop_level":p["coop_level"],"storage_level":p["storage_level"],"coop_capacity":coop_limit(p),"birds_used":p["chickens"]+p.get("geese",0),"storage_capacity":storage_limit(p),"storage_used":p["grain"]+p["eggs"]+p.get("feathers",0)+p.get("milk",0)+p.get("wool",0),"max_level":MAX_BUILDING_LEVEL,"coop_next_cost":upgrade_cost("coop",p["coop_level"]) if p["coop_level"]<MAX_BUILDING_LEVEL else None,"storage_next_cost":upgrade_cost("storage",p["storage_level"]) if p["storage_level"]<MAX_BUILDING_LEVEL else None},"progression":{"xp":xp,"level":level,"next_level_xp":next_xp,"achievements":achievements,"extra_achievements":extra_achievements,"staged_achievements":staged_achievements,"totals":{**totals,"eggs_sold":sold}},"available_milk":1000000000 if simple_economy.enabled() else available_milk,
+    "available_eggs":1000000000 if simple_economy.enabled() else available_eggs,"daily":activity,"daily_day":day,"claimed_rewards":claims,"weekly":{"week":week,"milk":weekly_extra.get("milk_produced",0),"feeding":weekly_stats["feeding"],"market_sales":weekly_stats["market_sales"],"market_purchases":weekly_stats["market_purchases"],"feathers":weekly_stats["feathers"],"grain":weekly_stats["grain"],"eggs":weekly_stats["eggs"],"listed":weekly_stats["listed"],"targets":{"grain":10,"eggs":10,"listed":3},"reward":30,"claimed":weekly_claimed,"ends_at":week_start+604800},"reward_minted_total":minted,"reward_values":REWARD_AMOUNTS,"last_farm_event":event,"shop":({**simple_economy.RAW_BUY,**simple_economy.ANIMAL_BUY,
+    "goose_min_level":GOOSE_MIN_LEVEL,"sheep_min_level":SHEEP_MIN_LEVEL,
+    "cow_min_level":COW_MIN_LEVEL} if simple_economy.enabled() else
+    {"grain":GRAIN_PRICE,"chickens":HEN_PRICE,"cows":COW_PRICE,"sheep":SHEEP_PRICE,
+    "wool":WOOL_PRICE,"milk":MILK_PRICE,"geese":GOOSE_PRICE,
+    "goose_min_level":GOOSE_MIN_LEVEL,"sheep_min_level":SHEEP_MIN_LEVEL,
+    "cow_min_level":COW_MIN_LEVEL,"eggs":EGG_PRICE}),
+    "simple_economy":simple_economy.enabled(),
+    "system_buy_prices":simple_economy.RAW_BUY if simple_economy.enabled() else {},
+    "system_sell_prices":{**simple_economy.RAW_SELL,**simple_economy.ANIMAL_SELL}
+      if simple_economy.enabled() else {},"economy":{"treasury":c.execute("SELECT treasury FROM economy WHERE id=1").fetchone()["treasury"]},"farm":{**prediction,"expected_eggs":expected_eggs,"cycle_seconds":CYCLE,"seconds_to_next":max(0,int(CYCLE-(time.time()-p["last_tick"]))),"feeding_per_cycle":feed_required(p),"feed_cycles_available":prediction.get("complete_feeds_available",0),"feed_seconds_to_next":(FEED_EVERY-p["feed_phase"])*CYCLE-max(0,time.time()-p["last_tick"]),"feed_interval_seconds":FEED_EVERY*CYCLE,"fed_hens":p["fed_hens"]},"has_password":bool(p["password_hash"]),"me":{k:v for k,v in p.items() if k not in ("token","password_hash","recovery_hash")},"market":[] if simple_economy.enabled() else listings,
+    "my_listings":[] if simple_economy.enabled() else mine,"top":top,"my_rank":my_rank,"now":observed_at}
 @app.post("/api/shop")
 def shop(q:Request,authorization:str=Header(default="")):
  check(q.amount)
@@ -1691,6 +1709,8 @@ def shop(q:Request,authorization:str=Header(default="")):
 
 @app.post("/api/shop/sell")
 def sell_to_system(q:Request,authorization:str=Header(default="")):
+ if simple_economy.enabled():
+  return sell(q,authorization)
  check(q.amount)
  if q.item not in ("grain","feathers"):
   raise HTTPException(400,"Этот товар нельзя продать системе")
@@ -1757,6 +1777,13 @@ def feed_disabled():
 
 @app.post("/api/sell")
 def sell(q:Request,authorization:str=Header(default="")):
+ if simple_economy.enabled():
+  with db() as c:
+   c.execute("SELECT pg_advisory_xact_lock(1984533)")
+   p=advance(c,person(c,authorization,True))
+   if q.item in simple_economy.RAW_BUY:
+    ad_inventory.take(c,p,q.item,min(q.amount,int(p.get(q.item,0))))
+   return simple_economy.farm_trade(c,p,q.item,q.amount,"sell")
  check(q.amount);check(q.price)
  if q.item not in ("grain","eggs","milk","feathers","wool","chickens","geese","cows","sheep"):raise HTTPException(400,"Товар не найден")
  with db() as c:
@@ -1782,6 +1809,18 @@ def sell(q:Request,authorization:str=Header(default="")):
  return {"ok":True}
 @app.post("/api/buy")
 def buy(q:Request,authorization:str=Header(default="")):
+ if simple_economy.enabled():
+  with db() as c:
+   c.execute("SELECT pg_advisory_xact_lock(1984533)")
+   p=advance(c,person(c,authorization,True))
+   if q.item in ANIMAL_MIN_LEVELS and p.get("farmer_level",1)<ANIMAL_MIN_LEVELS[q.item]:
+    raise HTTPException(403,"Покупка доступна с "+str(ANIMAL_MIN_LEVELS[q.item])+"-го уровня фермера")
+   expected={**simple_economy.RAW_BUY,**simple_economy.ANIMAL_BUY}.get(q.item)
+   if expected is None:raise HTTPException(400,"Неизвестный товар")
+   if q.expected_price is not None and q.expected_price!=expected:
+    raise HTTPException(409,"Цена товара изменилась")
+   return simple_economy.farm_trade(c,p,q.item,q.amount,"buy",
+     storage_limit=storage_limit(p),coop_limit=coop_limit(p),cowshed_limit=cowshed_limit(p))
  check(q.amount)
  if q.item not in ("grain","eggs","milk","feathers","wool","chickens","geese","cows","sheep"):raise HTTPException(400,"Товар не найден")
  with db() as c:
