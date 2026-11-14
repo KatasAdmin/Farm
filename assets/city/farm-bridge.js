@@ -48,7 +48,11 @@
  function shop(target,category){
   const food=category==="food";
   if(info.simple_economy){
-   const offers=Object.entries(info.city_catalog).filter(([item])=>info.recipes[item]&&Boolean(info.food_restore[item])===food);
+   const offers=Object.entries(info.city_catalog)
+    .filter(([item])=>info.recipes[item]&&Boolean(info.food_restore[item])===food)
+    .sort(([nameA,a],[nameB,b])=>a.buy_price-b.buy_price||
+      (info.food_restore[nameA]||0)-(info.food_restore[nameB]||0)||
+      nameA.localeCompare(nameB,"ru"));
    target.innerHTML=offers.map(([item,offer])=>card(item,
     '🏪 Купить '+fmt(offer.buy_price)+' 🪙 · Продать '+fmt(offer.sell_price)+' 🪙'+
     (food?' · +'+info.food_restore[item]+' сытости':''),
@@ -58,7 +62,10 @@
    return;
   }
   const offers=Object.entries(info.city_catalog).filter(([item,offer])=>
-   offer.quantity>0&&info.recipes[item]&&Boolean(info.food_restore[item])===food);
+   offer.quantity>0&&info.recipes[item]&&Boolean(info.food_restore[item])===food)
+   .sort(([nameA,a],[nameB,b])=>a.min_price-b.min_price||
+     (info.food_restore[nameA]||0)-(info.food_restore[nameB]||0)||
+     nameA.localeCompare(nameB,"ru"));
   target.innerHTML=offers.length?offers.map(([item,offer])=>
    card(item,fmt(offer.quantity)+' шт. на рынке · от '+fmt(offer.min_price)+' 🪙/шт.'+
     (food?' · +'+info.food_restore[item]+'% сытости':''),
@@ -73,17 +80,17 @@
  }
  function renderInventory(){
   const owned=Object.entries(info.food).filter(([item,n])=>n>0&&info.food_restore[item]);
-  const onFarm=owned.map(([item,n])=>card(item,
+  const onFarm=owned
+   .sort(([a],[b])=>(info.system_prices[a]?.buy||0)-(info.system_prices[b]?.buy||0)||
+      (info.food_restore[a]||0)-(info.food_restore[b]||0)||a.localeCompare(b,"ru"))
+   .map(([item,n])=>card(item,
    fmt(n)+' шт. · +'+info.food_restore[item]+'% сытости'+
    (info.simple_economy?' · Продажа '+fmt(info.system_prices[item].sell)+' 🪙/шт.':''),
    '<button type="button" data-city-eat="'+item+'">Съесть</button>'+
-   (info.simple_economy?'<button type="button" data-city-sell="'+item+'" data-destination="farm">Продать</button>'+
-    '<button type="button" data-city-move="'+item+'" data-destination="to_city">Перенести в город</button>':'')
+   (info.simple_economy?'<button type="button" data-city-sell="'+item+'" data-destination="farm">Продать</button>':'')
   )).join("");
-  let cityFood='';
-  if(info.simple_economy)cityFood=Object.entries(info.city_food||{}).filter(([item,n])=>n>0)
-   .map(([item,n])=>card(item,fmt(n)+' шт. на складе города',
-     '<button type="button" data-city-move="'+item+'" data-destination="to_farm">← На ферму</button>')).join("");
+  // Food is a single stock for this account, not two separate warehouses.
+  const cityFood="";
   inventory.innerHTML=(onFarm+cityFood)||'<p class="farm-city-blank">На складе пока нет еды</p>';
  }
  function load(){
