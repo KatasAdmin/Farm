@@ -20,13 +20,13 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-    <script src="/assets/game.js?v=115" defer></script>
+    <script src="/assets/game.js?v=116" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
     <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
     <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
-      <link rel="stylesheet" href="/assets/city/farm-products.css?v=4" />
+      <link rel="stylesheet" href="/assets/city/farm-products.css?v=5" />
   </head>
   <body>
     <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #80d6ff;border-radius:14px;background:#103c7c;color:white;font-family:Arial,sans-serif">
@@ -403,7 +403,7 @@
           />
           <div class="scene-caption">
             <h1>Магазин</h1>
-            <p>Купить или продать сразу</p>
+            <p>Купить или продать</p>
           </div>
         </div>
 
@@ -913,9 +913,9 @@
             <input type="hidden" id="sellitem" value="eggs"/><input type="hidden" id="sellprice" value="1"/>
             <label for="sellnum">Количество яиц</label>
             <div class="trade-amount-controls"><input id="sellnum" type="number" inputmode="numeric" min="1" max="10000" value="1" oninput="sellQuote()"/><button type="button" class="btn small" onclick="sellMaximum()">Все</button></div>
-            <div class="statsrow"><span>Получишь сразу</span><b id="sellquote">—</b></div>
-            <button class="btn wide" id="egg-sale-confirm" onclick="sellNow()">Продать сразу</button>
-            <p class="muted">Продажа системе по фиксированному курсу. Начисляются игровые монеты из казны.</p>
+            <div class="statsrow"><span>Получишь</span><b id="sellquote">—</b></div>
+            <button class="btn wide" id="egg-sale-confirm" onclick="sellNow()">Продать</button>
+            <p class="muted">Продажа системе по фиксированной цене. Монеты начисляются на игровой баланс.</p>
           </div>
 
       <button class="btn alt wide" onclick="document.getElementById('egg-sale-dialog').close()">Отмена</button>
