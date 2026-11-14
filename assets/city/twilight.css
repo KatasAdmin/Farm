@@ -3,10 +3,12 @@ body{background:#190d30}
 #city-shell{max-width:560px;padding:0;position:relative;min-height:100dvh}
 #city-shell .dash,#city-shell .district-tools,#city-shell #view-notifications{display:none}
 #city-shell .map-section,#city-shell .world-frame{margin:0;padding:0;border:0;background:none;border-radius:0;box-shadow:none}
-#city-shell #world{height:max(610px,100dvh);aspect-ratio:auto;margin:0;border:0;border-radius:0;background:#1d0d36;overflow:hidden}
+#city-shell #world{height:100dvh;aspect-ratio:auto;margin:0;border:0;border-radius:0;background:#1d0d36;overflow:hidden}
 #city-shell .district-art{position:absolute;inset:0;width:100%;height:100%;object-fit:fill}
-#city-shell .topbar{position:absolute;inset:max(6px,env(safe-area-inset-top)) 4% auto;z-index:8;display:grid;gap:8px;background:none;padding:0;border:0;box-shadow:none}
-#city-shell .city-identity{justify-content:center;text-align:center;display:flex;min-width:0}
+#city-shell .topbar{position:absolute;inset:max(6px,env(safe-area-inset-top)) 4% auto;z-index:8;display:grid;gap:5px;background:none;padding:0;border:0;box-shadow:none}
+#city-shell .city-identity{justify-content:center;display:flex;min-width:0;padding:0;background:none;border:0;box-shadow:none;border-radius:0}
+#city-shell .city-wordmark{display:block;width:min(100%,390px);height:clamp(55px,12dvh,108px);object-fit:contain}
+#city-shell:has(#city-page:not([hidden])) #city-page{padding-top:clamp(116px,21dvh,174px)}
 #city-shell .city-logo{display:none}
 #city-shell .city-identity h1{font-family:Georgia,serif;font-size:clamp(25px,7vw,44px);line-height:1.1;color:#fff2dc;text-shadow:0 2px 10px #241038}
 #city-shell .city-identity h1 em{color:#e6ee81}
@@ -32,14 +34,16 @@ body{background:#190d30}
 #world .dairy-target{--x:17%;--y:62%}
 #world .atelier-target{--x:83%;--y:63%}
 #world .warehouse-target{--x:48%;--y:72%}
-#city-shell .map-shortcuts{position:absolute;inset:auto 6% max(72px,calc(68px + env(safe-area-inset-bottom)));display:flex;justify-content:center;gap:10px;transform:none;z-index:5}
+#city-shell .map-shortcuts{position:fixed;inset:auto auto calc(88px + env(safe-area-inset-bottom));left:50%;width:min(88%,485px);display:flex;justify-content:center;gap:10px;transform:translateX(-50%);z-index:5}
 #city-shell .map-shortcuts button{position:relative;min-width:0;width:min(43%,150px);display:flex;justify-content:center;align-items:center;gap:6px;padding:5px 7px;border:1px solid #e19df7;border-radius:99px;background:#341752;box-shadow:0 0 10px #d676ee88;color:white}
 #city-shell .map-shortcuts img{width:27px;height:27px;object-fit:contain}
 #city-shell .map-shortcuts small{font-size:clamp(12px,3.5vw,17px)}
 #city-shell #city-task-alert{position:absolute;top:-7px;right:3px;background:#e82353;color:white;border-radius:50%;width:19px;height:19px;line-height:19px;font-style:normal;text-align:center}
 #city-task-alert[hidden]{display:none!important}
-#city-shell .bottom-nav{background:#241034eb;border:1px solid #ca77dc;box-shadow:0 0 13px #ad54ca6e}
+#city-shell .bottom-nav{min-height:64px;box-sizing:border-box;background:#241034eb;border:1px solid #ca77dc;box-shadow:0 0 13px #ad54ca6e}
 #city-shell .bottom-nav .nav-active{background:#137c71;border-color:#59f0c0;box-shadow:0 0 12px #53f5c99c}
 .city-goal-list{display:grid;gap:8px}
 .city-goal-list>*{border:1px solid #9c70c0;border-radius:13px;background:#322046}
 .bonus-actions{display:grid;gap:8px}
+
+@media(max-height:590px){#city-shell .map-shortcuts{bottom:calc(81px + env(safe-area-inset-bottom))}#world .warehouse-target{--y:68%}}
