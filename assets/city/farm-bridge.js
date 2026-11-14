@@ -74,10 +74,11 @@
  function renderInventory(){
   const owned=Object.entries(info.food).filter(([item,n])=>n>0&&info.food_restore[item]);
   const onFarm=owned.map(([item,n])=>card(item,
-   fmt(n)+' шт. · +'+info.food_restore[item]+' п. п.',
+   fmt(n)+' шт. · +'+info.food_restore[item]+'% сытости'+
+   (info.simple_economy?' · Продажа '+fmt(info.system_prices[item].sell)+' 🪙/шт.':''),
    '<button type="button" data-city-eat="'+item+'">Съесть</button>'+
-   (info.simple_economy?'<button type="button" data-city-sell="'+item+'" data-destination="farm">Продать · '+fmt(info.system_prices[item].sell)+' 🪙</button>'+
-    '<button type="button" data-city-move="'+item+'" data-destination="to_city">→ В город</button>':'')
+   (info.simple_economy?'<button type="button" data-city-sell="'+item+'" data-destination="farm">Продать</button>'+
+    '<button type="button" data-city-move="'+item+'" data-destination="to_city">Перенести в город</button>':'')
   )).join("");
   let cityFood='';
   if(info.simple_economy)cityFood=Object.entries(info.city_food||{}).filter(([item,n])=>n>0)
