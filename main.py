@@ -2166,6 +2166,44 @@ def upgrade(q:Request,authorization:str=Header(default="")):
   c.execute("INSERT INTO money_log VALUES(%s,%s,%s,%s,%s,%s)",(uuid.uuid4().hex,p["id"],"upgrade",-cost,"Улучшение "+{"coop":"мест для птиц","storage":"склада","cowshed":"стадника"}[q.item]+" до уровня "+str(level+1),time.time()))
  return {"ok":True,"spent":cost,"level":level+1}
 
+class CityAvatarRequest(BaseModel):
+ avatar_photo: str
+
+
+@app.post("/api/city/avatar")
+def save_city_avatar(q:CityAvatarRequest,authorization:str=Header(default="")):
+ photo=q.avatar_photo
+ if len(photo)>140000 or not photo.startswith("data:image/jpeg;base64,"):
+  raise HTTPException(400,"Выберите фотографию JPEG до 100 КБ")
+ import io
+ from PIL import Image
+ try:
+  with Image.open(io.BytesIO(base64.b64decode(photo.split(",",1)[1],validate=True))) as picture:
+   if picture.format!="JPEG" or picture.size!=(256,256):
+    raise ValueError("Invalid profile photo")
+   picture.load()
+ except (ValueError,OSError,Image.DecompressionBombError):
+  raise HTTPException(400,"Не удалось прочитать фотографию")
+ with db() as c:
+  player=person(c,authorization,True)
+  c.execute("UPDATE players SET avatar='custom',avatar_photo=%s WHERE id=%s",(photo,player["id"]))
+ return {"ok":True}
+
+
+@app.post("/api/city/telegram-avatar")
+def city_telegram_avatar(q:Request,authorization:str=Header(default="")):
+ uid=telegram_identity(q.telegram_data)
+ with db() as c:
+  player=person(c,authorization)
+  if player.get("telegram_id")!=uid:
+   raise HTTPException(403,"Telegram не совпадает с аккаунтом фермы")
+ user=json.loads(dict(parse_qsl(q.telegram_data)).get("user","{}"))
+ photo=user.get("photo_url")
+ if not isinstance(photo,str) or len(photo)>2048 or not re.fullmatch(r"https://(?:[a-z0-9-]+\.)*(?:t\.me|telegram\.org)/[^\s]+",photo):
+  return {"photo":None}
+ return {"photo":photo}
+
+
 @app.post("/api/profile")
 def save_profile(q:Request,authorization:str=Header(default="")):
  if q.gender not in ("male","female","unspecified"):raise HTTPException(400,"Некорректный пол")
