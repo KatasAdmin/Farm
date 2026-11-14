@@ -66,7 +66,7 @@ const art = {
   eggs: "redesign/egg",
   chickens: "redesign/hen",
   geese: "goose-v2.png",
-  cows:"cow-v1.webp",milk:"milk-v1.webp",wool:"wool.svg",
+  cows:"cow-v1.webp",milk:"milk-v1.webp",wool:"wool.svg",feathers:"illustrations/feather-icon-v3.webp",sheep:"redesign/hen",
 };
 function eggQuantity(n) {
   const v=Math.abs(n)%100, last=v%10;
@@ -1193,16 +1193,16 @@ function render() {
   const dailyMissions = [
     ["grain", "Купить 5 зерна", daily.grain_bought || 0, 5],
     ["eggs", "Получить 3 яйца от птиц", daily.eggs_produced || 0, 3],
-    ["listing", "Выставить яйцо на продажу", daily.eggs_listed || 0, 1],
+    ["listing", "Продать яйцо", daily.eggs_listed || 0, 1],
     ["market_sale", "Продать товар на рынке", daily.market_sale || 0, 1],
-    ["market_buy", "Купить товар у другого игрока", daily.market_buy || 0, 1],
+    ["market_buy", "Купить товар в магазине", daily.market_buy || 0, 1],
     ["buy_chicken", "Купить курицу", daily.buy_chicken || 0, 1],
     ...((p.farmer_level>=3||daily.buy_goose>0)?[["buy_goose", "Купить гуся", daily.buy_goose || 0, 1]]:[]),
     ...((p.cows>0||daily.buy_cow>0||p.coins>=500)?[["buy_cow", "Купить корову", daily.buy_cow || 0, 1]]:[]),
     ...(((p.chickens||0)+(p.geese||0)+(p.cows||0)>0||daily.feeding>0)?[["feeding","Покормить животных",daily.feeding||0,1]]:[]),
     ...((p.cows>0||daily.milk>0)?[["milk","Собрать молоко",daily.milk||0,1]]:[]),
-    ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Выставить молоко на рынок",daily.milk_listing||0,1]]:[]),
-    ...((daily.feather>0||claimed.has("feather"))?[["feather","Собрать редкое перо",daily.feather||0,1]]:[])
+    ...((p.cows>0||p.milk>0||daily.milk_listing>0)?[["milk_listing","Продать молоко",daily.milk_listing||0,1]]:[]),
+    ...((p.geese>0||daily.feather>0||claimed.has("feather"))?[["feather","Произвести перо от гуся",daily.feather||0,1]]:[])
   ];
   const dailyBox = el("daily-tasks");
   if (dailyBox) {
@@ -1548,3 +1548,20 @@ function farmerTitle(level){return level>=15?"Хозяин фермы":level>=10
 
 const farmAdButton=el("ad-reward-watch");
 if(farmAdButton)farmAdButton.addEventListener("click",()=>watchAdReward(selectedAdReward));
+
+/* Market guide stays relevant to the selected product category. */
+const trevixoMarketGuides={
+ animals:["Корм и окупаемость животных","Кормление обеспечивает непрерывное производство яиц, молока, шерсти и перьев. Сытый гусь производит перо каждые 7 дней, без случайного дропа. Перо: покупка 20, продажа 16 монет."],
+ food:["Сытость и ускорение производства","Каждая монета стоимости еды восстанавливает 1% сытости. При 100% сытости производство ускоряется на 50% независимо от количества животных. Сытость постепенно уменьшается на 5% в час, а таймер учитывает реальное ускорение."],
+ equipment:["Оборудование и его назначение","Оборудование расширяет возможности фермы и производства. Перед покупкой проверь стоимость, вместимость и открытые функции."],
+ resources:["Сырьё и его применение","Яйца, зерно и молоко используются для кормления и изготовления товаров. Можно покупать и продавать их по фиксированным ценам."],
+ materials:["Материалы и их ценность","Шерсть и перья пригодятся для товаров городского производства. Перья производятся регулярно, но медленно, поэтому ценятся дороже."],
+ products:["Готовая продукция и прибыль","Произведённые товары можно продать системе по фиксированной цене. Покупка пополняет склад, а разница цены покупки и продажи указана на карточке."]
+};
+document.querySelectorAll("#shop [data-market-tab]").forEach(button=>button.addEventListener("click",()=>{
+ const guide=trevixoMarketGuides[button.dataset.marketTab];if(!guide)return;
+ const title=document.getElementById("market-topic-title");
+ const body=document.getElementById("market-topic-body");
+ if(title)title.textContent=guide[0];
+ if(body){body.replaceChildren();const p=document.createElement("p");p.textContent=guide[1];body.append(p)}
+}));
