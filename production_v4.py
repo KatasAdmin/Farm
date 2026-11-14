@@ -212,6 +212,7 @@ def next_egg_delay(p,now):
   started=min(now,p.get("egg_at") or now)
   candidate=max(0,started+(1-(p.get("egg_progress") or 0))/rate-now)
   if now+candidate<=feed_at and simulate(p,now+candidate)[1]>0:
+   if not p.get("_city_food"):return candidate
    low=0;high=math.ceil(candidate)
    while low<high:
     mid=(low+high)//2
@@ -233,6 +234,7 @@ def next_milk_delay(p,now):
  if fed:
   candidate=max(0,(MILK_INTERVAL-p.get("milk_progress",0))/fed)
   if simulate(p,now+candidate)[0].get("milk",0)>p.get("milk",0):
+   if not p.get("_city_food"):return candidate
    low=0;high=math.ceil(candidate)
    while low<high:
     mid=(low+high)//2
@@ -257,6 +259,7 @@ def next_feather_delay(p, now):
  if fed:
   candidate=max(0,(FEATHER_INTERVAL-p.get("feather_progress",0))/fed)
   if simulate(p,now+candidate)[0].get("feathers",0)>p.get("feathers",0):
+   if not p.get("_city_food"):return candidate
    low=0;high=math.ceil(candidate)
    while low<high:
     mid=(low+high)//2
