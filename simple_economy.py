@@ -15,7 +15,7 @@ RAW_BUY={"eggs":2,"grain":2,"milk":15,"feathers":7,"wool":20}
 RAW_SELL={"eggs":1,"grain":1,"milk":12,"feathers":5,"wool":16}
 ANIMAL_BUY={"chickens":20,"geese":120,"cows":500,"sheep":200}
 ANIMAL_SELL={k:max(1,p//2) for k,p in ANIMAL_BUY.items()}
-BUSINESS_COST={"bakery":600,"restaurant":900,"dairy":950,"atelier":1100,"store":1200}
+BUSINESS_COST={"bakery":80,"restaurant":180,"dairy":280,"atelier":360,"store":500}
 ALL_FARM=tuple(RAW_BUY)+tuple(ANIMAL_BUY)
 KIND="simple_system"
 
