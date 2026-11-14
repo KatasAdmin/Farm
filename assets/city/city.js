@@ -128,6 +128,7 @@ function paint(){
  const avatar=$("district-avatar");
  avatar.querySelector("img").src=avatarSource();
  loadTelegramPhoto();
+ loadHomeSeason();
  const xp=$("district-xp");
  xp.max=data.progress?.next_xp||Math.max(1,data.progress?.xp||0);
  xp.value=data.progress?.xp||0;
@@ -406,6 +407,22 @@ async function showProgressLog(reputationOnly){
 
 const goalTitles={season:"Сезон",events:"События",daily:"Ежедневные задания"};
 
+let homeSeasonRequested=false;
+async function loadHomeSeason(){
+ if(homeSeasonRequested)return;
+ homeSeasonRequested=true;
+ try{
+  const {campaigns}=await api("/goals");
+  const season=campaigns.find(period=>period.kind==="season"&&period.active);
+  if(!season){$("district-pass-progress").hidden=true;return;}
+  const milestones=season.rewards||[];
+  const target=milestones.find(goal=>goal.goal>season.xp)?.goal||milestones.at(-1)?.goal||1;
+  const meter=$("district-pass-progress");
+  meter.innerHTML='<progress aria-label="Сезонный опыт" max="'+target+'" value="'+season.xp+'"></progress><small>'+number(season.xp)+' / '+number(target)+' XP</small>';
+  meter.hidden=false;
+ }catch{homeSeasonRequested=false}
+}
+
 async function showGoals(tab){
  const title=goalTitles[tab];
  if(!title)return;
@@ -525,7 +542,7 @@ function showProfile(){
   ["residents","📋","Заказы жителей"],["market","🧺","Магазин"],
   ["promo","🎁","Промокод"],["achievements","🏆","Достижения"],["settings","⚙️","Настройки"],["help","❔","Помощь"]];
  const card=(target,icon,label,value="",index=null)=>'<button class="stat" data-action="navigate" data-item="'+target+'"><i aria-hidden="true">'+(index===null?icon:'<img src="/assets/city/profile-icon-'+index+'.webp" alt="">')+'</i><span>'+label+'</span>'+(value?'<strong>'+value+'</strong>':"")+'</button>';
- const hero='<div class="profile-hero">'+avatar+'<div><strong>'+esc(data.name)+'</strong><span>Горожанин · Ур. '+number(progress.level)+'</span>'+
+ const hero='<div class="profile-hero"><button type="button" class="profile-edit" data-action="avatar-picker" aria-label="Сменить фото профиля">✎</button>'+avatar+'<div><strong>'+esc(data.name)+'</strong><span>Горожанин · Ур. '+number(progress.level)+'</span>'+
   '<progress aria-label="Опыт города" max="'+(progress.next_xp||Math.max(1,progress.xp||0))+'" value="'+(progress.xp||0)+'"></progress><small>'+number(progress.xp)+(progress.next_xp?" / "+number(progress.next_xp):"")+' XP</small></div></div>';
  const wallet='<div class="profile-balance"><img src="/assets/city/ref-wallet.webp" alt=""><span>Баланс<strong>'+number(data.coins)+'</strong></span><button class="btn" data-action="wallet">Кошелёк ›</button></div>';
  openPanel("Кабинет",hero+'<div class="profile-stats">'+stats.map(([icon,label,value,target])=>card(target,icon,label,value)).join("")+'</div>'+
@@ -578,7 +595,7 @@ async function action(action,item,amountId,listingId){
  let path,body={item};
  if(action==="claim-goal"){
   working=true;
-  try{await api("/claim-goal",{scope:listingId,key:item});await load();await showGoals(activeView)}
+  try{await api("/claim-goal",{scope:listingId,key:item});homeSeasonRequested=false;await load();await showGoals(activeView)}
   catch(error){toast(error.message)}finally{working=false}
   return;
  }

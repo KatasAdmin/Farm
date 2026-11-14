@@ -2,9 +2,9 @@
 <html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#28243f"><title>НОВАЯ ЖИЗНЬ — ГОРОД</title>
-<link rel="stylesheet" href="/assets/city/city.css?v=19">
+<link rel="stylesheet" href="/assets/city/city.css?v=20">
 <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-<script src="/assets/city/city.js?v=21" defer></script>
+<script src="/assets/city/city.js?v=22" defer></script>
 <script src="/assets/adsgram-fallback.js?v=20261106-r38" defer></script>
 <script src="/assets/city/city-ads.js?v=2" defer></script>
 </head>
@@ -24,10 +24,10 @@
 <section class="map-section" aria-label="Карта города"><div class="world-frame">
 <div class="district-tools">
  <button class="quick-action" id="district-profile"><span id="district-avatar" class="district-avatar" aria-hidden="true"><img src="/assets/city/tab-icon-0.webp" alt=""></span><span><strong id="district-name">Кабинет</strong><small id="district-level"></small><progress id="district-xp" max="1" value="0" aria-label="Опыт города"></progress></span></button>
- <button class="quick-action district-pass" id="district-pass"><i aria-hidden="true"><img src="/assets/city/tab-icon-1.webp" alt=""></i><span>Городской пропуск</span><b aria-hidden="true">›</b></button>
+ <button class="quick-action district-pass" id="district-pass"><i aria-hidden="true"><img src="/assets/city/tab-icon-1.webp" alt=""></i><span class="pass-caption">Городской пропуск<span class="pass-meter" id="district-pass-progress" hidden></span></span><b aria-hidden="true">›</b></button>
 </div>
 <div class="world" id="world" aria-label="Интерактивный город">
-<div class="map-shortcuts"><button data-city-screen="daily">📋<small>Задания</small></button><button data-city-screen="ranking">🏆<small>Рейтинг</small></button></div><img class="district-art" src="/assets/city/reference-town.webp" alt="" width="1200" height="800" fetchpriority="high">
+<div class="map-shortcuts"><button data-city-screen="daily">📋<small>Задания</small></button><button data-city-screen="ranking">🏆<small>Рейтинг</small></button></div><img class="district-art" src="/assets/city/city-skyline.webp" alt="" width="1100" height="880" fetchpriority="high">
 <a class="district-target farm-target" href="/"><strong>Ферма</strong></a>
 <button class="district-target bakery-target" data-business="bakery"><strong>Пекарня</strong><small></small></button>
 <button class="district-target restaurant-target" data-business="restaurant"><strong>Ресторан</strong><small></small></button>

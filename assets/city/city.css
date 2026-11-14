@@ -593,3 +593,39 @@ body{background:radial-gradient(ellipse at 50% 10%,#3f2554,#19162a 47%,#0f1020 8
  background:linear-gradient(#7d39a5,#3c1a56);border-color:#f6a2ff;box-shadow:inset 0 0 13px #e879ff,0 0 10px #bd56dd
 }
 .district-tools .district-pass{background:radial-gradient(ellipse at 50% 100%,#7829a1,#251732 74%)}
+
+/* Reference scale, with the skyline continuing behind the two home cards. */
+.world-frame{isolation:isolate}
+.district-tools{position:absolute;inset:8px 9px auto;padding:0;z-index:4;background:none;gap:12%}
+.district-tools .quick-action{min-height:clamp(49px,13vw,70px);border-radius:16px;padding:4px 6px}
+.district-tools #district-profile{background:linear-gradient(140deg,#171628f2,#37264fdc)}
+.district-avatar,.district-avatar img{width:clamp(30px,10vw,53px);height:clamp(30px,10vw,53px)}
+.district-pass i{width:clamp(25px,8vw,44px);height:auto}
+.district-pass .pass-caption{font-size:clamp(9px,2.65vw,15px);line-height:1.1;margin:0}
+.pass-meter{display:block;position:relative;margin:4px 0 0!important}
+.pass-meter progress{height:12px;accent-color:#ffbe3c}
+.pass-meter small{position:absolute;inset:0;color:#fff7d0;font-size:8px;line-height:12px;text-align:center;margin:0}
+.dash .stat{min-height:clamp(57px,15vw,85px)}
+.dash .stat span,.profile-menu .stat span{font-size:clamp(9px,2.55vw,14px)}
+.stat-grid,.profile-stats,.profile-menu{gap:6px}
+.profile-menu .stat{min-height:clamp(62px,17vw,90px)}
+#city-page .profile-hero{position:relative;min-height:clamp(107px,25vw,152px);padding-right:40px}
+.profile-edit{position:absolute;right:8px;top:9px;min-width:32px;min-height:32px;border:1px solid #d48ef2;border-radius:11px;color:white;background:#5f367cc7;font-size:20px}
+.profile-balance button{padding-inline:clamp(8px,3vw,17px)}
+#city-page .profile-balance{min-height:clamp(68px,16vw,96px)}
+.bottom-nav button{min-height:clamp(59px,15vw,82px)}
+.bottom-nav button:not(.nav-active){background:linear-gradient(155deg,#343047,#1d1a2d);box-shadow:inset 0 1px 4px #d2a6ec38}
+.market-line{min-height:clamp(54px,13.4vw,76px)}
+.season-feature{min-height:clamp(70px,17.5vw,100px)}
+.season-lead{min-height:clamp(89px,23vw,132px);align-content:center}
+.reward-rail>*{min-height:clamp(84px,23vw,135px)}
+.world{aspect-ratio:5/4}
+.farm-target{left:15%;top:23%;width:22%;height:20%}
+.bakery-target{left:53%;top:24%;width:20%;height:18%}
+.restaurant-target{left:73%;top:42%;width:24%;height:18%}
+.dairy-target{left:5%;top:57%;width:25%;height:21%}
+.atelier-target{left:73%;top:65%;width:25%;height:19%}
+.store-target{left:28%;top:44%;width:14%;height:15%}
+.warehouse-target{left:37%;top:72%;width:23%;height:20%}
+.map-shortcuts{display:grid;top:25%;bottom:auto;left:2%}
+.map-shortcuts button{min-height:40px}
