@@ -358,6 +358,7 @@ class CityTransactions(unittest.TestCase):
             c.execute("INSERT INTO farm_food VALUES('buyer','omelet',1)")
         with patch.object(simple_economy,"enabled",return_value=True):
             with self.connect() as c:
+                simple_economy.initialize(c)
                 city_world.initialize(c)
                 self.assertEqual(c.execute("SELECT quantity FROM city_products WHERE player_id='buyer' AND item='bread'").fetchone()["quantity"],5)
                 self.assertEqual(c.execute("SELECT COUNT(*) AS n FROM farm_food").fetchone()["n"],0)
