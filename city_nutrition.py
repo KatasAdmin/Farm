@@ -12,8 +12,8 @@ DECAY_PER_HOUR=5
 MAX_FOOD_BONUS=0.5  # Full satiety grants at most +50% production.
 DECAY_PER_SECOND=DECAY_PER_HOUR/3600.0
 FOOD_RESTORE = {
-    "bread": 20, "yogurt": 25, "pancakes": 30, "cheese": 35, "omelet": 40,
-    "pie": 50, "breakfast_set": 70, "dessert_box": 80, "lunch_box": 100,
+    "bread": 5, "yogurt": 24, "pancakes": 15, "cheese": 42, "omelet": 28,
+    "pie": 28, "breakfast_set": 55, "dessert_box": 97, "lunch_box": 37,
 }
 
 def initialize(c):
