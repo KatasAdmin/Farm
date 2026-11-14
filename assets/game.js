@@ -1434,10 +1434,11 @@ async function refresh() {
       hideStartup();
       const entryParams=new URLSearchParams(location.search);
       const marketItem=entryParams.get("market");
-      if(entryParams.get("wallet")==="1" || entryParams.get("food")==="1"){
-        const target=entryParams.get("wallet")==="1"?"wallet":"production";
+      if(entryParams.get("wallet")==="1" || entryParams.get("food")==="1" || entryParams.get("profile")==="1"){
+        const target=entryParams.get("wallet")==="1"?"wallet":entryParams.get("profile")==="1"?"profile":"production";
         entryParams.delete("wallet");
         entryParams.delete("food");
+        entryParams.delete("profile");
         const search=entryParams.toString();
         history.replaceState(null,"",location.pathname+(search?"?"+search:"")+location.hash);
         tab(target);
