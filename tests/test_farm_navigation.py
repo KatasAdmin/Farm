@@ -10,13 +10,24 @@ class FarmNavigationTests(unittest.TestCase):
         shortcuts = farm.split('class="farm-tiles-v2"', 1)[1].split("</div>", 1)[0]
         self.assertEqual(shortcuts.count("<button"), 4)
         self.assertIn("tab('fields')", shortcuts)
-        self.assertIn("Предприятия", shortcuts)
+        self.assertIn("Еда и бонусы", shortcuts)
+        self.assertNotIn("Предприятия", shortcuts)
         self.assertIn("tab(\'production\')", shortcuts)
         self.assertNotIn("Скоро", shortcuts)
         self.assertIn("tab('coop')", shortcuts)
         self.assertIn("tab('storage')", shortcuts)
         self.assertNotIn("tab('shop')", shortcuts)
         self.assertNotIn("tab('tasks')", shortcuts)
+
+    def test_city_link_only_on_farm_banner_and_no_duplicate_nutrition(self):
+        page = HTML.read_text(encoding="utf-8")
+        farm = page.split('<section id="farm"', 1)[1].split("</section>", 1)[0]
+        self.assertEqual(page.count('href="/city"'), 1)
+        self.assertEqual(farm.count('href="/city"'), 1)
+        self.assertIn('class="farm-hero-city-link"', farm)
+        self.assertNotIn('class="farm-food-summary"', farm)
+        self.assertIn('class="farm-food-utensils"', farm)
+        self.assertIn("Еда и бонусы", farm)
 
     def test_bottom_navigation_retains_shop_tasks(self):
         page = HTML.read_text(encoding="utf-8")
