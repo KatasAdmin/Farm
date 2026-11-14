@@ -154,7 +154,7 @@ def city_product_trade(c,p,item,n,kind,recipes,*,destination="city"):
     if item not in catalog:raise HTTPException(400,"Неизвестный товар")
     if destination=="farm" and item not in city_nutrition.FOOD_RESTORE:
         raise HTTPException(400,"На фермерский склад можно купить только еду")
-    table="farm_food" if destination=="farm" else "city_products"
+    table="city_products"  # Shared stock; destination no longer divides food.
     if kind=="sell":
         row=c.execute(f"""UPDATE {table} SET quantity=quantity-%s
           WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
@@ -186,16 +186,4 @@ def raw_transfer(c,p,item,n,direction,*,storage_limit=None):
     return {"ok":True,"transferred":n,"destination":direction}
 
 def product_transfer(c,p,item,n,direction):
-    amount(n)
-    if item not in city_nutrition.FOOD_RESTORE:
-        raise HTTPException(400,"Переносить на ферму можно только еду")
-    if direction=="to_farm":source,target="city_products","farm_food"
-    elif direction=="to_city":source,target="farm_food","city_products"
-    else:raise HTTPException(400,"Неверное направление")
-    row=c.execute(f"""UPDATE {source} SET quantity=quantity-%s
-        WHERE player_id=%s AND item=%s AND quantity>=%s RETURNING quantity""",
-        (n,p["id"],item,n)).fetchone()
-    if not row:raise HTTPException(409,"Недостаточно еды")
-    _add_city(c,target,p["id"],item,n)
-    _record(c,p["id"],item,direction,n,0)
-    return {"ok":True,"transferred":n,"destination":direction}
+    raise HTTPException(410,"Еда уже общая для фермы и города, перенос не требуется")
