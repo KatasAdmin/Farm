@@ -841,7 +841,7 @@ def list_product(q:Action,authorization:str=Header(default="")):
             if previous is not None:return previous
             _settle(c,p["id"])
             result=simple_economy.city_product_trade(c,p,q.item,q.amount,
-                      "sell",RECIPES)
+                      "sell",RECIPES,destination=q.destination)
             _finish_request(c,q,result)
             return result
     _amount(q.amount,500)
