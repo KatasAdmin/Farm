@@ -8,6 +8,7 @@ import market_allocation
 import farm_wallet
 import ad_inventory
 import city_nutrition
+import simple_economy
 import city_goals
 from production import GRAIN_PRICE
 from production_v4 import MILK_PRICE, WOOL_PRICE
@@ -438,6 +439,11 @@ def _quote(c,table,item,pid,n):
 @router.post("/quote-ingredient")
 def quote_ingredient(q:Action,authorization:str=Header(default="")):
     if q.item not in INGREDIENTS:raise HTTPException(400,"Неизвестный ингредиент")
+    if simple_economy.enabled():
+        _amount(q.amount,500)
+        with _db() as c:_auth(c,authorization)
+        return {"ok":True,"cost":simple_economy.RAW_BUY[q.item]*q.amount,
+                "quantity":q.amount,"sellers":0,"system_quantity":q.amount}
     _amount(q.amount,500)
     with _db() as c:
         p=_auth(c,authorization)
@@ -458,6 +464,12 @@ def _product_purchase(c, item, pid, amount, *, farm, lock=False):
 @router.post("/quote-product")
 def quote_product(q:Action,authorization:str=Header(default="")):
     if q.item not in RECIPES:raise HTTPException(400,"Неизвестный товар")
+    if simple_economy.enabled():
+        _amount(q.amount,500)
+        with _db() as c:_auth(c,authorization)
+        cost=simple_economy.prices(RECIPES)[q.item]["buy"]*q.amount
+        return {"ok":True,"cost":cost,"quantity":q.amount,
+                "sellers":0,"system_quantity":q.amount,"own_quantity":0}
     _amount(q.amount,500)
     with _db() as c:
         p=_auth(c,authorization)
@@ -596,6 +608,20 @@ def state(authorization: str=Header(default=""), compact: bool=False):
 @router.post("/open")
 def open_business(q:Action, authorization: str=Header(default="")):
     if q.item not in BUSINESSES:raise HTTPException(400,"Неизвестное предприятие")
+    if simple_economy.enabled():
+        with _db() as c:
+            c.execute("SELECT pg_advisory_xact_lock(1984533)")
+            p=_auth(c,authorization,True)
+            existing=c.execute("SELECT 1 FROM city_businesses WHERE player_id=%s AND kind=%s",
+                               (p["id"],q.item)).fetchone()
+            if existing:return {"ok":True,"already_open":True}
+            cost=simple_economy.BUSINESS_COST[q.item]
+            if q.expected_cost not in (-1,cost):
+                raise HTTPException(409,"Цена открытия изменилась")
+            simple_economy._cash(c,p,cost,"buy","business:"+q.item,1)
+            c.execute("INSERT INTO city_businesses VALUES(%s,%s,1,%s)",
+                      (p["id"],q.item,time.time()))
+            return {"ok":True,"spent":cost,"opened":q.item}
     with _db() as c:
         p=_auth(c,authorization,True)
         reputation=c.execute("SELECT points FROM city_reputation WHERE player_id=%s",(p["id"],)).fetchone()
@@ -647,7 +673,20 @@ def upgrade_business(q:Action, authorization:str=Header(default="")):
 
 @router.post("/buy-ingredient")
 def buy_ingredient(q:Action,authorization:str=Header(default="")):
-    """Buy market ingredients directly into the city warehouse."""
+    """Buy ingredients from the system into the city warehouse."""
+    if simple_economy.enabled():
+        _amount(q.amount,500)
+        with _db() as c:
+            c.execute("SELECT pg_advisory_xact_lock(1984533)")
+            p=_auth(c,authorization,True)
+            previous=_request(c,q,p["id"],"simple_raw_buy")
+            if previous is not None:return previous
+            cost=simple_economy.RAW_BUY.get(q.item,0)*q.amount
+            if not cost:raise HTTPException(400,"Неизвестный ингредиент")
+            if q.expected_cost!=cost:raise HTTPException(409,"Цена изменилась")
+            result=simple_economy.raw_city_trade(c,p,q.item,q.amount,"buy")
+            _finish_request(c,q,result)
+            return result
     if q.item not in INGREDIENTS:raise HTTPException(400,"Этот ресурс нельзя закупать")
     _amount(q.amount,500)
     with _db() as c:
@@ -765,6 +804,18 @@ def produce(q:Action,authorization:str=Header(default="")):
 @router.post("/list-product")
 def list_product(q:Action,authorization:str=Header(default="")):
     if q.item not in RECIPES:raise HTTPException(400,"Неизвестный товар")
+    if simple_economy.enabled():
+        _amount(q.amount,500)
+        with _db() as c:
+            c.execute("SELECT pg_advisory_xact_lock(1984533)")
+            p=_auth(c,authorization,True)
+            previous=_request(c,q,p["id"],"simple_product_sell")
+            if previous is not None:return previous
+            _settle(c,p["id"])
+            result=simple_economy.city_product_trade(c,p,q.item,q.amount,
+                      "sell",RECIPES)
+            _finish_request(c,q,result)
+            return result
     _amount(q.amount,500)
     _amount(q.price,100000)
     with _db() as c:
@@ -786,6 +837,7 @@ def list_product(q:Action,authorization:str=Header(default="")):
 
 @router.post("/cancel-product")
 def cancel_product(q:Action,authorization:str=Header(default="")):
+    if simple_economy.enabled():raise HTTPException(410,"Рынок объявлений закрыт")
     if len(q.listing_id)!=32 or any(ch not in "0123456789abcdef" for ch in q.listing_id):
         raise HTTPException(400,"Неверное объявление")
     with _db() as c:
@@ -806,6 +858,19 @@ def cancel_product(q:Action,authorization:str=Header(default="")):
 @router.post("/buy-product")
 def buy_product(q:Action,authorization:str=Header(default="")):
     if q.item not in RECIPES:raise HTTPException(400,"Неизвестный товар")
+    if simple_economy.enabled():
+        _amount(q.amount,500)
+        with _db() as c:
+            c.execute("SELECT pg_advisory_xact_lock(1984533)")
+            p=_auth(c,authorization,True)
+            previous=_request(c,q,p["id"],"simple_product_buy:"+q.destination)
+            if previous is not None:return previous
+            cost=simple_economy.prices(RECIPES)[q.item]["buy"]*q.amount
+            if q.expected_cost!=cost:raise HTTPException(409,"Цена изменилась")
+            result=simple_economy.city_product_trade(c,p,q.item,q.amount,
+                       "buy",RECIPES,destination=q.destination)
+            _finish_request(c,q,result)
+            return result
     if q.destination not in ("city","farm"):
         raise HTTPException(400,"Неизвестный склад")
     if q.destination=="farm" and q.item not in city_nutrition.FOOD_RESTORE:
