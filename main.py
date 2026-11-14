@@ -1633,9 +1633,17 @@ def state(authorization:str=Header(default="")):
       FROM money_log WHERE player_id=%s AND kind='market_buy'
         AND details ~ '^[a-z_]+ x[0-9]+$' AND created>=%s AND created<%s""",
       (p["id"],week_start,week_start+604800)).fetchone()["n"]
+  if simple_economy.enabled():
+   weekly_stats["market_purchases"]+=c.execute("""SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM simple_system_trades
+       WHERE player_id=%s AND kind='buy' AND created>=%s AND created<%s""",
+       (p["id"],week_start,week_start+604800)).fetchone()["n"]
   weekly_stats["feathers"]=weekly_extra.get("feathers_collected",0)
   weekly_stats["milk"]=weekly_extra.get("milk_produced",0)
   weekly_stats["market_sales"]=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
+  if simple_economy.enabled():
+   weekly_stats["market_sales"]+=c.execute("""SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM simple_system_trades
+       WHERE player_id=%s AND kind='sell' AND created>=%s AND created<%s""",
+       (p["id"],week_start,week_start+604800)).fetchone()["n"]
   weekly_claimed=bool(c.execute("SELECT 1 FROM weekly_claims WHERE player_id=%s AND week=%s",(p["id"],week)).fetchone())
   minted=c.execute("SELECT total_minted FROM reward_emission WHERE id=1").fetchone()["total_minted"]
   totals=c.execute("SELECT COALESCE(SUM(grain_bought),0)::int AS grain_bought,COALESCE(SUM(eggs_listed),0)::int AS eggs_listed,COALESCE(SUM(eggs_produced),0)::int AS eggs_produced FROM daily_activity WHERE player_id=%s",(p["id"],)).fetchone()
@@ -2138,6 +2146,10 @@ def claim_weekly(authorization:str=Header(default="")):
   extra=farm_expansion.progress(c,p["id"],week_start,week_start+604800)
   feeding=c.execute("SELECT COALESCE(SUM(amount),0)::bigint AS n FROM farm_events WHERE player_id=%s AND kind='grain_fed' AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
   sales=c.execute("SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM market_trade_audit WHERE seller_id=%s AND created>=%s AND created<%s",(p["id"],week_start,week_start+604800)).fetchone()["n"]
+  if simple_economy.enabled():
+   sales+=c.execute("""SELECT COALESCE(SUM(quantity),0)::bigint AS n FROM simple_system_trades
+       WHERE player_id=%s AND kind='sell' AND created>=%s AND created<%s""",
+       (p["id"],week_start,week_start+604800)).fetchone()["n"]
   if not weekly_missions.complete(total["grain"],feeding,total["eggs"],extra.get("milk_produced",0),total["listed"]+extra.get("milk_listed",0),sales):
    raise HTTPException(409,"Сначала выполни все задания недели")
   inserted=c.execute("INSERT INTO weekly_claims(player_id,week,claimed_at,amount) VALUES(%s,%s,%s,30) ON CONFLICT DO NOTHING RETURNING amount",(p["id"],week,now)).fetchone()
