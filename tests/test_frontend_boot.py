@@ -41,7 +41,7 @@ class FrontendBootSafety(unittest.TestCase):
   js=(root/"assets"/"game.js").read_text(encoding="utf-8")
   for element in ("production-types","production-timers","production-forecast","payback-grid","wallet-rate-grid","wallet-coin-rate","wallet-transfer-value"):
    self.assertIn(element,html)
-  self.assertIn("/assets/farm-ui-finish.css?v=3",html)
+  self.assertRegex(html,r'href="/assets/farm-ui-finish\.css\?v=[1-9]\d*"')
   self.assertIn("#farm .bird-resources",css)
   for heading in ("🐾 Животные","📦 Продукция"):
    self.assertIn(heading,html)

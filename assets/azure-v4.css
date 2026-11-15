@@ -34,7 +34,7 @@ body {
   height: 65px;
   margin: 0 -3px 4px;
   padding: 4px 7px;
-  background: linear-gradient(180deg,#e0d8e4fc,#d7cadcd6 60%,#05346b9c);
+  background: linear-gradient(145deg,#47255d,#29163d);
   border: 1px solid #e4cfeda3;
   border-radius: 14px;
   box-shadow: inset 0 2px 2px #e6ccf04d, 0 3px 14px #0005;
@@ -45,7 +45,7 @@ body {
 .identity-line{height:7px;border:1px solid #e4cfec;background:linear-gradient(90deg,#5efa21 60%,#bc9ec7 60%);box-shadow:0 0 6px #e3d2ea;}
 .coin-balance,.gems{
   border-radius:13px;
-  background:linear-gradient(180deg,#e2d5e6bf,#d0c2d5fc);
+  background:linear-gradient(145deg,#5a336a,#382048);
   border:1px solid #e4d0ec9e;
   box-shadow:inset 0 1px #e5cdef55,0 3px 5px #001a4655;
 }

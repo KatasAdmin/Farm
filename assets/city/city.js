@@ -357,7 +357,7 @@ function simpleMarket(){
   html+=keys.map(item=>{
    const price=data.system_prices.raw_buy[item],payout=data.system_prices.raw_sell[item];
    const owned=data.stock?.[item]||0;
-   return illustratedTradeRow(names[item],item,'Купить: '+price+' 🪙 · Продать: '+payout+' 🪙 · На складе: '+owned,
+   return illustratedTradeRow(names[item].replace(/^\S+ /u,""),item,'Купить: '+price+' 🪙 · Продать: '+payout+' 🪙 · На складе: '+owned,
      input("qty-market-"+item,1,500)+
      '<button class="btn" data-action="raw" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Купить</button>'+
      (owned?'<button class="btn gold" data-action="sell-raw" data-item="'+item+'" data-amount-id="qty-market-'+item+'">Продать</button>':''));
@@ -384,7 +384,7 @@ function simpleWarehouse(){
  if(warehouseTab==="raw"||warehouseTab==="materials"){
   html+=Object.keys(data.system_prices.raw_buy).filter(item=>["feathers","wool"].includes(item)===(warehouseTab==="materials")).map(item=>{
    const stock=data.stock[item]||0;
-   return illustratedTradeRow(names[item],item,'В наличии: '+stock+' шт.',stock?
+   return illustratedTradeRow(names[item].replace(/^\S+ /u,""),item,'В наличии: '+stock+' шт.',stock?
      input("qty-stock-"+item,1,Math.min(stock,500))+
      '<button class="btn gold" data-action="sell-raw" data-item="'+item+'" data-amount-id="qty-stock-'+item+'">Продать · '+data.system_prices.raw_sell[item]+' 🪙</button>':'');
   }).join("");
@@ -451,7 +451,7 @@ function showMarket(){
   .map(item=>[item,catalog[item]||{quantity:0}]);
  html+=listed.map(([item,offer])=>{
   const art=raw?"resource-"+resourceArt[item]:"product-"+item;
-  const label=raw?names[item].split(" ").slice(1).join(" "):data.recipes[item].name;
+  const label=raw?names[item].replace(/^\S+ /u,""):data.recipes[item].name;
   const available=offer.quantity>0||item==="grain";
   const count=offer.quantity?number(offer.quantity)+" шт. · "+number(offer.offers)+" лот.":item==="grain"?"Зерно системы":"Нет предложений";
   const price=available?'<span class="market-price"><img src="/assets/redesign/coin.webp" alt="">'+number(offer.min_price)+'</span>':"";

@@ -22,12 +22,14 @@
 .p3-premium-track .pass-state{grid-column:1/-1;margin:4px 0;text-align:center}
 #district-profile[data-cosmetic="night"],.profile-hero[data-cosmetic="night"] .avatar-picker{outline:3px solid #8e72ff;box-shadow:0 0 12px #7160ea}
 .profile-hero[data-cosmetic="patron"] .profile-live strong::after{content:" ♛";color:#fbd881}
-.city-trade-art{display:grid;grid-template-columns:49px minmax(0,1fr);align-items:center;gap:5px 9px;margin:0 0 6px;padding:8px 11px;min-width:0;border-radius:16px;color:#fff3df;background:url("/assets/city/premium3/card.webp") center/100% 100% no-repeat,#2a133c}
-.city-trade-art>img{width:49px;height:49px;object-fit:contain}
+.city-trade-art{display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:8px 10px;margin:0 0 8px;padding:11px;min-width:0;border:1px solid #8d5f9f;border-radius:15px;color:#fff3df;background:linear-gradient(145deg,#442256,#2c173d)}
+.city-trade-art>img{width:42px;height:42px;object-fit:contain}
 .city-trade-art strong,.city-trade-art small{display:block;overflow-wrap:anywhere}
 .city-trade-art small{color:#ffe2a6;margin-top:3px}
-.city-trade-art .item-actions{grid-column:2;display:flex;flex-wrap:wrap;gap:5px}
-.city-trade-art .item-actions .btn{min-height:40px}
+.city-trade-art .item-actions{grid-column:1/-1;display:grid;grid-template-columns:minmax(42px,.55fr) repeat(2,minmax(0,1fr));gap:6px}
+.city-trade-art .item-actions:not(:has(.gold)){grid-template-columns:minmax(42px,.55fr) minmax(0,2fr)}
+.city-trade-art .item-actions .number-input{width:100%;min-width:0;min-height:44px;box-sizing:border-box;font-size:16px}
+.city-trade-art .item-actions .btn{min-height:44px;padding-inline:4px}
 #panel-body .business-art.business-painted{aspect-ratio:3/1;min-height:0;padding:0}
 .business-art.business-painted::after{content:none}
 .business-art.business-painted>div{position:absolute;inset:72% auto auto 3%;width:24%;text-align:center;line-height:1.05;color:#301c26}
@@ -126,9 +128,14 @@
 #city-page:has(#panel-body:is([data-scene="events"],[data-scene="business"],[data-scene="businesses"],[data-scene="warehouse"])) #page-heading{
  position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden;margin:0;padding:0;
 }
-.season-track{margin:10px 0}
-.season-track h3{margin:0 0 6px;color:#ffe1a2;font-size:clamp(15px,4.2vw,21px)}
-.season-track .p3-reward-track{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.p3-rewards .season-track{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:0;padding:12px 0;}
+.season-track h3{margin:0;color:#ffe1a2;font-size:clamp(15px,4.2vw,21px)}
+.season-track .p3-reward-track{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.season-track article{grid-template-rows:40px auto 1fr auto;line-height:1.25;padding:10px 5px}
+.season-track article :is(strong,small){overflow-wrap:normal;hyphens:auto}
+.season-track article strong{font-size:clamp(11px,3.5vw,15px)}
+.season-track article small{font-size:clamp(10px,3.1vw,13px)}
+.season-track article .p3-button{width:100%;min-width:0;padding-inline:3px}
 .season-track .p3-premium-track{grid-template-columns:repeat(2,minmax(0,1fr))}
 .season-track article[data-reward-state="ready"]{border-color:#ffd87e}
 .season-track article[data-reward-state="claimed"] small{color:#b6ffda}
@@ -143,3 +150,28 @@
 
 .bottom-nav button:has(>.shortcut-alert),.season-track button:has(>.shortcut-alert){position:relative}
 .bottom-nav button>.shortcut-alert,.season-track button>.shortcut-alert{inset:1px 2px auto auto}
+
+#city-shell .bottom-nav .nav-active,
+#city-shell #panel-body .city-market-tabs .btn[aria-pressed="true"]{
+ background:linear-gradient(#653b77,#44244f);
+ border-color:#e7bc79;
+ box-shadow:inset 0 1px #f3ca8f44;
+}
+#city-shell #world{--warehouse-y:74%}
+#city-shell .map-shortcuts{
+ position:absolute;
+ top:clamp(calc(var(--warehouse-y) + 22px),calc(100% - 158px - env(safe-area-inset-bottom)),calc(100% - 128px - env(safe-area-inset-bottom)));
+ bottom:auto;
+}
+#city-shell .map-shortcuts button{
+ min-height:44px;border-color:#cd9b72;background:linear-gradient(#4e2a5e,#321a45);box-shadow:0 3px 9px #20112a99;
+}
+#city-shell #world .warehouse-target{--y:var(--warehouse-y)}
+@media(max-height:650px){
+ #city-shell #world{--warehouse-y:64%}
+}
+#panel-body .city-trade-art .item-actions .btn:not(.gold){
+ background:linear-gradient(#663b79,#43234f);
+ border-color:#b880cc;
+ box-shadow:none;
+}

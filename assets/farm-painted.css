@@ -39,8 +39,8 @@ body{background:#190d2c}
 }
 #nav.bottom{background:#271438f5;border-color:#b477cf}
 #nav .nav-button.active,#app :is(.switch,.market-categories) button.active{
- background:linear-gradient(#227966,#123e3b)!important;border-color:#68e5c4!important;color:#fff!important;
- box-shadow:0 0 9px #57ceac66!important;
+ background:linear-gradient(#653b77,#44244f)!important;border-color:#e7bc79!important;color:#fff!important;
+ box-shadow:inset 0 1px #f3ca8f44!important;
 }
 #app :is(.price,.cardtitle,.section-title,.resource strong){color:#ffe0a2!important}
 #app .muted{color:#e0cde9}
@@ -62,3 +62,9 @@ button>.farm-reward-badge{position:absolute;z-index:2;inset:1px 2px auto auto;ma
 #app :is(input,select,textarea):not([type=checkbox]):not([type=radio]){
  background-color:#241331;border-color:#a974c5;color:#fff5e9;
 }
+
+#app .identity strong{color:#fff1de;text-shadow:none}
+#app .coin-balance{color:#ffe0a2;border-color:#a974bc;box-shadow:inset 0 1px #e5cdef33}
+#farm .farm-hero-city-icon{width:23px;height:23px;object-fit:contain}
+#farm .farm-supplies>button strong{color:#ffe0a2}
+#farm .farm-resource-heading small,#farm .forecast-summary{color:#ead6ee}

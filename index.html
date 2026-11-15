@@ -6,11 +6,11 @@
       name="viewport"
       content="width=device-width,initial-scale=1,viewport-fit=cover"
     />
-    <meta name="theme-color" content="#06357f" />
+    <meta name="theme-color" content="#251438" />
     <title>НОВАЯ ЖИЗНЬ — Ферма</title>
     <link rel="stylesheet" href="/assets/game.css?v=9" />
-    <link rel="stylesheet" href="/assets/azure-v4.css?v=6" />
-    <link rel="stylesheet" href="/assets/daily-v1.css?v=29" />
+    <link rel="stylesheet" href="/assets/azure-v4.css?v=7" />
+    <link rel="stylesheet" href="/assets/daily-v1.css?v=30" />
     <link rel="stylesheet" href="/assets/polish.css?v=1" />
     <link rel="stylesheet" href="/assets/birds.css?v=2" />
     <link rel="stylesheet" href="/assets/update29.css?v=33" />
@@ -23,20 +23,20 @@
     <script src="/assets/game.js?v=127" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
-    <link rel="stylesheet" href="/assets/feeding-summary.css?v=1">
-    <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=3">
+    <link rel="stylesheet" href="/assets/feeding-summary.css?v=2">
+    <link rel="stylesheet" href="/assets/farm-ui-finish.css?v=4">
     <link rel="stylesheet" href="/assets/premium-leaderboard.css?v=1">
-      <link rel="stylesheet" href="/assets/city/farm-products.css?v=13" />
+      <link rel="stylesheet" href="/assets/city/farm-products.css?v=14" />
     <link rel="stylesheet" href="/assets/farm-final-scenes.css?v=2" />
-  <link rel="stylesheet" href="/assets/farm-painted.css?v=4">
+  <link rel="stylesheet" href="/assets/farm-painted.css?v=5">
   </head>
   <body>
-    <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #80d6ff;border-radius:14px;background:#103c7c;color:white;font-family:Arial,sans-serif">
+    <section id="boot-screen" hidden role="status" aria-live="polite" style="position:relative;z-index:3;text-align:center;padding:12px;margin:8px;border:1px solid #b781ca;border-radius:14px;background:#301944;color:white;font-family:Arial,sans-serif">
       <h1 style="font-size:30px">🐔 Ферма</h1>
       <p id="boot-status">Не удалось получить данные фермы.</p>
-      <button type="button" style="margin-top:16px;padding:14px 24px;border-radius:14px;border:1px solid #80d6ff;background:#1267b8;color:white;font-size:17px" onclick="if(window.retryFarmStartup)window.retryFarmStartup();else location.reload()">Повторить загрузку</button>
-      <button type="button" style="margin-top:9px;padding:10px 18px;border-radius:12px;border:1px solid #6ba8ee;background:#133c7d;color:white;font-size:14px" onclick="if(window.chooseFarmLogin)window.chooseFarmLogin();else location.reload()">Войти другим способом</button>
-      <a href="/" style="display:inline-block;text-decoration:none;margin-top:9px;padding:9px 16px;border:1px solid #80d6ff;background:transparent;color:white;border-radius:11px;font-size:14px">Перезапустить приложение</a>
+      <button type="button" style="margin-top:16px;padding:14px 24px;border-radius:14px;border:1px solid #b781ca;background:#57316f;color:white;font-size:17px" onclick="if(window.retryFarmStartup)window.retryFarmStartup();else location.reload()">Повторить загрузку</button>
+      <button type="button" style="margin-top:9px;padding:10px 18px;border-radius:12px;border:1px solid #a974bc;background:#412457;color:white;font-size:14px" onclick="if(window.chooseFarmLogin)window.chooseFarmLogin();else location.reload()">Войти другим способом</button>
+      <a href="/" style="display:inline-block;text-decoration:none;margin-top:9px;padding:9px 16px;border:1px solid #b781ca;background:transparent;color:white;border-radius:11px;font-size:14px">Перезапустить приложение</a>
       <noscript>Для запуска игры необходимо включить JavaScript.</noscript>
     </section>
     <style>#boot-screen[hidden]{display:none!important}</style>
@@ -141,7 +141,7 @@
           <img src="/assets/illustrations/farm-interactive.webp" class="farm-painted-landscape"
                width="940" height="627" alt="" fetchpriority="high">
           <a class="farm-hero-city-link" href="/city" aria-label="Перейти в город">
-            <span class="farm-hero-city-icon" aria-hidden="true">🏙️</span><span>В город</span>
+            <img class="farm-hero-city-icon" src="/assets/city/tab-icon-3.webp" alt=""><span>В город</span>
           </a>
           <div class="farm-tiles-v2">
             <button type="button" class="farm-map-target" style="--x:24%;--y:44.6%;--top:12%" onclick="tab('coop')"><strong>Животные</strong></button>

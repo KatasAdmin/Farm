@@ -54,8 +54,8 @@
   display:flex;align-items:center;justify-content:center;
   gap:8px;padding:10px 8px!important;
   border-radius:15px!important;
-  border:1px solid rgba(133,212,255,.6)!important;
-  background:linear-gradient(145deg,rgba(23,109,175,.85),rgba(7,53,121,.92))!important;
+  border:1px solid #a974bc!important;
+  background:linear-gradient(145deg,#49255e,#2d183e)!important;
 }
 #farm .farm-supplies>button img{height:33px;width:33px;object-fit:contain}
 #farm .farm-ads-strip{margin:8px 0 14px!important}

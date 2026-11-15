@@ -25,8 +25,8 @@
 
 /* Farm header, profile, promotion and incubator */
 .head {position:relative;z-index:3;padding-top:7px!important;padding-bottom:5px!important;margin-bottom:-7px;}
-.identity-line {display:block;overflow:hidden;position:relative;height:7px;background:#06336d!important;border:1px solid #60cbff;border-radius:20px;}
-#identity-xp-fill {display:block;height:100%;width:0;background:linear-gradient(90deg,#33bfff,#66ff5c);border-radius:20px;transition:width .5s;}
+.identity-line {display:block;overflow:hidden;position:relative;height:7px;background:#281535!important;border:1px solid #ac7ec2;border-radius:20px;}
+#identity-xp-fill {display:block;height:100%;width:0;background:linear-gradient(90deg,#a459c8,#e2a8ff);border-radius:20px;transition:width .5s;}
 .farm-hero {position:relative;}
 .farm-hero:after {background:linear-gradient(to bottom,transparent 48%,rgba(4,62,139,.12) 67%,#08377b 100%)!important;}
 .profile-landscape {height:clamp(160px,41vw,230px)!important;aspect-ratio:auto!important;border-bottom:0!important;}
