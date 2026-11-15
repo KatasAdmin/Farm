@@ -1,6 +1,10 @@
 /* The generated illustration fills the map. Controls stay live above it. */
 body{background:#190d30}
 #city-shell{max-width:560px;padding:0;position:relative;min-height:100dvh}
+/* Keep the last page action above the fixed navigation and device inset. */
+:root{--city-nav-clearance:calc(130px + env(safe-area-inset-bottom));scroll-padding-bottom:var(--city-nav-clearance)}
+#city-shell:has(#city-page:not([hidden])){padding-bottom:var(--city-nav-clearance)}
+
 #city-shell .dash,#city-shell .district-tools,#city-shell #view-notifications{display:none}
 #city-shell .map-section,#city-shell .world-frame{margin:0;padding:0;border:0;background:none;border-radius:0;box-shadow:none}
 #city-shell #world{height:100dvh;aspect-ratio:auto;margin:0;border:0;border-radius:0;background:#1d0d36;overflow:hidden}

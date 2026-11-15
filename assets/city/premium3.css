@@ -38,7 +38,7 @@
 #panel-body[data-scene="promo"] #city-promo-input::placeholder{color:#d8c3e6}
 #panel-body[data-scene="promo"] .p3-gold{width:94%;justify-self:center}
 #city-shell:has(#panel-body[data-scene="season"]):has(#city-page:not([hidden])) .topbar{display:none}
-#city-shell #city-page:has(#panel-body[data-scene="season"]){padding:0 9px calc(96px + env(safe-area-inset-bottom));background:var(--p3-velvet) center bottom/100% auto no-repeat,#210e37}
+#city-shell #city-page:has(#panel-body[data-scene="season"]){padding:0 9px 18px;background:var(--p3-velvet) center bottom/100% auto no-repeat,#210e37}
 #city-page:has(#panel-body[data-scene="season"]) #page-heading{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}
 .p3-season-lead{margin-inline:-10px;min-height:clamp(160px,45vw,252px);display:grid;align-content:start;justify-items:center;gap:6px;padding:10px 7px;background:url("/assets/city/premium3/season.webp") center 40%/100% 125%,#251139;text-align:center}
 .p3-season-lead .p3-icon{width:52px;height:47px}

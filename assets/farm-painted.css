@@ -28,6 +28,11 @@
 
 /* Shared TREVIXO City palette on the farm shell and interactive surfaces. */
 body{background:#190d2c}
+/* Include the fixed bar, its safe-area padding and space above it. */
+:root{--farm-nav-clearance:calc(112px + env(safe-area-inset-bottom))}
+html:has(#nav:not([hidden])){scroll-padding-bottom:var(--farm-nav-clearance)}
+#app.shell:has(+ #nav:not([hidden])){padding-bottom:var(--farm-nav-clearance)}
+
 #app.shell{background:radial-gradient(ellipse at top,#50206d,#211033 58%,#170e28);color:#fff1de}
 #app :is(.card,.panelhead,.shop-catalog,.resource,.farm-city-section,.farm-food-dashboard,.catalog-row,.forecast-card,.fields-v2-expand,.fields-v2-help):not(.farm-inner-banner){
  background:linear-gradient(145deg,#46225c,#281437)!important;border-color:#a974c5!important;color:#fff1de!important;
