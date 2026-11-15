@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="/assets/farm-card-layout.css?v=1" />
 
     <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
+    <script src="/assets/game-music.js?v=1" defer></script>
     <script src="/assets/game.js?v=127" defer></script>
     <link rel="stylesheet" href="/assets/fields.css?v=12">
   <link rel="stylesheet" href="/assets/monetag-rewards.css?v=1">
@@ -642,6 +643,8 @@
         <details class="economy-card profile-settings">
           <summary><img loading="lazy" src="/assets/redesign/settings.webp" class="icon" alt="" /><span><strong>Настройки</strong><small>Управление хозяйством</small></span><b>›</b></summary>
           <div class="economy-details">
+            <p><label><input type="checkbox" data-music-enabled checked> Фоновая музыка</label></p>
+            <p><label>Громкость музыки <input type="range" min="0" max="100" value="24" data-music-volume></label></p>
             <h3 class="account-section-title">Способы входа</h3>
             <p id="account-password-status" class="muted">Проверяем пароль…</p>
             <label for="settings-password">Новый пароль (от 8 символов)</label>

@@ -118,6 +118,7 @@ function paint(){
  $("orders-count").textContent=data.resident_orders.filter(order=>!order.done).length;
  $("completed-count").textContent=number(data.progress?.orders||0);
  document.body.classList.toggle("city-low-effects",data.preferences?.effects===false);
+ window.TrevixoCityLife?.update(data.business_levels,data.preferences?.effects!==false);
  $("district-profile").dataset.cosmetic=data.preferences?.cosmetic||"";
  $("district-name").textContent=data.name+(data.preferences?.cosmetic==="founder"?" ★":"");
  $("district-level").textContent="Ур. "+number(data.progress?.level)+" · "+number(data.progress?.xp)+" XP";
@@ -872,7 +873,10 @@ function showSettings(){
   (settings.effects?"checked":"")+'> Визуальные эффекты</label></p><p><label>Оформление профиля <select id="city-cosmetic">'+
   [{id:"",name:"Стандартное"},...(data.cosmetics||[])].map(item=>'<option value="'+esc(item.id)+'" '+
   (item.id===settings.cosmetic?"selected":"")+'>'+esc(item.name)+'</option>').join("")+
-  '</select></label></p><button class="btn" type="submit">Сохранить</button></form>');
+  '</select></label></p><button class="btn" type="submit">Сохранить</button></form>'+
+  '<p><label><input type="checkbox" data-music-enabled checked> Фоновая музыка</label></p>'+
+  '<p><label>Громкость музыки <input type="range" min="0" max="100" value="24" data-music-volume></label></p>');
+ window.TrevixoMusic?.sync();
 }
 
 async function saveSettings(event){
@@ -1064,7 +1068,9 @@ async function action(action,item,amountId,listingId){
    if(!confirm("Купить "+body.amount+" шт. за "+number(quote.cost)+" монет?")){working=false;return}
   }catch(e){toast(e.message);working=false;return}
  }
- try{await api(path,body);toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё поступило на общий склад!":action==="produce"?"Производство запущено!":["list","sell-raw","sell-market-product"].includes(action)?(data.simple_economy?"Продано! Монеты начислены.":"Товар выставлен на рынок"):action==="open"?"Предприятие открыто!":"Готово!");
+ try{await api(path,body);
+ if(action==="produce")window.TrevixoCityLife?.delivery(data.recipes[item]?.business);
+ toast(action==="fulfill"?"Заказ выполнен! Репутация начислена.":action==="raw"?"Сырьё поступило на общий склад!":action==="produce"?"Производство запущено!":["list","sell-raw","sell-market-product"].includes(action)?(data.simple_economy?"Продано! Монеты начислены.":"Товар выставлен на рынок"):action==="open"?"Предприятие открыто!":"Готово!");
  await load();
  }catch(e){toast(e.message)}
  finally{working=false}

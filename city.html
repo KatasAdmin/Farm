@@ -9,7 +9,10 @@
 <link rel="stylesheet" href="/assets/city/scene-art.css?v=1">
 <link rel="stylesheet" href="/assets/city/illustrated-city.css?v=11">
 <script src="https://telegram.org/js/telegram-web-app.js" async onload="window.dispatchEvent(new Event('telegram-sdk-ready'))"></script>
-<script src="/assets/city/city.js?v=45" defer></script>
+<link rel="stylesheet" href="/assets/city/living-map.css?v=1">
+<script src="/assets/game-music.js?v=1" defer></script>
+<script src="/assets/city/living-map.js?v=1" defer></script>
+<script src="/assets/city/city.js?v=46" defer></script>
 <script src="/assets/adsgram-fallback.js?v=20261106-r38" defer></script>
 <script src="/assets/city/city-ads.js?v=2" defer></script>
 </head>
@@ -34,6 +37,9 @@
 </div>
 <div class="world" id="world" aria-label="Интерактивный город">
 <img class="district-art" src="/assets/city/twilight-city.webp" alt="" width="850" height="1359" fetchpriority="high">
+<div id="city-life" aria-hidden="true" hidden>
+ <i class="city-life-water"></i><i class="city-life-hen"></i><i class="city-life-hen"></i><i class="city-life-smoke"></i>
+</div>
 <a class="district-target farm-target" href="/"><strong>Ферма</strong></a>
 <button class="district-target bakery-target" data-business="bakery"><strong>Пекарня</strong><small></small></button>
 <button class="district-target restaurant-target" data-business="restaurant"><strong>Ресторан</strong><small></small></button>

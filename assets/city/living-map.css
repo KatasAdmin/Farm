@@ -1,0 +1,21 @@
+#city-life{position:absolute;inset:0;z-index:2;overflow:hidden;pointer-events:none}
+#city-life[hidden]{display:none}
+.city-life-sprite{position:absolute;transform:translate(-50%,-85%) scaleX(var(--direction,1));background-size:contain;background-position:center;background-repeat:no-repeat;filter:drop-shadow(1px 2px 1px #23132899)}
+.city-life-truck{width:clamp(22px,7vw,45px);aspect-ratio:1.5;background-image:url("/assets/city/delivery-truck.webp")}
+.city-life-truck::after{content:"";position:absolute;inset:9% 52% 44% 1%;background:url("/assets/objects/feed_sack.webp") center/contain no-repeat}
+.city-life-truck[data-cargo="bread"]::after{background-image:url("/assets/city/product-bread.webp")}
+.city-life-truck[data-cargo="milk"]::after{background-image:url("/assets/milk-v1.webp")}
+.city-life-truck[data-cargo="scarf"]::after{background-image:url("/assets/city/product-scarf.webp")}
+.city-life-walker{width:clamp(10px,3vw,20px);aspect-ratio:.64;background:linear-gradient(90deg,#2d1831 42%,transparent 43% 55%,#2d1831 56%) bottom/52% 29% no-repeat,radial-gradient(circle at 50% 21%,#ffdbac 0 19%,transparent 21%),radial-gradient(ellipse at 50% 58%,#af5a75 0 37%,transparent 39%);animation:city-walk .4s ease-in-out infinite alternate}
+.city-life-hen{position:absolute;left:13%;top:42%;width:clamp(12px,4vw,23px);aspect-ratio:1;background:url("/assets/characters/white_hen_right.webp") center/contain no-repeat;animation:city-hen 9s ease-in-out infinite alternate}
+.city-life-hen + .city-life-hen{left:17%;top:43%;animation-delay:-4s}
+.city-life-water{position:absolute;left:46%;top:50%;width:7%;height:5%;border-radius:50%;background:radial-gradient(ellipse,#daffffb3,transparent 67%);mix-blend-mode:screen;animation:city-water 2.1s ease-in-out infinite alternate}
+.city-life-smoke{display:none;position:absolute;left:69%;top:30%;width:5%;height:4%;border-radius:50%;background:radial-gradient(ellipse,#ffe7d19e,transparent 68%);animation:city-smoke 3.2s ease-out infinite}
+.has-bakery .city-life-smoke{display:block}
+@keyframes city-walk{to{translate:0 -2px}}
+@keyframes city-hen{0%,18%{translate:0 0}65%,100%{translate:95% -16%}}
+@keyframes city-water{from{opacity:.28;scale:.68}to{opacity:.8;scale:1.12}}
+@keyframes city-smoke{from{opacity:.65;translate:0 0;scale:.55}to{opacity:0;translate:75% -160%;scale:1.5}}
+@media(max-height:650px){
+ #city-life{bottom:13%}
+}
