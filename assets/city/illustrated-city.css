@@ -26,8 +26,9 @@
 .city-trade-art>img{width:42px;height:42px;object-fit:contain}
 .city-trade-art strong,.city-trade-art small{display:block;overflow-wrap:anywhere}
 .city-trade-art small{color:#ffe2a6;margin-top:3px}
-.city-trade-art .item-actions{grid-column:1/-1;display:grid;grid-template-columns:minmax(42px,.55fr) repeat(2,minmax(0,1fr));gap:6px}
-.city-trade-art .item-actions:not(:has(.gold)){grid-template-columns:minmax(42px,.55fr) minmax(0,2fr)}
+.city-trade-art .item-actions{grid-column:1/-1;display:grid;grid-template-columns:minmax(42px,.55fr) minmax(0,2fr);gap:6px}
+.city-trade-art .item-actions:has(.btn ~ .btn){grid-template-columns:minmax(42px,.55fr) repeat(2,minmax(0,1fr))}
+.city-trade-art .item-actions:empty{display:none}
 .city-trade-art .item-actions .number-input{width:100%;min-width:0;min-height:44px;box-sizing:border-box;font-size:16px}
 .city-trade-art .item-actions .btn{min-height:44px;padding-inline:4px}
 #panel-body .business-art.business-painted{aspect-ratio:3/1;min-height:0;padding:0}
